@@ -435,17 +435,22 @@ PerfectVision.MaskFilter = class extends PIXI.Filter {
             attribute vec2 aTextureCoord;
 
             uniform mat3 projectionMatrix;
+            uniform vec4 inputPixel;
+            uniform vec4 uMaskSize;
 
             varying vec2 vTextureCoord;
+            varying vec2 vMaskCoord;
 
             void main(void)
             {
                 gl_Position = vec4((projectionMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
                 vTextureCoord = aTextureCoord;
+                vMaskCoord = aTextureCoord * (inputPixel.xy * uMaskSize.zw);
             }`, `\
             precision mediump float;
 
             varying vec2 vTextureCoord;
+            varying vec2 vMaskCoord;
 
             uniform sampler2D uSampler;
             uniform sampler2D uMask;
@@ -453,7 +458,7 @@ PerfectVision.MaskFilter = class extends PIXI.Filter {
             void main(void)
             {
                 vec4 color = texture2D(uSampler, vTextureCoord);
-                vec4 mask = texture2D(uMask, vTextureCoord);
+                vec4 mask = texture2D(uMask, vMaskCoord);
                 float r = mask.r;
                 float g = mask.g;
                 float b = mask.b;
@@ -693,7 +698,7 @@ PerfectVision.postHook(LightingLayer, "refresh", function () {
     const ilm_ = PerfectVision._props(ilm);
 
     if (game.user.isGM && PerfectVision.settings.improvedGMVision) {
-        if (canvas.sight.sources.size == 0) {
+        if (canvas.sight.sources.size === 0) {
             const s = 1 / Math.max(...this.channels.background.rgb);
             ilm_.background.tint = rgbToHex(this.channels.background.rgb.map(c => c * s));
             ilm_.background.visible = true;
@@ -799,10 +804,13 @@ PerfectVision._updateIllumination = function () {
                     resolution: 1
                 }));
                 ilm_.visionInDarkness.filter.uniforms.uMask = texture;
+                ilm_.visionInDarkness.filter.uniforms.uMaskSize = [width, height, 1 / width, 1 / height];
             }
 
-            if (texture.width !== height || texture.width !== height)
+            if (texture.width !== height || texture.width !== height) {
                 texture.resize(width, height);
+                ilm_.visionInDarkness.filter.uniforms.uMaskSize = [width, height, 1 / width, 1 / height];
+            }
 
             visionInDarknessMask.visible = true;
             canvas.app.renderer.render(visionInDarknessMask, texture, true, canvas.stage.worldTransform);
@@ -854,10 +862,13 @@ PerfectVision._updateIllumination = function () {
                         resolution: 1
                     }));
                     ilm_.lightsDimToBright.filter.uniforms.uMask = texture;
+                    ilm_.lightsDimToBright.filter.uniforms.uMaskSize = [width, height, 1 / width, 1 / height];
                 }
 
-                if (texture.width !== height || texture.width !== height)
+                if (texture.width !== height || texture.width !== height) {
                     texture.resize(width, height);
+                    ilm_.lightsDimToBright.filter.uniforms.uMaskSize = [width, height, 1 / width, 1 / height];
+                }
 
                 lightsDimToBrightMask.visible = true;
                 canvas.app.renderer.render(lightsDimToBrightMask, texture, true, canvas.stage.worldTransform);
@@ -938,13 +949,17 @@ PerfectVision._updateIllumination = function () {
                         attribute vec2 aTextureCoord;
 
                         uniform mat3 projectionMatrix;
+                        uniform vec4 inputPixel;
+                        uniform vec4 uMaskSize;
 
                         varying vec2 vTextureCoord;
+                        varying vec2 vMaskCoord;
 
                         void main(void)
                         {
                             gl_Position = vec4((projectionMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
                             vTextureCoord = aTextureCoord;
+                            vMaskCoord = aTextureCoord * (inputPixel.xy * uMaskSize.zw);
                         }`, `\
                         precision mediump float;
 
@@ -955,6 +970,7 @@ PerfectVision._updateIllumination = function () {
                         uniform vec3 uTint;
 
                         varying vec2 vTextureCoord;
+                        varying vec2 vMaskCoord;
 
                         vec3 rgb2srgb(vec3 c)
                         {
@@ -984,33 +1000,33 @@ PerfectVision._updateIllumination = function () {
 
                             if (uBlur > 0.0) {
                                 vec2 strength = uBlur * uMaskSize.zw;
-                                mask = texture2D(uMask, vTextureCoord + vec2(-2.0, -2.0) * strength) * 0.023528;
-                                mask += texture2D(uMask, vTextureCoord + vec2(-2.0, -1.0) * strength) * 0.033969;
-                                mask += texture2D(uMask, vTextureCoord + vec2(-2.0, 0.0) * strength) * 0.038393;
-                                mask += texture2D(uMask, vTextureCoord + vec2(-2.0, 1.0) * strength) * 0.033969;
-                                mask += texture2D(uMask, vTextureCoord + vec2(-2.0, 2.0) * strength) * 0.023528;
-                                mask += texture2D(uMask, vTextureCoord + vec2(-1.0, -2.0) * strength) * 0.033969;
-                                mask += texture2D(uMask, vTextureCoord + vec2(-1.0, -1.0) * strength) * 0.049045;
-                                mask += texture2D(uMask, vTextureCoord + vec2(-1.0, 0.0) * strength) * 0.055432;
-                                mask += texture2D(uMask, vTextureCoord + vec2(-1.0, 1.0) * strength) * 0.049045;
-                                mask += texture2D(uMask, vTextureCoord + vec2(-1.0, 2.0) * strength) * 0.033969;
-                                mask += texture2D(uMask, vTextureCoord + vec2(0.0, -2.0) * strength) * 0.038393;
-                                mask += texture2D(uMask, vTextureCoord + vec2(0.0, -1.0) * strength) * 0.055432;
-                                mask += texture2D(uMask, vTextureCoord + vec2(0.0, 0.0) * strength) * 0.062651;
-                                mask += texture2D(uMask, vTextureCoord + vec2(0.0, 1.0) * strength) * 0.055432;
-                                mask += texture2D(uMask, vTextureCoord + vec2(0.0, 2.0) * strength) * 0.038393;
-                                mask += texture2D(uMask, vTextureCoord + vec2(1.0, -2.0) * strength) * 0.033969;
-                                mask += texture2D(uMask, vTextureCoord + vec2(1.0, -1.0) * strength) * 0.049045;
-                                mask += texture2D(uMask, vTextureCoord + vec2(1.0, 0.0) * strength) * 0.055432;
-                                mask += texture2D(uMask, vTextureCoord + vec2(1.0, 1.0) * strength) * 0.049045;
-                                mask += texture2D(uMask, vTextureCoord + vec2(1.0, 2.0) * strength) * 0.033969;
-                                mask += texture2D(uMask, vTextureCoord + vec2(2.0, -2.0) * strength) * 0.023528;
-                                mask += texture2D(uMask, vTextureCoord + vec2(2.0, -1.0) * strength) * 0.033969;
-                                mask += texture2D(uMask, vTextureCoord + vec2(2.0, 0.0) * strength) * 0.038393;
-                                mask += texture2D(uMask, vTextureCoord + vec2(2.0, 1.0) * strength) * 0.033969;
-                                mask += texture2D(uMask, vTextureCoord + vec2(2.0, 2.0) * strength) * 0.023528;
+                                mask = texture2D(uMask, vMaskCoord + vec2(-2.0, -2.0) * strength) * 0.023528;
+                                mask += texture2D(uMask, vMaskCoord + vec2(-2.0, -1.0) * strength) * 0.033969;
+                                mask += texture2D(uMask, vMaskCoord + vec2(-2.0, 0.0) * strength) * 0.038393;
+                                mask += texture2D(uMask, vMaskCoord + vec2(-2.0, 1.0) * strength) * 0.033969;
+                                mask += texture2D(uMask, vMaskCoord + vec2(-2.0, 2.0) * strength) * 0.023528;
+                                mask += texture2D(uMask, vMaskCoord + vec2(-1.0, -2.0) * strength) * 0.033969;
+                                mask += texture2D(uMask, vMaskCoord + vec2(-1.0, -1.0) * strength) * 0.049045;
+                                mask += texture2D(uMask, vMaskCoord + vec2(-1.0, 0.0) * strength) * 0.055432;
+                                mask += texture2D(uMask, vMaskCoord + vec2(-1.0, 1.0) * strength) * 0.049045;
+                                mask += texture2D(uMask, vMaskCoord + vec2(-1.0, 2.0) * strength) * 0.033969;
+                                mask += texture2D(uMask, vMaskCoord + vec2(0.0, -2.0) * strength) * 0.038393;
+                                mask += texture2D(uMask, vMaskCoord + vec2(0.0, -1.0) * strength) * 0.055432;
+                                mask += texture2D(uMask, vMaskCoord + vec2(0.0, 0.0) * strength) * 0.062651;
+                                mask += texture2D(uMask, vMaskCoord + vec2(0.0, 1.0) * strength) * 0.055432;
+                                mask += texture2D(uMask, vMaskCoord + vec2(0.0, 2.0) * strength) * 0.038393;
+                                mask += texture2D(uMask, vMaskCoord + vec2(1.0, -2.0) * strength) * 0.033969;
+                                mask += texture2D(uMask, vMaskCoord + vec2(1.0, -1.0) * strength) * 0.049045;
+                                mask += texture2D(uMask, vMaskCoord + vec2(1.0, 0.0) * strength) * 0.055432;
+                                mask += texture2D(uMask, vMaskCoord + vec2(1.0, 1.0) * strength) * 0.049045;
+                                mask += texture2D(uMask, vMaskCoord + vec2(1.0, 2.0) * strength) * 0.033969;
+                                mask += texture2D(uMask, vMaskCoord + vec2(2.0, -2.0) * strength) * 0.023528;
+                                mask += texture2D(uMask, vMaskCoord + vec2(2.0, -1.0) * strength) * 0.033969;
+                                mask += texture2D(uMask, vMaskCoord + vec2(2.0, 0.0) * strength) * 0.038393;
+                                mask += texture2D(uMask, vMaskCoord + vec2(2.0, 1.0) * strength) * 0.033969;
+                                mask += texture2D(uMask, vMaskCoord + vec2(2.0, 2.0) * strength) * 0.023528;
                             } else {
-                                mask = texture2D(uMask, vTextureCoord);
+                                mask = texture2D(uMask, vMaskCoord);
                             }
 
                             float s = mask.r;
@@ -1024,7 +1040,7 @@ PerfectVision._updateIllumination = function () {
                             vec3 mono = mix(lstar3, lstar3 * uTint, t);
                             gl_FragColor = vec4(mix(mono, srgb, s), a);
                         }`,
-                        { uMask: colorInDarknessMask.texture }
+                        { uMask: colorInDarknessMask.texture, uMaskSize: [width, height, 1 / width, 1 / height] }
                     );
 
                     if (canvas.background.filters?.length > 0) {
@@ -1055,6 +1071,7 @@ PerfectVision._updateIllumination = function () {
 
                     ilm_.background.filter = new PerfectVision.MaskFilter("1.0 - r");
                     ilm_.background.filter.uniforms.uMask = colorInDarknessMask.texture;
+                    ilm_.background.filter.uniforms.uMaskSize = [width, height, 1 / width, 1 / height];
                     ilm_.background.filters = [ilm_.background.filter];
                     ilm_.background.filterArea = canvas.app.renderer.screen;
 
@@ -1062,10 +1079,12 @@ PerfectVision._updateIllumination = function () {
                     ilm_.background.filter.enabled = game.user.isGM && PerfectVision.settings.improvedGMVision && !vision;
                 }
 
-                if (texture.width !== height || texture.width !== height)
+                if (texture.width !== height || texture.width !== height) {
                     texture.resize(width, height);
+                    colorInDarknessMask.texture.filter.uniforms.uMaskSize = [width, height, 1 / width, 1 / height];
+                    ilm_.background.filter.uniforms.uMaskSize = [width, height, 1 / width, 1 / height];
+                }
 
-                colorInDarknessMask.texture.filter.uniforms.uMaskSize = [texture.width, texture.height, 1 / texture.width, 1 / texture.height];
                 colorInDarknessMask.texture.filter.uniforms.uBlur = Math.clamped(Math.max(canvas.stage.scale.x, canvas.stage.scale.y), 0, 1) * this._blurDistance / 2;
                 colorInDarknessMask.texture.filter.uniforms.uTint = monoVisionColor;
 
