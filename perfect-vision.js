@@ -111,10 +111,6 @@ class PerfectVision {
                 token.updateSource({ defer: true });
             }
 
-            for (let sources of [canvas.lighting.sources, canvas.sight.sources])
-                for (let source of sources)
-                    source._resetIllumination = true;
-
             PerfectVision._props(canvas.lighting.illumination).dirty = true;
             canvas.lighting.refresh();
             canvas.sight.refresh();
@@ -449,7 +445,7 @@ class PerfectVision {
         this._updateSettings();
     }
 
-    static preHook(cls, methodName, hook) {
+    static _preHook(cls, methodName, hook) {
         console.log("Perfect Vision | Hooking (pre) %s.%s", cls.name, methodName);
         const method = cls.prototype[methodName];
         cls.prototype[methodName] = function () {
@@ -458,7 +454,7 @@ class PerfectVision {
         return method;
     }
 
-    static postHook(cls, methodName, hook) {
+    static _postHook(cls, methodName, hook) {
         console.log("Perfect Vision | Hooking (post) %s.%s", cls.name, methodName);
         const method = cls.prototype[methodName];
         cls.prototype[methodName] = function () {
@@ -532,7 +528,7 @@ PerfectVision.MaskFilter = class extends PIXI.Filter {
     }
 };
 
-PerfectVision.postHook(PointSource, "_createContainer", function (_c, shaderCls) {
+PerfectVision._postHook(PointSource, "_createContainer", function (_c, shaderCls) {
     if (shaderCls === StandardIlluminationShader || shaderCls.prototype instanceof StandardIlluminationShader) {
         let c = new PIXI.Container();
         c.light = c.addChild(_c.light);
@@ -605,7 +601,7 @@ PerfectVision.postHook(PointSource, "_createContainer", function (_c, shaderCls)
     return _c;
 });
 
-PerfectVision.postHook(PointSource, "drawLight", function (c) {
+PerfectVision._postHook(PointSource, "drawLight", function (c) {
     const this_ = PerfectVision._props(this, {});
     const c_ = PerfectVision._props(c);
 
@@ -617,7 +613,7 @@ PerfectVision.postHook(PointSource, "drawLight", function (c) {
     return c;
 });
 
-PerfectVision.postHook(LightingLayer, "draw", async function () {
+PerfectVision._postHook(LightingLayer, "draw", async function () {
     const retVal = await arguments[0];
 
     const ilm = this.illumination;
@@ -636,7 +632,7 @@ PerfectVision.postHook(LightingLayer, "draw", async function () {
     return retVal;
 });
 
-PerfectVision.postHook(LightingLayer, "_drawIlluminationContainer", function (c) {
+PerfectVision._postHook(LightingLayer, "_drawIlluminationContainer", function (c) {
     const c_ = PerfectVision._props(c, {});
 
     {
@@ -880,7 +876,7 @@ PerfectVision.postHook(LightingLayer, "_drawIlluminationContainer", function (c)
     return c;
 });
 
-PerfectVision.preHook(LightingLayer, "refresh", function () {
+PerfectVision._preHook(LightingLayer, "refresh", function () {
     const ilm = this.illumination;
     const ilm_ = PerfectVision._props(ilm);
     this.sources.set("PerfectVision.Light.1", ilm_.globalLight1);
@@ -888,7 +884,7 @@ PerfectVision.preHook(LightingLayer, "refresh", function () {
     return arguments;
 });
 
-PerfectVision.postHook(LightingLayer, "refresh", function () {
+PerfectVision._postHook(LightingLayer, "refresh", function () {
     const ilm = this.illumination;
     const ilm_ = PerfectVision._props(ilm);
 
@@ -932,7 +928,7 @@ PerfectVision.postHook(LightingLayer, "refresh", function () {
     return arguments[0];
 });
 
-PerfectVision.preHook(LightingLayer, "tearDown", function () {
+PerfectVision._preHook(LightingLayer, "tearDown", function () {
     const ilm = this.illumination;
     const ilm_ = PerfectVision._props(ilm);
 
@@ -1100,7 +1096,7 @@ PerfectVision._updateIllumination = function () {
     }
 }
 
-PerfectVision.preHook(Token, "updateSource", function () {
+PerfectVision._preHook(Token, "updateSource", function () {
     const token = this;
     const initialize = function (opts) {
         let dimVisionInDarkness;
@@ -1247,7 +1243,7 @@ PerfectVision.preHook(Token, "updateSource", function () {
     return arguments;
 });
 
-PerfectVision.postHook(Token, "updateSource", function () {
+PerfectVision._postHook(Token, "updateSource", function () {
     if (PerfectVision._temp.Token_vision_initialize) {
         this.vision.initialize = PerfectVision._temp.Token_vision_initialize;
         delete PerfectVision._temp.Token_vision_initialize;
@@ -1257,36 +1253,10 @@ PerfectVision.postHook(Token, "updateSource", function () {
     return arguments[0];
 });
 
-PerfectVision.postHook(Token, "draw", async function () {
+PerfectVision._postHook(Token, "draw", async function () {
     const retVal = await arguments[0];
     PerfectVision._updateTokenMonoFilter(this);
     return retVal;
-});
-
-// Remove as soon as the bug is fixed (Bug: Toggling a token's "Has Vision" property does not update vision correctly)
-PerfectVision.postHook(Token, "_onUpdate", function (retVal, data, options, userId) {
-    const keys = Object.keys(data);
-    const changed = new Set(keys);
-
-    const visibilityChange = changed.has("hidden");
-    const positionChange = ["x", "y"].some(c => changed.has(c));
-    const perspectiveChange = changed.has("rotation") && this.hasLimitedVisionAngle;
-    const visionChange = ["brightLight", "brightSight", "dimLight", "dimSight", "lightAlpha", "lightAngle",
-        "lightColor", "sightAngle", "vision", "lightAnimation"].some(k => changed.has(k));
-
-    const updatePerspective = (visibilityChange || positionChange || perspectiveChange || visionChange) &&
-        !(this.data.vision || this.emitsLight);
-    if (updatePerspective) {
-        const animating = positionChange && (options.animate !== false);
-        if (!animating) {
-            this.updateSource({ defer: true });
-            canvas.addPendingOperation("LightingLayer.refresh", canvas.lighting.refresh, canvas.lighting);
-            canvas.addPendingOperation("SightLayer.refresh", canvas.sight.refresh, canvas.sight, [{
-                forceUpdateFog: this.hasLimitedVisionAngle
-            }]);
-        }
-        canvas.sounds.refresh();
-    }
 });
 
 Hooks.on("setup", () => PerfectVision._setup());
