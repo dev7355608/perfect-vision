@@ -285,8 +285,8 @@ class PerfectVision {
             globalLight.remove();
             globalLightFields.append(`\
                 <select name="flags.perfect-vision.globalLight">
-                    <option value="default">Default</option>
                     <optgroup label="Global Illumination Light">
+                        <option value="default">Default</option>
                         <option value="bright">Bright Light</option>
                         <option value="dim">Dim Light</option>
                         <option value="none">None</option>
@@ -301,7 +301,7 @@ class PerfectVision {
 
         game.settings.register("perfect-vision", "globalLight", {
             name: "Global Illumination Light",
-            hint: "This setting affects only scenes with Global Illumination. If set to Dim (Bright) Light, the entire scene is illuminated with dim (bright) light and, if set to None, the scene is illuminated according to the scene's Darkness Level only. Each scene can also be configured individually. You can find this setting next to Global Illumination.",
+            hint: "This setting affects only scenes with Global Illumination. If set to Dim (Bright) Light, the entire scene is illuminated with dim (bright) light and, if set to None, the scene is illuminated according to the scene's Darkness Level only. Each scene can also be configured individually. You can find this setting next to Global Illumination in the scene configuration.",
             scope: "world",
             config: true,
             type: String,
@@ -316,7 +316,7 @@ class PerfectVision {
 
         game.settings.register("perfect-vision", "improvedGMVision", {
             name: "Improved GM Vision",
-            hint: "Improves the visiblity in darkness. This setting affects only the GM.",
+            hint: "Improves the visibility in darkness for the GM massively while lit areas of the scene are still rendered normally.",
             scope: "world",
             config: true,
             type: Boolean,
@@ -326,7 +326,7 @@ class PerfectVision {
 
         game.settings.register("perfect-vision", "visionRules", {
             name: "Vision Rules",
-            hint: "Choose one of the presets, or select Custom and set your own rules. It is also possible to set the rules for each token individually. You can find these token-specific settings in the token configuration under the Vision tab.",
+            hint: "Choose one of the presets, or select Custom and set your own rules. It is also possible to set rules for each token individually. You can find these token-specific settings in the token configuration under the Vision tab.",
             scope: "world",
             config: true,
             type: String,
@@ -428,7 +428,7 @@ class PerfectVision {
 
         game.settings.register("perfect-vision", "monoVisionColor", {
             name: "Monochrome Vision Color",
-            hint: "Set this color to anything other than white to make monochrome vision stand out visibly in darkness. For example, choose a green tone to make it look like night vision goggles. This setting affects only scenes without Global Illumination. You can also choose a color for each token individually in the token settings.",
+            hint: "Set this color to anything other than white to make monochrome vision stand out visibly in darkness. For example, choose a green tone to make it look like night vision goggles. This setting affects only scenes without Global Illumination. You can also choose a color for each token individually in the token configuration under the Vision tab.",
             scope: "world",
             config: true,
             type: String,
