@@ -423,6 +423,19 @@ class PerfectVision {
         };
         return method;
     }
+
+    static _visualizeTexture(texture, name = "") {
+        const dataUrl = canvas.app.renderer.extract.canvas(texture).toDataURL("image/png");
+        const w = window.open();
+        w.document.open();
+        w.document.write(`<html><head><title>${name}</title><head><body style="margin:0;background-image:linear-gradient(45deg, #ccc 25%, transparent 25%),linear-gradient(135deg, #ccc 25%, transparent 25%),linear-gradient(45deg, transparent 75%, #ccc 75%),linear-gradient(135deg, transparent 75%, #ccc 75%);background-size: 2em 2em;background-position:0 0, 1em 0, 1em -1em, 0 -1em;"><iframe src="${dataUrl}" width="100%" height="100%" frameborder="0" scrolling="no"></iframe></body></html>`);
+        w.document.close();
+    }
+
+    static _visualizeMask() {
+        const ilm_ = PerfectVision._props(canvas.lighting.illumination);
+        this._visualizeTexture(ilm_.mask.texture, "mask");
+    }
 }
 
 PerfectVision.MaskFilter = class extends PIXI.Filter {
@@ -560,29 +573,170 @@ PerfectVision.postHook(LightingLayer, "draw", async function () {
 PerfectVision.postHook(LightingLayer, "_drawIlluminationContainer", function (c) {
     const c_ = PerfectVision._props(c, {});
 
-    c_.background = c.addChildAt(new PIXI.Graphics(), c.getChildIndex(c.background) + 1);
+    {
+        c_.background = c.addChildAt(new PIXI.Graphics(), c.getChildIndex(c.background) + 1);
+        c_.background.filter = new PerfectVision.MaskFilter("1.0 - r");
+        c_.background.filterArea = canvas.app.renderer.screen;
+        c_.background.filters = [c_.background.filter];
+    }
 
     {
-        c_.lightsDimToBright = c.addChild(new PIXI.Container());
-        c_.lightsDimToBright.sortableChildren = true;
-        c_.lightsDimToBright.filter = new PerfectVision.MaskFilter();
-        c_.lightsDimToBright.filter.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
-        c_.lightsDimToBright.filterArea = canvas.app.renderer.screen;
-        c_.lightsDimToBright.filters = [c_.lightsDimToBright.filter];
-        c_.lightsDimToBrightMask = c.addChild(new PIXI.Graphics());
+        c_.monochromeFilter = new PIXI.Filter(
+            `\
+                precision mediump float;
+
+                attribute vec2 aVertexPosition;
+                attribute vec2 aTextureCoord;
+
+                uniform mat3 projectionMatrix;
+                uniform vec4 inputPixel;
+                uniform vec4 uMaskSize;
+
+                varying vec2 vTextureCoord;
+                varying vec2 vMaskCoord;
+
+                void main(void)
+                {
+                    gl_Position = vec4((projectionMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
+                    vTextureCoord = aTextureCoord;
+                    vMaskCoord = aTextureCoord * (inputPixel.xy * uMaskSize.zw);
+                }`, `\
+                precision mediump float;
+
+                uniform sampler2D uSampler;
+                uniform sampler2D uMask;
+                uniform vec4 uMaskSize;
+                uniform float uBlur;
+                uniform vec3 uTint;
+
+                varying vec2 vTextureCoord;
+                varying vec2 vMaskCoord;
+
+                vec3 rgb2srgb(vec3 c)
+                {
+                    vec3 a = 12.92 * c;
+                    vec3 b = 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055;
+                    vec3 s = step(vec3(0.0031308), c);
+                    return mix(a, b, s);
+                }
+
+                vec3 srgb2rgb(vec3 c)
+                {
+                    vec3 a = c / 12.92;
+                    vec3 b = pow((c + 0.055) / 1.055, vec3(2.4));
+                    vec3 s = step(vec3(0.04045), c);
+                    return mix(a, b, s);
+                }
+
+                float rgb2y(vec3 c)
+                {
+                    vec3 w = vec3(0.2126, 0.7152, 0.0722);
+                    return dot(c, w);
+                }
+
+                void main(void)
+                {
+                    vec4 mask;
+
+                    if (uBlur > 0.0) {
+                        vec2 strength = uBlur * uMaskSize.zw;
+                        mask = texture2D(uMask, vMaskCoord + vec2(-2.0, -2.0) * strength) * 0.023528;
+                        mask += texture2D(uMask, vMaskCoord + vec2(-2.0, -1.0) * strength) * 0.033969;
+                        mask += texture2D(uMask, vMaskCoord + vec2(-2.0, 0.0) * strength) * 0.038393;
+                        mask += texture2D(uMask, vMaskCoord + vec2(-2.0, 1.0) * strength) * 0.033969;
+                        mask += texture2D(uMask, vMaskCoord + vec2(-2.0, 2.0) * strength) * 0.023528;
+                        mask += texture2D(uMask, vMaskCoord + vec2(-1.0, -2.0) * strength) * 0.033969;
+                        mask += texture2D(uMask, vMaskCoord + vec2(-1.0, -1.0) * strength) * 0.049045;
+                        mask += texture2D(uMask, vMaskCoord + vec2(-1.0, 0.0) * strength) * 0.055432;
+                        mask += texture2D(uMask, vMaskCoord + vec2(-1.0, 1.0) * strength) * 0.049045;
+                        mask += texture2D(uMask, vMaskCoord + vec2(-1.0, 2.0) * strength) * 0.033969;
+                        mask += texture2D(uMask, vMaskCoord + vec2(0.0, -2.0) * strength) * 0.038393;
+                        mask += texture2D(uMask, vMaskCoord + vec2(0.0, -1.0) * strength) * 0.055432;
+                        mask += texture2D(uMask, vMaskCoord + vec2(0.0, 0.0) * strength) * 0.062651;
+                        mask += texture2D(uMask, vMaskCoord + vec2(0.0, 1.0) * strength) * 0.055432;
+                        mask += texture2D(uMask, vMaskCoord + vec2(0.0, 2.0) * strength) * 0.038393;
+                        mask += texture2D(uMask, vMaskCoord + vec2(1.0, -2.0) * strength) * 0.033969;
+                        mask += texture2D(uMask, vMaskCoord + vec2(1.0, -1.0) * strength) * 0.049045;
+                        mask += texture2D(uMask, vMaskCoord + vec2(1.0, 0.0) * strength) * 0.055432;
+                        mask += texture2D(uMask, vMaskCoord + vec2(1.0, 1.0) * strength) * 0.049045;
+                        mask += texture2D(uMask, vMaskCoord + vec2(1.0, 2.0) * strength) * 0.033969;
+                        mask += texture2D(uMask, vMaskCoord + vec2(2.0, -2.0) * strength) * 0.023528;
+                        mask += texture2D(uMask, vMaskCoord + vec2(2.0, -1.0) * strength) * 0.033969;
+                        mask += texture2D(uMask, vMaskCoord + vec2(2.0, 0.0) * strength) * 0.038393;
+                        mask += texture2D(uMask, vMaskCoord + vec2(2.0, 1.0) * strength) * 0.033969;
+                        mask += texture2D(uMask, vMaskCoord + vec2(2.0, 2.0) * strength) * 0.023528;
+                    } else {
+                        mask = texture2D(uMask, vMaskCoord);
+                    }
+
+                    float s = mask.r;
+                    float t = mask.g;
+                    vec4 srgba = texture2D(uSampler, vTextureCoord);
+                    vec3 srgb = srgba.rgb;
+                    vec3 rgb = srgb2rgb(srgb);
+                    float a = srgba.a;
+                    float y = rgb2y(rgb);
+                    vec3 lstar3 = rgb2srgb(vec3(y));
+                    vec3 mono = mix(lstar3, lstar3 * uTint, t);
+                    gl_FragColor = vec4(mix(mono, srgb, s), a);
+                }`
+        );
+
+        if (canvas.background.filters?.length > 0) {
+            canvas.background.filters.push(c_.monochromeFilter);
+
+            console.warn("Perfect Vision | canvas.background.filters.length > 0");
+
+            if (canvas.background.filterArea !== canvas.app.renderer.screen)
+                console.warn("Perfect Vision | canvas.background.filterArea !== canvas.app.renderer.screen");
+        } else {
+            canvas.background.filters = [c_.monochromeFilter];
+        }
+
+        canvas.background.filterArea = canvas.app.renderer.screen;
+
+        if (canvas.tiles.filters?.length > 0) {
+            canvas.tiles.filters.push(c_.monochromeFilter);
+
+            console.warn("Perfect Vision | canvas.tiles.filters.length > 0");
+
+            if (canvas.tiles.filterArea !== canvas.app.renderer.screen)
+                console.warn("Perfect Vision | canvas.tiles.filterArea !== canvas.app.renderer.screen");
+        } else {
+            canvas.tiles.filters = [c_.monochromeFilter];
+        }
+
+        canvas.tiles.filterArea = canvas.app.renderer.screen;
     }
 
     {
         c_.visionInDarkness = c.addChild(new PIXI.Container());
         c_.visionInDarkness.sortableChildren = true;
-        c_.visionInDarkness.filter = new PerfectVision.MaskFilter();
+        c_.visionInDarkness.filter = new PerfectVision.MaskFilter("step(0.0, g - r)");
         c_.visionInDarkness.filter.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
         c_.visionInDarkness.filterArea = canvas.app.renderer.screen;
         c_.visionInDarkness.filters = [c_.visionInDarkness.filter];
-        c_.visionInDarknessMask = c.addChild(new PIXI.Graphics());
     }
 
-    c_.colorInDarknessMask = c.addChild(new PIXI.Graphics());
+    {
+        c_.lightsDimToBright = c.addChild(new PIXI.Container());
+        c_.lightsDimToBright.sortableChildren = true;
+        c_.lightsDimToBright.filter = new PerfectVision.MaskFilter("b");
+        c_.lightsDimToBright.filter.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
+        c_.lightsDimToBright.filterArea = canvas.app.renderer.screen;
+        c_.lightsDimToBright.filters = [c_.lightsDimToBright.filter];
+    }
+
+    {
+        c_.mask = c.addChild(new PIXI.Container());
+        c_.mask.layers = [
+            c_.mask.addChild(new PIXI.Graphics()),
+            c_.mask.addChild(new PIXI.Graphics()),
+            c_.mask.addChild(new PIXI.Graphics())
+        ];
+        c_.mask.layers[1].blendMode = PIXI.BLEND_MODES.ADD;
+        c_.mask.layers[2].blendMode = PIXI.BLEND_MODES.SUBTRACT;
+    }
 
     {
         const d = canvas.dimensions;
@@ -714,10 +868,12 @@ PerfectVision.postHook(LightingLayer, "refresh", function () {
     for (let source of this.sources) {
         if (!source.active) continue;
 
-        const sc = source.illumination;
-        const sc_ = PerfectVision._props(sc);
-        sc_.zIndex = sc.zIndex;
-        ilm_.lightsDimToBright.addChild(sc_);
+        if (!source.darkness) {
+            const sc = source.illumination;
+            const sc_ = PerfectVision._props(sc);
+            sc_.zIndex = sc.zIndex;
+            ilm_.lightsDimToBright.addChild(sc_);
+        }
     }
 
     ilm_.visionInDarkness.removeChildren();
@@ -746,17 +902,11 @@ PerfectVision.preHook(LightingLayer, "tearDown", function () {
         ilm_.onCanvasPan = null;
     }
 
-    if (ilm_.lightsDimToBrightMask?.texture)
-        ilm_.lightsDimToBrightMask.texture.destroy(true);
+    if (ilm_.mask?.texture) {
+        ilm_.mask.texture.destroy(true);
 
-    if (ilm_.visionInDarknessMask?.texture)
-        ilm_.visionInDarknessMask.texture.destroy(true);
-
-    if (ilm_.colorInDarknessMask?.texture) {
-        ilm_.colorInDarknessMask.texture.destroy(true);
-
-        canvas.background.filters.splice(canvas.background.filters.indexOf(ilm_.colorInDarknessMask.texture.filter));
-        canvas.tiles.filters.splice(canvas.tiles.filters.indexOf(ilm_.colorInDarknessMask.texture.filter));
+        canvas.background.filters.splice(canvas.background.filters.indexOf(ilm_.monochromeFilter));
+        canvas.tiles.filters.splice(canvas.tiles.filters.indexOf(ilm_.monochromeFilter));
     }
 
     return arguments;
@@ -771,61 +921,64 @@ PerfectVision._updateIllumination = function () {
 
         const vision = canvas.sight.tokenVision && canvas.sight.sources.size > 0;
 
-        const width = canvas.app.renderer.screen.width;
-        const height = canvas.app.renderer.screen.height;
+        ilm_.visionInDarkness.visible = vision;
+        ilm_.lightsDimToBright.visible = false;
 
-        if (vision) {
-            ilm_.visionInDarkness.visible = true;
+        ilm_.monochromeFilter.enabled = vision && !this.globalLight;
+        ilm_.background.filter.enabled = game.user.isGM && PerfectVision.settings.improvedGMVision && !vision;
 
-            let visionInDarknessMask = ilm_.visionInDarknessMask;
+        if (vision || game.user.isGM && PerfectVision.settings.improvedGMVision) {
+            const mask = ilm_.mask;
 
-            visionInDarknessMask.clear();
-            visionInDarknessMask.beginFill(0xFFFFFF);
-            visionInDarknessMask.drawRect(0, 0, canvas.dimensions.width, canvas.dimensions.height);
-            visionInDarknessMask.endFill();
-            visionInDarknessMask.beginFill(0x000000);
+            mask.layers[0].clear();
+            mask.layers[0].beginFill(0x00FF00);
+
+            let monoVisionColor;
+
+            for (let source of canvas.sight.sources) {
+                if (!source.active) continue;
+
+                const source_ = PerfectVision._props(source);
+
+                if (source_.fovMono) {
+                    mask.layers[0].drawPolygon(source_.fovMono);
+
+                    if (monoVisionColor)
+                        monoVisionColor = [1, 1, 1];
+                    else
+                        monoVisionColor = source_.monoVisionColor;
+                }
+            }
+
+            if (!monoVisionColor)
+                monoVisionColor = [1, 1, 1];
+
+            mask.layers[0].endFill();
+            mask.layers[0].beginFill(0xFFFF00);
+
+            for (let source of canvas.sight.sources) {
+                if (!source.active) continue;
+
+                const source_ = PerfectVision._props(source);
+
+                if (source_.fovColor)
+                    mask.layers[0].drawPolygon(source_.fovColor);
+            }
+
+            mask.layers[0].endFill();
+            mask.layers[0].beginFill(0xFF0000);
 
             for (let source of this.sources) {
                 if (!source.active) continue;
 
                 if (source !== ilm_.globalLight2)
-                    visionInDarknessMask.drawPolygon(source.fov);
+                    mask.layers[0].drawPolygon(source.fov);
             }
 
-            visionInDarknessMask.endFill();
+            mask.layers[0].endFill();
 
-            let texture = visionInDarknessMask.texture;
-
-            if (!texture) {
-                texture = (visionInDarknessMask.texture = PIXI.RenderTexture.create({
-                    width: width,
-                    height: height,
-                    scaleMode: PIXI.SCALE_MODES.LINEAR,
-                    resolution: 1
-                }));
-                ilm_.visionInDarkness.filter.uniforms.uMask = texture;
-                ilm_.visionInDarkness.filter.uniforms.uMaskSize = [width, height, 1 / width, 1 / height];
-            }
-
-            if (texture.width !== height || texture.width !== height) {
-                texture.resize(width, height);
-                ilm_.visionInDarkness.filter.uniforms.uMaskSize = [width, height, 1 / width, 1 / height];
-            }
-
-            visionInDarknessMask.visible = true;
-            canvas.app.renderer.render(visionInDarknessMask, texture, true, canvas.stage.worldTransform);
-            visionInDarknessMask.visible = false;
-        } else {
-            ilm_.visionInDarkness.visible = false;
-        }
-
-        if (vision) {
-            ilm_.lightsDimToBright.visible = false;
-
-            const lightsDimToBrightMask = ilm_.lightsDimToBrightMask;
-
-            lightsDimToBrightMask.clear();
-            lightsDimToBrightMask.beginFill(0xFFFFFF);
+            mask.layers[1].clear();
+            mask.layers[1].beginFill(0x0000FF);
 
             for (let source of canvas.sight.sources) {
                 if (!source.active) continue;
@@ -833,265 +986,63 @@ PerfectVision._updateIllumination = function () {
                 const source_ = PerfectVision._props(source);
 
                 if (source_.fovDimToBright) {
-                    lightsDimToBrightMask.drawPolygon(source_.fovDimToBright);
+                    mask.layers[1].drawPolygon(source_.fovDimToBright);
                     ilm_.lightsDimToBright.visible = true;
                 }
             }
 
-            lightsDimToBrightMask.endFill();
+            mask.layers[1].endFill();
 
-            if (ilm_.lightsDimToBright.visible) {
-                lightsDimToBrightMask.beginFill(0x000000);
+            mask.layers[2].clear();
+            mask.layers[2].beginFill(0x0000FF);
 
-                for (let source of this.sources) {
-                    if (!source.active) continue;
+            for (let source of this.sources) {
+                if (!source.active) continue;
 
-                    if (source.darkness)
-                        lightsDimToBrightMask.drawPolygon(source.fov);
-                }
-
-                lightsDimToBrightMask.endFill();
-
-                let texture = lightsDimToBrightMask.texture;
-
-                if (!texture) {
-                    texture = (lightsDimToBrightMask.texture = PIXI.RenderTexture.create({
-                        width: width,
-                        height: height,
-                        scaleMode: PIXI.SCALE_MODES.LINEAR,
-                        resolution: 1
-                    }));
-                    ilm_.lightsDimToBright.filter.uniforms.uMask = texture;
-                    ilm_.lightsDimToBright.filter.uniforms.uMaskSize = [width, height, 1 / width, 1 / height];
-                }
-
-                if (texture.width !== height || texture.width !== height) {
-                    texture.resize(width, height);
-                    ilm_.lightsDimToBright.filter.uniforms.uMaskSize = [width, height, 1 / width, 1 / height];
-                }
-
-                lightsDimToBrightMask.visible = true;
-                canvas.app.renderer.render(lightsDimToBrightMask, texture, true, canvas.stage.worldTransform);
-                lightsDimToBrightMask.visible = false;
+                if (source.darkness)
+                    mask.layers[2].drawPolygon(source.fov);
             }
-        } else {
-            ilm_.lightsDimToBright.visible = false;
-        }
 
-        {
-            const colorInDarknessMask = ilm_.colorInDarknessMask;
+            mask.layers[2].endFill();
 
-            if (colorInDarknessMask.texture)
-                colorInDarknessMask.texture.filter.enabled = vision && !this.globalLight;
+            const width = canvas.app.renderer.screen.width;
+            const height = canvas.app.renderer.screen.height;
 
-            if (ilm_.background.filter)
-                ilm_.background.filter.enabled = game.user.isGM && PerfectVision.settings.improvedGMVision && !vision;
+            let texture = mask.texture;
 
-            if (vision && !this.globalLight || game.user.isGM && PerfectVision.settings.improvedGMVision && !vision) {
-                colorInDarknessMask.clear();
-                colorInDarknessMask.beginFill(0x00FF00);
+            if (!texture) {
+                texture = (mask.texture = PIXI.RenderTexture.create({
+                    width: width,
+                    height: height,
+                    scaleMode: PIXI.SCALE_MODES.LINEAR,
+                    resolution: 1
+                }));
 
-                let monoVisionColor;
+                const size = [width, height, 1 / width, 1 / height];
+                ilm_.background.filter.uniforms.uMask = texture;
+                ilm_.background.filter.uniforms.uMaskSize = size;
+                ilm_.monochromeFilter.uniforms.uMask = texture;
+                ilm_.monochromeFilter.uniforms.uMaskSize = size;
+                ilm_.visionInDarkness.filter.uniforms.uMask = texture;
+                ilm_.visionInDarkness.filter.uniforms.uMaskSize = size;
+                ilm_.lightsDimToBright.filter.uniforms.uMask = texture;
+                ilm_.lightsDimToBright.filter.uniforms.uMaskSize = size;
+            } else if (texture.width !== height || texture.width !== height) {
+                texture.resize(width, height);
 
-                for (let source of canvas.sight.sources) {
-                    if (!source.active) continue;
-
-                    const source_ = PerfectVision._props(source);
-
-                    if (source_.fovMono) {
-                        colorInDarknessMask.drawPolygon(source_.fovMono);
-
-                        if (monoVisionColor)
-                            monoVisionColor = [1, 1, 1];
-                        else
-                            monoVisionColor = source_.monoVisionColor;
-                    }
-                }
-
-                if (!monoVisionColor)
-                    monoVisionColor = [1, 1, 1];
-
-                colorInDarknessMask.endFill();
-                colorInDarknessMask.beginFill(0xFF0000);
-
-                for (let source of this.sources) {
-                    if (!source.active) continue;
-
-                    if (source !== ilm_.globalLight2)
-                        colorInDarknessMask.drawPolygon(source.fov);
-                }
-
-                for (let source of canvas.sight.sources) {
-                    if (!source.active) continue;
-
-                    const source_ = PerfectVision._props(source);
-
-                    if (source_.fovColor)
-                        colorInDarknessMask.drawPolygon(source_.fovColor);
-                }
-
-                colorInDarknessMask.endFill();
-
-                let texture = colorInDarknessMask.texture;
-
-                if (!texture) {
-                    texture = (colorInDarknessMask.texture = PIXI.RenderTexture.create({
-                        width: width,
-                        height: height,
-                        scaleMode: PIXI.SCALE_MODES.LINEAR,
-                        resolution: 1
-                    }));
-                    colorInDarknessMask.texture.filter = new PIXI.Filter(
-                        `\
-                        precision mediump float;
-
-                        attribute vec2 aVertexPosition;
-                        attribute vec2 aTextureCoord;
-
-                        uniform mat3 projectionMatrix;
-                        uniform vec4 inputPixel;
-                        uniform vec4 uMaskSize;
-
-                        varying vec2 vTextureCoord;
-                        varying vec2 vMaskCoord;
-
-                        void main(void)
-                        {
-                            gl_Position = vec4((projectionMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
-                            vTextureCoord = aTextureCoord;
-                            vMaskCoord = aTextureCoord * (inputPixel.xy * uMaskSize.zw);
-                        }`, `\
-                        precision mediump float;
-
-                        uniform sampler2D uSampler;
-                        uniform sampler2D uMask;
-                        uniform vec4 uMaskSize;
-                        uniform float uBlur;
-                        uniform vec3 uTint;
-
-                        varying vec2 vTextureCoord;
-                        varying vec2 vMaskCoord;
-
-                        vec3 rgb2srgb(vec3 c)
-                        {
-                            vec3 a = 12.92 * c;
-                            vec3 b = 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055;
-                            vec3 s = step(vec3(0.0031308), c);
-                            return mix(a, b, s);
-                        }
-
-                        vec3 srgb2rgb(vec3 c)
-                        {
-                            vec3 a = c / 12.92;
-                            vec3 b = pow((c + 0.055) / 1.055, vec3(2.4));
-                            vec3 s = step(vec3(0.04045), c);
-                            return mix(a, b, s);
-                        }
-
-                        float rgb2y(vec3 c)
-                        {
-                            vec3 w = vec3(0.2126, 0.7152, 0.0722);
-                            return dot(c, w);
-                        }
-
-                        void main(void)
-                        {
-                            vec4 mask;
-
-                            if (uBlur > 0.0) {
-                                vec2 strength = uBlur * uMaskSize.zw;
-                                mask = texture2D(uMask, vMaskCoord + vec2(-2.0, -2.0) * strength) * 0.023528;
-                                mask += texture2D(uMask, vMaskCoord + vec2(-2.0, -1.0) * strength) * 0.033969;
-                                mask += texture2D(uMask, vMaskCoord + vec2(-2.0, 0.0) * strength) * 0.038393;
-                                mask += texture2D(uMask, vMaskCoord + vec2(-2.0, 1.0) * strength) * 0.033969;
-                                mask += texture2D(uMask, vMaskCoord + vec2(-2.0, 2.0) * strength) * 0.023528;
-                                mask += texture2D(uMask, vMaskCoord + vec2(-1.0, -2.0) * strength) * 0.033969;
-                                mask += texture2D(uMask, vMaskCoord + vec2(-1.0, -1.0) * strength) * 0.049045;
-                                mask += texture2D(uMask, vMaskCoord + vec2(-1.0, 0.0) * strength) * 0.055432;
-                                mask += texture2D(uMask, vMaskCoord + vec2(-1.0, 1.0) * strength) * 0.049045;
-                                mask += texture2D(uMask, vMaskCoord + vec2(-1.0, 2.0) * strength) * 0.033969;
-                                mask += texture2D(uMask, vMaskCoord + vec2(0.0, -2.0) * strength) * 0.038393;
-                                mask += texture2D(uMask, vMaskCoord + vec2(0.0, -1.0) * strength) * 0.055432;
-                                mask += texture2D(uMask, vMaskCoord + vec2(0.0, 0.0) * strength) * 0.062651;
-                                mask += texture2D(uMask, vMaskCoord + vec2(0.0, 1.0) * strength) * 0.055432;
-                                mask += texture2D(uMask, vMaskCoord + vec2(0.0, 2.0) * strength) * 0.038393;
-                                mask += texture2D(uMask, vMaskCoord + vec2(1.0, -2.0) * strength) * 0.033969;
-                                mask += texture2D(uMask, vMaskCoord + vec2(1.0, -1.0) * strength) * 0.049045;
-                                mask += texture2D(uMask, vMaskCoord + vec2(1.0, 0.0) * strength) * 0.055432;
-                                mask += texture2D(uMask, vMaskCoord + vec2(1.0, 1.0) * strength) * 0.049045;
-                                mask += texture2D(uMask, vMaskCoord + vec2(1.0, 2.0) * strength) * 0.033969;
-                                mask += texture2D(uMask, vMaskCoord + vec2(2.0, -2.0) * strength) * 0.023528;
-                                mask += texture2D(uMask, vMaskCoord + vec2(2.0, -1.0) * strength) * 0.033969;
-                                mask += texture2D(uMask, vMaskCoord + vec2(2.0, 0.0) * strength) * 0.038393;
-                                mask += texture2D(uMask, vMaskCoord + vec2(2.0, 1.0) * strength) * 0.033969;
-                                mask += texture2D(uMask, vMaskCoord + vec2(2.0, 2.0) * strength) * 0.023528;
-                            } else {
-                                mask = texture2D(uMask, vMaskCoord);
-                            }
-
-                            float s = mask.r;
-                            float t = mask.g;
-                            vec4 srgba = texture2D(uSampler, vTextureCoord);
-                            vec3 srgb = srgba.rgb;
-                            vec3 rgb = srgb2rgb(srgb);
-                            float a = srgba.a;
-                            float y = rgb2y(rgb);
-                            vec3 lstar3 = rgb2srgb(vec3(y));
-                            vec3 mono = mix(lstar3, lstar3 * uTint, t);
-                            gl_FragColor = vec4(mix(mono, srgb, s), a);
-                        }`,
-                        { uMask: colorInDarknessMask.texture, uMaskSize: [width, height, 1 / width, 1 / height] }
-                    );
-
-                    if (canvas.background.filters?.length > 0) {
-                        canvas.background.filters.push(colorInDarknessMask.texture.filter);
-
-                        console.warn("Perfect Vision | canvas.background.filters.length > 0");
-
-                        if (canvas.background.filterArea !== canvas.app.renderer.screen)
-                            console.warn("Perfect Vision | canvas.background.filterArea !== canvas.app.renderer.screen");
-                    } else {
-                        canvas.background.filters = [colorInDarknessMask.texture.filter];
-                    }
-
-                    canvas.background.filterArea = canvas.app.renderer.screen;
-
-                    if (canvas.tiles.filters?.length > 0) {
-                        canvas.tiles.filters.push(colorInDarknessMask.texture.filter);
-
-                        console.warn("Perfect Vision | canvas.tiles.filters.length > 0");
-
-                        if (canvas.tiles.filterArea !== canvas.app.renderer.screen)
-                            console.warn("Perfect Vision | canvas.tiles.filterArea !== canvas.app.renderer.screen");
-                    } else {
-                        canvas.tiles.filters = [colorInDarknessMask.texture.filter];
-                    }
-
-                    canvas.tiles.filterArea = canvas.app.renderer.screen;
-
-                    ilm_.background.filter = new PerfectVision.MaskFilter("1.0 - r");
-                    ilm_.background.filter.uniforms.uMask = colorInDarknessMask.texture;
-                    ilm_.background.filter.uniforms.uMaskSize = [width, height, 1 / width, 1 / height];
-                    ilm_.background.filters = [ilm_.background.filter];
-                    ilm_.background.filterArea = canvas.app.renderer.screen;
-
-                    colorInDarknessMask.texture.filter.enabled = vision && !this.globalLight;
-                    ilm_.background.filter.enabled = game.user.isGM && PerfectVision.settings.improvedGMVision && !vision;
-                }
-
-                if (texture.width !== height || texture.width !== height) {
-                    texture.resize(width, height);
-                    colorInDarknessMask.texture.filter.uniforms.uMaskSize = [width, height, 1 / width, 1 / height];
-                    ilm_.background.filter.uniforms.uMaskSize = [width, height, 1 / width, 1 / height];
-                }
-
-                colorInDarknessMask.texture.filter.uniforms.uBlur = Math.clamped(Math.max(canvas.stage.scale.x, canvas.stage.scale.y), 0, 1) * this._blurDistance / 2;
-                colorInDarknessMask.texture.filter.uniforms.uTint = monoVisionColor;
-
-                colorInDarknessMask.visible = true;
-                canvas.app.renderer.render(colorInDarknessMask, texture, true, canvas.stage.worldTransform);
-                colorInDarknessMask.visible = false;
+                const size = [width, height, 1 / width, 1 / height];
+                ilm_.background.filter.uniforms.uMaskSize = size;
+                ilm_.monochromeFilter.uniforms.uMaskSize = size;
+                ilm_.visionInDarkness.filter.uniforms.uMaskSize = size;
+                ilm_.lightsDimToBright.filter.uniforms.uMaskSize = size;
             }
+
+            ilm_.monochromeFilter.uniforms.uBlur = Math.clamped(Math.max(canvas.stage.scale.x, canvas.stage.scale.y), 0, 1) * this._blurDistance / 2;
+            ilm_.monochromeFilter.uniforms.uTint = monoVisionColor;
+
+            mask.visible = true;
+            canvas.app.renderer.render(mask, texture, true, canvas.stage.worldTransform);
+            mask.visible = false;
         }
     }
 }
