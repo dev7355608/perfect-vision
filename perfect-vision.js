@@ -59,6 +59,38 @@ class PerfectVision {
         }
 
         this._settings.monoVisionColor = game.settings.get("perfect-vision", "monoVisionColor");
+        this._settings.monoTokenIcons = game.settings.get("perfect-vision", "monoTokenIcons");
+    }
+
+    static _updateTokenMonoFilter(token, filter) {
+        if (!token.icon) return;
+
+        if (!filter) {
+            const ilm_ = this._props(canvas.lighting.illumination);
+            if (!ilm_) return;
+            filter = ilm_.monochromeFilter;
+        }
+
+        const index = token.icon.filters ? token.icon.filters.indexOf(filter) : -1;
+
+        if (this.settings.monoTokenIcons) {
+            if (index < 0) {
+                if (token.icon.filters?.length > 0) {
+                    token.icon.filters.push(filter);
+
+                    console.warn(`Perfect Vision | canvas.tokens.get("${token.id}").icon.filters.length > 0`);
+
+                    if (token.icon.filterArea !== canvas.app.renderer.screen)
+                        console.warn(`Perfect Vision | canvas.tokens.get("${token.id}").icon.filterArea !== canvas.app.renderer.screen`);
+                } else {
+                    token.icon.filters = [filter];
+                }
+
+                token.icon.filterArea = canvas.app.renderer.screen;
+            }
+        } else if (index >= 0) {
+            token.icon.filters.splice(index);
+        }
     }
 
     static refresh() {
@@ -74,8 +106,10 @@ class PerfectVision {
         delete this._refreshTimeout;
 
         if (canvas?.ready) {
-            for (let token of canvas.tokens.placeables)
+            for (let token of canvas.tokens.placeables) {
+                this._updateTokenMonoFilter(token);
                 token.updateSource({ defer: true });
+            }
 
             for (let sources of [canvas.lighting.sources, canvas.sight.sources])
                 for (let source of sources)
@@ -402,6 +436,16 @@ class PerfectVision {
             onChange: () => this.refresh()
         });
 
+        game.settings.register("perfect-vision", "monoTokenIcons", {
+            name: "Monochrome Token Icons",
+            hint: "If enabled, token icons are affected by monochrome vision. Otherwise, they are not.",
+            scope: "world",
+            config: true,
+            type: Boolean,
+            default: false,
+            onChange: () => this.refresh()
+        });
+
         this._updateSettings();
     }
 
@@ -574,6 +618,8 @@ PerfectVision.postHook(PointSource, "drawLight", function (c) {
 });
 
 PerfectVision.postHook(LightingLayer, "draw", async function () {
+    const retVal = await arguments[0];
+
     const ilm = this.illumination;
     const ilm_ = PerfectVision._props(ilm);
 
@@ -586,7 +632,8 @@ PerfectVision.postHook(LightingLayer, "draw", async function () {
         Hooks.on("canvasPan", ilm_.onCanvasPan);
         Hooks.on("canvasReady", ilm_.onCanvasPan);
     }
-    return arguments[0];
+
+    return retVal;
 });
 
 PerfectVision.postHook(LightingLayer, "_drawIlluminationContainer", function (c) {
@@ -692,6 +739,9 @@ PerfectVision.postHook(LightingLayer, "_drawIlluminationContainer", function (c)
         }
 
         canvas.tiles.filterArea = canvas.app.renderer.screen;
+
+        for (let token of canvas.tokens.placeables)
+            PerfectVision._updateTokenMonoFilter(token, c_.monochromeFilter);
     }
 
     {
@@ -1207,6 +1257,12 @@ PerfectVision.postHook(Token, "updateSource", function () {
     return arguments[0];
 });
 
+PerfectVision.postHook(Token, "draw", async function () {
+    const retVal = await arguments[0];
+    PerfectVision._updateTokenMonoFilter(this);
+    return retVal;
+});
+
 // Remove as soon as the bug is fixed (Bug: Toggling a token's "Has Vision" property does not update vision correctly)
 PerfectVision.postHook(Token, "_onUpdate", function (retVal, data, options, userId) {
     const keys = Object.keys(data);
@@ -1231,8 +1287,6 @@ PerfectVision.postHook(Token, "_onUpdate", function (retVal, data, options, user
         }
         canvas.sounds.refresh();
     }
-
-    return retVal;
 });
 
 Hooks.on("setup", () => PerfectVision._setup());
