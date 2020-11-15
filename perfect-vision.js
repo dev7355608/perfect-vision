@@ -436,6 +436,11 @@ class PerfectVision {
         const ilm_ = PerfectVision._props(canvas.lighting.illumination);
         this._visualizeTexture(ilm_.mask.texture, "mask");
     }
+
+    static _visualizeMaskBlurred() {
+        const ilm_ = PerfectVision._props(canvas.lighting.illumination);
+        this._visualizeTexture(ilm_.mask.textureBlurred, "maskBlurred");
+    }
 }
 
 PerfectVision.MaskFilter = class extends PIXI.Filter {
@@ -572,7 +577,7 @@ PerfectVision.postHook(LightingLayer, "draw", async function () {
     const ilm = this.illumination;
     const ilm_ = PerfectVision._props(ilm);
 
-    const bgRect = canvas.dimensions.sceneRect.clone().pad(this._blurDistance * 2);
+    const bgRect = canvas.dimensions.sceneRect.clone().pad((this._blurDistance ?? 0) * 2);
     ilm_.background.clear().beginFill(0xFFFFFF, 1.0).drawShape(bgRect).endFill();
 
     if (!ilm_.onCanvasPan) {
@@ -619,8 +624,6 @@ PerfectVision.postHook(LightingLayer, "_drawIlluminationContainer", function (c)
 
                 uniform sampler2D uSampler;
                 uniform sampler2D uMask;
-                uniform vec4 uMaskSize;
-                uniform float uBlur;
                 uniform vec3 uTint;
 
                 varying vec2 vTextureCoord;
@@ -650,39 +653,7 @@ PerfectVision.postHook(LightingLayer, "_drawIlluminationContainer", function (c)
 
                 void main(void)
                 {
-                    vec4 mask;
-
-                    if (uBlur > 0.0) {
-                        vec2 strength = uBlur * uMaskSize.zw;
-                        mask = texture2D(uMask, vMaskCoord + vec2(-2.0, -2.0) * strength) * 0.023528;
-                        mask += texture2D(uMask, vMaskCoord + vec2(-2.0, -1.0) * strength) * 0.033969;
-                        mask += texture2D(uMask, vMaskCoord + vec2(-2.0, 0.0) * strength) * 0.038393;
-                        mask += texture2D(uMask, vMaskCoord + vec2(-2.0, 1.0) * strength) * 0.033969;
-                        mask += texture2D(uMask, vMaskCoord + vec2(-2.0, 2.0) * strength) * 0.023528;
-                        mask += texture2D(uMask, vMaskCoord + vec2(-1.0, -2.0) * strength) * 0.033969;
-                        mask += texture2D(uMask, vMaskCoord + vec2(-1.0, -1.0) * strength) * 0.049045;
-                        mask += texture2D(uMask, vMaskCoord + vec2(-1.0, 0.0) * strength) * 0.055432;
-                        mask += texture2D(uMask, vMaskCoord + vec2(-1.0, 1.0) * strength) * 0.049045;
-                        mask += texture2D(uMask, vMaskCoord + vec2(-1.0, 2.0) * strength) * 0.033969;
-                        mask += texture2D(uMask, vMaskCoord + vec2(0.0, -2.0) * strength) * 0.038393;
-                        mask += texture2D(uMask, vMaskCoord + vec2(0.0, -1.0) * strength) * 0.055432;
-                        mask += texture2D(uMask, vMaskCoord + vec2(0.0, 0.0) * strength) * 0.062651;
-                        mask += texture2D(uMask, vMaskCoord + vec2(0.0, 1.0) * strength) * 0.055432;
-                        mask += texture2D(uMask, vMaskCoord + vec2(0.0, 2.0) * strength) * 0.038393;
-                        mask += texture2D(uMask, vMaskCoord + vec2(1.0, -2.0) * strength) * 0.033969;
-                        mask += texture2D(uMask, vMaskCoord + vec2(1.0, -1.0) * strength) * 0.049045;
-                        mask += texture2D(uMask, vMaskCoord + vec2(1.0, 0.0) * strength) * 0.055432;
-                        mask += texture2D(uMask, vMaskCoord + vec2(1.0, 1.0) * strength) * 0.049045;
-                        mask += texture2D(uMask, vMaskCoord + vec2(1.0, 2.0) * strength) * 0.033969;
-                        mask += texture2D(uMask, vMaskCoord + vec2(2.0, -2.0) * strength) * 0.023528;
-                        mask += texture2D(uMask, vMaskCoord + vec2(2.0, -1.0) * strength) * 0.033969;
-                        mask += texture2D(uMask, vMaskCoord + vec2(2.0, 0.0) * strength) * 0.038393;
-                        mask += texture2D(uMask, vMaskCoord + vec2(2.0, 1.0) * strength) * 0.033969;
-                        mask += texture2D(uMask, vMaskCoord + vec2(2.0, 2.0) * strength) * 0.023528;
-                    } else {
-                        mask = texture2D(uMask, vMaskCoord);
-                    }
-
+                    vec4 mask = texture2D(uMask, vMaskCoord);
                     float s = mask.r;
                     float t = mask.g;
                     vec4 srgba = texture2D(uSampler, vTextureCoord);
@@ -742,7 +713,7 @@ PerfectVision.postHook(LightingLayer, "_drawIlluminationContainer", function (c)
     }
 
     {
-        c_.mask = c.addChild(new PIXI.Container());
+        c_.mask = new PIXI.Container();
         c_.mask.layers = [
             c_.mask.addChild(new PIXI.Graphics()),
             c_.mask.addChild(new PIXI.Graphics()),
@@ -750,6 +721,12 @@ PerfectVision.postHook(LightingLayer, "_drawIlluminationContainer", function (c)
         ];
         c_.mask.layers[1].blendMode = PIXI.BLEND_MODES.ADD;
         c_.mask.layers[2].blendMode = PIXI.BLEND_MODES.SUBTRACT;
+        c_.maskBlurred = new PIXI.Sprite();
+        c_.maskBlurred.filter = this._blurDistance ?
+            new PIXI.filters.BlurFilter(this._blurDistance) :
+            new PIXI.filters.AlphaFilter(1.0);
+        c_.maskBlurred.filters = [c_.maskBlurred.filter];
+        c_.maskBlurred.filterArea = canvas.app.renderer.screen;
     }
 
     {
@@ -943,6 +920,7 @@ PerfectVision._updateIllumination = function () {
 
         if (vision || game.user.isGM && PerfectVision.settings.improvedGMVision) {
             const mask = ilm_.mask;
+            const maskBlurred = ilm_.maskBlurred;
 
             mask.layers[0].clear();
             mask.layers[0].beginFill(0x00FF00);
@@ -1022,27 +1000,37 @@ PerfectVision._updateIllumination = function () {
             const width = canvas.app.renderer.screen.width;
             const height = canvas.app.renderer.screen.height;
 
-            let texture = mask.texture;
-
-            if (!texture) {
-                texture = (mask.texture = PIXI.RenderTexture.create({
+            if (!mask.texture) {
+                mask.texture = PIXI.RenderTexture.create({
                     width: width,
                     height: height,
                     scaleMode: PIXI.SCALE_MODES.LINEAR,
                     resolution: 1
-                }));
+                });
+                mask.textureBlurred = PIXI.RenderTexture.create({
+                    width: width,
+                    height: height,
+                    scaleMode: PIXI.SCALE_MODES.LINEAR,
+                    resolution: 1
+                });
+                maskBlurred.texture = mask.texture;
+                maskBlurred.width = width;
+                maskBlurred.height = height;
 
                 const size = [width, height, 1 / width, 1 / height];
-                ilm_.background.filter.uniforms.uMask = texture;
+                ilm_.background.filter.uniforms.uMask = mask.texture;
                 ilm_.background.filter.uniforms.uMaskSize = size;
-                ilm_.monochromeFilter.uniforms.uMask = texture;
+                ilm_.monochromeFilter.uniforms.uMask = mask.textureBlurred;
                 ilm_.monochromeFilter.uniforms.uMaskSize = size;
-                ilm_.visionInDarkness.filter.uniforms.uMask = texture;
+                ilm_.visionInDarkness.filter.uniforms.uMask = mask.texture;
                 ilm_.visionInDarkness.filter.uniforms.uMaskSize = size;
-                ilm_.lightsDimToBright.filter.uniforms.uMask = texture;
+                ilm_.lightsDimToBright.filter.uniforms.uMask = mask.texture;
                 ilm_.lightsDimToBright.filter.uniforms.uMaskSize = size;
-            } else if (texture.width !== height || texture.width !== height) {
-                texture.resize(width, height);
+            } else if (mask.texture.width !== height || mask.texture.width !== height) {
+                mask.texture.resize(width, height);
+                mask.textureBlurred.resize(width, height);
+                maskBlurred.width = width;
+                maskBlurred.height = height;
 
                 const size = [width, height, 1 / width, 1 / height];
                 ilm_.background.filter.uniforms.uMaskSize = size;
@@ -1051,12 +1039,13 @@ PerfectVision._updateIllumination = function () {
                 ilm_.lightsDimToBright.filter.uniforms.uMaskSize = size;
             }
 
-            ilm_.monochromeFilter.uniforms.uBlur = Math.clamped(Math.max(canvas.stage.scale.x, canvas.stage.scale.y), 0, 1) * this._blurDistance / 2;
             ilm_.monochromeFilter.uniforms.uTint = monoVisionColor;
 
-            mask.visible = true;
-            canvas.app.renderer.render(mask, texture, true, canvas.stage.worldTransform);
-            mask.visible = false;
+            if (maskBlurred.filter instanceof PIXI.filters.BlurFilter)
+                maskBlurred.filter.blur = Math.max(canvas.stage.scale.x, canvas.stage.scale.y) * (this._blurDistance ?? 0);
+
+            canvas.app.renderer.render(mask, mask.texture, true, canvas.stage.worldTransform);
+            canvas.app.renderer.render(maskBlurred, mask.textureBlurred, true);
         }
     }
 }
