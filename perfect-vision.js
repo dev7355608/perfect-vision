@@ -485,17 +485,21 @@ PerfectVision.MaskFilter = class extends PIXI.Filter {
 
 PerfectVision.postHook(PointSource, "_createContainer", function (_c, shaderCls) {
     if (shaderCls === StandardIlluminationShader || shaderCls.prototype instanceof StandardIlluminationShader) {
-        const c = new PIXI.Container();
+        let c = new PIXI.Container();
         c.light = c.addChild(_c.light);
         c.fov = c.addChild(_c.fov);
         c.mask = c.addChild(_c.mask);
+        c.filters = _c.filters;
+        c.filterArea = _c.filterArea;
 
-        const c_ = PerfectVision._props(c, new PIXI.Container());
+        const c_ = new PIXI.Container();
         c_.light = c_.addChild(new PIXI.Mesh(PointSource.GEOMETRY, shaderCls.create(), c.light.state));
         c_.light.transform = c.light.transform;
         c_.light.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
         c_.fov = c_.addChild(new PIXI.Graphics());
         c_.mask = c_.fov;
+        c_.filters = c.filters;
+        c_.filterArea = c.filterArea;
 
         const this_ = PerfectVision._props(this, {});
 
@@ -536,6 +540,16 @@ PerfectVision.postHook(PointSource, "_createContainer", function (_c, shaderCls)
         });
 
         Object.defineProperty(c, "uniforms", { get: () => c.light.shader.uniforms });
+
+        c = new Proxy(c, {
+            set(target, prop, value) {
+                if (prop === "filters" || prop === "filterArea")
+                    c_[prop] = value;
+                return Reflect.set(...arguments);
+            }
+        });
+
+        PerfectVision._props(c, c_);
         return c;
     }
 
