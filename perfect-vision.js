@@ -1009,6 +1009,8 @@ PerfectVision._preHook(LightingLayer, "refresh", function () {
     const ilm_ = PerfectVision._extend(ilm);
     this.sources.set("PerfectVision.Light.1", ilm_.globalLight1);
     this.sources.set("PerfectVision.Light.2", ilm_.globalLight2);
+    ilm_.globalLight1._resetIlluminationUniforms = true;
+    ilm_.globalLight2._resetIlluminationUniforms = true;
     return arguments;
 });
 
