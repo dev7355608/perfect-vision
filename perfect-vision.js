@@ -213,10 +213,20 @@ class PerfectVision {
         });
 
         this._update([]);
+
+        if (game.modules.get("fxmaster")?.active) {
+            const updateMonoFilterHook = () => {
+                if (game.settings.get("fxmaster", "enable"))
+                    this._updateMonoFilter();
+            };
+            Hooks.on("canvasReady", updateMonoFilterHook);
+            Hooks.on("updateScene", updateMonoFilterHook);
+        }
     }
 
     static _canvasReady() {
         this._refresh = true;
+        this._updateMonoFilter();
         canvas.app.ticker.remove(this._onTick, this);
         canvas.app.ticker.add(this._onTick, this, PIXI.UPDATE_PRIORITY.LOW + 1);
     }
@@ -482,7 +492,7 @@ class PerfectVision {
             ilm_.visionInDarkness.visible = vision;
             ilm_.lightsDimToBright.visible = false;
 
-            ilm_.monoFilter.enabled = vision && !canvas.lighting.globalLight;
+            this._monoFilter.enabled = vision && !canvas.lighting.globalLight;
             ilm_.background.filter.enabled = game.user.isGM && this._settings.improvedGMVision && !vision;
 
             if (vision || game.user.isGM && this._settings.improvedGMVision) {
@@ -587,8 +597,8 @@ class PerfectVision {
                     const size = [width, height, 1 / width, 1 / height];
                     ilm_.background.filter.uniforms.uMask = mask.texture;
                     ilm_.background.filter.uniforms.uMaskSize = size;
-                    ilm_.monoFilter.uniforms.uMask = mask.textureBlurred;
-                    ilm_.monoFilter.uniforms.uMaskSize = size;
+                    this._monoFilter.uniforms.uMask = mask.textureBlurred;
+                    this._monoFilter.uniforms.uMaskSize = size;
                     ilm_.visionInDarkness.filter.uniforms.uMask = mask.texture;
                     ilm_.visionInDarkness.filter.uniforms.uMaskSize = size;
                     ilm_.lightsDimToBright.filter.uniforms.uMask = mask.texture;
@@ -601,12 +611,12 @@ class PerfectVision {
 
                     const size = [width, height, 1 / width, 1 / height];
                     ilm_.background.filter.uniforms.uMaskSize = size;
-                    ilm_.monoFilter.uniforms.uMaskSize = size;
+                    this._monoFilter.uniforms.uMaskSize = size;
                     ilm_.visionInDarkness.filter.uniforms.uMaskSize = size;
                     ilm_.lightsDimToBright.filter.uniforms.uMaskSize = size;
                 }
 
-                ilm_.monoFilter.uniforms.uTint = monoVisionColor;
+                this._monoFilter.uniforms.uTint = monoVisionColor;
 
                 if (maskBlurred.filter instanceof PIXI.filters.BlurFilter)
                     maskBlurred.filter.blur = Math.max(canvas.stage.scale.x, canvas.stage.scale.y) * (canvas.lighting._blurDistance ?? 0);
@@ -733,6 +743,39 @@ class PerfectVision {
             );
         }
     };
+
+    static _monoFilter = new this._MonoFilter();
+
+    static _updateMonoFilter() {
+        for (let layerName of ["background", "tiles", "fxmaster"]) {
+            const layer = canvas[layerName];
+
+            if (!layer) continue;
+
+            let monoFilterIndex = layer.filters ? layer.filters.indexOf(this._monoFilter) : -1;
+
+            if (monoFilterIndex >= 0)
+                layer.filters.splice(monoFilterIndex);
+
+            if (layer.filters?.length > 0) {
+                layer.filters.push(this._monoFilter);
+
+                console.warn(`Perfect Vision | canvas.${layerName}.filters.length > 0`);
+
+                if (layer.filterArea !== canvas.app.renderer.screen)
+                    console.warn(`Perfect Vision | canvas.${layerName}.filterArea !== canvas.app.renderer.screen`);
+            } else {
+                layer.filters = [this._monoFilter];
+            }
+
+            layer.filterArea = canvas.app.renderer.screen;
+        }
+
+        if (canvas.tokens.filters?.length > 0 && canvas.tokens.filterArea !== canvas.app.renderer.screen)
+            console.warn(`Perfect Vision | canvas.tokens.filterArea !== canvas.app.renderer.screen`);
+
+        canvas.tokens.filterArea = canvas.app.renderer.screen;
+    }
 }
 
 PerfectVision._postHook(PointSource, "_createContainer", function (_c, shaderCls) {
@@ -837,36 +880,6 @@ PerfectVision._postHook(LightingLayer, "_drawIlluminationContainer", function (c
         c_.background.filter = new PerfectVision._MaskFilter("1.0 - r");
         c_.background.filterArea = canvas.app.renderer.screen;
         c_.background.filters = [c_.background.filter];
-    }
-
-    {
-        c_.monoFilter = new PerfectVision._MonoFilter();
-
-        if (canvas.background.filters?.length > 0) {
-            canvas.background.filters.push(c_.monoFilter);
-
-            console.warn("Perfect Vision | canvas.background.filters.length > 0");
-
-            if (canvas.background.filterArea !== canvas.app.renderer.screen)
-                console.warn("Perfect Vision | canvas.background.filterArea !== canvas.app.renderer.screen");
-        } else {
-            canvas.background.filters = [c_.monoFilter];
-        }
-
-        canvas.background.filterArea = canvas.app.renderer.screen;
-
-        if (canvas.tiles.filters?.length > 0) {
-            canvas.tiles.filters.push(c_.monoFilter);
-
-            console.warn("Perfect Vision | canvas.tiles.filters.length > 0");
-
-            if (canvas.tiles.filterArea !== canvas.app.renderer.screen)
-                console.warn("Perfect Vision | canvas.tiles.filterArea !== canvas.app.renderer.screen");
-        } else {
-            canvas.tiles.filters = [c_.monoFilter];
-        }
-
-        canvas.tiles.filterArea = canvas.app.renderer.screen;
     }
 
     {
@@ -1066,8 +1079,7 @@ PerfectVision._preHook(LightingLayer, "tearDown", function () {
         ilm_.mask.texture.destroy(true);
         ilm_.mask.textureBlurred.destroy(true);
 
-        canvas.background.filters.splice(canvas.background.filters.indexOf(ilm_.monoFilter));
-        canvas.tiles.filters.splice(canvas.tiles.filters.indexOf(ilm_.monoFilter));
+        PerfectVision._monoFilter.uniforms.uMask = null;
     }
 
     return arguments;
@@ -1228,23 +1240,19 @@ PerfectVision._postHook(Token, "updateSource", function () {
         delete this.vision.initialize;
     }
 
-    const ilm = canvas.lighting.illumination;
-    const ilm_ = PerfectVision._extend(ilm);
-
-    const monoFilter = ilm_.monoFilter;
-    const monoFilterIndex = this.icon.filters ? this.icon.filters.indexOf(monoFilter) : -1;
+    const monoFilterIndex = this.icon.filters ? this.icon.filters.indexOf(PerfectVision._monoFilter) : -1;
 
     if (PerfectVision._settings.monoTokenIcons) {
         if (monoFilterIndex < 0) {
             if (this.icon.filters?.length > 0) {
-                this.icon.filters.push(monoFilter);
+                this.icon.filters.push(PerfectVision._monoFilter);
 
                 console.warn(`Perfect Vision | canvas.tokens.get("${this.id}").icon.filters.length > 0`);
 
                 if (this.icon.filterArea !== canvas.app.renderer.screen)
                     console.warn(`Perfect Vision | canvas.tokens.get("${this.id}").icon.filterArea !== canvas.app.renderer.screen`);
             } else {
-                this.icon.filters = [monoFilter];
+                this.icon.filters = [PerfectVision._monoFilter];
             }
 
             this.icon.filterArea = canvas.app.renderer.screen;
