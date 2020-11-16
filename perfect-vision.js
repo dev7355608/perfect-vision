@@ -746,35 +746,57 @@ class PerfectVision {
 
     static _monoFilter = new this._MonoFilter();
 
-    static _updateMonoFilter() {
-        for (let layerName of ["background", "tiles", "fxmaster"]) {
-            const layer = canvas[layerName];
+    static _updateMonoFilter(token = null) {
+        if (!token) {
+            for (let layerName of ["background", "tiles", "fxmaster"]) {
+                const layer = canvas[layerName];
 
-            if (!layer) continue;
+                if (!layer) continue;
 
-            let monoFilterIndex = layer.filters ? layer.filters.indexOf(this._monoFilter) : -1;
+                let monoFilterIndex = layer.filters ? layer.filters.indexOf(this._monoFilter) : -1;
 
-            if (monoFilterIndex >= 0)
-                layer.filters.splice(monoFilterIndex);
+                if (monoFilterIndex >= 0)
+                    layer.filters.splice(monoFilterIndex, 1);
 
-            if (layer.filters?.length > 0) {
-                layer.filters.push(this._monoFilter);
+                if (layer.filters?.length > 0) {
+                    layer.filters.push(this._monoFilter);
 
-                console.warn(`Perfect Vision | canvas.${layerName}.filters.length > 0`);
+                    console.warn(`Perfect Vision | canvas.${layerName}.filters.length > 0`);
 
-                if (layer.filterArea !== canvas.app.renderer.screen)
-                    console.warn(`Perfect Vision | canvas.${layerName}.filterArea !== canvas.app.renderer.screen`);
-            } else {
-                layer.filters = [this._monoFilter];
+                    if (layer.filterArea !== canvas.app.renderer.screen)
+                        console.warn(`Perfect Vision | canvas.${layerName}.filterArea !== canvas.app.renderer.screen`);
+                } else {
+                    layer.filters = [this._monoFilter];
+                }
+
+                layer.filterArea = canvas.app.renderer.screen;
             }
 
-            layer.filterArea = canvas.app.renderer.screen;
+            if (canvas.tokens.filters?.length > 0 && canvas.tokens.filterArea !== canvas.app.renderer.screen)
+                console.warn(`Perfect Vision | canvas.tokens.filterArea !== canvas.app.renderer.screen`);
+
+            canvas.tokens.filterArea = canvas.app.renderer.screen;
+        } else if (token.icon) {
+            const monoFilterIndex = token.icon.filters ? token.icon.filters.indexOf(this._monoFilter) : -1;
+
+            if (monoFilterIndex >= 0)
+                token.icon.filters.splice(monoFilterIndex, 1);
+
+            if (this._settings.monoTokenIcons) {
+                if (token.icon.filters?.length > 0) {
+                    token.icon.filters.push(this._monoFilter);
+
+                    console.warn(`Perfect Vision | canvas.tokens.get("${token.id}").icon.filters.length > 0`);
+
+                    if (token.icon.filterArea !== canvas.app.renderer.screen)
+                        console.warn(`Perfect Vision | canvas.tokens.get("${token.id}").icon.filterArea !== canvas.app.renderer.screen`);
+                } else {
+                    token.icon.filters = [this._monoFilter];
+                }
+
+                token.icon.filterArea = canvas.app.renderer.screen;
+            }
         }
-
-        if (canvas.tokens.filters?.length > 0 && canvas.tokens.filterArea !== canvas.app.renderer.screen)
-            console.warn(`Perfect Vision | canvas.tokens.filterArea !== canvas.app.renderer.screen`);
-
-        canvas.tokens.filterArea = canvas.app.renderer.screen;
     }
 }
 
@@ -1240,28 +1262,17 @@ PerfectVision._postHook(Token, "updateSource", function () {
         delete this.vision.initialize;
     }
 
-    const monoFilterIndex = this.icon.filters ? this.icon.filters.indexOf(PerfectVision._monoFilter) : -1;
-
-    if (PerfectVision._settings.monoTokenIcons) {
-        if (monoFilterIndex < 0) {
-            if (this.icon.filters?.length > 0) {
-                this.icon.filters.push(PerfectVision._monoFilter);
-
-                console.warn(`Perfect Vision | canvas.tokens.get("${this.id}").icon.filters.length > 0`);
-
-                if (this.icon.filterArea !== canvas.app.renderer.screen)
-                    console.warn(`Perfect Vision | canvas.tokens.get("${this.id}").icon.filterArea !== canvas.app.renderer.screen`);
-            } else {
-                this.icon.filters = [PerfectVision._monoFilter];
-            }
-
-            this.icon.filterArea = canvas.app.renderer.screen;
-        }
-    } else if (monoFilterIndex >= 0) {
-        this.icon.filters.splice(monoFilterIndex);
-    }
+    PerfectVision._updateMonoFilter(this);
 
     return arguments[0];
+});
+
+PerfectVision._postHook(Token, "draw", async function () {
+    const retVal = await arguments[0];
+
+    PerfectVision._updateMonoFilter(this);
+
+    return retVal;
 });
 
 Hooks.once("init", (...args) => PerfectVision._init(...args));
