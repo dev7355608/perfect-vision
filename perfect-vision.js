@@ -31,7 +31,7 @@ class PerfectVision {
                 this._settings.brightVisionInDimLight = "bright";
                 // this._settings.brightVisionInBrightLight = "bright";
                 break;
-            case "dnd3.5e":
+            case "dnd35e":
                 this._settings.dimVisionInDarkness = "darkness";
                 this._settings.dimVisionInDimLight = "dim";
                 // this._settings.dimVisionInBrightLight = "bright";
@@ -118,11 +118,11 @@ class PerfectVision {
             choices: {
                 "custom": "Custom",
                 "fvtt": "Foundry VTT",
-                "dnd3.5e": "Dungeons & Dragons 3.5e",
+                "dnd35e": "Dungeons & Dragons 3.5e",
                 "dnd5e": "Dungeons & Dragons 5e",
                 "pf2e": "Pathfinder 2e",
             },
-            default: game.system.id === "dnd5e" ? "dnd5e" : (game.system.id === "pf2e" ? "pf2e" : (game.system.id === "D35E" ? "dnd3.5e" : "fvtt")),
+            default: game.system.id === "dnd5e" ? "dnd5e" : (game.system.id === "pf2e" ? "pf2e" : (game.system.id === "D35E" ? "dnd35e" : "fvtt")),
             onChange: () => this._update()
         });
 
@@ -261,6 +261,10 @@ class PerfectVision {
     }
 
     static _canvasReady() {
+        game.settings.sheet.getData().data.modules.find(m => m.title === "Perfect Vision").settings.forEach(s => {
+            if (s.module === "perfect-vision" && s.isSelect && s.choices && !s.choices[game.settings.get("perfect-vision", s.key)])
+                game.settings.set("perfect-vision", s.key, s.default);
+        });
         this._refresh = true;
         this._updateMonoFilter();
         canvas.app.ticker.remove(this._onTick, this);
@@ -335,7 +339,7 @@ class PerfectVision {
 
             const config = this._renderConfigTemplate({
                 settings: game.settings.sheet.getData().data.modules.find(m => m.title === "Perfect Vision").settings.filter(
-                    s => [
+                    s => s.module === "perfect-vision" && [
                         "visionRules",
                         "dimVisionInDarkness",
                         "dimVisionInDimLight",
@@ -409,7 +413,7 @@ class PerfectVision {
                     html.find(`select[name="${prefix}.brightVisionInDimLight"]`).val("bright");
                     // html.find(`select[name="${prefix}.brightVisionInBrightLight"]`).val("bright");
                     break;
-                case "dnd3.5e":
+                case "dnd35e":
                     html.find(`select[name="${prefix}.dimVisionInDarkness"]`).val("darkness");
                     html.find(`select[name="${prefix}.dimVisionInDimLight"]`).val("dim");
                     // html.find(`select[name="${prefix}.dimVisionInBrightLight"]`).val("bright");
@@ -1200,7 +1204,7 @@ PerfectVision._preHook(Token, "updateSource", function () {
                 brightVisionInDimLight = "bright";
                 // brightVisionInBrightLight = "bright";
                 break;
-            case "dnd3.5e":
+            case "dnd35e":
                 dimVisionInDarkness = "darkness";
                 dimVisionInDimLight = "dim";
                 // dimVisionInBrightLight = "bright";
