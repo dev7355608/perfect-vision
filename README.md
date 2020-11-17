@@ -45,3 +45,7 @@ Set this color to anything other than white to make monochrome vision stand out 
 ### Monochrome Token Icons
 
 If enabled, token icons are affected by monochrome vision. Otherwise, they are not.
+
+### Monochrome Special Effects
+
+If enabled, FXMaster's special effects are affected by monochrome vision. Otherwise, they are not.

@@ -53,10 +53,14 @@ class PerfectVision {
 
         this._settings.monoVisionColor = game.settings.get("perfect-vision", "monoVisionColor");
         this._settings.monoTokenIcons = game.settings.get("perfect-vision", "monoTokenIcons");
+        this._settings.monoSpecialEffects = game.settings.get("perfect-vision", "monoSpecialEffects");
 
         this._refreshLighting = true;
         this._refreshSight = true;
         this._refresh = true;
+
+        if (!tokens || tokens.length > 0)
+            this._updateMonoFilter();
 
         tokens = tokens ?? canvas.tokens.placeables;
 
@@ -205,6 +209,16 @@ class PerfectVision {
         game.settings.register("perfect-vision", "monoTokenIcons", {
             name: "Monochrome Token Icons",
             hint: "If enabled, token icons are affected by monochrome vision. Otherwise, they are not.",
+            scope: "world",
+            config: true,
+            type: Boolean,
+            default: false,
+            onChange: () => this._update()
+        });
+
+        game.settings.register("perfect-vision", "monoSpecialEffects", {
+            name: "Monochrome Special Effects",
+            hint: "If enabled, FXMaster's special effects are affected by monochrome vision. Otherwise, they are not.",
             scope: "world",
             config: true,
             type: Boolean,
@@ -763,12 +777,23 @@ class PerfectVision {
                 if (monoFilterIndex >= 0)
                     layer.filters.splice(monoFilterIndex, 1);
 
-                if (layer.filters?.length > 0) {
-                    layer.filters.push(this._monoFilter);
+                if (layerName === "fxmaster") {
+                    monoFilterIndex = layer.weather?.filters ? layer.weather.filters.indexOf(this._monoFilter) : -1;
 
-                    console.warn(`Perfect Vision | canvas.${layerName}.filters.length > 0`);
+                    if (monoFilterIndex >= 0)
+                        layer.weather.filters.splice(monoFilterIndex, 1);
+                }
+
+                if (layer.filters?.length > 0) {
+                    if (layerName !== "fxmaster" || this._settings.monoSpecialEffects)
+                        layer.filters.push(this._monoFilter);
+                    else if (layer.weather)
+                        layer.weather.filters.push(this._monoFilter);
                 } else {
-                    layer.filters = [this._monoFilter];
+                    if (layerName !== "fxmaster" || this._settings.monoSpecialEffects)
+                        layer.filters = [this._monoFilter];
+                    else if (layer.weather)
+                        layer.weather.filters = [this._monoFilter];
                 }
             }
         } else if (token.icon) {
