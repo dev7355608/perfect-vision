@@ -297,33 +297,34 @@ class PerfectVision {
             const token = sheet.object;
             prefix = `flags.${prefix}`;
 
-            html.find(`input[name="vision"]`).parent().after(
-                this._renderConfigTemplate({
-                    settings: game.settings.sheet.getData().data.modules.find(m => m.title === "Perfect Vision").settings.filter(
-                        s => [
-                            "visionRules",
-                            "dimVisionInDarkness",
-                            "dimVisionInDimLight",
-                            // "dimVisionInBrightLight",
-                            "brightVisionInDarkness",
-                            "brightVisionInDimLight",
-                            // "brightVisionInBrightLight",
-                            "monoVisionColor"
-                        ].includes(s.key)).map(s => {
-                            if (s.key === "visionRules") {
-                                s.choices = mergeObject({ "default": "Default" }, s.choices);
-                                s.default = "default";
-                                s.value = token.getFlag(s.module, s.key) ?? "default";
-                            } else {
-                                s.value = token.getFlag(s.module, s.key);
-                            }
-                            return s;
-                        })
-                }, {
-                    allowProtoMethodsByDefault: true,
-                    allowProtoPropertiesByDefault: true
-                })
-            );
+            const config = this._renderConfigTemplate({
+                settings: game.settings.sheet.getData().data.modules.find(m => m.title === "Perfect Vision").settings.filter(
+                    s => [
+                        "visionRules",
+                        "dimVisionInDarkness",
+                        "dimVisionInDimLight",
+                        // "dimVisionInBrightLight",
+                        "brightVisionInDarkness",
+                        "brightVisionInDimLight",
+                        // "brightVisionInBrightLight",
+                        "monoVisionColor"
+                    ].includes(s.key)).map(s => {
+                        if (s.key === "visionRules") {
+                            s.choices = mergeObject({ "default": "Default" }, s.choices);
+                            s.default = "default";
+                            s.value = token.getFlag(s.module, s.key) ?? "default";
+                        } else {
+                            s.value = token.getFlag(s.module, s.key);
+                        }
+                        return s;
+                    })
+            }, {
+                allowProtoMethodsByDefault: true,
+                allowProtoPropertiesByDefault: true
+            });
+
+            html.find(`input[name="vision"]`).parent().after(config);
+            $(config).on("change", "input,select,textarea", sheet._onChangeInput.bind(sheet));
         } else {
             console.assert(sheet instanceof SettingsConfig);
         }
@@ -332,9 +333,9 @@ class PerfectVision {
         colorInput.setAttribute("type", "color");
         colorInput.setAttribute("value", html.find(`input[name="${prefix}.monoVisionColor"]`).val());
         colorInput.setAttribute("data-edit", `${prefix}.monoVisionColor`);
-        html.find(`input[name="${prefix}.monoVisionColor"]`).after(colorInput);
 
-        sheet.activateListeners(html);
+        html.find(`input[name="${prefix}.monoVisionColor"]`).after(colorInput)
+        $(colorInput).on("change", sheet._onChangeInput.bind(sheet));
 
         const update = () => {
             const visionRules = html.find(`select[name="${prefix}.visionRules"]`).val();
@@ -430,9 +431,9 @@ class PerfectVision {
                 </select>`);
         globalLightFields.append(globalLight);
 
-        sheet.activateListeners(html);
-
-        html.find(`select[name="flags.perfect-vision.globalLight"]`).val(sheet.object.getFlag("perfect-vision", "globalLight") ?? "default");
+        html.find(`select[name="flags.perfect-vision.globalLight"]`)
+            .val(sheet.object.getFlag("perfect-vision", "globalLight") ?? "default")
+            .on("change", sheet._onChangeInput.bind(sheet));
     }
 
     static _preHook(cls, methodName, hook) {
