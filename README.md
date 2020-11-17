@@ -16,7 +16,7 @@ If the *Darkness Level* of the scene is very high, it can be very difficult for 
 
 ### Vision Rules
 
-There are three presets to choose from: *Dungeons & Dragons 5e*, *Pathfinder 2e*, and *Foundry VTT*. You may also select *Custom* and set your own rules. It is also possible to set rules for each token individually. You can find these token-specific settings in the token configuration under the *Vision* tab.
+There are the following presets to choose from: *Dungeons & Dragons 5e*, *Dungeons & Dragons 3.5e*, *Pathfinder 2e*, and *Foundry VTT*. You may also select *Custom* and set your own rules. It is also possible to set rules for each token individually. You can find these token-specific settings in the token configuration under the *Vision* tab.
 
 #### Custom
 
@@ -29,6 +29,10 @@ Select an option with *monochrome* to create vision without color in darkness. I
 #### Foundry VTT
 
 Foundry's default dim and bright vision.
+
+#### Dungeons & Dragons 3.5e
+
+Bright vision is *darkvision*.
 
 #### Dungeons & Dragons 5e
 
