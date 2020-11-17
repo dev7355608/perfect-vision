@@ -931,7 +931,7 @@ PerfectVision._postHook(LightingLayer, "_drawIlluminationContainer", function (c
 
     {
         const d = canvas.dimensions;
-        const radius = 0.5 * Math.hypot(d.sceneWidth, d.sceneHeight) + (this._blurDistance ?? 0);
+        const radius = 0.5 * Math.hypot(d.width, d.height) + (this._blurDistance ?? 0);
         const opts = {
             x: 0.5 * d.width,
             y: 0.5 * d.height,
