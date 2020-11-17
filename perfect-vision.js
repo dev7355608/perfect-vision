@@ -637,7 +637,8 @@ class PerfectVision {
                 attribute vec2 aTextureCoord;
 
                 uniform mat3 projectionMatrix;
-                uniform vec4 inputPixel;
+                uniform vec4 inputSize;
+                uniform vec4 outputFrame;
                 uniform vec4 uMaskSize;
 
                 varying vec2 vTextureCoord;
@@ -645,9 +646,10 @@ class PerfectVision {
 
                 void main(void)
                 {
-                    gl_Position = vec4((projectionMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
-                    vTextureCoord = aTextureCoord;
-                    vMaskCoord = aTextureCoord * (inputPixel.xy * uMaskSize.zw);
+                    vec2 position = aVertexPosition * max(outputFrame.zw, vec2(0.0)) + outputFrame.xy;
+                    gl_Position = vec4((projectionMatrix * vec3(position, 1.0)).xy, 0.0, 1.0);
+                    vTextureCoord = aVertexPosition * (outputFrame.zw * inputSize.zw);
+                    vMaskCoord = position * uMaskSize.zw;
                 }`, `\
                 precision mediump float;
 
@@ -682,7 +684,8 @@ class PerfectVision {
                 attribute vec2 aTextureCoord;
 
                 uniform mat3 projectionMatrix;
-                uniform vec4 inputPixel;
+                uniform vec4 inputSize;
+                uniform vec4 outputFrame;
                 uniform vec4 uMaskSize;
 
                 varying vec2 vTextureCoord;
@@ -690,9 +693,10 @@ class PerfectVision {
 
                 void main(void)
                 {
-                    gl_Position = vec4((projectionMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
-                    vTextureCoord = aTextureCoord;
-                    vMaskCoord = aTextureCoord * (inputPixel.xy * uMaskSize.zw);
+                    vec2 position = aVertexPosition * max(outputFrame.zw, vec2(0.0)) + outputFrame.xy;
+                    gl_Position = vec4((projectionMatrix * vec3(position, 1.0)).xy, 0.0, 1.0);
+                    vTextureCoord = aVertexPosition * (outputFrame.zw * inputSize.zw);
+                    vMaskCoord = position * uMaskSize.zw;
                 }`, `\
                 precision mediump float;
 
@@ -762,20 +766,10 @@ class PerfectVision {
                     layer.filters.push(this._monoFilter);
 
                     console.warn(`Perfect Vision | canvas.${layerName}.filters.length > 0`);
-
-                    if (layer.filterArea !== canvas.app.renderer.screen)
-                        console.warn(`Perfect Vision | canvas.${layerName}.filterArea !== canvas.app.renderer.screen`);
                 } else {
                     layer.filters = [this._monoFilter];
                 }
-
-                layer.filterArea = canvas.app.renderer.screen;
             }
-
-            if (canvas.tokens.filters?.length > 0 && canvas.tokens.filterArea !== canvas.app.renderer.screen)
-                console.warn(`Perfect Vision | canvas.tokens.filterArea !== canvas.app.renderer.screen`);
-
-            canvas.tokens.filterArea = canvas.app.renderer.screen;
         } else if (token.icon) {
             const monoFilterIndex = token.icon.filters ? token.icon.filters.indexOf(this._monoFilter) : -1;
 
@@ -787,14 +781,9 @@ class PerfectVision {
                     token.icon.filters.push(this._monoFilter);
 
                     console.warn(`Perfect Vision | canvas.tokens.get("${token.id}").icon.filters.length > 0`);
-
-                    if (token.icon.filterArea !== canvas.app.renderer.screen)
-                        console.warn(`Perfect Vision | canvas.tokens.get("${token.id}").icon.filterArea !== canvas.app.renderer.screen`);
                 } else {
                     token.icon.filters = [this._monoFilter];
                 }
-
-                token.icon.filterArea = canvas.app.renderer.screen;
             }
         }
     }
