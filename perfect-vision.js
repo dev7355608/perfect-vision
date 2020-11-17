@@ -59,8 +59,15 @@ class PerfectVision {
         this._refreshSight = true;
         this._refresh = true;
 
-        if (!tokens || tokens.length > 0)
+        if (!tokens) {
             this._updateMonoFilter();
+
+            for (let tile of canvas.tiles.placeables)
+                this._updateMonoFilter(tile);
+
+            for (let template of canvas.templates.placeables)
+                this._updateMonoFilter(template);
+        }
 
         tokens = tokens ?? canvas.tokens.placeables;
 
@@ -218,7 +225,7 @@ class PerfectVision {
 
         game.settings.register("perfect-vision", "monoSpecialEffects", {
             name: "Monochrome Special Effects",
-            hint: "If enabled, FXMaster's special effects are affected by monochrome vision. Otherwise, they are not.",
+            hint: "If enabled, FXMaster's and Token Magic FX's special effects are affected by monochrome vision. Otherwise, they are not.",
             scope: "world",
             config: true,
             type: Boolean,
@@ -235,6 +242,12 @@ class PerfectVision {
             };
             Hooks.on("canvasReady", updateMonoFilterHook);
             Hooks.on("updateScene", updateMonoFilterHook);
+        }
+
+        if (PlaceableObject.prototype._TMFXsetRawFilters) {
+            this._postHook(PlaceableObject, "_TMFXsetRawFilters", function (filters) {
+                PerfectVision._updateMonoFilter(this);
+            });
         }
     }
 
@@ -765,9 +778,9 @@ class PerfectVision {
 
     static _monoFilter = new this._MonoFilter();
 
-    static _updateMonoFilter(token = null) {
-        if (!token) {
-            for (let layerName of ["background", "tiles", "fxmaster"]) {
+    static _updateMonoFilter(placeable = null) {
+        if (!placeable) {
+            for (let layerName of ["background", "fxmaster"]) {
                 const layer = canvas[layerName];
 
                 if (!layer) continue;
@@ -796,19 +809,32 @@ class PerfectVision {
                         layer.weather.filters = [this._monoFilter];
                 }
             }
-        } else if (token.icon) {
-            const monoFilterIndex = token.icon.filters ? token.icon.filters.indexOf(this._monoFilter) : -1;
+        } else {
+            let sprite;
 
-            if (monoFilterIndex >= 0)
-                token.icon.filters.splice(monoFilterIndex, 1);
+            if (placeable instanceof Token) {
+                sprite = placeable.icon;
+            } else if (placeable instanceof Tile) {
+                sprite = placeable.tile.img;
+            } else if (placeable instanceof MeasuredTemplate) {
+                sprite = placeable.template;
+            }
 
-            if (this._settings.monoTokenIcons) {
-                if (token.icon.filters?.length > 0) {
-                    token.icon.filters.push(this._monoFilter);
+            if (sprite) {
+                const monoFilterIndex = sprite.filters ? sprite.filters.indexOf(this._monoFilter) : -1;
 
-                    console.warn(`Perfect Vision | canvas.tokens.get("${token.id}").icon.filters.length > 0`);
-                } else {
-                    token.icon.filters = [this._monoFilter];
+                if (monoFilterIndex >= 0)
+                    sprite.filters.splice(monoFilterIndex, 1);
+
+                if (!(placeable instanceof Token) || this._settings.monoTokenIcons) {
+                    if (sprite.filters?.length > 0) {
+                        if (this._settings.monoSpecialEffects)
+                            sprite.filters.push(this._monoFilter);
+                        else
+                            sprite.filters.unshift(this._monoFilter);
+                    } else {
+                        sprite.filters = [this._monoFilter];
+                    }
                 }
             }
         }
@@ -1283,6 +1309,22 @@ PerfectVision._postHook(Token, "updateSource", function () {
 });
 
 PerfectVision._postHook(Token, "draw", async function () {
+    const retVal = await arguments[0];
+
+    PerfectVision._updateMonoFilter(this);
+
+    return retVal;
+});
+
+PerfectVision._postHook(Tile, "draw", async function () {
+    const retVal = await arguments[0];
+
+    PerfectVision._updateMonoFilter(this);
+
+    return retVal;
+});
+
+PerfectVision._postHook(MeasuredTemplate, "draw", async function () {
     const retVal = await arguments[0];
 
     PerfectVision._updateMonoFilter(this);

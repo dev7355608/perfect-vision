@@ -48,4 +48,4 @@ If enabled, token icons are affected by monochrome vision. Otherwise, they are n
 
 ### Monochrome Special Effects
 
-If enabled, FXMaster's special effects are affected by monochrome vision. Otherwise, they are not.
+If enabled, FXMaster's and Token Magic FX's special effects are affected by monochrome vision. Otherwise, they are not.
