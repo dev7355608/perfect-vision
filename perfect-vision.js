@@ -84,6 +84,12 @@ class PerfectVision {
     }
 
     static _init() {
+        this._registerHooks();
+        this._registerSettings();
+        this._update([]);
+    }
+
+    static _registerSettings() {
         game.settings.register("perfect-vision", "globalLight", {
             name: "Global Illumination Light",
             hint: "This setting affects only scenes with Global Illumination. If set to Dim (Bright) Light, the entire scene is illuminated with dim (bright) light and, if set to None, the scene is illuminated according to the scene's Darkness Level only. Each scene can also be configured individually. You can find this setting next to Global Illumination in the scene configuration.",
@@ -241,23 +247,6 @@ class PerfectVision {
             default: false,
             onChange: () => this._update()
         });
-
-        this._update([]);
-
-        if (game.modules.get("fxmaster")?.active) {
-            const updateMonoFilterHook = () => {
-                if (game.settings.get("fxmaster", "enable"))
-                    this._updateMonoFilter();
-            };
-            Hooks.on("canvasReady", updateMonoFilterHook);
-            Hooks.on("updateScene", updateMonoFilterHook);
-        }
-
-        if (PlaceableObject.prototype._TMFXsetRawFilters) {
-            this._postHook(PlaceableObject, "_TMFXsetRawFilters", function (filters) {
-                PerfectVision._updateMonoFilter(this);
-            });
-        }
     }
 
     static _canvasReady() {
@@ -484,23 +473,75 @@ class PerfectVision {
             .on("change", sheet._onChangeInput.bind(sheet));
     }
 
-    static _preHook(cls, methodName, hook) {
-        console.log("Perfect Vision | Hooking (pre) %s.%s", cls.name, methodName);
-        const method = cls.prototype[methodName];
-        cls.prototype[methodName] = function () {
-            return method.apply(this, hook.apply(this, arguments));
-        };
-        return method;
+    static _hooks = {};
+
+    static _hook(cls, methodName, type, func) {
+        const target = `${cls.name}.prototype.${methodName}`;
+
+        console.log("Perfect Vision | Hooking (%s) %s", type, target);
+
+        this._hooks[target] = this._hooks[target] ?? [];
+        this._hooks[target].push({ type, func });
+
+        if (game.modules.get('lib-wrapper')?.active) {
+            libWrapper.unregister("perfect-vision", target, false);
+            libWrapper.register("perfect-vision", target, this._buildLibWrapperHook(target), "WRAPPER");
+        } else {
+            if (type === "pre") {
+                const method = cls.prototype[methodName];
+                cls.prototype[methodName] = function () {
+                    return method.apply(this, func.apply(this, arguments));
+                };
+            } else if (type === "post") {
+                const method = cls.prototype[methodName];
+                cls.prototype[methodName] = function () {
+                    return func.call(this, method.apply(this, arguments), ...arguments);
+                };
+            }
+        }
     }
 
-    static _postHook(cls, methodName, hook) {
-        console.log("Perfect Vision | Hooking (post) %s.%s", cls.name, methodName);
-        const method = cls.prototype[methodName];
-        cls.prototype[methodName] = function () {
-            const retVal = method.apply(this, arguments);
-            return hook.call(this, retVal, ...arguments);
-        };
-        return method;
+    static _buildLibWrapperHook(target) {
+        let curr;
+
+        for (let hook of this._hooks[target] ?? []) {
+            if (!curr) {
+                const func = hook.func;
+
+                if (hook.type === "pre") {
+                    curr = function (wrapped, ...args) {
+                        return wrapped(...func.apply(this, args));
+                    };
+                } else if (hook.type === "post") {
+                    curr = function (wrapped, ...args) {
+                        return func.call(this, wrapped(...args), ...args);
+                    };
+                }
+            } else {
+                const prev = curr;
+                const func = hook.func;
+
+                if (hook.type === "pre") {
+                    curr = function (wrapped, ...args) {
+                        return prev.call(this, wrapped, ...func.apply(this, args));
+                    };
+                } else if (hook.type === "post") {
+                    curr = function (wrapped, ...args) {
+                        return func.call(this, prev.call(this, wrapped, ...args), ...args);
+                    };
+                }
+            }
+        }
+
+        return curr;
+    }
+
+    static _preHook(cls, methodName, func) {
+        return this._hook(cls, methodName, "pre", func);
+    }
+
+    static _postHook(cls, methodName, func) {
+        return this._hook(cls, methodName, "post", func);
     }
 
     static _visualizeTexture(texture, name = "") {
@@ -860,539 +901,561 @@ class PerfectVision {
             }
         }
     }
+
+    static _registerHooks() {
+        this._postHook(PointSource, "_createContainer", function (_c, shaderCls) {
+            if (shaderCls === StandardIlluminationShader || shaderCls.prototype instanceof StandardIlluminationShader) {
+                let c = new PIXI.Container();
+                c.light = c.addChild(_c.light);
+                c.fov = c.addChild(_c.fov);
+                c.mask = c.addChild(_c.mask);
+                c.filters = _c.filters;
+                c.filterArea = _c.filterArea;
+
+                const c_ = new PIXI.Container();
+                c_.light = c_.addChild(new PIXI.Mesh(PointSource.GEOMETRY, shaderCls.create(), c.light.state));
+                c_.light.transform = c.light.transform;
+                c_.light.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
+                c_.fov = c_.addChild(new PIXI.Graphics());
+                c_.mask = c_.fov;
+                c_.filters = c.filters;
+                c_.filterArea = c.filterArea;
+
+                const this_ = PerfectVision._extend(this, {});
+                this_.ratio = 1;
+
+                const linkUniforms = (shader, shader2, map) => {
+                    const uniforms = new Proxy(shader.uniforms, {
+                        set(target, prop, value) {
+                            shader2.uniforms[prop] = prop === "ratio" ? (this_.ratio ?? value) : value;
+                            return Reflect.set(...arguments);
+                        }
+                    });
+
+                    return new Proxy(shader, {
+                        get(target, prop, receiver) {
+                            if (prop === "uniforms")
+                                return uniforms;
+                            return Reflect.get(...arguments);
+                        }
+                    });
+                };
+
+                c.light.shader = linkUniforms(c.light.shader, c_.light.shader);
+
+                Object.defineProperty(c, "shader", {
+                    get: () => c.light.shader,
+                    set: shader => {
+                        if (shader instanceof AbstractBaseShader)
+                            c_.light.shader = new shader.constructor(shader.program, duplicate(shader.uniforms));
+                        else
+                            c_.light.shader = new PIXI.Shader(shader.program, duplicate(shader.uniforms));
+
+                        c.light.shader = linkUniforms(shader, c_.light.shader);
+                        c_.light.shader.uniforms.ratio = this_.ratio ?? 1;
+                    }
+                });
+
+                Object.defineProperty(c, "uniforms", { get: () => c.light.shader.uniforms });
+
+                c = new Proxy(c, {
+                    set(target, prop, value) {
+                        if (prop === "filters" || prop === "filterArea")
+                            c_[prop] = value;
+                        return Reflect.set(...arguments);
+                    }
+                });
+
+                PerfectVision._extend(c, c_);
+                return c;
+            }
+
+            return _c;
+        });
+
+        this._postHook(PointSource, "drawLight", function (c) {
+            const this_ = PerfectVision._extend(this, {});
+            const c_ = PerfectVision._extend(c);
+
+            c_.fov.clear();
+            if (this.radius > 0)
+                c_.fov.beginFill(0xFFFFFF, 1.0).drawPolygon(this_.fov ?? this.fov).endFill();
+
+            PerfectVision._refresh = true;
+            return c;
+        });
+
+        this._postHook(LightingLayer, "draw", async function () {
+            const retVal = await arguments[0];
+
+            const ilm = this.illumination;
+            const ilm_ = PerfectVision._extend(ilm);
+
+            const bgRect = canvas.dimensions.sceneRect.clone().pad((this._blurDistance ?? 0) * 2);
+            ilm_.background.clear().beginFill(0xFFFFFF, 1.0).drawShape(bgRect).endFill();
+
+            return retVal;
+        });
+
+        this._postHook(LightingLayer, "_drawIlluminationContainer", function (c) {
+            const c_ = PerfectVision._extend(c, {});
+
+            {
+                c_.background = c.addChildAt(new PIXI.Graphics(), c.getChildIndex(c.background) + 1);
+                c_.background.filter = new PerfectVision._MaskFilter("1.0 - r");
+                c_.background.filterArea = canvas.app.renderer.screen;
+                c_.background.filters = [c_.background.filter];
+            }
+
+            {
+                c_.visionInDarkness = c.addChild(new PIXI.Container());
+                c_.visionInDarkness.sortableChildren = true;
+                c_.visionInDarkness.filter = new PerfectVision._MaskFilter("step(0.0, g - r)");
+                c_.visionInDarkness.filter.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
+                c_.visionInDarkness.filterArea = canvas.app.renderer.screen;
+                c_.visionInDarkness.filters = [c_.visionInDarkness.filter];
+            }
+
+            {
+                c_.lightsDimToBright = c.addChild(new PIXI.Container());
+                c_.lightsDimToBright.sortableChildren = true;
+                c_.lightsDimToBright.filter = new PerfectVision._MaskFilter("b");
+                c_.lightsDimToBright.filter.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
+                c_.lightsDimToBright.filterArea = canvas.app.renderer.screen;
+                c_.lightsDimToBright.filters = [c_.lightsDimToBright.filter];
+            }
+
+            {
+                c_.mask = new PIXI.Container();
+                c_.mask.layers = [
+                    c_.mask.addChild(new PIXI.Graphics()),
+                    c_.mask.addChild(new PIXI.Graphics()),
+                    c_.mask.addChild(new PIXI.Graphics())
+                ];
+                c_.mask.layers[1].blendMode = PIXI.BLEND_MODES.ADD;
+                c_.mask.layers[2].blendMode = PIXI.BLEND_MODES.SUBTRACT;
+                c_.maskBlurred = new PIXI.Sprite();
+                c_.maskBlurred.filter = this._blurDistance ?
+                    new PIXI.filters.BlurFilter(this._blurDistance) :
+                    new PIXI.filters.AlphaFilter(1.0);
+                c_.maskBlurred.filters = [c_.maskBlurred.filter];
+                c_.maskBlurred.filterArea = canvas.app.renderer.screen;
+            }
+
+            {
+                const d = canvas.dimensions;
+                const radius = 0.5 * Math.hypot(d.width, d.height) + (this._blurDistance ?? 0);
+                const opts = {
+                    x: 0.5 * d.width,
+                    y: 0.5 * d.height,
+                    z: -1,
+                    dim: radius,
+                    bright: 0,
+                    type: SOURCE_TYPES.UNIVERSAL
+                };
+
+                c_.globalLight1 = new PointSource();
+                c_.globalLight1.initialize(opts);
+                c_.globalLight1.type = SOURCE_TYPES.LOCAL;
+                Object.defineProperty(c_.globalLight1, "dim", {
+                    get: () => {
+                        let globalLight = canvas.scene.getFlag("perfect-vision", "globalLight") ?? "default";
+
+                        if (globalLight === "default")
+                            globalLight = PerfectVision._settings.globalLight;
+
+                        switch (globalLight) {
+                            case "dim":
+                                return r;
+                            case "bright":
+                                return 0;
+                            default:
+                                return 0;
+                        }
+                    }
+                });
+                Object.defineProperty(c_.globalLight1, "bright", {
+                    get: () => {
+                        let globalLight = canvas.scene.getFlag("perfect-vision", "globalLight") ?? "default";
+
+                        if (globalLight === "default")
+                            globalLight = PerfectVision._settings.globalLight;
+
+                        switch (globalLight) {
+                            case "dim":
+                                return 0;
+                            case "bright":
+                                return r;
+                            default:
+                                return 0;
+                        }
+                    }
+                });
+                Object.defineProperty(c_.globalLight1, "ratio", {
+                    get: () => {
+                        let globalLight = canvas.scene.getFlag("perfect-vision", "globalLight") ?? "default";
+
+                        if (globalLight === "default")
+                            globalLight = PerfectVision._settings.globalLight;
+
+                        switch (globalLight) {
+                            case "dim":
+                                return 0;
+                            case "bright":
+                                return 1;
+                            default:
+                                return 0;
+                        }
+                    }
+                });
+                Object.defineProperty(c_.globalLight1, "darknessThreshold", {
+                    get: () => {
+                        if (!this.globalLight)
+                            return +Infinity;
+
+                        let globalLight = canvas.scene.getFlag("perfect-vision", "globalLight") ?? "default";
+
+                        if (globalLight === "default")
+                            globalLight = PerfectVision._settings.globalLight;
+
+                        switch (globalLight) {
+                            case "dim":
+                                return -Infinity;
+                            case "bright":
+                                return -Infinity;
+                            default:
+                                return +Infinity;
+                        }
+                    }
+                });
+
+                c_.globalLight2 = new PointSource();
+                c_.globalLight2.initialize(opts);
+                c_.globalLight2.type = SOURCE_TYPES.LOCAL;
+                c_.globalLight2.dim = 0;
+                c_.globalLight2.bright = 0;
+                c_.globalLight2.ratio = 0;
+                Object.defineProperty(c_.globalLight2, "darknessThreshold", { get: () => this.globalLight ? -Infinity : +Infinity });
+                c_.globalLight2.illumination.renderable = false;
+            }
+
+            return c;
+        });
+
+        this._preHook(LightingLayer, "refresh", function () {
+            const ilm = this.illumination;
+            const ilm_ = PerfectVision._extend(ilm);
+            this.sources.set("PerfectVision.Light.1", ilm_.globalLight1);
+            this.sources.set("PerfectVision.Light.2", ilm_.globalLight2);
+            ilm_.globalLight1._resetIlluminationUniforms = true;
+            ilm_.globalLight2._resetIlluminationUniforms = true;
+            return arguments;
+        });
+
+        this._postHook(LightingLayer, "refresh", function () {
+            const ilm = this.illumination;
+            const ilm_ = PerfectVision._extend(ilm);
+
+            if (game.user.isGM && PerfectVision._settings.improvedGMVision) {
+                if (canvas.sight.sources.size === 0) {
+                    const s = 1 / Math.max(...this.channels.background.rgb);
+                    ilm_.background.tint = rgbToHex(this.channels.background.rgb.map(c => c * s));
+                    ilm_.background.visible = true;
+                } else {
+                    ilm_.background.visible = false;
+                }
+            } else {
+                ilm_.background.visible = false;
+            }
+
+            ilm_.lightsDimToBright.removeChildren();
+
+            for (let source of this.sources) {
+                if (!source.active) continue;
+
+                if (!source.darkness && source !== ilm_.globalLight2) {
+                    const sc = source.illumination;
+                    const sc_ = PerfectVision._extend(sc);
+                    sc_.zIndex = sc.zIndex;
+                    ilm_.lightsDimToBright.addChild(sc_);
+                }
+            }
+
+            ilm_.visionInDarkness.removeChildren();
+
+            for (let source of canvas.sight.sources) {
+                if (!source.active) continue;
+
+                const sc = source.illumination;
+                const sc_ = PerfectVision._extend(sc);
+                sc_.zIndex = sc.zIndex;
+                ilm_.visionInDarkness.addChild(sc_);
+            }
+
+            PerfectVision._refresh = true;
+            return arguments[0];
+        });
+
+        this._preHook(LightingLayer, "tearDown", function () {
+            const ilm = this.illumination;
+            const ilm_ = PerfectVision._extend(ilm);
+
+            if (ilm_.mask.texture) {
+                ilm_.mask.texture.destroy(true);
+                ilm_.mask.textureBlurred.destroy(true);
+
+                PerfectVision._monoFilter.uniforms.uMask = null;
+            }
+
+            return arguments;
+        });
+
+        this._preHook(Token, "updateSource", function () {
+            const token = this;
+            const initialize = function (opts) {
+                let dimVisionInDarkness;
+                let dimVisionInDimLight;
+                // let dimVisionInBrightLight;
+                let brightVisionInDarkness;
+                let brightVisionInDimLight;
+                // let brightVisionInBrightLight;
+
+                switch (token.getFlag("perfect-vision", "visionRules") || "default") {
+                    case "default":
+                        dimVisionInDarkness = PerfectVision._settings.dimVisionInDarkness;
+                        dimVisionInDimLight = PerfectVision._settings.dimVisionInDimLight;
+                        // dimVisionInBrightLight = PerfectVision._settings.dimVisionInBrightLight;
+                        brightVisionInDarkness = PerfectVision._settings.brightVisionInDarkness;
+                        brightVisionInDimLight = PerfectVision._settings.brightVisionInDimLight;
+                        // brightVisionInBrightLight = PerfectVision._settings.brightVisionInBrightLight;
+                        break;
+                    case "custom":
+                        dimVisionInDarkness = token.getFlag("perfect-vision", "dimVisionInDarkness") || PerfectVision._settings.dimVisionInDarkness;
+                        dimVisionInDimLight = token.getFlag("perfect-vision", "dimVisionInDimLight") || PerfectVision._settings.dimVisionInDimLight;
+                        // dimVisionInBrightLight = token.getFlag("perfect-vision", "dimVisionInBrightLight") || PerfectVision._settings.dimVisionInBrightLight;
+                        brightVisionInDarkness = token.getFlag("perfect-vision", "brightVisionInDarkness") || PerfectVision._settings.brightVisionInDarkness;
+                        brightVisionInDimLight = token.getFlag("perfect-vision", "brightVisionInDimLight") || PerfectVision._settings.brightVisionInDimLight;
+                        // brightVisionInBrightLight = token.getFlag("perfect-vision", "brightVisionInBrightLight") || PerfectVision._settings.brightVisionInBrightLight;
+                        break;
+                    case "fvtt":
+                        dimVisionInDarkness = "dim";
+                        dimVisionInDimLight = "dim";
+                        // dimVisionInBrightLight = "bright";
+                        brightVisionInDarkness = "bright";
+                        brightVisionInDimLight = "bright";
+                        // brightVisionInBrightLight = "bright";
+                        break;
+                    case "dnd35e":
+                        dimVisionInDarkness = "darkness";
+                        dimVisionInDimLight = "dim";
+                        // dimVisionInBrightLight = "bright";
+                        brightVisionInDarkness = "bright_mono";
+                        brightVisionInDimLight = "dim";
+                        // brightVisionInBrightLight = "bright";
+                        break;
+                    case "dnd5e":
+                        dimVisionInDarkness = "dim_mono";
+                        dimVisionInDimLight = "bright";
+                        // dimVisionInBrightLight = "bright";
+                        brightVisionInDarkness = "bright";
+                        brightVisionInDimLight = "bright";
+                        // brightVisionInBrightLight = "bright";
+                        break;
+                    case "pf2e":
+                        dimVisionInDarkness = "darkness";
+                        dimVisionInDimLight = "bright";
+                        // dimVisionInBrightLight = "bright";
+                        brightVisionInDarkness = "bright_mono";
+                        brightVisionInDimLight = "bright";
+                        // brightVisionInBrightLight = "bright";
+                        break;
+                };
+
+                const this_ = PerfectVision._extend(this, {});
+
+                this_.monoVisionColor = hexToRGB(colorStringToHex(
+                    token.getFlag("perfect-vision", "monoVisionColor") || PerfectVision._settings.monoVisionColor
+                ));
+
+                let dim = token.getLightRadius(token.data.dimSight);
+                let bright = token.getLightRadius(token.data.brightSight);
+
+                opts.dim = Math.max(
+                    dimVisionInDarkness === "dim" || dimVisionInDarkness === "dim_mono" ? dim : 0,
+                    brightVisionInDarkness === "dim" || brightVisionInDarkness === "dim_mono" ? bright : 0
+                );
+                opts.bright = Math.max(
+                    dimVisionInDarkness === "bright" || dimVisionInDarkness === "bright_mono" ? dim : 0,
+                    brightVisionInDarkness === "bright" || brightVisionInDarkness === "bright_mono" ? bright : 0
+                );
+
+                const c = this.illumination;
+                const c_ = PerfectVision._extend(c);
+                c.renderable = false;
+                c_.visible = Math.max(opts.dim, opts.bright) > 0;
+
+                const visionRadius = Math.max(
+                    dimVisionInDarkness === "scene" || dimVisionInDarkness === "scene_mono" ? dim : 0,
+                    dimVisionInDarkness === "dim" || dimVisionInDarkness === "dim_mono" ? dim : 0,
+                    dimVisionInDarkness === "bright" || dimVisionInDarkness === "bright_mono" ? dim : 0,
+                    brightVisionInDarkness === "scene" || brightVisionInDarkness === "scene_mono" ? bright : 0,
+                    brightVisionInDarkness === "dim" || brightVisionInDarkness === "dim_mono" ? bright : 0,
+                    brightVisionInDarkness === "bright" || brightVisionInDarkness === "bright_mono" ? bright : 0
+                );
+                const visionRadiusColor = Math.max(
+                    dimVisionInDarkness === "scene" ? dim : 0,
+                    dimVisionInDarkness === "dim" ? dim : 0,
+                    dimVisionInDarkness === "bright" ? dim : 0,
+                    brightVisionInDarkness === "scene" ? bright : 0,
+                    brightVisionInDarkness === "dim" ? bright : 0,
+                    brightVisionInDarkness === "bright" ? bright : 0
+                );
+
+                const minR = token.w * 0.5 + 0.1 * canvas.dimensions.size;
+                opts.dim = opts.dim === 0 && opts.bright === 0 ? minR : opts.dim;
+
+                (PerfectVision._temp_Token_vision_initialize ?? Object.getPrototypeOf(this).initialize).call(this, opts);
+
+                this_.ratio = undefined;
+                this_.fov = this.fov;
+
+                {
+                    const d = canvas.dimensions;
+                    const radius = Math.max(
+                        Math.hypot(this.x, this.y),
+                        Math.hypot(this.x - d.width, this.y),
+                        Math.hypot(this.x - d.width, this.y - d.height),
+                        Math.hypot(this.x, this.y - d.height)
+                    );
+                    const { los } = SightLayer.computeSight({ x: this.x, y: this.y }, radius, {
+                        angle: this.angle,
+                        rotation: this.rotation,
+                        unrestricted: this.type === SOURCE_TYPES.UNIVERSAL
+                    });
+                    this.los = los;
+                }
+
+                const fovCache = { [this.radius]: this.fov };
+                const computeFov = (radius) => {
+                    if (radius <= 0)
+                        return null;
+
+                    if (fovCache[radius])
+                        return fovCache[radius];
+
+                    const { fov } = SightLayer.computeSight({ x: this.x, y: this.y }, radius, {
+                        angle: this.angle,
+                        rotation: this.rotation,
+                        unrestricted: this.type === SOURCE_TYPES.UNIVERSAL
+                    });
+                    return fov;
+                };
+
+                if (visionRadius > 0)
+                    this_.fovMono = (this.fov = computeFov(visionRadius));
+                else
+                    this_.fovMono = null;
+
+                if (visionRadiusColor > 0)
+                    this_.fovColor = computeFov(visionRadiusColor);
+                else
+                    this_.fovColor = null;
+
+                {
+                    const radius = Math.max(
+                        dimVisionInDimLight === "bright" ? dim : 0,
+                        brightVisionInDimLight === "bright" ? bright : 0
+                    );
+
+                    if (radius > 0)
+                        this_.fovDimToBright = computeFov(radius);
+                    else
+                        this_.fovDimToBright = null;
+                }
+
+            };
+
+            PerfectVision._temp_Token_vision_initialize = this.vision.hasOwnProperty("initialize") ? this.vision.initialize : undefined;
+            this.vision.initialize = initialize;
+
+            return arguments;
+        });
+
+        this._postHook(Token, "updateSource", function () {
+            if (PerfectVision._temp_Token_vision_initialize) {
+                this.vision.initialize = PerfectVision._temp_Token_vision_initialize;
+                delete PerfectVision._temp_Token_vision_initialize;
+            } else {
+                delete this.vision.initialize;
+            }
+
+            PerfectVision._updateMonoFilter(this);
+
+            return arguments[0];
+        });
+
+        this._postHook(Token, "draw", async function () {
+            const retVal = await arguments[0];
+
+            PerfectVision._updateMonoFilter(this);
+
+            return retVal;
+        });
+
+        this._postHook(Tile, "draw", async function () {
+            const retVal = await arguments[0];
+
+            PerfectVision._updateMonoFilter(this);
+
+            return retVal;
+        });
+
+        this._postHook(MeasuredTemplate, "draw", async function () {
+            const retVal = await arguments[0];
+
+            PerfectVision._updateMonoFilter(this);
+
+            return retVal;
+        });
+
+        if (PlaceableObject.prototype._TMFXsetRawFilters) {
+            this._postHook(PlaceableObject, "_TMFXsetRawFilters", function (filters) {
+                PerfectVision._updateMonoFilter(this);
+            });
+        }
+
+        Hooks.on("canvasReady", (...args) => PerfectVision._canvasReady(...args));
+
+        Hooks.on("canvasPan", (...args) => PerfectVision._canvasPan(...args));
+
+        Hooks.on("lightingRefresh", (...args) => PerfectVision._lightingRefresh(...args));
+
+        Hooks.on("sightRefresh", (...args) => PerfectVision._sightRefresh(...args));
+
+        Hooks.on("updateToken", (...args) => PerfectVision._updateToken(...args));
+
+        Hooks.on("updateScene", (...args) => PerfectVision._updateScene(...args));
+
+        Hooks.on("renderSettingsConfig", (...args) => PerfectVision._renderSettingsConfig(...args));
+
+        Hooks.on("renderTokenConfig", (...args) => PerfectVision._renderTokenConfig(...args));
+
+        Hooks.on("renderSceneConfig", (...args) => PerfectVision._renderSceneConfig(...args));
+
+        Hooks.once("ready", () => {
+            if (!game.modules.get('lib-wrapper')?.active && game.user.isGM)
+                ui.notifications.warn("The 'Perfect Vision' module recommends to install and activate the 'libWrapper' module.");
+        });
+
+        if (game.modules.get("fxmaster")?.active) {
+            const updateMonoFilterHook = () => {
+                if (game.settings.get("fxmaster", "enable"))
+                    this._updateMonoFilter();
+            };
+            Hooks.on("canvasReady", updateMonoFilterHook);
+            Hooks.on("updateScene", updateMonoFilterHook);
+        }
+    }
 }
 
-PerfectVision._postHook(PointSource, "_createContainer", function (_c, shaderCls) {
-    if (shaderCls === StandardIlluminationShader || shaderCls.prototype instanceof StandardIlluminationShader) {
-        let c = new PIXI.Container();
-        c.light = c.addChild(_c.light);
-        c.fov = c.addChild(_c.fov);
-        c.mask = c.addChild(_c.mask);
-        c.filters = _c.filters;
-        c.filterArea = _c.filterArea;
-
-        const c_ = new PIXI.Container();
-        c_.light = c_.addChild(new PIXI.Mesh(PointSource.GEOMETRY, shaderCls.create(), c.light.state));
-        c_.light.transform = c.light.transform;
-        c_.light.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
-        c_.fov = c_.addChild(new PIXI.Graphics());
-        c_.mask = c_.fov;
-        c_.filters = c.filters;
-        c_.filterArea = c.filterArea;
-
-        const this_ = PerfectVision._extend(this, {});
-        this_.ratio = 1;
-
-        const linkUniforms = (shader, shader2, map) => {
-            const uniforms = new Proxy(shader.uniforms, {
-                set(target, prop, value) {
-                    shader2.uniforms[prop] = prop === "ratio" ? (this_.ratio ?? value) : value;
-                    return Reflect.set(...arguments);
-                }
-            });
-
-            return new Proxy(shader, {
-                get(target, prop, receiver) {
-                    if (prop === "uniforms")
-                        return uniforms;
-                    return Reflect.get(...arguments);
-                }
-            });
-        };
-
-        c.light.shader = linkUniforms(c.light.shader, c_.light.shader);
-
-        Object.defineProperty(c, "shader", {
-            get: () => c.light.shader,
-            set: shader => {
-                if (shader instanceof AbstractBaseShader)
-                    c_.light.shader = new shader.constructor(shader.program, duplicate(shader.uniforms));
-                else
-                    c_.light.shader = new PIXI.Shader(shader.program, duplicate(shader.uniforms));
-
-                c.light.shader = linkUniforms(shader, c_.light.shader);
-                c_.light.shader.uniforms.ratio = this_.ratio ?? 1;
-            }
-        });
-
-        Object.defineProperty(c, "uniforms", { get: () => c.light.shader.uniforms });
-
-        c = new Proxy(c, {
-            set(target, prop, value) {
-                if (prop === "filters" || prop === "filterArea")
-                    c_[prop] = value;
-                return Reflect.set(...arguments);
-            }
-        });
-
-        PerfectVision._extend(c, c_);
-        return c;
-    }
-
-    return _c;
-});
-
-PerfectVision._postHook(PointSource, "drawLight", function (c) {
-    const this_ = PerfectVision._extend(this, {});
-    const c_ = PerfectVision._extend(c);
-
-    c_.fov.clear();
-    if (this.radius > 0)
-        c_.fov.beginFill(0xFFFFFF, 1.0).drawPolygon(this_.fov ?? this.fov).endFill();
-
-    PerfectVision._refresh = true;
-    return c;
-});
-
-PerfectVision._postHook(LightingLayer, "draw", async function () {
-    const retVal = await arguments[0];
-
-    const ilm = this.illumination;
-    const ilm_ = PerfectVision._extend(ilm);
-
-    const bgRect = canvas.dimensions.sceneRect.clone().pad((this._blurDistance ?? 0) * 2);
-    ilm_.background.clear().beginFill(0xFFFFFF, 1.0).drawShape(bgRect).endFill();
-
-    return retVal;
-});
-
-PerfectVision._postHook(LightingLayer, "_drawIlluminationContainer", function (c) {
-    const c_ = PerfectVision._extend(c, {});
-
-    {
-        c_.background = c.addChildAt(new PIXI.Graphics(), c.getChildIndex(c.background) + 1);
-        c_.background.filter = new PerfectVision._MaskFilter("1.0 - r");
-        c_.background.filterArea = canvas.app.renderer.screen;
-        c_.background.filters = [c_.background.filter];
-    }
-
-    {
-        c_.visionInDarkness = c.addChild(new PIXI.Container());
-        c_.visionInDarkness.sortableChildren = true;
-        c_.visionInDarkness.filter = new PerfectVision._MaskFilter("step(0.0, g - r)");
-        c_.visionInDarkness.filter.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
-        c_.visionInDarkness.filterArea = canvas.app.renderer.screen;
-        c_.visionInDarkness.filters = [c_.visionInDarkness.filter];
-    }
-
-    {
-        c_.lightsDimToBright = c.addChild(new PIXI.Container());
-        c_.lightsDimToBright.sortableChildren = true;
-        c_.lightsDimToBright.filter = new PerfectVision._MaskFilter("b");
-        c_.lightsDimToBright.filter.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
-        c_.lightsDimToBright.filterArea = canvas.app.renderer.screen;
-        c_.lightsDimToBright.filters = [c_.lightsDimToBright.filter];
-    }
-
-    {
-        c_.mask = new PIXI.Container();
-        c_.mask.layers = [
-            c_.mask.addChild(new PIXI.Graphics()),
-            c_.mask.addChild(new PIXI.Graphics()),
-            c_.mask.addChild(new PIXI.Graphics())
-        ];
-        c_.mask.layers[1].blendMode = PIXI.BLEND_MODES.ADD;
-        c_.mask.layers[2].blendMode = PIXI.BLEND_MODES.SUBTRACT;
-        c_.maskBlurred = new PIXI.Sprite();
-        c_.maskBlurred.filter = this._blurDistance ?
-            new PIXI.filters.BlurFilter(this._blurDistance) :
-            new PIXI.filters.AlphaFilter(1.0);
-        c_.maskBlurred.filters = [c_.maskBlurred.filter];
-        c_.maskBlurred.filterArea = canvas.app.renderer.screen;
-    }
-
-    {
-        const d = canvas.dimensions;
-        const radius = 0.5 * Math.hypot(d.width, d.height) + (this._blurDistance ?? 0);
-        const opts = {
-            x: 0.5 * d.width,
-            y: 0.5 * d.height,
-            z: -1,
-            dim: radius,
-            bright: 0,
-            type: SOURCE_TYPES.UNIVERSAL
-        };
-
-        c_.globalLight1 = new PointSource();
-        c_.globalLight1.initialize(opts);
-        c_.globalLight1.type = SOURCE_TYPES.LOCAL;
-        Object.defineProperty(c_.globalLight1, "dim", {
-            get: () => {
-                let globalLight = canvas.scene.getFlag("perfect-vision", "globalLight") ?? "default";
-
-                if (globalLight === "default")
-                    globalLight = PerfectVision._settings.globalLight;
-
-                switch (globalLight) {
-                    case "dim":
-                        return r;
-                    case "bright":
-                        return 0;
-                    default:
-                        return 0;
-                }
-            }
-        });
-        Object.defineProperty(c_.globalLight1, "bright", {
-            get: () => {
-                let globalLight = canvas.scene.getFlag("perfect-vision", "globalLight") ?? "default";
-
-                if (globalLight === "default")
-                    globalLight = PerfectVision._settings.globalLight;
-
-                switch (globalLight) {
-                    case "dim":
-                        return 0;
-                    case "bright":
-                        return r;
-                    default:
-                        return 0;
-                }
-            }
-        });
-        Object.defineProperty(c_.globalLight1, "ratio", {
-            get: () => {
-                let globalLight = canvas.scene.getFlag("perfect-vision", "globalLight") ?? "default";
-
-                if (globalLight === "default")
-                    globalLight = PerfectVision._settings.globalLight;
-
-                switch (globalLight) {
-                    case "dim":
-                        return 0;
-                    case "bright":
-                        return 1;
-                    default:
-                        return 0;
-                }
-            }
-        });
-        Object.defineProperty(c_.globalLight1, "darknessThreshold", {
-            get: () => {
-                if (!this.globalLight)
-                    return +Infinity;
-
-                let globalLight = canvas.scene.getFlag("perfect-vision", "globalLight") ?? "default";
-
-                if (globalLight === "default")
-                    globalLight = PerfectVision._settings.globalLight;
-
-                switch (globalLight) {
-                    case "dim":
-                        return -Infinity;
-                    case "bright":
-                        return -Infinity;
-                    default:
-                        return +Infinity;
-                }
-            }
-        });
-
-        c_.globalLight2 = new PointSource();
-        c_.globalLight2.initialize(opts);
-        c_.globalLight2.type = SOURCE_TYPES.LOCAL;
-        c_.globalLight2.dim = 0;
-        c_.globalLight2.bright = 0;
-        c_.globalLight2.ratio = 0;
-        Object.defineProperty(c_.globalLight2, "darknessThreshold", { get: () => this.globalLight ? -Infinity : +Infinity });
-        c_.globalLight2.illumination.renderable = false;
-    }
-
-    return c;
-});
-
-PerfectVision._preHook(LightingLayer, "refresh", function () {
-    const ilm = this.illumination;
-    const ilm_ = PerfectVision._extend(ilm);
-    this.sources.set("PerfectVision.Light.1", ilm_.globalLight1);
-    this.sources.set("PerfectVision.Light.2", ilm_.globalLight2);
-    ilm_.globalLight1._resetIlluminationUniforms = true;
-    ilm_.globalLight2._resetIlluminationUniforms = true;
-    return arguments;
-});
-
-PerfectVision._postHook(LightingLayer, "refresh", function () {
-    const ilm = this.illumination;
-    const ilm_ = PerfectVision._extend(ilm);
-
-    if (game.user.isGM && PerfectVision._settings.improvedGMVision) {
-        if (canvas.sight.sources.size === 0) {
-            const s = 1 / Math.max(...this.channels.background.rgb);
-            ilm_.background.tint = rgbToHex(this.channels.background.rgb.map(c => c * s));
-            ilm_.background.visible = true;
-        } else {
-            ilm_.background.visible = false;
-        }
-    } else {
-        ilm_.background.visible = false;
-    }
-
-    ilm_.lightsDimToBright.removeChildren();
-
-    for (let source of this.sources) {
-        if (!source.active) continue;
-
-        if (!source.darkness && source !== ilm_.globalLight2) {
-            const sc = source.illumination;
-            const sc_ = PerfectVision._extend(sc);
-            sc_.zIndex = sc.zIndex;
-            ilm_.lightsDimToBright.addChild(sc_);
-        }
-    }
-
-    ilm_.visionInDarkness.removeChildren();
-
-    for (let source of canvas.sight.sources) {
-        if (!source.active) continue;
-
-        const sc = source.illumination;
-        const sc_ = PerfectVision._extend(sc);
-        sc_.zIndex = sc.zIndex;
-        ilm_.visionInDarkness.addChild(sc_);
-    }
-
-    PerfectVision._refresh = true;
-    return arguments[0];
-});
-
-PerfectVision._preHook(LightingLayer, "tearDown", function () {
-    const ilm = this.illumination;
-    const ilm_ = PerfectVision._extend(ilm);
-
-    if (ilm_.mask.texture) {
-        ilm_.mask.texture.destroy(true);
-        ilm_.mask.textureBlurred.destroy(true);
-
-        PerfectVision._monoFilter.uniforms.uMask = null;
-    }
-
-    return arguments;
-});
-
-PerfectVision._preHook(Token, "updateSource", function () {
-    const token = this;
-    const initialize = function (opts) {
-        let dimVisionInDarkness;
-        let dimVisionInDimLight;
-        // let dimVisionInBrightLight;
-        let brightVisionInDarkness;
-        let brightVisionInDimLight;
-        // let brightVisionInBrightLight;
-
-        switch (token.getFlag("perfect-vision", "visionRules") || "default") {
-            case "default":
-                dimVisionInDarkness = PerfectVision._settings.dimVisionInDarkness;
-                dimVisionInDimLight = PerfectVision._settings.dimVisionInDimLight;
-                // dimVisionInBrightLight = PerfectVision._settings.dimVisionInBrightLight;
-                brightVisionInDarkness = PerfectVision._settings.brightVisionInDarkness;
-                brightVisionInDimLight = PerfectVision._settings.brightVisionInDimLight;
-                // brightVisionInBrightLight = PerfectVision._settings.brightVisionInBrightLight;
-                break;
-            case "custom":
-                dimVisionInDarkness = token.getFlag("perfect-vision", "dimVisionInDarkness") || PerfectVision._settings.dimVisionInDarkness;
-                dimVisionInDimLight = token.getFlag("perfect-vision", "dimVisionInDimLight") || PerfectVision._settings.dimVisionInDimLight;
-                // dimVisionInBrightLight = token.getFlag("perfect-vision", "dimVisionInBrightLight") || PerfectVision._settings.dimVisionInBrightLight;
-                brightVisionInDarkness = token.getFlag("perfect-vision", "brightVisionInDarkness") || PerfectVision._settings.brightVisionInDarkness;
-                brightVisionInDimLight = token.getFlag("perfect-vision", "brightVisionInDimLight") || PerfectVision._settings.brightVisionInDimLight;
-                // brightVisionInBrightLight = token.getFlag("perfect-vision", "brightVisionInBrightLight") || PerfectVision._settings.brightVisionInBrightLight;
-                break;
-            case "fvtt":
-                dimVisionInDarkness = "dim";
-                dimVisionInDimLight = "dim";
-                // dimVisionInBrightLight = "bright";
-                brightVisionInDarkness = "bright";
-                brightVisionInDimLight = "bright";
-                // brightVisionInBrightLight = "bright";
-                break;
-            case "dnd35e":
-                dimVisionInDarkness = "darkness";
-                dimVisionInDimLight = "dim";
-                // dimVisionInBrightLight = "bright";
-                brightVisionInDarkness = "bright_mono";
-                brightVisionInDimLight = "dim";
-                // brightVisionInBrightLight = "bright";
-                break;
-            case "dnd5e":
-                dimVisionInDarkness = "dim_mono";
-                dimVisionInDimLight = "bright";
-                // dimVisionInBrightLight = "bright";
-                brightVisionInDarkness = "bright";
-                brightVisionInDimLight = "bright";
-                // brightVisionInBrightLight = "bright";
-                break;
-            case "pf2e":
-                dimVisionInDarkness = "darkness";
-                dimVisionInDimLight = "bright";
-                // dimVisionInBrightLight = "bright";
-                brightVisionInDarkness = "bright_mono";
-                brightVisionInDimLight = "bright";
-                // brightVisionInBrightLight = "bright";
-                break;
-        };
-
-        const this_ = PerfectVision._extend(this, {});
-
-        this_.monoVisionColor = hexToRGB(colorStringToHex(
-            token.getFlag("perfect-vision", "monoVisionColor") || PerfectVision._settings.monoVisionColor
-        ));
-
-        let dim = token.getLightRadius(token.data.dimSight);
-        let bright = token.getLightRadius(token.data.brightSight);
-
-        opts.dim = Math.max(
-            dimVisionInDarkness === "dim" || dimVisionInDarkness === "dim_mono" ? dim : 0,
-            brightVisionInDarkness === "dim" || brightVisionInDarkness === "dim_mono" ? bright : 0
-        );
-        opts.bright = Math.max(
-            dimVisionInDarkness === "bright" || dimVisionInDarkness === "bright_mono" ? dim : 0,
-            brightVisionInDarkness === "bright" || brightVisionInDarkness === "bright_mono" ? bright : 0
-        );
-
-        const c = this.illumination;
-        const c_ = PerfectVision._extend(c);
-        c.renderable = false;
-        c_.visible = Math.max(opts.dim, opts.bright) > 0;
-
-        const visionRadius = Math.max(
-            dimVisionInDarkness === "scene" || dimVisionInDarkness === "scene_mono" ? dim : 0,
-            dimVisionInDarkness === "dim" || dimVisionInDarkness === "dim_mono" ? dim : 0,
-            dimVisionInDarkness === "bright" || dimVisionInDarkness === "bright_mono" ? dim : 0,
-            brightVisionInDarkness === "scene" || brightVisionInDarkness === "scene_mono" ? bright : 0,
-            brightVisionInDarkness === "dim" || brightVisionInDarkness === "dim_mono" ? bright : 0,
-            brightVisionInDarkness === "bright" || brightVisionInDarkness === "bright_mono" ? bright : 0
-        );
-        const visionRadiusColor = Math.max(
-            dimVisionInDarkness === "scene" ? dim : 0,
-            dimVisionInDarkness === "dim" ? dim : 0,
-            dimVisionInDarkness === "bright" ? dim : 0,
-            brightVisionInDarkness === "scene" ? bright : 0,
-            brightVisionInDarkness === "dim" ? bright : 0,
-            brightVisionInDarkness === "bright" ? bright : 0
-        );
-
-        const minR = token.w * 0.5 + 0.1 * canvas.dimensions.size;
-        opts.dim = opts.dim === 0 && opts.bright === 0 ? minR : opts.dim;
-
-        (PerfectVision._temp_Token_vision_initialize ?? Object.getPrototypeOf(this).initialize).call(this, opts);
-
-        this_.ratio = undefined;
-        this_.fov = this.fov;
-
-        {
-            const d = canvas.dimensions;
-            const radius = Math.max(
-                Math.hypot(this.x, this.y),
-                Math.hypot(this.x - d.width, this.y),
-                Math.hypot(this.x - d.width, this.y - d.height),
-                Math.hypot(this.x, this.y - d.height)
-            );
-            const { los } = SightLayer.computeSight({ x: this.x, y: this.y }, radius, {
-                angle: this.angle,
-                rotation: this.rotation,
-                unrestricted: this.type === SOURCE_TYPES.UNIVERSAL
-            });
-            this.los = los;
-        }
-
-        const fovCache = { [this.radius]: this.fov };
-        const computeFov = (radius) => {
-            if (radius <= 0)
-                return null;
-
-            if (fovCache[radius])
-                return fovCache[radius];
-
-            const { fov } = SightLayer.computeSight({ x: this.x, y: this.y }, radius, {
-                angle: this.angle,
-                rotation: this.rotation,
-                unrestricted: this.type === SOURCE_TYPES.UNIVERSAL
-            });
-            return fov;
-        };
-
-        if (visionRadius > 0)
-            this_.fovMono = (this.fov = computeFov(visionRadius));
-        else
-            this_.fovMono = null;
-
-        if (visionRadiusColor > 0)
-            this_.fovColor = computeFov(visionRadiusColor);
-        else
-            this_.fovColor = null;
-
-        {
-            const radius = Math.max(
-                dimVisionInDimLight === "bright" ? dim : 0,
-                brightVisionInDimLight === "bright" ? bright : 0
-            );
-
-            if (radius > 0)
-                this_.fovDimToBright = computeFov(radius);
-            else
-                this_.fovDimToBright = null;
-        }
-
-    };
-
-    PerfectVision._temp_Token_vision_initialize = this.vision.hasOwnProperty("initialize") ? this.vision.initialize : undefined;
-    this.vision.initialize = initialize;
-
-    return arguments;
-});
-
-PerfectVision._postHook(Token, "updateSource", function () {
-    if (PerfectVision._temp_Token_vision_initialize) {
-        this.vision.initialize = PerfectVision._temp_Token_vision_initialize;
-        delete PerfectVision._temp_Token_vision_initialize;
-    } else {
-        delete this.vision.initialize;
-    }
-
-    PerfectVision._updateMonoFilter(this);
-
-    return arguments[0];
-});
-
-PerfectVision._postHook(Token, "draw", async function () {
-    const retVal = await arguments[0];
-
-    PerfectVision._updateMonoFilter(this);
-
-    return retVal;
-});
-
-PerfectVision._postHook(Tile, "draw", async function () {
-    const retVal = await arguments[0];
-
-    PerfectVision._updateMonoFilter(this);
-
-    return retVal;
-});
-
-PerfectVision._postHook(MeasuredTemplate, "draw", async function () {
-    const retVal = await arguments[0];
-
-    PerfectVision._updateMonoFilter(this);
-
-    return retVal;
-});
-
 Hooks.once("init", (...args) => PerfectVision._init(...args));
-
-Hooks.on("canvasReady", (...args) => PerfectVision._canvasReady(...args));
-
-Hooks.on("canvasPan", (...args) => PerfectVision._canvasPan(...args));
-
-Hooks.on("lightingRefresh", (...args) => PerfectVision._lightingRefresh(...args));
-
-Hooks.on("sightRefresh", (...args) => PerfectVision._sightRefresh(...args));
-
-Hooks.on("updateToken", (...args) => PerfectVision._updateToken(...args));
-
-Hooks.on("updateScene", (...args) => PerfectVision._updateScene(...args));
-
-Hooks.on("renderSettingsConfig", (...args) => PerfectVision._renderSettingsConfig(...args));
-
-Hooks.on("renderTokenConfig", (...args) => PerfectVision._renderTokenConfig(...args));
-
-Hooks.on("renderSceneConfig", (...args) => PerfectVision._renderSceneConfig(...args));
