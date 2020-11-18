@@ -1278,6 +1278,22 @@ PerfectVision._preHook(Token, "updateSource", function () {
         this_.ratio = undefined;
         this_.fov = this.fov;
 
+        {
+            const d = canvas.dimensions;
+            const radius = Math.max(
+                Math.hypot(this.x, this.y),
+                Math.hypot(this.x - d.width, this.y),
+                Math.hypot(this.x - d.width, this.y - d.height),
+                Math.hypot(this.x, this.y - d.height)
+            );
+            const { los } = SightLayer.computeSight({ x: this.x, y: this.y }, radius, {
+                angle: this.angle,
+                rotation: this.rotation,
+                unrestricted: this.type === SOURCE_TYPES.UNIVERSAL
+            });
+            this.los = los;
+        }
+
         const fovCache = { [this.radius]: this.fov };
         const computeFov = (radius) => {
             if (radius <= 0)
