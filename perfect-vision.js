@@ -719,7 +719,6 @@ class PerfectVision {
                 precision mediump float;
 
                 attribute vec2 aVertexPosition;
-                attribute vec2 aTextureCoord;
 
                 uniform mat3 projectionMatrix;
                 uniform vec4 inputSize;
@@ -766,7 +765,6 @@ class PerfectVision {
                 precision mediump float;
 
                 attribute vec2 aVertexPosition;
-                attribute vec2 aTextureCoord;
 
                 uniform mat3 projectionMatrix;
                 uniform vec4 inputSize;
@@ -836,6 +834,8 @@ class PerfectVision {
     static _monoFilter = new this._MonoFilter();
 
     static _updateMonoFilter(placeables = null) {
+        this._monoFilter.autoFit = !game.modules.get('tokenmagic')?.active;
+
         if (!placeables) {
             for (let layerName of ["background", "fxmaster"]) {
                 const layer = canvas[layerName];
