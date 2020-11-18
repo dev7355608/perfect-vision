@@ -67,19 +67,9 @@ class PerfectVision {
         this._refreshSight = true;
         this._refresh = true;
 
-        if (!tokens) {
-            this._updateMonoFilter();
+        this._updateMonoFilter(tokens);
 
-            for (let tile of canvas.tiles.placeables)
-                this._updateMonoFilter(tile);
-
-            for (let template of canvas.templates.placeables)
-                this._updateMonoFilter(template);
-        }
-
-        tokens = tokens ?? canvas.tokens.placeables;
-
-        for (let token of tokens)
+        for (let token of tokens ?? canvas.tokens.placeables)
             token.updateSource({ defer: true });
     }
 
@@ -254,10 +244,11 @@ class PerfectVision {
             if (s.module === "perfect-vision" && s.isSelect && s.choices && !s.choices[game.settings.get("perfect-vision", s.key)])
                 game.settings.set("perfect-vision", s.key, s.default);
         });
-        this._refresh = true;
-        this._updateMonoFilter();
+
         canvas.app.ticker.remove(this._onTick, this);
         canvas.app.ticker.add(this._onTick, this, PIXI.UPDATE_PRIORITY.LOW + 1);
+
+        this._update();
     }
 
     static _canvasPan() {
@@ -281,8 +272,12 @@ class PerfectVision {
     }
 
     static _updateScene(entity, data, options, userId) {
-        if (!hasProperty(data, "flags.perfect-vision") || data._id !== canvas.scene._id)
+        if (!hasProperty(data, "flags.perfect-vision") || data._id !== canvas.scene._id) {
+            if (game.modules.get("fxmaster")?.active && game.settings.get("fxmaster", "enable"))
+                this._updateMonoFilter();
+
             return;
+        }
 
         this._update();
     }
@@ -840,8 +835,8 @@ class PerfectVision {
 
     static _monoFilter = new this._MonoFilter();
 
-    static _updateMonoFilter(placeable = null) {
-        if (!placeable) {
+    static _updateMonoFilter(placeables = null) {
+        if (!placeables) {
             for (let layerName of ["background", "fxmaster"]) {
                 const layer = canvas[layerName];
 
@@ -871,31 +866,37 @@ class PerfectVision {
                         layer.weather.filters = [this._monoFilter];
                 }
             }
+
+            this._updateMonoFilter(canvas.tokens.placeables);
+            this._updateMonoFilter(canvas.tiles.placeables);
+            this._updateMonoFilter(canvas.templates.placeables);
         } else {
-            let sprite;
+            for (let placeable of placeables) {
+                let sprite;
 
-            if (placeable instanceof Token) {
-                sprite = placeable.icon;
-            } else if (placeable instanceof Tile) {
-                sprite = placeable.tile.img;
-            } else if (placeable instanceof MeasuredTemplate) {
-                sprite = placeable.template;
-            }
+                if (placeable instanceof Token) {
+                    sprite = placeable.icon;
+                } else if (placeable instanceof Tile) {
+                    sprite = placeable.tile.img;
+                } else if (placeable instanceof MeasuredTemplate) {
+                    sprite = placeable.template;
+                }
 
-            if (sprite) {
-                const monoFilterIndex = sprite.filters ? sprite.filters.indexOf(this._monoFilter) : -1;
+                if (sprite) {
+                    const monoFilterIndex = sprite.filters ? sprite.filters.indexOf(this._monoFilter) : -1;
 
-                if (monoFilterIndex >= 0)
-                    sprite.filters.splice(monoFilterIndex, 1);
+                    if (monoFilterIndex >= 0)
+                        sprite.filters.splice(monoFilterIndex, 1);
 
-                if (!(placeable instanceof Token) || this._settings.monoTokenIcons) {
-                    if (sprite.filters?.length > 0) {
-                        if (this._settings.monoSpecialEffects)
-                            sprite.filters.push(this._monoFilter);
-                        else
-                            sprite.filters.unshift(this._monoFilter);
-                    } else {
-                        sprite.filters = [this._monoFilter];
+                    if (!(placeable instanceof Token) || this._settings.monoTokenIcons) {
+                        if (sprite.filters?.length > 0) {
+                            if (this._settings.monoSpecialEffects)
+                                sprite.filters.push(this._monoFilter);
+                            else
+                                sprite.filters.unshift(this._monoFilter);
+                        } else {
+                            sprite.filters = [this._monoFilter];
+                        }
                     }
                 }
             }
@@ -1388,16 +1389,13 @@ class PerfectVision {
             } else {
                 delete this.vision.initialize;
             }
-
-            PerfectVision._updateMonoFilter(this);
-
             return arguments[0];
         });
 
         this._postHook(Token, "draw", async function () {
             const retVal = await arguments[0];
 
-            PerfectVision._updateMonoFilter(this);
+            PerfectVision._updateMonoFilter([this]);
 
             return retVal;
         });
@@ -1405,7 +1403,7 @@ class PerfectVision {
         this._postHook(Tile, "draw", async function () {
             const retVal = await arguments[0];
 
-            PerfectVision._updateMonoFilter(this);
+            PerfectVision._updateMonoFilter([this]);
 
             return retVal;
         });
@@ -1413,14 +1411,14 @@ class PerfectVision {
         this._postHook(MeasuredTemplate, "draw", async function () {
             const retVal = await arguments[0];
 
-            PerfectVision._updateMonoFilter(this);
+            PerfectVision._updateMonoFilter([this]);
 
             return retVal;
         });
 
         if (PlaceableObject.prototype._TMFXsetRawFilters) {
             this._postHook(PlaceableObject, "_TMFXsetRawFilters", function (filters) {
-                PerfectVision._updateMonoFilter(this);
+                PerfectVision._updateMonoFilter([this]);
             });
         }
 
@@ -1446,15 +1444,6 @@ class PerfectVision {
             if (!game.modules.get('lib-wrapper')?.active && game.user.isGM)
                 ui.notifications.warn("The 'Perfect Vision' module recommends to install and activate the 'libWrapper' module.");
         });
-
-        if (game.modules.get("fxmaster")?.active) {
-            const updateMonoFilterHook = () => {
-                if (game.settings.get("fxmaster", "enable"))
-                    this._updateMonoFilter();
-            };
-            Hooks.on("canvasReady", updateMonoFilterHook);
-            Hooks.on("updateScene", updateMonoFilterHook);
-        }
     }
 }
 
