@@ -8,60 +8,55 @@ class PerfectVision {
         return this._extensions.get(object);
     }
 
-    static _update(tokens = null) {
+    static _visionRulesPresets = {
+        "fvtt": {
+            dimVisionInDarkness: "dim",
+            dimVisionInDimLight: "dim",
+            brightVisionInDarkness: "bright",
+            brightVisionInDimLight: "bright"
+        },
+        "dnd35e": {
+            dimVisionInDarkness: "darkness",
+            dimVisionInDimLight: "dim",
+            brightVisionInDarkness: "bright_mono",
+            brightVisionInDimLight: "dim"
+        },
+        "dnd5e": {
+            dimVisionInDarkness: "dim_mono",
+            dimVisionInDimLight: "bright",
+            brightVisionInDarkness: "bright",
+            brightVisionInDimLight: "bright"
+        },
+        "pf2e": {
+            dimVisionInDarkness: "darkness",
+            dimVisionInDimLight: "bright",
+            brightVisionInDarkness: "bright_mono",
+            brightVisionInDimLight: "bright"
+        },
+    };
+
+    static _updateSettings() {
         this._settings = this._settings ?? {};
         this._settings.globalLight = game.settings.get("perfect-vision", "globalLight");
         this._settings.improvedGMVision = game.settings.get("perfect-vision", "improvedGMVision");
         this._settings.visionRules = game.settings.get("perfect-vision", "visionRules");
 
-        switch (this._settings.visionRules) {
-            case "custom":
-                this._settings.dimVisionInDarkness = game.settings.get("perfect-vision", "dimVisionInDarkness");
-                this._settings.dimVisionInDimLight = game.settings.get("perfect-vision", "dimVisionInDimLight");
-                // this._settings.dimVisionInBrightLight = game.settings.get("perfect-vision", "dimVisionInBrightLight");
-                this._settings.brightVisionInDarkness = game.settings.get("perfect-vision", "brightVisionInDarkness");
-                this._settings.brightVisionInDimLight = game.settings.get("perfect-vision", "brightVisionInDimLight");
-                // this._settings.brightVisionInBrightLight = game.settings.get("perfect-vision", "brightVisionInBrightLight");
-                break;
-            case "fvtt":
-                this._settings.dimVisionInDarkness = "dim";
-                this._settings.dimVisionInDimLight = "dim";
-                // this._settings.dimVisionInBrightLight = "bright";
-                this._settings.brightVisionInDarkness = "bright";
-                this._settings.brightVisionInDimLight = "bright";
-                // this._settings.brightVisionInBrightLight = "bright";
-                break;
-            case "dnd35e":
-                this._settings.dimVisionInDarkness = "darkness";
-                this._settings.dimVisionInDimLight = "dim";
-                // this._settings.dimVisionInBrightLight = "bright";
-                this._settings.brightVisionInDarkness = "bright_mono";
-                this._settings.brightVisionInDimLight = "dim";
-                // this._settings.brightVisionInBrightLight = "bright";
-                break;
-            case "dnd5e":
-                this._settings.dimVisionInDarkness = "dim_mono";
-                this._settings.dimVisionInDimLight = "bright";
-                // this._settings.dimVisionInBrightLight = "bright";
-                this._settings.brightVisionInDarkness = "bright";
-                this._settings.brightVisionInDimLight = "bright";
-                // this._settings.brightVisionInBrightLight = "bright";
-                break;
-            case "pf2e":
-                this._settings.dimVisionInDarkness = "darkness";
-                this._settings.dimVisionInDimLight = "bright";
-                // this._settings.dimVisionInBrightLight = "bright";
-                this._settings.brightVisionInDarkness = "bright_mono";
-                this._settings.brightVisionInDimLight = "bright";
-                // this._settings.brightVisionInBrightLight = "bright";
-                break;
-            default:
-                console.warn(`Perfect Vision | Invalid vision rules: ${this._settings.visionRules}`);
+        if (this._settings.visionRules === "custom") {
+            this._settings.dimVisionInDarkness = game.settings.get("perfect-vision", "dimVisionInDarkness");
+            this._settings.dimVisionInDimLight = game.settings.get("perfect-vision", "dimVisionInDimLight");
+            this._settings.brightVisionInDarkness = game.settings.get("perfect-vision", "brightVisionInDarkness");
+            this._settings.brightVisionInDimLight = game.settings.get("perfect-vision", "brightVisionInDimLight");
+        } else {
+            Object.assign(this._settings, this._visionRulesPresets[this._settings.visionRules]);
         }
 
         this._settings.monoVisionColor = game.settings.get("perfect-vision", "monoVisionColor");
         this._settings.monoTokenIcons = game.settings.get("perfect-vision", "monoTokenIcons");
         this._settings.monoSpecialEffects = game.settings.get("perfect-vision", "monoSpecialEffects");
+    }
+
+    static _update(tokens = null) {
+        this._updateSettings();
 
         this._refreshLighting = true;
         this._refreshSight = true;
@@ -76,7 +71,7 @@ class PerfectVision {
     static _init() {
         this._registerHooks();
         this._registerSettings();
-        this._update([]);
+        this._updateSettings();
     }
 
     static _registerSettings() {
@@ -153,18 +148,6 @@ class PerfectVision {
             onChange: () => this._update()
         });
 
-        // game.settings.register("perfect-vision", "dimVisionInBrightLight", {
-        //     name: "Dim Vision in Bright Light",
-        //     scope: "world",
-        //     config: true,
-        //     type: String,
-        //     choices: {
-        //         "bright": "Bright Light",
-        //     },
-        //     default: "bright",
-        //     onChange: () => this._update()
-        // });
-
         game.settings.register("perfect-vision", "brightVisionInDarkness", {
             name: "Bright Vision in Darkness",
             scope: "world",
@@ -195,18 +178,6 @@ class PerfectVision {
             default: "bright",
             onChange: () => this._update()
         });
-
-        // game.settings.register("perfect-vision", "brightVisionInBrightLight", {
-        //     name: "Bright Vision in Bright Light",
-        //     scope: "world",
-        //     config: true,
-        //     type: String,
-        //     choices: {
-        //         "bright": "Bright Light",
-        //     },
-        //     default: "bright",
-        //     onChange: () => this._update()
-        // });
 
         game.settings.register("perfect-vision", "monoVisionColor", {
             name: "Monochrome Vision Color",
@@ -327,10 +298,8 @@ class PerfectVision {
                         "visionRules",
                         "dimVisionInDarkness",
                         "dimVisionInDimLight",
-                        // "dimVisionInBrightLight",
                         "brightVisionInDarkness",
                         "brightVisionInDimLight",
-                        // "brightVisionInBrightLight",
                         "monoVisionColor"
                     ].includes(s.key)).map(s => {
                         if (s.key === "visionRules") {
@@ -365,70 +334,33 @@ class PerfectVision {
             const visionRules = html.find(`select[name="${prefix}.visionRules"]`).val();
             html.find(`select[name="${prefix}.dimVisionInDarkness"]`).prop("disabled", visionRules !== "custom");
             html.find(`select[name="${prefix}.dimVisionInDimLight"]`).prop("disabled", visionRules !== "custom");
-            // html.find(`select[name="${prefix}.dimVisionInBrightLight"]`).prop("disabled", visionRules !== "custom");
             html.find(`select[name="${prefix}.brightVisionInDarkness"]`).prop("disabled", visionRules !== "custom");
             html.find(`select[name="${prefix}.brightVisionInDimLight"]`).prop("disabled", visionRules !== "custom");
-            // html.find(`select[name="${prefix}.brightVisionInBrightLight"]`).prop("disabled", visionRules !== "custom");
 
             if (sheet instanceof TokenConfig) {
                 if (visionRules !== "custom") {
                     html.find(`select[name="${prefix}.dimVisionInDarkness"]`).parents(".form-group").hide();
                     html.find(`select[name="${prefix}.dimVisionInDimLight"]`).parents(".form-group").hide();
-                    // html.find(`select[name="${prefix}.dimVisionInBrightLight"]`).parents(".form-group").hide();
                     html.find(`select[name="${prefix}.brightVisionInDarkness"]`).parents(".form-group").hide();
                     html.find(`select[name="${prefix}.brightVisionInDimLight"]`).parents(".form-group").hide();
-                    // html.find(`select[name="${prefix}.brightVisionInBrightLight"]`).parents(".form-group").hide();
                 } else {
                     html.find(`select[name="${prefix}.dimVisionInDarkness"]`).parents(".form-group").show();
                     html.find(`select[name="${prefix}.dimVisionInDimLight"]`).parents(".form-group").show();
-                    // html.find(`select[name="${prefix}.dimVisionInBrightLight"]`).parents(".form-group").show();
                     html.find(`select[name="${prefix}.brightVisionInDarkness"]`).parents(".form-group").show();
                     html.find(`select[name="${prefix}.brightVisionInDimLight"]`).parents(".form-group").show();
-                    // html.find(`select[name="${prefix}.brightVisionInBrightLight"]`).parents(".form-group").show();
                 }
             }
 
-            switch (visionRules) {
-                case "fvtt":
-                    html.find(`select[name="${prefix}.dimVisionInDarkness"]`).val("dim");
-                    html.find(`select[name="${prefix}.dimVisionInDimLight"]`).val("dim");
-                    // html.find(`select[name="${prefix}.dimVisionInBrightLight"]`).val("bright");
-                    html.find(`select[name="${prefix}.brightVisionInDarkness"]`).val("bright");
-                    html.find(`select[name="${prefix}.brightVisionInDimLight"]`).val("bright");
-                    // html.find(`select[name="${prefix}.brightVisionInBrightLight"]`).val("bright");
-                    break;
-                case "dnd35e":
-                    html.find(`select[name="${prefix}.dimVisionInDarkness"]`).val("darkness");
-                    html.find(`select[name="${prefix}.dimVisionInDimLight"]`).val("dim");
-                    // html.find(`select[name="${prefix}.dimVisionInBrightLight"]`).val("bright");
-                    html.find(`select[name="${prefix}.brightVisionInDarkness"]`).val("bright_mono");
-                    html.find(`select[name="${prefix}.brightVisionInDimLight"]`).val("dim");
-                    // html.find(`select[name="${prefix}.brightVisionInBrightLight"]`).val("bright");
-                    break;
-                case "dnd5e":
-                    html.find(`select[name="${prefix}.dimVisionInDarkness"]`).val("dim_mono");
-                    html.find(`select[name="${prefix}.dimVisionInDimLight"]`).val("bright");
-                    // html.find(`select[name="${prefix}.dimVisionInBrightLight"]`).val("bright");
-                    html.find(`select[name="${prefix}.brightVisionInDarkness"]`).val("bright");
-                    html.find(`select[name="${prefix}.brightVisionInDimLight"]`).val("bright");
-                    // html.find(`select[name="${prefix}.brightVisionInBrightLight"]`).val("bright");
-                    break;
-                case "pf2e":
-                    html.find(`select[name="${prefix}.dimVisionInDarkness"]`).val("darkness");
-                    html.find(`select[name="${prefix}.dimVisionInDimLight"]`).val("bright");
-                    // html.find(`select[name="${prefix}.dimVisionInBrightLight"]`).val("bright");
-                    html.find(`select[name="${prefix}.brightVisionInDarkness"]`).val("bright_mono");
-                    html.find(`select[name="${prefix}.brightVisionInDimLight"]`).val("bright");
-                    // html.find(`select[name="${prefix}.brightVisionInBrightLight"]`).val("bright");
-                    break;
-                case "default":
-                    html.find(`select[name="${prefix}.dimVisionInDarkness"]`).val(this._settings.dimVisionInDarkness);
-                    html.find(`select[name="${prefix}.dimVisionInDimLight"]`).val(this._settings.dimVisionInDimLight);
-                    // html.find(`select[name="${prefix}.dimVisionInBrightLight"]`).val(this._settings.dimVisionInBrightLight);
-                    html.find(`select[name="${prefix}.brightVisionInDarkness"]`).val(this._settings.brightVisionInDarkness);
-                    html.find(`select[name="${prefix}.brightVisionInDimLight"]`).val(this._settings.brightVisionInDimLight);
-                    // html.find(`select[name="${prefix}.brightVisionInBrightLight"]`).val(this._settings.brightVisionInBrightLight);
-                    break;
+            if (visionRules === "default") {
+                html.find(`select[name="${prefix}.dimVisionInDarkness"]`).val(this._settings.dimVisionInDarkness);
+                html.find(`select[name="${prefix}.dimVisionInDimLight"]`).val(this._settings.dimVisionInDimLight);
+                html.find(`select[name="${prefix}.brightVisionInDarkness"]`).val(this._settings.brightVisionInDarkness);
+                html.find(`select[name="${prefix}.brightVisionInDimLight"]`).val(this._settings.brightVisionInDimLight);
+            } else if (visionRules !== "custom") {
+                html.find(`select[name="${prefix}.dimVisionInDarkness"]`).val(this._visionRulesPresets[visionRules].dimVisionInDarkness);
+                html.find(`select[name="${prefix}.dimVisionInDimLight"]`).val(this._visionRulesPresets[visionRules].dimVisionInDimLight);
+                html.find(`select[name="${prefix}.brightVisionInDarkness"]`).val(this._visionRulesPresets[visionRules].brightVisionInDarkness);
+                html.find(`select[name="${prefix}.brightVisionInDimLight"]`).val(this._visionRulesPresets[visionRules].brightVisionInDimLight);
             }
 
             const inputMonochromeVisionColor = html.find(`input[name="${prefix}.monoVisionColor"]`);
@@ -1216,61 +1148,27 @@ class PerfectVision {
             const initialize = function (opts) {
                 let dimVisionInDarkness;
                 let dimVisionInDimLight;
-                // let dimVisionInBrightLight;
                 let brightVisionInDarkness;
                 let brightVisionInDimLight;
-                // let brightVisionInBrightLight;
 
-                switch (token.getFlag("perfect-vision", "visionRules") || "default") {
-                    case "default":
-                        dimVisionInDarkness = PerfectVision._settings.dimVisionInDarkness;
-                        dimVisionInDimLight = PerfectVision._settings.dimVisionInDimLight;
-                        // dimVisionInBrightLight = PerfectVision._settings.dimVisionInBrightLight;
-                        brightVisionInDarkness = PerfectVision._settings.brightVisionInDarkness;
-                        brightVisionInDimLight = PerfectVision._settings.brightVisionInDimLight;
-                        // brightVisionInBrightLight = PerfectVision._settings.brightVisionInBrightLight;
-                        break;
-                    case "custom":
-                        dimVisionInDarkness = token.getFlag("perfect-vision", "dimVisionInDarkness") || PerfectVision._settings.dimVisionInDarkness;
-                        dimVisionInDimLight = token.getFlag("perfect-vision", "dimVisionInDimLight") || PerfectVision._settings.dimVisionInDimLight;
-                        // dimVisionInBrightLight = token.getFlag("perfect-vision", "dimVisionInBrightLight") || PerfectVision._settings.dimVisionInBrightLight;
-                        brightVisionInDarkness = token.getFlag("perfect-vision", "brightVisionInDarkness") || PerfectVision._settings.brightVisionInDarkness;
-                        brightVisionInDimLight = token.getFlag("perfect-vision", "brightVisionInDimLight") || PerfectVision._settings.brightVisionInDimLight;
-                        // brightVisionInBrightLight = token.getFlag("perfect-vision", "brightVisionInBrightLight") || PerfectVision._settings.brightVisionInBrightLight;
-                        break;
-                    case "fvtt":
-                        dimVisionInDarkness = "dim";
-                        dimVisionInDimLight = "dim";
-                        // dimVisionInBrightLight = "bright";
-                        brightVisionInDarkness = "bright";
-                        brightVisionInDimLight = "bright";
-                        // brightVisionInBrightLight = "bright";
-                        break;
-                    case "dnd35e":
-                        dimVisionInDarkness = "darkness";
-                        dimVisionInDimLight = "dim";
-                        // dimVisionInBrightLight = "bright";
-                        brightVisionInDarkness = "bright_mono";
-                        brightVisionInDimLight = "dim";
-                        // brightVisionInBrightLight = "bright";
-                        break;
-                    case "dnd5e":
-                        dimVisionInDarkness = "dim_mono";
-                        dimVisionInDimLight = "bright";
-                        // dimVisionInBrightLight = "bright";
-                        brightVisionInDarkness = "bright";
-                        brightVisionInDimLight = "bright";
-                        // brightVisionInBrightLight = "bright";
-                        break;
-                    case "pf2e":
-                        dimVisionInDarkness = "darkness";
-                        dimVisionInDimLight = "bright";
-                        // dimVisionInBrightLight = "bright";
-                        brightVisionInDarkness = "bright_mono";
-                        brightVisionInDimLight = "bright";
-                        // brightVisionInBrightLight = "bright";
-                        break;
-                };
+                const visionRules = token.getFlag("perfect-vision", "visionRules") || "default";
+
+                if (visionRules === "default") {
+                    dimVisionInDarkness = PerfectVision._settings.dimVisionInDarkness;
+                    dimVisionInDimLight = PerfectVision._settings.dimVisionInDimLight;
+                    brightVisionInDarkness = PerfectVision._settings.brightVisionInDarkness;
+                    brightVisionInDimLight = PerfectVision._settings.brightVisionInDimLight;
+                } else if (visionRules === "custom") {
+                    dimVisionInDarkness = token.getFlag("perfect-vision", "dimVisionInDarkness") || PerfectVision._settings.dimVisionInDarkness;
+                    dimVisionInDimLight = token.getFlag("perfect-vision", "dimVisionInDimLight") || PerfectVision._settings.dimVisionInDimLight;
+                    brightVisionInDarkness = token.getFlag("perfect-vision", "brightVisionInDarkness") || PerfectVision._settings.brightVisionInDarkness;
+                    brightVisionInDimLight = token.getFlag("perfect-vision", "brightVisionInDimLight") || PerfectVision._settings.brightVisionInDimLight;
+                } else {
+                    dimVisionInDarkness = PerfectVision._visionRulesPresets[visionRules].dimVisionInDarkness;
+                    dimVisionInDimLight = PerfectVision._visionRulesPresets[visionRules].dimVisionInDimLight;
+                    brightVisionInDarkness = PerfectVision._visionRulesPresets[visionRules].brightVisionInDarkness;
+                    brightVisionInDimLight = PerfectVision._visionRulesPresets[visionRules].brightVisionInDimLight;
+                }
 
                 const this_ = PerfectVision._extend(this, {});
 
