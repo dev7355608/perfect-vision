@@ -744,19 +744,26 @@ class PerfectVision {
                     return dot(c, w);
                 }
 
+                vec3 y2mono(float y, vec3 tint)
+                {
+                    float tintY = rgb2y(tint);
+                    return mix(
+                        mix(tint, vec3(1.0), (y - tintY) / (1.0 - mix(tintY, 0.0, step(1.0, tintY)))),
+                        tint * (y / mix(tintY, 1.0, step(tintY, 0.0))),
+                        step(y, tintY)
+                    );
+                }
+
                 void main(void)
                 {
                     vec4 mask = texture2D(uMask, vMaskCoord);
-                    float s = mask.r;
-                    float t = mask.g;
                     vec4 srgba = texture2D(uSampler, vTextureCoord);
                     vec3 srgb = srgba.rgb;
                     vec3 rgb = srgb2rgb(srgb);
                     float a = srgba.a;
                     float y = rgb2y(rgb);
-                    vec3 lstar3 = rgb2srgb(vec3(y));
-                    vec3 mono = mix(lstar3, lstar3 * uTint, t);
-                    gl_FragColor = vec4(mix(mono, srgb, s), a);
+                    vec3 tint = srgb2rgb(uTint);
+                    gl_FragColor = vec4(mix(rgb2srgb(mix(vec3(y), y2mono(y, tint), mask.g)), srgb, mask.r), a);
                 }`,
                 ...args
             );
