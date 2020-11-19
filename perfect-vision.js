@@ -211,7 +211,7 @@ class PerfectVision {
     }
 
     static _canvasReady() {
-        game.settings.sheet.getData().data.modules.find(m => m.title === "Perfect Vision").settings.forEach(s => {
+        (game.settings.sheet.getData().data.modules.find(m => m.title === "Perfect Vision")?.settings ?? []).forEach(s => {
             if (s.module === "perfect-vision" && s.isSelect && s.choices && !s.choices[game.settings.get("perfect-vision", s.key)])
                 game.settings.set("perfect-vision", s.key, s.default);
         });
