@@ -772,10 +772,15 @@ class PerfectVision {
     };
 
     static _monoFilter = new this._MonoFilter();
+    static _monoFilter_noAutoFit = new Proxy(this._monoFilter, {
+        get(target, prop, receiver) {
+            if (prop === "autoFit")
+                return false;
+            return Reflect.get(...arguments);
+        }
+    });
 
     static _updateMonoFilter(placeables = null) {
-        this._monoFilter.autoFit = !game.modules.get('tokenmagic')?.active;
-
         if (!placeables) {
             for (let layerName of ["background", "fxmaster"]) {
                 const layer = canvas[layerName];
@@ -823,17 +828,19 @@ class PerfectVision {
                 }
 
                 if (sprite) {
-                    const monoFilterIndex = sprite.filters ? sprite.filters.indexOf(this._monoFilter) : -1;
+                    if (sprite.filters) {
+                        sprite.filters = sprite.filters.filter(filter => !(filter instanceof this._MonoFilter));
 
-                    if (monoFilterIndex >= 0)
-                        sprite.filters.splice(monoFilterIndex, 1);
+                        if (sprite.filters.length === 0)
+                            sprite.filters = null;
+                    }
 
                     if (!(placeable instanceof Token) || this._settings.monoTokenIcons) {
                         if (sprite.filters?.length > 0) {
                             if (this._settings.monoSpecialEffects)
-                                sprite.filters.push(this._monoFilter);
+                                sprite.filters.push(this._monoFilter_noAutoFit);
                             else
-                                sprite.filters.unshift(this._monoFilter);
+                                sprite.filters.unshift(this._monoFilter_noAutoFit);
                         } else {
                             sprite.filters = [this._monoFilter];
                         }
