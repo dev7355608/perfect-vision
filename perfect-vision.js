@@ -486,12 +486,6 @@ class PerfectVision {
         this._visualizeTexture(ilm_.mask.texture, "mask");
     }
 
-    static _visualizeMaskBlurred() {
-        const ilm = canvas.lighting.illumination;
-        const ilm_ = this._extend(ilm);
-        this._visualizeTexture(ilm_.mask.textureBlurred, "maskBlurred");
-    }
-
     static _onTick() {
         if (this._refreshLighting)
             canvas.lighting.refresh();
@@ -515,7 +509,6 @@ class PerfectVision {
 
             if (vision || game.user.isGM && this._settings.improvedGMVision) {
                 const mask = ilm_.mask;
-                const maskBlurred = ilm_.maskBlurred;
 
                 mask.layers[0].clear();
                 mask.layers[0].beginFill(0x00FF00);
@@ -600,32 +593,20 @@ class PerfectVision {
                         width: width,
                         height: height,
                         scaleMode: PIXI.SCALE_MODES.LINEAR,
-                        resolution: 1
+                        resolution: window.devicePixelRatio
                     });
-                    mask.textureBlurred = PIXI.RenderTexture.create({
-                        width: width,
-                        height: height,
-                        scaleMode: PIXI.SCALE_MODES.LINEAR,
-                        resolution: 1
-                    });
-                    maskBlurred.texture = mask.texture;
-                    maskBlurred.width = width;
-                    maskBlurred.height = height;
 
                     const size = [width, height, 1 / width, 1 / height];
                     ilm_.background.filter.uniforms.uMask = mask.texture;
                     ilm_.background.filter.uniforms.uMaskSize = size;
-                    this._monoFilter.uniforms.uMask = mask.textureBlurred;
+                    this._monoFilter.uniforms.uMask = mask.texture;
                     this._monoFilter.uniforms.uMaskSize = size;
                     ilm_.visionInDarkness.filter.uniforms.uMask = mask.texture;
                     ilm_.visionInDarkness.filter.uniforms.uMaskSize = size;
                     ilm_.lightsDimToBright.filter.uniforms.uMask = mask.texture;
                     ilm_.lightsDimToBright.filter.uniforms.uMaskSize = size;
-                } else if (mask.texture.width !== height || mask.texture.width !== height) {
+                } else if (mask.texture.width !== width || mask.texture.width !== height) {
                     mask.texture.resize(width, height);
-                    mask.textureBlurred.resize(width, height);
-                    maskBlurred.width = width;
-                    maskBlurred.height = height;
 
                     const size = [width, height, 1 / width, 1 / height];
                     ilm_.background.filter.uniforms.uMaskSize = size;
@@ -636,11 +617,16 @@ class PerfectVision {
 
                 this._monoFilter.uniforms.uTint = monoVisionColor;
 
-                if (maskBlurred.filter instanceof PIXI.filters.BlurFilter)
-                    maskBlurred.filter.blur = Math.max(canvas.stage.scale.x, canvas.stage.scale.y) * (canvas.lighting._blurDistance ?? 0);
+                if (mask.filter instanceof PerfectVision._GlowFilter)
+                    mask.filter.uniforms.uStrength = Math.max(canvas.stage.scale.x, canvas.stage.scale.y) * 2;
 
-                canvas.app.renderer.render(mask, mask.texture, true, canvas.stage.worldTransform);
-                canvas.app.renderer.render(maskBlurred, mask.textureBlurred, true);
+                mask.pivot = canvas.stage.pivot;
+                mask.position = canvas.stage.position;
+                mask.rotation = canvas.stage.rotation;
+                mask.scale = canvas.stage.scale;
+                mask.skew = canvas.stage.skew;
+
+                canvas.app.renderer.render(mask, mask.texture, true);
             }
         }
     }
@@ -688,6 +674,77 @@ class PerfectVision {
                 }`,
                 ...args
             );
+        }
+    };
+
+    // Based on PixiJS Filters' GlowFilter
+    static _GlowFilter = class extends PIXI.Filter {
+        constructor(strength = 1.0, intensity = 1.0, quality = 1.0, resolution = PIXI.settings.RESOLUTION, distance = 2) {
+            distance = Math.round(distance);
+
+            super(`\
+                precision mediump float;
+
+                attribute vec2 aVertexPosition;
+                attribute vec2 aTextureCoord;
+
+                uniform mat3 projectionMatrix;
+
+                varying vec2 vTextureCoord;
+
+                void main(void)
+                {
+                    gl_Position = vec4((projectionMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
+                    vTextureCoord = aTextureCoord;
+                }`, `\
+                precision mediump float;
+
+                uniform sampler2D uSampler;
+                uniform vec4 inputSize;
+                uniform vec4 inputClamp;
+                uniform float uStrength;
+                uniform float uIntensity;
+
+                varying vec2 vTextureCoord;
+
+                const float PI = 3.14159265358979323846264;
+                const float DIST = __DIST__;
+                const float ANGLE_STEP_SIZE = min(__ANGLE_STEP_SIZE__, PI * 2.0);
+                const float ANGLE_STEP_NUM = ceil(PI * 2.0 / ANGLE_STEP_SIZE);
+                const float MAX_TOTAL_ALPHA = ANGLE_STEP_NUM * DIST * (DIST + 1.0) / 2.0;
+
+                void main(void) {
+                    vec2 px = inputSize.zw * uStrength;
+                    vec4 totalAlpha = vec4(0.0);
+                    vec2 direction;
+                    vec2 displaced;
+                    vec4 color;
+
+                    for (float angle = 0.0; angle < PI * 2.0; angle += ANGLE_STEP_SIZE) {
+                        direction = vec2(cos(angle), sin(angle)) * px;
+
+                        for (float curDistance = 0.0; curDistance < DIST; curDistance++) {
+                            displaced = clamp(vTextureCoord + direction *
+                                    (curDistance + 1.0), inputClamp.xy, inputClamp.zw);
+
+                            color = texture2D(uSampler, displaced);
+                            totalAlpha += (DIST - curDistance) * color;
+                        }
+                    }
+
+                    color = texture2D(uSampler, vTextureCoord);
+
+                    vec4 alphaRatio = totalAlpha / MAX_TOTAL_ALPHA;
+                    vec4 glowAlpha = (1.0 - pow(1.0 - alphaRatio, vec4(uIntensity))) * (1.0 - color);
+                    vec4 glowColor = min(1.0 - color, glowAlpha);
+
+                    gl_FragColor = color + glowColor;
+                }`.replace(/__ANGLE_STEP_SIZE__/gi, "" + (Math.PI / Math.round(quality * (distance + 1))).toFixed(7))
+                .replace(/__DIST__/gi, distance.toFixed(0) + ".0"));
+
+            this.resolution = resolution;
+            this.uniforms.uStrength = strength;
+            this.uniforms.uIntensity = intensity;
         }
     };
 
@@ -764,7 +821,7 @@ class PerfectVision {
                     float a = srgba.a;
                     float y = rgb2y(rgb);
                     vec3 tint = srgb2rgb(uTint);
-                    gl_FragColor = vec4(mix(rgb2srgb(mix(vec3(y), y2mono(y, tint), mask.g)), srgb, mask.r), a);
+                    gl_FragColor = vec4(rgb2srgb(mix(mix(vec3(y), y2mono(y, tint), mask.g), rgb, mask.r)), a);
                 }`,
                 ...args
             );
@@ -1015,7 +1072,7 @@ class PerfectVision {
             {
                 c_.visionInDarkness = c.addChild(new PIXI.Container());
                 c_.visionInDarkness.sortableChildren = true;
-                c_.visionInDarkness.filter = new PerfectVision._MaskFilter("step(0.0, g - r)");
+                c_.visionInDarkness.filter = new PerfectVision._MaskFilter("1.0 - r * (1.0 - g)");
                 c_.visionInDarkness.filter.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
                 c_.visionInDarkness.filterArea = canvas.app.renderer.screen;
                 c_.visionInDarkness.filters = [c_.visionInDarkness.filter];
@@ -1039,12 +1096,11 @@ class PerfectVision {
                 ];
                 c_.mask.layers[1].blendMode = PIXI.BLEND_MODES.ADD;
                 c_.mask.layers[2].blendMode = PIXI.BLEND_MODES.SUBTRACT;
-                c_.maskBlurred = new PIXI.Sprite();
-                c_.maskBlurred.filter = this._blurDistance ?
-                    new PIXI.filters.BlurFilter(this._blurDistance) :
+                c_.mask.filter = this._blurDistance ?
+                    new PerfectVision._GlowFilter(2.0, 2.5, 2 / 3, undefined, this._blurDistance) :
                     new PIXI.filters.AlphaFilter(1.0);
-                c_.maskBlurred.filters = [c_.maskBlurred.filter];
-                c_.maskBlurred.filterArea = canvas.app.renderer.screen;
+                c_.mask.filters = [c_.mask.filter];
+                c_.mask.filterArea = canvas.app.renderer.screen;
             }
 
             {
@@ -1207,7 +1263,6 @@ class PerfectVision {
 
             if (ilm_.mask.texture) {
                 ilm_.mask.texture.destroy(true);
-                ilm_.mask.textureBlurred.destroy(true);
 
                 PerfectVision._monoFilter.uniforms.uMask = null;
             }
