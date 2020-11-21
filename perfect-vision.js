@@ -403,7 +403,7 @@ class PerfectVision {
     static _hooks = {};
 
     static _hook(cls, methodName, type, func) {
-        const target = `${cls.name}.prototype.${methodName}`;
+        const target = typeof (cls) === "string" ? `${cls}.${methodName}` : `${cls.name}.prototype.${methodName}`;
 
         console.log("Perfect Vision | Hooking (%s) %s", type, target);
 
@@ -414,14 +414,15 @@ class PerfectVision {
             libWrapper.unregister("perfect-vision", target, false);
             libWrapper.register("perfect-vision", target, this._buildLibWrapperHook(target), "WRAPPER");
         } else {
+            const prototype = typeof (cls) === "string" ? getProperty(window, cls) : cls.prototype;
+            const method = prototype[methodName];
+
             if (type === "pre") {
-                const method = cls.prototype[methodName];
-                cls.prototype[methodName] = function () {
+                prototype[methodName] = function () {
                     return method.apply(this, func.apply(this, arguments));
                 };
             } else if (type === "post") {
-                const method = cls.prototype[methodName];
-                cls.prototype[methodName] = function () {
+                prototype[methodName] = function () {
                     return func.call(this, method.apply(this, arguments), ...arguments);
                 };
             }
@@ -1322,8 +1323,15 @@ class PerfectVision {
         });
 
         if (PlaceableObject.prototype._TMFXsetRawFilters) {
-            this._postHook(PlaceableObject, "_TMFXsetRawFilters", function (filters) {
+            this._postHook(PlaceableObject, "_TMFXsetRawFilters", function (retVal, filters) {
                 PerfectVision._updateMonoFilter([this]);
+                return retVal;
+            });
+            Hooks.once("ready", () => {
+                this._postHook("TokenMagic", "_clearImgFiltersByPlaceable", function (retVal, placeable) {
+                    PerfectVision._updateMonoFilter([placeable]);
+                    return retVal;
+                })
             });
         }
 
