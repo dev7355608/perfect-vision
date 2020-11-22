@@ -850,6 +850,24 @@ class PerfectVision {
         }
     }
 
+    static _computeFov(source, radius) {
+        const source_ = PerfectVision._extend(source);
+        const distance = source_.distance;
+        const limit = Math.clamped(radius / distance, 0, 1);
+        const fovPoints = [];
+        const points = source.los.points;
+
+        for (let i = 0; i < points.length; i += 2) {
+            const p = { x: points[i], y: points[i + 1] };
+            const r = new Ray(source, p);
+            const t0 = Math.clamped(r.distance / distance, 0, 1);
+            const q = t0 <= limit ? p : r.project(limit / t0);
+            fovPoints.push(q)
+        }
+
+        return new PIXI.Polygon(...fovPoints);
+    }
+
     static _registerHooks() {
         this._postHook(PointSource, "_createContainer", function (_c, shaderCls) {
             if (shaderCls === StandardIlluminationShader || shaderCls.prototype instanceof StandardIlluminationShader) {
@@ -921,8 +939,47 @@ class PerfectVision {
             return _c;
         });
 
+        // Remove as soon as the line-of-sight polygon bug is fixed.
+        this._preHook(PointSource, "initialize", function (data) {
+            const d = canvas.dimensions;
+            const distance = Math.max(
+                Math.abs(data.dim ?? 0),
+                Math.abs(data.bright ?? 0),
+                Math.hypot((data.x ?? 0), (data.y ?? 0)),
+                Math.hypot((data.x ?? 0) - d.width, (data.y ?? 0)),
+                Math.hypot((data.x ?? 0) - d.width, (data.y ?? 0) - d.height),
+                Math.hypot((data.x ?? 0), (data.y ?? 0) - d.height)
+            );
+
+            const this_ = PerfectVision._extend(this);
+            this_.dim = data.dim;
+            this_.bright = data.bright;
+            this_.distance = distance;
+
+            data.dim = distance;
+            data.bright = distance;
+
+            if ((data.dim ?? 0) !== this.dim || (data.bright ?? 0) !== this.bright) {
+                this._resetColorationUniforms = true;
+                this._resetIlluminationUniforms = true;
+            }
+
+            return arguments;
+        });
+
+        this._postHook(PointSource, "initialize", function () {
+            const this_ = PerfectVision._extend(this);
+            this.dim = this_.dim ?? 0;
+            this.bright = this_.bright ?? 0;
+            this.radius = Math.max(Math.abs(this.dim), Math.abs(this.bright));
+            this.ratio = Math.clamped(Math.abs(this.bright) / this.radius, 0, 1);
+            this.darkness = Math.min(this.dim, this.bright) < 0;
+            this.fov = PerfectVision._computeFov(this, this.radius);
+            return arguments[0];
+        });
+
         this._postHook(PointSource, "drawLight", function (c) {
-            const this_ = PerfectVision._extend(this, {});
+            const this_ = PerfectVision._extend(this);
             const c_ = PerfectVision._extend(c);
 
             c_.fov.clear();
@@ -1185,7 +1242,7 @@ class PerfectVision {
                     brightVisionInDimLight = PerfectVision._visionRulesPresets[visionRules].brightVisionInDimLight;
                 }
 
-                const this_ = PerfectVision._extend(this, {});
+                const this_ = PerfectVision._extend(this);
 
                 this_.monoVisionColor = hexToRGB(colorStringToHex(
                     token.getFlag("perfect-vision", "monoVisionColor") || PerfectVision._settings.monoVisionColor
@@ -1228,26 +1285,10 @@ class PerfectVision {
                 const minR = token.w * 0.5 + 0.1 * canvas.dimensions.size;
                 opts.dim = opts.dim === 0 && opts.bright === 0 ? minR : opts.dim;
 
-                (PerfectVision._temp_Token_vision_initialize ?? Object.getPrototypeOf(this).initialize).call(this, opts);
+                (this_.initialize ?? Object.getPrototypeOf(this).initialize).call(this, opts);
 
                 this_.ratio = undefined;
                 this_.fov = this.fov;
-
-                {
-                    const d = canvas.dimensions;
-                    const radius = Math.max(
-                        Math.hypot(this.x, this.y),
-                        Math.hypot(this.x - d.width, this.y),
-                        Math.hypot(this.x - d.width, this.y - d.height),
-                        Math.hypot(this.x, this.y - d.height)
-                    );
-                    const { los } = SightLayer.computeSight({ x: this.x, y: this.y }, radius, {
-                        angle: this.angle,
-                        rotation: this.rotation,
-                        unrestricted: this.type === SOURCE_TYPES.UNIVERSAL
-                    });
-                    this.los = los;
-                }
 
                 const fovCache = { [this.radius]: this.fov };
                 const computeFov = (radius) => {
@@ -1257,12 +1298,7 @@ class PerfectVision {
                     if (fovCache[radius])
                         return fovCache[radius];
 
-                    const { fov } = SightLayer.computeSight({ x: this.x, y: this.y }, radius, {
-                        angle: this.angle,
-                        rotation: this.rotation,
-                        unrestricted: this.type === SOURCE_TYPES.UNIVERSAL
-                    });
-                    return fov;
+                    return PerfectVision._computeFov(this, radius);
                 };
 
                 if (visionRadius > 0)
@@ -1289,19 +1325,23 @@ class PerfectVision {
 
             };
 
-            PerfectVision._temp_Token_vision_initialize = this.vision.hasOwnProperty("initialize") ? this.vision.initialize : undefined;
+            const vision_ = PerfectVision._extend(this.vision);
+            vision_.initialize = this.vision.hasOwnProperty("initialize") ? this.vision.initialize : undefined;
             this.vision.initialize = initialize;
 
             return arguments;
         });
 
         this._postHook(Token, "updateSource", function () {
-            if (PerfectVision._temp_Token_vision_initialize) {
-                this.vision.initialize = PerfectVision._temp_Token_vision_initialize;
-                delete PerfectVision._temp_Token_vision_initialize;
+            const vision_ = PerfectVision._extend(this.vision);
+
+            if (vision_.initialize) {
+                this.vision.initialize = vision_.initialize;
+                delete vision_.initialize;
             } else {
                 delete this.vision.initialize;
             }
+
             return arguments[0];
         });
 
