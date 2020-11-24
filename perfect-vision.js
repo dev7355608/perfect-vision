@@ -410,7 +410,7 @@ class PerfectVision {
         this._hooks[target] = this._hooks[target] ?? [];
         this._hooks[target].push({ type, func });
 
-        if (game.modules.get('lib-wrapper')?.active) {
+        if (game.modules.get("lib-wrapper")?.active) {
             libWrapper.unregister("perfect-vision", target, false);
             libWrapper.register("perfect-vision", target, this._buildLibWrapperHook(target), "WRAPPER");
         } else {
@@ -424,6 +424,10 @@ class PerfectVision {
             } else if (type === "post") {
                 prototype[methodName] = function () {
                     return func.call(this, method.apply(this, arguments), ...arguments);
+                };
+            } else if (type === "wrap") {
+                prototype[methodName] = function () {
+                    return func.call(this, (...args) => method.apply(this, args), ...arguments);
                 };
             }
         }
@@ -444,6 +448,10 @@ class PerfectVision {
                     curr = function (wrapped, ...args) {
                         return func.call(this, wrapped(...args), ...args);
                     };
+                } else if (hook.type === "wrap") {
+                    curr = function (wrapped, ...args) {
+                        return func.call(this, wrapped, ...args);
+                    };
                 }
             } else {
                 const prev = curr;
@@ -456,6 +464,10 @@ class PerfectVision {
                 } else if (hook.type === "post") {
                     curr = function (wrapped, ...args) {
                         return func.call(this, prev.call(this, wrapped, ...args), ...args);
+                    };
+                } else if (hook.type === "wrap") {
+                    curr = function (wrapped, ...args) {
+                        return func.call(this, (...args) => prev.call(this, wrapped, ...args), ...args);
                     };
                 }
             }
@@ -470,6 +482,10 @@ class PerfectVision {
 
     static _postHook(cls, methodName, func) {
         return this._hook(cls, methodName, "post", func);
+    }
+
+    static _wrapHook(cls, methodName, func) {
+        return this._hook(cls, methodName, "wrap", func);
     }
 
     static _visualizeTexture(texture, name = "") {
@@ -997,7 +1013,7 @@ class PerfectVision {
         });
 
         // Remove as soon as the line-of-sight polygon bug is fixed.
-        this._preHook(PointSource, "initialize", function (data) {
+        this._wrapHook(PointSource, "initialize", function (wrapped, data) {
             const d = canvas.dimensions;
             const distance = Math.max(
                 Math.abs(data.dim ?? 0),
@@ -1021,18 +1037,130 @@ class PerfectVision {
                 this._resetIlluminationUniforms = true;
             }
 
-            return arguments;
-        });
+            const retVal = wrapped(data);
 
-        this._postHook(PointSource, "initialize", function () {
-            const this_ = PerfectVision._extend(this);
             this.dim = this_.dim ?? 0;
             this.bright = this_.bright ?? 0;
             this.radius = Math.max(Math.abs(this.dim), Math.abs(this.bright));
             this.ratio = Math.clamped(Math.abs(this.bright) / this.radius, 0, 1);
             this.darkness = Math.min(this.dim, this.bright) < 0;
             this.fov = PerfectVision._computeFov(this, this.radius);
-            return arguments[0];
+
+            return retVal;
+        });
+
+        this._wrapHook(PointSource, "initialize", function (wrapped, opts) {
+            const this_ = PerfectVision._extend(this);
+
+            if (!this_.isVision)
+                return wrapped(opts);
+
+            const token = this_.token;
+
+            let dimVisionInDarkness;
+            let dimVisionInDimLight;
+            let brightVisionInDarkness;
+            let brightVisionInDimLight;
+
+            const visionRules = token.getFlag("perfect-vision", "visionRules") || "default";
+
+            if (visionRules === "default") {
+                dimVisionInDarkness = PerfectVision._settings.dimVisionInDarkness;
+                dimVisionInDimLight = PerfectVision._settings.dimVisionInDimLight;
+                brightVisionInDarkness = PerfectVision._settings.brightVisionInDarkness;
+                brightVisionInDimLight = PerfectVision._settings.brightVisionInDimLight;
+            } else if (visionRules === "custom") {
+                dimVisionInDarkness = token.getFlag("perfect-vision", "dimVisionInDarkness") || PerfectVision._settings.dimVisionInDarkness;
+                dimVisionInDimLight = token.getFlag("perfect-vision", "dimVisionInDimLight") || PerfectVision._settings.dimVisionInDimLight;
+                brightVisionInDarkness = token.getFlag("perfect-vision", "brightVisionInDarkness") || PerfectVision._settings.brightVisionInDarkness;
+                brightVisionInDimLight = token.getFlag("perfect-vision", "brightVisionInDimLight") || PerfectVision._settings.brightVisionInDimLight;
+            } else {
+                dimVisionInDarkness = PerfectVision._visionRulesPresets[visionRules].dimVisionInDarkness;
+                dimVisionInDimLight = PerfectVision._visionRulesPresets[visionRules].dimVisionInDimLight;
+                brightVisionInDarkness = PerfectVision._visionRulesPresets[visionRules].brightVisionInDarkness;
+                brightVisionInDimLight = PerfectVision._visionRulesPresets[visionRules].brightVisionInDimLight;
+            }
+
+            this_.monoVisionColor = hexToRGB(colorStringToHex(
+                token.getFlag("perfect-vision", "monoVisionColor") || PerfectVision._settings.monoVisionColor
+            ));
+
+            let dim = token.getLightRadius(token.data.dimSight);
+            let bright = token.getLightRadius(token.data.brightSight);
+
+            opts.dim = Math.max(
+                dimVisionInDarkness === "dim" || dimVisionInDarkness === "dim_mono" ? dim : 0,
+                brightVisionInDarkness === "dim" || brightVisionInDarkness === "dim_mono" ? bright : 0
+            );
+            opts.bright = Math.max(
+                dimVisionInDarkness === "bright" || dimVisionInDarkness === "bright_mono" ? dim : 0,
+                brightVisionInDarkness === "bright" || brightVisionInDarkness === "bright_mono" ? bright : 0
+            );
+
+            const c = this.illumination;
+            const c_ = PerfectVision._extend(c);
+            c.renderable = false;
+            c_.visible = Math.max(opts.dim, opts.bright) > 0;
+
+            const visionRadius = Math.max(
+                dimVisionInDarkness === "scene" || dimVisionInDarkness === "scene_mono" ? dim : 0,
+                dimVisionInDarkness === "dim" || dimVisionInDarkness === "dim_mono" ? dim : 0,
+                dimVisionInDarkness === "bright" || dimVisionInDarkness === "bright_mono" ? dim : 0,
+                brightVisionInDarkness === "scene" || brightVisionInDarkness === "scene_mono" ? bright : 0,
+                brightVisionInDarkness === "dim" || brightVisionInDarkness === "dim_mono" ? bright : 0,
+                brightVisionInDarkness === "bright" || brightVisionInDarkness === "bright_mono" ? bright : 0
+            );
+            const visionRadiusColor = Math.max(
+                dimVisionInDarkness === "scene" ? dim : 0,
+                dimVisionInDarkness === "dim" ? dim : 0,
+                dimVisionInDarkness === "bright" ? dim : 0,
+                brightVisionInDarkness === "scene" ? bright : 0,
+                brightVisionInDarkness === "dim" ? bright : 0,
+                brightVisionInDarkness === "bright" ? bright : 0
+            );
+
+            const minR = token.w * 0.5 + 0.1 * canvas.dimensions.size;
+            opts.dim = opts.dim === 0 && opts.bright === 0 ? minR : opts.dim;
+
+            const retVal = wrapped(opts);
+
+            this_.ratio = undefined;
+            this_.fov = this.fov;
+
+            const fovCache = { [this.radius]: this.fov };
+            const computeFov = (radius) => {
+                if (radius <= 0)
+                    return null;
+
+                if (fovCache[radius])
+                    return fovCache[radius];
+
+                return PerfectVision._computeFov(this, radius);
+            };
+
+            if (visionRadius > 0)
+                this_.fovMono = (this.fov = computeFov(visionRadius));
+            else
+                this_.fovMono = null;
+
+            if (visionRadiusColor > 0)
+                this_.fovColor = computeFov(visionRadiusColor);
+            else
+                this_.fovColor = null;
+
+            {
+                const radius = Math.max(
+                    dimVisionInDimLight === "bright" ? dim : 0,
+                    brightVisionInDimLight === "bright" ? bright : 0
+                );
+
+                if (radius > 0)
+                    this_.fovDimToBright = computeFov(radius);
+                else
+                    this_.fovDimToBright = null;
+            }
+
+            return retVal;
         });
 
         this._postHook(PointSource, "drawLight", function (c) {
@@ -1203,19 +1331,16 @@ class PerfectVision {
             return c;
         });
 
-        this._preHook(LightingLayer, "refresh", function () {
+        this._wrapHook(LightingLayer, "refresh", function (wrapped, ...args) {
             const ilm = this.illumination;
             const ilm_ = PerfectVision._extend(ilm);
+
             this.sources.set("PerfectVision.Light.1", ilm_.globalLight1);
             this.sources.set("PerfectVision.Light.2", ilm_.globalLight2);
             ilm_.globalLight1._resetIlluminationUniforms = true;
             ilm_.globalLight2._resetIlluminationUniforms = true;
-            return arguments;
-        });
 
-        this._postHook(LightingLayer, "refresh", function () {
-            const ilm = this.illumination;
-            const ilm_ = PerfectVision._extend(ilm);
+            const retVal = wrapped(...args);
 
             if (game.user.isGM && PerfectVision._settings.improvedGMVision) {
                 if (canvas.sight.sources.size === 0) {
@@ -1254,7 +1379,8 @@ class PerfectVision {
             }
 
             PerfectVision._refresh = true;
-            return arguments[0];
+
+            return retVal;
         });
 
         this._preHook(LightingLayer, "tearDown", function () {
@@ -1271,133 +1397,10 @@ class PerfectVision {
         });
 
         this._preHook(Token, "updateSource", function () {
-            const token = this;
-            const initialize = function (opts) {
-                let dimVisionInDarkness;
-                let dimVisionInDimLight;
-                let brightVisionInDarkness;
-                let brightVisionInDimLight;
-
-                const visionRules = token.getFlag("perfect-vision", "visionRules") || "default";
-
-                if (visionRules === "default") {
-                    dimVisionInDarkness = PerfectVision._settings.dimVisionInDarkness;
-                    dimVisionInDimLight = PerfectVision._settings.dimVisionInDimLight;
-                    brightVisionInDarkness = PerfectVision._settings.brightVisionInDarkness;
-                    brightVisionInDimLight = PerfectVision._settings.brightVisionInDimLight;
-                } else if (visionRules === "custom") {
-                    dimVisionInDarkness = token.getFlag("perfect-vision", "dimVisionInDarkness") || PerfectVision._settings.dimVisionInDarkness;
-                    dimVisionInDimLight = token.getFlag("perfect-vision", "dimVisionInDimLight") || PerfectVision._settings.dimVisionInDimLight;
-                    brightVisionInDarkness = token.getFlag("perfect-vision", "brightVisionInDarkness") || PerfectVision._settings.brightVisionInDarkness;
-                    brightVisionInDimLight = token.getFlag("perfect-vision", "brightVisionInDimLight") || PerfectVision._settings.brightVisionInDimLight;
-                } else {
-                    dimVisionInDarkness = PerfectVision._visionRulesPresets[visionRules].dimVisionInDarkness;
-                    dimVisionInDimLight = PerfectVision._visionRulesPresets[visionRules].dimVisionInDimLight;
-                    brightVisionInDarkness = PerfectVision._visionRulesPresets[visionRules].brightVisionInDarkness;
-                    brightVisionInDimLight = PerfectVision._visionRulesPresets[visionRules].brightVisionInDimLight;
-                }
-
-                const this_ = PerfectVision._extend(this);
-
-                this_.monoVisionColor = hexToRGB(colorStringToHex(
-                    token.getFlag("perfect-vision", "monoVisionColor") || PerfectVision._settings.monoVisionColor
-                ));
-
-                let dim = token.getLightRadius(token.data.dimSight);
-                let bright = token.getLightRadius(token.data.brightSight);
-
-                opts.dim = Math.max(
-                    dimVisionInDarkness === "dim" || dimVisionInDarkness === "dim_mono" ? dim : 0,
-                    brightVisionInDarkness === "dim" || brightVisionInDarkness === "dim_mono" ? bright : 0
-                );
-                opts.bright = Math.max(
-                    dimVisionInDarkness === "bright" || dimVisionInDarkness === "bright_mono" ? dim : 0,
-                    brightVisionInDarkness === "bright" || brightVisionInDarkness === "bright_mono" ? bright : 0
-                );
-
-                const c = this.illumination;
-                const c_ = PerfectVision._extend(c);
-                c.renderable = false;
-                c_.visible = Math.max(opts.dim, opts.bright) > 0;
-
-                const visionRadius = Math.max(
-                    dimVisionInDarkness === "scene" || dimVisionInDarkness === "scene_mono" ? dim : 0,
-                    dimVisionInDarkness === "dim" || dimVisionInDarkness === "dim_mono" ? dim : 0,
-                    dimVisionInDarkness === "bright" || dimVisionInDarkness === "bright_mono" ? dim : 0,
-                    brightVisionInDarkness === "scene" || brightVisionInDarkness === "scene_mono" ? bright : 0,
-                    brightVisionInDarkness === "dim" || brightVisionInDarkness === "dim_mono" ? bright : 0,
-                    brightVisionInDarkness === "bright" || brightVisionInDarkness === "bright_mono" ? bright : 0
-                );
-                const visionRadiusColor = Math.max(
-                    dimVisionInDarkness === "scene" ? dim : 0,
-                    dimVisionInDarkness === "dim" ? dim : 0,
-                    dimVisionInDarkness === "bright" ? dim : 0,
-                    brightVisionInDarkness === "scene" ? bright : 0,
-                    brightVisionInDarkness === "dim" ? bright : 0,
-                    brightVisionInDarkness === "bright" ? bright : 0
-                );
-
-                const minR = token.w * 0.5 + 0.1 * canvas.dimensions.size;
-                opts.dim = opts.dim === 0 && opts.bright === 0 ? minR : opts.dim;
-
-                (this_.initialize ?? Object.getPrototypeOf(this).initialize).call(this, opts);
-
-                this_.ratio = undefined;
-                this_.fov = this.fov;
-
-                const fovCache = { [this.radius]: this.fov };
-                const computeFov = (radius) => {
-                    if (radius <= 0)
-                        return null;
-
-                    if (fovCache[radius])
-                        return fovCache[radius];
-
-                    return PerfectVision._computeFov(this, radius);
-                };
-
-                if (visionRadius > 0)
-                    this_.fovMono = (this.fov = computeFov(visionRadius));
-                else
-                    this_.fovMono = null;
-
-                if (visionRadiusColor > 0)
-                    this_.fovColor = computeFov(visionRadiusColor);
-                else
-                    this_.fovColor = null;
-
-                {
-                    const radius = Math.max(
-                        dimVisionInDimLight === "bright" ? dim : 0,
-                        brightVisionInDimLight === "bright" ? bright : 0
-                    );
-
-                    if (radius > 0)
-                        this_.fovDimToBright = computeFov(radius);
-                    else
-                        this_.fovDimToBright = null;
-                }
-
-            };
-
             const vision_ = PerfectVision._extend(this.vision);
-            vision_.initialize = this.vision.hasOwnProperty("initialize") ? this.vision.initialize : undefined;
-            this.vision.initialize = initialize;
-
+            vision_.isVision = true;
+            vision_.token = this;
             return arguments;
-        });
-
-        this._postHook(Token, "updateSource", function () {
-            const vision_ = PerfectVision._extend(this.vision);
-
-            if (vision_.initialize) {
-                this.vision.initialize = vision_.initialize;
-                delete vision_.initialize;
-            } else {
-                delete this.vision.initialize;
-            }
-
-            return arguments[0];
         });
 
         this._postHook(Token, "draw", async function () {
@@ -1456,7 +1459,7 @@ class PerfectVision {
         Hooks.on("renderSceneConfig", (...args) => PerfectVision._renderSceneConfig(...args));
 
         Hooks.once("ready", () => {
-            if (!game.modules.get('lib-wrapper')?.active && game.user.isGM)
+            if (!game.modules.get("lib-wrapper")?.active && game.user.isGM)
                 ui.notifications.warn("The 'Perfect Vision' module recommends to install and activate the 'libWrapper' module.");
         });
     }
