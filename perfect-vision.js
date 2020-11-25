@@ -1013,10 +1013,13 @@ class PerfectVision {
 
         // Remove as soon as the line-of-sight polygon bug is fixed.
         this._wrapHook(PointSource, "initialize", function (wrapped, data) {
+            const dim = data.dim ?? 0;
+            const bright = data.bright ?? 0;
+
             const d = canvas.dimensions;
             const distance = Math.max(
-                Math.abs(data.dim ?? 0),
-                Math.abs(data.bright ?? 0),
+                Math.abs(dim),
+                Math.abs(bright),
                 Math.hypot((data.x ?? 0), (data.y ?? 0)),
                 Math.hypot((data.x ?? 0) - d.width, (data.y ?? 0)),
                 Math.hypot((data.x ?? 0) - d.width, (data.y ?? 0) - d.height),
@@ -1024,26 +1027,25 @@ class PerfectVision {
             );
 
             const this_ = PerfectVision._extend(this);
-            this_.dim = data.dim;
-            this_.bright = data.bright;
             this_.distance = distance;
 
             data.dim = distance;
             data.bright = distance;
 
-            if ((data.dim ?? 0) !== this.dim || (data.bright ?? 0) !== this.bright) {
+            if (dim !== this.dim || bright !== this.bright) {
                 this._resetColorationUniforms = true;
                 this._resetIlluminationUniforms = true;
             }
 
             const retVal = wrapped(data);
 
-            this.dim = this_.dim ?? 0;
-            this.bright = this_.bright ?? 0;
+            this.dim = dim;
+            this.bright = bright;
             this.radius = Math.max(Math.abs(this.dim), Math.abs(this.bright));
             this.ratio = Math.clamped(Math.abs(this.bright) / this.radius, 0, 1);
             this.darkness = Math.min(this.dim, this.bright) < 0;
             this.fov = PerfectVision._computeFov(this, this.radius);
+            this._initializeBlending();
 
             return retVal;
         });
