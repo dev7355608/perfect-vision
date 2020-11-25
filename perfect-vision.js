@@ -695,7 +695,7 @@ class PerfectVision {
 
     // Based on PixiJS Filters' GlowFilter
     static _GlowFilter = class extends PIXI.Filter {
-        constructor(strength = 1.0, intensity = 1.0, quality = 1.0, resolution = PIXI.settings.RESOLUTION, distance = 2) {
+        constructor(strength = 1.0, intensity = 1.0, quality = 1.0, distance = 2) {
             distance = Math.round(distance);
 
             super(`\
@@ -758,7 +758,6 @@ class PerfectVision {
                 }`.replace(/__ANGLE_STEP_SIZE__/gi, "" + (Math.PI / Math.round(quality * (distance + 1))).toFixed(7))
                 .replace(/__DIST__/gi, distance.toFixed(0) + ".0"));
 
-            this.resolution = resolution;
             this.uniforms.uStrength = strength;
             this.uniforms.uIntensity = intensity;
         }
@@ -1225,7 +1224,7 @@ class PerfectVision {
                 c_.mask.layers[1].blendMode = PIXI.BLEND_MODES.ADD;
                 c_.mask.layers[2].blendMode = PIXI.BLEND_MODES.SUBTRACT;
                 c_.mask.filter = this._blurDistance ?
-                    new PerfectVision._GlowFilter(2.0, 2.5, 2 / 3, undefined, this._blurDistance) :
+                    new PerfectVision._GlowFilter(2.0, 2.5, 2 / 3, this._blurDistance) :
                     new PIXI.filters.AlphaFilter(1.0);
                 c_.mask.filters = [c_.mask.filter];
                 c_.mask.filterArea = canvas.app.renderer.screen;
