@@ -702,16 +702,18 @@ class PerfectVision {
                 precision mediump float;
 
                 attribute vec2 aVertexPosition;
-                attribute vec2 aTextureCoord;
 
                 uniform mat3 projectionMatrix;
+                uniform vec4 inputSize;
+                uniform vec4 outputFrame;
 
                 varying vec2 vTextureCoord;
 
                 void main(void)
                 {
-                    gl_Position = vec4((projectionMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
-                    vTextureCoord = aTextureCoord;
+                    vec2 position = aVertexPosition * max(outputFrame.zw, vec2(0.0)) + outputFrame.xy;
+                    gl_Position = vec4((projectionMatrix * vec3(position, 1.0)).xy, 0.0, 1.0);
+                    vTextureCoord = aVertexPosition * (outputFrame.zw * inputSize.zw);
                 }`, `\
                 precision mediump float;
 
@@ -887,6 +889,9 @@ class PerfectVision {
             this._updateMonoFilter(canvas.tokens.placeables);
             this._updateMonoFilter(canvas.tiles.placeables);
             this._updateMonoFilter(canvas.templates.placeables);
+
+            if (canvas.roofs)
+                this._updateMonoFilter(canvas.roofs.children);
         } else {
             for (let placeable of placeables) {
                 let sprite;
@@ -897,6 +902,8 @@ class PerfectVision {
                     sprite = placeable.tile.img;
                 } else if (placeable instanceof MeasuredTemplate) {
                     sprite = placeable.template;
+                } else if (placeable instanceof PIXI.DisplayObject) {
+                    sprite = placeable;
                 }
 
                 if (sprite) {
@@ -1428,7 +1435,7 @@ class PerfectVision {
             return retVal;
         });
 
-        if (PlaceableObject.prototype._TMFXsetRawFilters) {
+        if (game.modules.get("tokenmagic")?.active) {
             this._postHook(PlaceableObject, "_TMFXsetRawFilters", function (retVal, filters) {
                 PerfectVision._updateMonoFilter([this]);
                 return retVal;
@@ -1438,6 +1445,13 @@ class PerfectVision {
                     PerfectVision._updateMonoFilter([placeable]);
                     return retVal;
                 })
+            });
+        }
+
+        if (game.modules.get("roofs")?.active) {
+            this._postHook("RoofsLayer", "createRoof", function (retVal, tile) {
+                PerfectVision._updateMonoFilter([tile.roof.container]);
+                return retVal;
             });
         }
 
