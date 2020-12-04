@@ -4,8 +4,8 @@
   "description": "Darkvision rules and other light-related improvements.",
   "author": "dev7355608",
   "version": "1.2.8",
-  "minimumCoreVersion": "0.7.7",
-  "compatibleCoreVersion": "0.7.7",
+  "minimumCoreVersion": "0.7.8",
+  "compatibleCoreVersion": "0.7.8",
   "scripts": [
     "perfect-vision.js"
   ],

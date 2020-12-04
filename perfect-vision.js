@@ -332,6 +332,10 @@ class PerfectVision {
 
         const update = () => {
             const visionRules = html.find(`select[name="${prefix}.visionRules"]`).val();
+
+            if (!visionRules)
+                return;
+
             html.find(`select[name="${prefix}.dimVisionInDarkness"]`).prop("disabled", visionRules !== "custom");
             html.find(`select[name="${prefix}.dimVisionInDimLight"]`).prop("disabled", visionRules !== "custom");
             html.find(`select[name="${prefix}.brightVisionInDarkness"]`).prop("disabled", visionRules !== "custom");
@@ -609,7 +613,8 @@ class PerfectVision {
                         width: width,
                         height: height,
                         scaleMode: PIXI.SCALE_MODES.LINEAR,
-                        resolution: window.devicePixelRatio
+                        resolution: game.settings.get("core", "devicePixelRatio") ?
+                            Math.max(window.devicePixelRatio, 1) : Math.min(window.devicePixelRatio, 1)
                     });
 
                     const size = [width, height, 1 / width, 1 / height];
@@ -621,7 +626,7 @@ class PerfectVision {
                     ilm_.visionInDarkness.filter.uniforms.uMaskSize = size;
                     ilm_.lightsDimToBright.filter.uniforms.uMask = mask.texture;
                     ilm_.lightsDimToBright.filter.uniforms.uMaskSize = size;
-                } else if (mask.texture.width !== width || mask.texture.width !== height) {
+                } else if (mask.texture.width !== width || mask.texture.height !== height) {
                     mask.texture.resize(width, height);
 
                     const size = [width, height, 1 / width, 1 / height];
@@ -845,14 +850,27 @@ class PerfectVision {
         }
     };
 
-    static _monoFilter = new this._MonoFilter();
-    static _monoFilter_noAutoFit = new Proxy(this._monoFilter, {
-        get(target, prop, receiver) {
-            if (prop === "autoFit")
-                return false;
-            return Reflect.get(...arguments);
-        }
-    });
+    static _monoFilter_ = null;
+    // Remove as soon as pixi.js fixes the auto fit bug.
+    static _monoFilter_noAutoFit_ = null;
+
+    static get _monoFilter() {
+        if (!this._monoFilter_)
+            this._monoFilter_ = new this._MonoFilter();
+        return this._monoFilter_;
+    }
+
+    static get _monoFilter_noAutoFit() {
+        if (!this._monoFilter_noAutoFit_)
+            this._monoFilter_noAutoFit_ = new Proxy(this._monoFilter, {
+                get(target, prop, receiver) {
+                    if (prop === "autoFit")
+                        return false;
+                    return Reflect.get(...arguments);
+                }
+            });
+        return this._monoFilter_noAutoFit_;
+    }
 
     static _updateMonoFilter(placeables = null) {
         if (!placeables) {
@@ -929,24 +947,6 @@ class PerfectVision {
         }
     }
 
-    static _computeFov(source, radius) {
-        const source_ = PerfectVision._extend(source);
-        const distance = source_.distance;
-        const limit = Math.clamped(radius / distance, 0, 1);
-        const fovPoints = [];
-        const points = source.los.points;
-
-        for (let i = 0; i < points.length; i += 2) {
-            const p = { x: points[i], y: points[i + 1] };
-            const r = new Ray(source, p);
-            const t0 = Math.clamped(r.distance / distance, 0, 1);
-            const q = t0 <= limit ? p : r.project(limit / t0);
-            fovPoints.push(q)
-        }
-
-        return new PIXI.Polygon(...fovPoints);
-    }
-
     static _registerHooks() {
         this._postHook(PointSource, "_createContainer", function (_c, shaderCls) {
             if (shaderCls === StandardIlluminationShader || shaderCls.prototype instanceof StandardIlluminationShader) {
@@ -1016,45 +1016,6 @@ class PerfectVision {
             }
 
             return _c;
-        });
-
-        // Remove as soon as the line-of-sight polygon bug is fixed.
-        this._wrapHook(PointSource, "initialize", function (wrapped, data) {
-            const dim = data.dim ?? 0;
-            const bright = data.bright ?? 0;
-
-            const d = canvas.dimensions;
-            const distance = Math.max(
-                Math.abs(dim),
-                Math.abs(bright),
-                Math.hypot((data.x ?? 0), (data.y ?? 0)),
-                Math.hypot((data.x ?? 0) - d.width, (data.y ?? 0)),
-                Math.hypot((data.x ?? 0) - d.width, (data.y ?? 0) - d.height),
-                Math.hypot((data.x ?? 0), (data.y ?? 0) - d.height)
-            );
-
-            const this_ = PerfectVision._extend(this);
-            this_.distance = distance;
-
-            data.dim = distance;
-            data.bright = distance;
-
-            if (dim !== this.dim || bright !== this.bright) {
-                this._resetColorationUniforms = true;
-                this._resetIlluminationUniforms = true;
-            }
-
-            const retVal = wrapped(data);
-
-            this.dim = dim;
-            this.bright = bright;
-            this.radius = Math.max(Math.abs(this.dim), Math.abs(this.bright));
-            this.ratio = Math.clamped(Math.abs(this.bright) / this.radius, 0, 1);
-            this.darkness = Math.min(this.dim, this.bright) < 0;
-            this.fov = PerfectVision._computeFov(this, this.radius);
-            this._initializeBlending();
-
-            return retVal;
         });
 
         this._wrapHook(PointSource, "initialize", function (wrapped, opts) {
@@ -1127,13 +1088,22 @@ class PerfectVision {
                 brightVisionInDarkness === "bright" ? bright : 0
             );
 
-            const minR = token.w * 0.5 + 0.1 * canvas.dimensions.size;
+            const d = canvas.dimensions;
+            const minR = token.w * 0.5 + d.size * 0.1;
             opts.dim = opts.dim === 0 && opts.bright === 0 ? minR : opts.dim;
 
             const retVal = wrapped(opts);
 
             this_.ratio = undefined;
             this_.fov = this.fov;
+
+            const distance = Math.max(
+                this.radius,
+                Math.hypot(
+                    Math.max(this.x, d.width - this.x),
+                    Math.max(this.x, d.height - this.y)
+                )
+            );
 
             const fovCache = { [this.radius]: this.fov };
             const computeFov = (radius) => {
@@ -1143,7 +1113,19 @@ class PerfectVision {
                 if (fovCache[radius])
                     return fovCache[radius];
 
-                return PerfectVision._computeFov(this, radius);
+                const limit = Math.clamped(radius / distance, 0, 1);
+                const fovPoints = [];
+                const points = this.los.points;
+
+                for (let i = 0; i < points.length; i += 2) {
+                    const p = { x: points[i], y: points[i + 1] };
+                    const r = new Ray(this, p);
+                    const t0 = Math.clamped(r.distance / distance, 0, 1);
+                    const q = t0 <= limit ? p : r.project(limit / t0);
+                    fovPoints.push(q)
+                }
+
+                return new PIXI.Polygon(...fovPoints);
             };
 
             if (visionRadius > 0)
