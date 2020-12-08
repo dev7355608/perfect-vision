@@ -1020,11 +1020,23 @@ class PerfectVision {
 
         this._wrapHook(PointSource, "initialize", function (wrapped, opts) {
             const this_ = PerfectVision._extend(this);
-
-            if (!this_.isVision)
-                return wrapped(opts);
-
             const token = this_.token;
+
+            if (!this_.isVision || token._original) {
+                const retVal = wrapped(opts);
+
+                if (this_.isVision && token._original) {
+                    const original_ = PerfectVision._extend(token._original.vision);
+                    this_.ratio = original_.ratio;
+                    this_.fov = original_.fov;
+                    this_.fovMono = original_.fovMono;
+                    this_.fovColor = original_.fovColor;
+                    this_.fovDimToBright = original_.fovDimToBright;
+                    this_.monoVisionColor = original_.monoVisionColor;
+                }
+
+                return retVal
+            }
 
             let dimVisionInDarkness;
             let dimVisionInDimLight;
