@@ -593,18 +593,6 @@ class PerfectVision {
 
                 mask.layers[1].endFill();
 
-                mask.layers[2].clear();
-                mask.layers[2].beginFill(0x0000FF);
-
-                for (let source of canvas.lighting.sources) {
-                    if (!source.active) continue;
-
-                    if (source.darkness)
-                        mask.layers[2].drawPolygon(source.fov);
-                }
-
-                mask.layers[2].endFill();
-
                 const width = canvas.app.renderer.screen.width;
                 const height = canvas.app.renderer.screen.height;
 
@@ -1200,16 +1188,16 @@ class PerfectVision {
             }
 
             {
-                c_.visionInDarkness = c.addChild(new PIXI.Container());
+                c_.visionInDarkness = c.addChildAt(new PIXI.Container(), c.getChildIndex(c_.background) + 1);
                 c_.visionInDarkness.sortableChildren = true;
-                c_.visionInDarkness.filter = new PerfectVision._MaskFilter("1.0 - r * (1.0 - g)");
+                c_.visionInDarkness.filter = new PerfectVision._MaskFilter("g");
                 c_.visionInDarkness.filter.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
                 c_.visionInDarkness.filterArea = canvas.app.renderer.screen;
                 c_.visionInDarkness.filters = [c_.visionInDarkness.filter];
             }
 
             {
-                c_.lightsDimToBright = c.addChild(new PIXI.Container());
+                c_.lightsDimToBright = c.addChildAt(new PIXI.Container(), c.getChildIndex(c_.visionInDarkness) + 1);
                 c_.lightsDimToBright.sortableChildren = true;
                 c_.lightsDimToBright.filter = new PerfectVision._MaskFilter("b");
                 c_.lightsDimToBright.filter.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
@@ -1221,13 +1209,11 @@ class PerfectVision {
                 c_.mask = new PIXI.Container();
                 c_.mask.layers = [
                     c_.mask.addChild(new PIXI.Graphics()),
-                    c_.mask.addChild(new PIXI.Graphics()),
                     c_.mask.addChild(new PIXI.Graphics())
                 ];
                 c_.mask.layers[1].blendMode = PIXI.BLEND_MODES.ADD;
-                c_.mask.layers[2].blendMode = PIXI.BLEND_MODES.SUBTRACT;
                 c_.mask.filter = this._blurDistance ?
-                    new PerfectVision._GlowFilter(2.0, 2.5, 2 / 3, this._blurDistance) :
+                    new PerfectVision._GlowFilter(2.0, 2.0, 4 / 5, this._blurDistance / 2) :
                     new PIXI.filters.AlphaFilter(1.0);
                 c_.mask.filters = [c_.mask.filter];
                 c_.mask.filterArea = canvas.app.renderer.screen;
