@@ -861,6 +861,8 @@ class PerfectVision {
     }
 
     static _updateMonoFilter(placeables = null) {
+        this._monoFilter.zOrder = this._monoFilter.rank = 0;
+
         if (!placeables) {
             for (let layerName of ["background", "fxmaster"]) {
                 const layer = canvas[layerName];
