@@ -1388,7 +1388,7 @@ class PerfectVision {
             return c;
         });
 
-        this._preHook(LightingLayer, "refresh", function () {
+        this._wrapHook(LightingLayer, "refresh", function (wrapped, ...args) {
             const ilm = this.illumination;
             const ilm_ = PerfectVision._extend(ilm);
 
@@ -1396,6 +1396,8 @@ class PerfectVision {
             this.sources.set("PerfectVision.Light.2", ilm_.globalLight2);
             ilm_.globalLight1._resetIlluminationUniforms = true;
             ilm_.globalLight2._resetIlluminationUniforms = true;
+
+            const retVal = wrapped(...args);
 
             if (game.user.isGM && PerfectVision._settings.improvedGMVision && canvas.sight.sources.size === 0) {
                 const s = 1 / Math.max(...this.channels.background.rgb);
@@ -1405,7 +1407,7 @@ class PerfectVision {
                 ilm_.background.visible = false;
             }
 
-            return arguments;
+            return retVal;
         });
 
         this._preHook(Token, "updateSource", function () {
