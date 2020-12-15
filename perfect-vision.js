@@ -1246,7 +1246,6 @@ class PerfectVision {
             } else {
                 if (!c_.fovLight) {
                     c_.fovLight = new PIXI.Graphics();
-                    c_.fovLight.cacheAsBitmap = true;
                     c_.fovLight.zIndex = 2;
                 }
 
