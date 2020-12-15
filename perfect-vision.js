@@ -228,10 +228,69 @@ class PerfectVision {
 
     static _lightingRefresh() {
         this._refreshLighting = false;
+
+        const ilm = canvas.lighting.illumination;
+        const ilm_ = this._extend(ilm);
+
+        const mask = this._mask;
+
+        mask.removeChildren();
+
+        for (const source of canvas.lighting.sources) {
+            if (!source.active) continue;
+
+            if (source !== ilm_.globalLight2) {
+                const sc = source.illumination;
+                const sc_ = this._extend(sc);
+
+                if (sc_.fovLight)
+                    mask.addChild(sc_.fovLight);
+            }
+        }
+
+        for (const source of canvas.sight.sources) {
+            if (!source.active) continue;
+
+            const sc = source.illumination;
+            const sc_ = this._extend(sc);
+
+            if (sc_.fovMono)
+                mask.addChild(sc_.fovMono);
+
+            if (sc_.fovColor)
+                mask.addChild(sc_.fovColor);
+
+            if (sc_.fovDimToBright)
+                mask.addChild(sc_.fovDimToBright);
+        }
+
+        this._refresh = true;
     }
 
     static _sightRefresh() {
         this._refreshSight = false;
+
+        let monoVisionColor;
+
+        for (const source of canvas.sight.sources) {
+            if (!source.active) continue;
+
+            const source_ = this._extend(source);
+
+            if (source_.fovMono) {
+                if (monoVisionColor) {
+                    monoVisionColor = undefined;
+                    break;
+                }
+
+                monoVisionColor = source_.monoVisionColor;
+            }
+        }
+
+        this._monoFilter.enabled = canvas.sight.tokenVision && canvas.sight.sources.size > 0;
+        this._monoFilter.uniforms.uTint = monoVisionColor ?? [1, 1, 1];
+
+        this._refresh = true;
     }
 
     static _updateToken(parent, doc, update, options, userId) {
@@ -1330,7 +1389,7 @@ class PerfectVision {
             return c;
         });
 
-        this._wrapHook(LightingLayer, "refresh", function (wrapped, ...args) {
+        this._preHook(LightingLayer, "refresh", function () {
             const ilm = this.illumination;
             const ilm_ = PerfectVision._extend(ilm);
 
@@ -1339,11 +1398,7 @@ class PerfectVision {
             ilm_.globalLight1._resetIlluminationUniforms = true;
             ilm_.globalLight2._resetIlluminationUniforms = true;
 
-            const retVal = wrapped(...args);
-
-            const sight = canvas.sight.tokenVision && canvas.sight.sources.size > 0;
-
-            if (game.user.isGM && PerfectVision._settings.improvedGMVision && !sight) {
+            if (game.user.isGM && PerfectVision._settings.improvedGMVision && canvas.sight.sources.size === 0) {
                 const s = 1 / Math.max(...this.channels.background.rgb);
                 ilm_.background.tint = rgbToHex(this.channels.background.rgb.map(c => c * s));
                 ilm_.background.visible = true;
@@ -1351,65 +1406,7 @@ class PerfectVision {
                 ilm_.background.visible = false;
             }
 
-            PerfectVision._mask.removeChildren();
-
-            for (const source of this.sources) {
-                if (!source.active) continue;
-
-                if (source !== ilm_.globalLight2) {
-                    const sc = source.illumination;
-                    const sc_ = PerfectVision._extend(sc);
-
-                    if (sc_.fovLight)
-                        PerfectVision._mask.addChild(sc_.fovLight);
-                }
-            }
-
-            for (const source of canvas.sight.sources) {
-                if (!source.active) continue;
-
-                const sc = source.illumination;
-                const sc_ = PerfectVision._extend(sc);
-
-                if (sc_.fovMono)
-                    PerfectVision._mask.addChild(sc_.fovMono);
-
-                if (sc_.fovColor)
-                    PerfectVision._mask.addChild(sc_.fovColor);
-
-                if (sc_.fovDimToBright)
-                    PerfectVision._mask.addChild(sc_.fovDimToBright);
-            }
-
-            PerfectVision._refresh = true;
-
-            return retVal;
-        });
-
-        this._postHook(SightLayer, "refresh", function () {
-            let monoVisionColor;
-
-            for (const source of this.sources) {
-                if (!source.active) continue;
-
-                const source_ = PerfectVision._extend(source);
-
-                if (source_.fovMono) {
-                    if (monoVisionColor) {
-                        monoVisionColor = undefined;
-                        break;
-                    }
-
-                    monoVisionColor = source_.monoVisionColor;
-                }
-            }
-
-            PerfectVision._monoFilter.enabled = this.tokenVision && this.sources.size > 0;
-            PerfectVision._monoFilter.uniforms.uTint = monoVisionColor ?? [1, 1, 1];
-
-            PerfectVision._refresh = true;
-
-            return arguments[0];
+            return arguments;
         });
 
         this._preHook(Token, "updateSource", function () {
