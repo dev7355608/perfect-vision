@@ -287,7 +287,7 @@ class PerfectVision {
             }
         }
 
-        this._monoFilter.enabled = canvas.sight.tokenVision && canvas.sight.sources.size > 0;
+        this._monoFilter.enabled = canvas.sight.tokenVision && canvas.sight.sources.size > 0 && !canvas.lighting.globalLight;
         this._monoFilter.uniforms.uTint = monoVisionColor ?? [1, 1, 1];
 
         this._refresh = true;
@@ -1312,7 +1312,7 @@ class PerfectVision {
 
                         switch (globalLight) {
                             case "dim":
-                                return r;
+                                return radius;
                             case "bright":
                                 return 0;
                             default:
@@ -1331,7 +1331,7 @@ class PerfectVision {
                             case "dim":
                                 return 0;
                             case "bright":
-                                return r;
+                                return radius;
                             default:
                                 return 0;
                         }
@@ -1395,7 +1395,6 @@ class PerfectVision {
             this.sources.set("PerfectVision.Light.1", ilm_.globalLight1);
             this.sources.set("PerfectVision.Light.2", ilm_.globalLight2);
             ilm_.globalLight1._resetIlluminationUniforms = true;
-            ilm_.globalLight2._resetIlluminationUniforms = true;
 
             const retVal = wrapped(...args);
 
