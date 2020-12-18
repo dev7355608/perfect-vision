@@ -5,7 +5,7 @@
   "author": "dev7355608",
   "version": "1.2.13",
   "minimumCoreVersion": "0.7.8",
-  "compatibleCoreVersion": "0.7.8",
+  "compatibleCoreVersion": "0.7.9",
   "scripts": [
     "perfect-vision.js"
   ],
