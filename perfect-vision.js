@@ -234,7 +234,8 @@ class PerfectVision {
 
         const mask = this._mask;
 
-        mask.removeChildren();
+        for (const layer of mask.layers)
+            layer.removeChildren();
 
         for (const source of canvas.lighting.sources) {
             if (!source.active) continue;
@@ -244,7 +245,7 @@ class PerfectVision {
                 const sc_ = this._extend(sc);
 
                 if (sc_.fovLight)
-                    mask.addChild(sc_.fovLight);
+                    mask.layers[2].addChild(sc_.fovLight);
             }
         }
 
@@ -255,13 +256,13 @@ class PerfectVision {
             const sc_ = this._extend(sc);
 
             if (sc_.fovMono)
-                mask.addChild(sc_.fovMono);
+                mask.layers[0].addChild(sc_.fovMono);
 
             if (sc_.fovColor)
-                mask.addChild(sc_.fovColor);
+                mask.layers[1].addChild(sc_.fovColor);
 
             if (sc_.fovDimToBright)
-                mask.addChild(sc_.fovDimToBright);
+                mask.layers[3].addChild(sc_.fovDimToBright);
         }
 
         this._refresh = true;
@@ -557,12 +558,23 @@ class PerfectVision {
         if (!this._mask_) {
             const blurDistance = game.settings.get("core", "softShadows") ? Math.max(CONFIG.Canvas.blurStrength / 2, 1) : 0;
             this._mask_ = new PIXI.Container();
-            this._mask_.sortableChildren = true;
             this._mask_.filter = blurDistance ?
                 new PerfectVision._GlowFilter(2.0, 2.0, 4 / 5, blurDistance) :
                 new PIXI.filters.AlphaFilter(1.0);
             this._mask_.filters = [this._mask_.filter];
             this._mask_.filterArea = canvas.app.renderer.screen;
+            this._mask_.layers = [
+                new PIXI.Container(),
+                new PIXI.Container(),
+                new PIXI.Container(),
+                new PIXI.Container()
+            ];
+            this._mask_.addChild(
+                this._mask_.layers[0],
+                this._mask_.layers[1],
+                this._mask_.layers[2],
+                this._mask_.layers[3]
+            );
         }
         return this._mask_;
     }
@@ -579,6 +591,43 @@ class PerfectVision {
         this._visualizeTexture(this._mask.texture, "mask");
     }
 
+    static _getTexture(object) {
+        const renderer = canvas.app.renderer;
+        const screen = renderer.screen;
+        const resolution = renderer.resolution;
+        const width = screen.width;
+        const height = screen.height;
+
+        if (!object.texture || object.texture === PIXI.Texture.EMPTY) {
+            object.texture = PIXI.RenderTexture.create({
+                width: width,
+                height: height,
+                scaleMode: PIXI.SCALE_MODES.LINEAR,
+                resolution: resolution
+            });
+        } else {
+            if (object.texture.resolution !== resolution) {
+                object.texture.setResolution(resolution);
+            }
+
+            if (object.texture.width !== width || object.texture.height !== height) {
+                object.texture.resize(width, height);
+            }
+        }
+
+        return object.texture;
+    }
+
+    static _stageTransform(object) {
+        const stage = canvas.stage;
+        object.position.copyFrom(stage.position);
+        object.pivot.copyFrom(stage.pivot);
+        object.scale.copyFrom(stage.scale);
+        object.skew.copyFrom(stage.skew);
+        object.rotation = stage.rotation;
+        return object;
+    }
+
     static _onTick() {
         if (this._refreshLighting)
             canvas.lighting.refresh();
@@ -591,31 +640,12 @@ class PerfectVision {
 
             const mask = this._mask;
 
-            const width = canvas.app.renderer.screen.width;
-            const height = canvas.app.renderer.screen.height;
-
-            if (!mask.texture) {
-                mask.texture = PIXI.RenderTexture.create({
-                    width: width,
-                    height: height,
-                    scaleMode: PIXI.SCALE_MODES.LINEAR,
-                    resolution: game.settings.get("core", "devicePixelRatio") ?
-                        Math.max(window.devicePixelRatio, 1) : Math.min(window.devicePixelRatio, 1)
-                });
-            } else if (mask.texture.width !== width || mask.texture.height !== height) {
-                mask.texture.resize(width, height);
-            }
+            mask.filter.resolution = canvas.app.renderer.resolution;
 
             if (mask.filter instanceof PerfectVision._GlowFilter)
                 mask.filter.uniforms.uStrength = Math.max(canvas.stage.scale.x, canvas.stage.scale.y) * 2;
 
-            mask.pivot = canvas.stage.pivot;
-            mask.position = canvas.stage.position;
-            mask.rotation = canvas.stage.rotation;
-            mask.scale = canvas.stage.scale;
-            mask.skew = canvas.stage.skew;
-
-            canvas.app.renderer.render(mask, mask.texture, true, undefined, false);
+            canvas.app.renderer.render(this._stageTransform(mask), this._getTexture(mask), true, undefined, false);
         }
     }
 
@@ -662,12 +692,19 @@ class PerfectVision {
                 }`,
                 ...args
             );
+
+            this.uniforms.uMaskSize = [0, 0, 0, 0];
         }
 
         apply(filterManager, input, output, clearMode) {
             const texture = PerfectVision._mask.texture;
             this.uniforms.uMask = texture;
-            this.uniforms.uMaskSize = [texture.width, texture.height, 1 / texture.width, 1 / texture.height];
+
+            const maskSize = this.uniforms.uMaskSize;
+            maskSize[0] = texture.width;
+            maskSize[1] = texture.height;
+            maskSize[2] = 1 / texture.width;
+            maskSize[3] = 1 / texture.height;
 
             filterManager.applyFilter(this, input, output, clearMode);
         }
@@ -850,12 +887,19 @@ class PerfectVision {
                 }`,
                 ...args
             );
+
+            this.uniforms.uMaskSize = [0, 0, 0, 0];
         }
 
         apply(filterManager, input, output, clearMode) {
             const texture = PerfectVision._mask.texture;
             this.uniforms.uMask = texture;
-            this.uniforms.uMaskSize = [texture.width, texture.height, 1 / texture.width, 1 / texture.height];
+
+            const maskSize = this.uniforms.uMaskSize;
+            maskSize[0] = texture.width;
+            maskSize[1] = texture.height;
+            maskSize[2] = 1 / texture.width;
+            maskSize[3] = 1 / texture.height;
 
             filterManager.applyFilter(this, input, output, clearMode);
         }
@@ -1200,10 +1244,8 @@ class PerfectVision {
                 }
 
                 if (this_.fovMono) {
-                    if (!c_.fovMono) {
+                    if (!c_.fovMono)
                         c_.fovMono = new PIXI.Graphics();
-                        c_.fovMono.zIndex = 0;
-                    }
 
                     c_.fovMono.clear().beginFill(0x00FF00, 1.0).drawPolygon(this_.fovMono).endFill();
                 } else if (c_.fovMono) {
@@ -1212,10 +1254,8 @@ class PerfectVision {
                 }
 
                 if (this_.fovColor) {
-                    if (!c_.fovColor) {
+                    if (!c_.fovColor)
                         c_.fovColor = new PIXI.Graphics();
-                        c_.fovColor.zIndex = 1;
-                    }
 
                     c_.fovColor.clear().beginFill(0xFFFF00, 1.0).drawPolygon(this_.fovColor).endFill();
                 } else if (c_.fovColor) {
@@ -1226,7 +1266,6 @@ class PerfectVision {
                 if (this_.fovDimToBright) {
                     if (!c_.fovDimToBright) {
                         c_.fovDimToBright = new PIXI.Graphics();
-                        c_.fovDimToBright.zIndex = 3;
                         c_.fovDimToBright.blendMode = PIXI.BLEND_MODES.ADD;
                     }
 
@@ -1244,10 +1283,8 @@ class PerfectVision {
                 c_.light.visible = false;
                 c_.light.filters = null;
             } else {
-                if (!c_.fovLight) {
+                if (!c_.fovLight)
                     c_.fovLight = new PIXI.Graphics();
-                    c_.fovLight.zIndex = 2;
-                }
 
                 c_.fovLight.clear();
 
