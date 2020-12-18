@@ -589,6 +589,14 @@ class PerfectVision {
         if (this._refresh) {
             this._refresh = false;
 
+            let devicePixelRatioSetting;
+
+            try {
+                devicePixelRatioSetting = game.settings.get("core", "devicePixelRatio");
+            } catch (error) {
+                devicePixelRatioSetting = 1;
+            }
+
             const mask = this._mask;
 
             const width = canvas.app.renderer.screen.width;
@@ -599,7 +607,7 @@ class PerfectVision {
                     width: width,
                     height: height,
                     scaleMode: PIXI.SCALE_MODES.LINEAR,
-                    resolution: game.settings.get("core", "devicePixelRatio") ?
+                    resolution: devicePixelRatioSetting ?
                         Math.max(window.devicePixelRatio, 1) : Math.min(window.devicePixelRatio, 1)
                 });
             } else if (mask.texture.width !== width || mask.texture.height !== height) {
