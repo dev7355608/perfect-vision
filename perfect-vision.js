@@ -651,8 +651,6 @@ class PerfectVision {
 
             const mask = this._mask;
 
-            mask.filter.resolution = canvas.app.renderer.resolution;
-
             if (mask.filter instanceof PerfectVision._GlowFilter)
                 mask.filter.uniforms.uStrength = Math.max(canvas.stage.scale.x, canvas.stage.scale.y) * 2;
 
@@ -703,6 +701,8 @@ class PerfectVision {
                 }`,
                 ...args
             );
+
+            this.resolution = canvas.app.renderer.resolution;
 
             this.uniforms.uMaskSize = [0, 0, 0, 0];
         }
@@ -816,6 +816,8 @@ class PerfectVision {
                 }`.replace(/__ANGLE_STEP_SIZE__/gi, "" + (Math.PI / Math.round(quality * (distance + 1))).toFixed(7))
                 .replace(/__DIST__/gi, distance.toFixed(0) + ".0"));
 
+            this.resolution = canvas.app.renderer.resolution;
+
             this.uniforms.uStrength = strength;
             this.uniforms.uIntensity = intensity;
         }
@@ -899,6 +901,8 @@ class PerfectVision {
                 ...args
             );
 
+            this.resolution = canvas.app.renderer.resolution;
+
             this.uniforms.uMaskSize = [0, 0, 0, 0];
         }
 
@@ -947,28 +951,38 @@ class PerfectVision {
 
                 if (!layer) continue;
 
-                let monoFilterIndex = layer.filters ? layer.filters.indexOf(this._monoFilter) : -1;
+                {
+                    let monoFilterIndex = layer.filters ? layer.filters.indexOf(this._monoFilter) : -1;
 
-                if (monoFilterIndex >= 0)
-                    layer.filters.splice(monoFilterIndex, 1);
+                    if (monoFilterIndex >= 0)
+                        layer.filters.splice(monoFilterIndex, 1);
+                }
 
-                if (layerName === "fxmaster") {
-                    monoFilterIndex = layer.weather?.filters ? layer.weather.filters.indexOf(this._monoFilter) : -1;
+                let object = layer;
+
+                if (layerName === "background") {
+                    let monoFilterIndex = layer.img.filters ? layer.img.filters.indexOf(this._monoFilter) : -1;
+
+                    if (monoFilterIndex >= 0)
+                        layer.img.filters.splice(monoFilterIndex, 1);
+
+                    object = layer.img;
+                } else if (layerName === "fxmaster") {
+                    let monoFilterIndex = layer.weather?.filters ? layer.weather.filters.indexOf(this._monoFilter) : -1;
 
                     if (monoFilterIndex >= 0)
                         layer.weather.filters.splice(monoFilterIndex, 1);
+
+                    if (this._settings.monoSpecialEffects)
+                        object = layer;
+                    else
+                        object = layer.weather;
                 }
 
-                if (layer.filters?.length > 0) {
-                    if (layerName !== "fxmaster" || this._settings.monoSpecialEffects)
-                        layer.filters.push(this._monoFilter);
-                    else if (layer.weather)
-                        layer.weather.filters.push(this._monoFilter);
+                if (object.filters?.length > 0) {
+                    object.filters.push(this._monoFilter);
                 } else {
-                    if (layerName !== "fxmaster" || this._settings.monoSpecialEffects)
-                        layer.filters = [this._monoFilter];
-                    else if (layer.weather)
-                        layer.weather.filters = [this._monoFilter];
+                    object.filters = [this._monoFilter];
                 }
             }
 
@@ -1158,7 +1172,7 @@ class PerfectVision {
             );
 
             const d = canvas.dimensions;
-            const minR = token.w * 0.5 + d.size * 0.1;
+            const minR = Math.min(token.w, token.h) * 0.5;
             opts.dim = opts.dim === 0 && opts.bright === 0 ? minR : opts.dim;
 
             const retVal = wrapped(opts);
@@ -1314,6 +1328,18 @@ class PerfectVision {
 
             PerfectVision._refresh = true;
             return c;
+        });
+
+        this._postHook(BackgroundLayer, "draw", async function () {
+            const retVal = await arguments[0];
+
+            const this_ = PerfectVision._extend(this, {});
+
+            this_.msk = this.addChild(new PIXI.Graphics());
+            this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
+            this.mask = this_.msk;
+
+            return retVal;
         });
 
         this._postHook(LightingLayer, "draw", async function () {
