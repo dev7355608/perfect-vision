@@ -273,8 +273,15 @@ class PerfectVision {
 
         let monoVisionColor;
 
+        let mask = this._mask;
+
+        mask.fov.clear();
+        mask.fov.beginFill(0xFFFFFF, 1.0);
+
         for (const source of canvas.sight.sources) {
             if (!source.active) continue;
+
+            mask.fov.drawPolygon(source.los);
 
             const source_ = this._extend(source);
 
@@ -287,6 +294,8 @@ class PerfectVision {
                 monoVisionColor = source_.monoVisionColor;
             }
         }
+
+        mask.fov.endFill();
 
         this._monoFilter.enabled = canvas.sight.tokenVision && canvas.sight.sources.size > 0 && !canvas.lighting.globalLight;
         this._monoFilter.uniforms.uTint = monoVisionColor ?? [1, 1, 1];
@@ -478,7 +487,7 @@ class PerfectVision {
             libWrapper.unregister("perfect-vision", target, false);
             libWrapper.register("perfect-vision", target, this._buildLibWrapperHook(target), "WRAPPER");
         } else {
-            const prototype = typeof (cls) === "string" ? getProperty(window, cls) : cls.prototype;
+            const prototype = typeof (cls) === "string" ? getProperty(globalThis, cls) : cls.prototype;
             const method = prototype[methodName];
 
             if (type === "pre") {
@@ -575,6 +584,8 @@ class PerfectVision {
                 this._mask_.layers[2],
                 this._mask_.layers[3]
             );
+            this._mask_.fov = this._mask_.addChild(new PIXI.Graphics());
+            this._mask_.mask = this._mask_.fov;
         }
         return this._mask_;
     }
@@ -883,7 +894,7 @@ class PerfectVision {
                     float a = srgba.a;
                     float y = rgb2y(rgb);
                     vec3 tint = srgb2rgb(uTint);
-                    gl_FragColor = vec4(rgb2srgb(mix(mix(vec3(y), y2mono(y, tint), mask.g), rgb, mask.r)), a);
+                    gl_FragColor = vec4(rgb2srgb(mix(vec3(y), mix(y2mono(y, tint), rgb, mask.r), mask.a)), a);
                 }`,
                 ...args
             );
@@ -1152,7 +1163,6 @@ class PerfectVision {
 
             const retVal = wrapped(opts);
 
-            this_.radius = this.radius;
             this_.fov = this.fov;
 
             const distance = Math.max(
@@ -1165,29 +1175,34 @@ class PerfectVision {
 
             const fovCache = { [this.radius]: this.fov };
             const computeFov = (radius) => {
-                if (radius <= 0)
-                    return null;
-
                 if (fovCache[radius])
                     return fovCache[radius];
 
-                const limit = Math.clamped(radius / distance, 0, 1);
                 const fovPoints = [];
-                const points = this.los.points;
 
-                for (let i = 0; i < points.length; i += 2) {
-                    const p = { x: points[i], y: points[i + 1] };
-                    const r = new Ray(this, p);
-                    const t0 = Math.clamped(r.distance / distance, 0, 1);
-                    const q = t0 <= limit ? p : r.project(limit / t0);
-                    fovPoints.push(q)
+                if (radius > 0) {
+                    const limit = Math.clamped(radius / distance, 0, 1);
+                    const points = this.los.points;
+
+                    for (let i = 0; i < points.length; i += 2) {
+                        const p = { x: points[i], y: points[i + 1] };
+                        const r = new Ray(this, p);
+                        const t0 = Math.clamped(r.distance / distance, 0, 1);
+                        const q = t0 <= limit ? p : r.project(limit / t0);
+                        fovPoints.push(q)
+                    }
                 }
 
-                return new PIXI.Polygon(...fovPoints);
+                const fov = new PIXI.Polygon(...fovPoints);
+                fovCache[radius] = fov;
+
+                return fov;
             };
 
+            this.fov = computeFov(Math.max(visionRadius, minR));
+
             if (visionRadius > 0)
-                this_.fovMono = this.fov = computeFov(visionRadius);
+                this_.fovMono = computeFov(visionRadius);
             else
                 this_.fovMono = null;
 
@@ -1221,9 +1236,7 @@ class PerfectVision {
             const sight = canvas.sight.tokenVision && canvas.sight.sources.size > 0;
 
             if (this_.isVision) {
-                if (this_.fov) {
-                    c.light.width = c.light.height = this_.radius * 2;
-
+                if (this_.fov !== this.fov) {
                     if (!c_.fov) {
                         const index = c.getChildIndex(c.fov);
                         c.removeChildAt(index);
@@ -1233,7 +1246,7 @@ class PerfectVision {
 
                     c_.fov.clear();
 
-                    if (this_.radius > 0)
+                    if (this.radius > 0)
                         c_.fov.beginFill(0xFFFFFF, 1.0).drawPolygon(this_.fov).endFill();
                 } else if (c_.fov) {
                     const index = c.getChildIndex(c_.fov);
