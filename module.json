@@ -3,15 +3,15 @@
   "title": "Perfect Vision",
   "description": "Darkvision rules and other light-related improvements.",
   "author": "dev7355608",
-  "version": "1.2.14",
+  "version": "1.2.15",
   "minimumCoreVersion": "0.7.8",
-  "compatibleCoreVersion": "0.7.8",
+  "compatibleCoreVersion": "0.7.9",
   "scripts": [
     "perfect-vision.js"
   ],
   "url": "https://github.com/dev7355608/perfect-vision",
   "manifest": "https://raw.githubusercontent.com/dev7355608/perfect-vision/main/module.json",
-  "download": "https://github.com/dev7355608/perfect-vision/archive/v1.2.14.zip",
+  "download": "https://github.com/dev7355608/perfect-vision/archive/v1.2.15.zip",
   "bugs": "https://github.com/dev7355608/perfect-vision/issues",
   "readme": "https://raw.githubusercontent.com/dev7355608/perfect-vision/main/README.md"
 }
