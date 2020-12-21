@@ -276,26 +276,33 @@ class PerfectVision {
         let mask = this._mask;
 
         mask.fov.clear();
-        mask.fov.beginFill(0xFFFFFF, 1.0);
 
-        for (const source of canvas.sight.sources) {
-            if (!source.active) continue;
+        if (canvas.sight.tokenVision && canvas.sight.sources.size > 0) {
+            mask.fov.beginFill(0xFFFFFF, 1.0);
 
-            mask.fov.drawPolygon(source.los);
+            for (const source of canvas.sight.sources) {
+                if (!source.active) continue;
 
-            const source_ = this._extend(source);
+                mask.fov.drawPolygon(source.los);
 
-            if (source_.fovMono) {
-                if (monoVisionColor) {
-                    monoVisionColor = undefined;
-                    break;
+                const source_ = this._extend(source);
+
+                if (source_.fovMono) {
+                    if (monoVisionColor) {
+                        monoVisionColor = undefined;
+                        break;
+                    }
+
+                    monoVisionColor = source_.monoVisionColor;
                 }
-
-                monoVisionColor = source_.monoVisionColor;
             }
-        }
 
-        mask.fov.endFill();
+            mask.fov.endFill();
+
+            mask.mask = mask.fov;
+        } else {
+            mask.mask = null;
+        }
 
         this._monoFilter.enabled = canvas.sight.tokenVision && canvas.sight.sources.size > 0 && !canvas.lighting.globalLight;
         this._monoFilter.uniforms.uTint = monoVisionColor ?? [1, 1, 1];
@@ -312,10 +319,11 @@ class PerfectVision {
     }
 
     static _updateScene(entity, data, options, userId) {
-        if (!hasProperty(data, "flags.perfect-vision") || data._id !== canvas.scene._id) {
-            if (game.modules.get("fxmaster")?.active && game.settings.get("fxmaster", "enable"))
-                this._updateMonoFilter();
+        if (data._id !== canvas.scene._id)
+            return;
 
+        if (!hasProperty(data, "flags.perfect-vision")) {
+            this._updateMonoFilter();
             return;
         }
 
@@ -961,12 +969,12 @@ class PerfectVision {
                 let object = layer;
 
                 if (layerName === "background") {
-                    let monoFilterIndex = layer.img.filters ? layer.img.filters.indexOf(this._monoFilter) : -1;
+                    let monoFilterIndex = layer.img?.filters ? layer.img.filters.indexOf(this._monoFilter) : -1;
 
                     if (monoFilterIndex >= 0)
                         layer.img.filters.splice(monoFilterIndex, 1);
 
-                    object = layer.img;
+                    object = layer.img ?? layer;
                 } else if (layerName === "fxmaster") {
                     let monoFilterIndex = layer.weather?.filters ? layer.weather.filters.indexOf(this._monoFilter) : -1;
 
@@ -1338,6 +1346,8 @@ class PerfectVision {
             this_.msk = this.addChild(new PIXI.Graphics());
             this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
             this.mask = this_.msk;
+
+            PerfectVision._updateMonoFilter();
 
             return retVal;
         });
