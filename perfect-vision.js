@@ -987,6 +987,9 @@ class PerfectVision {
                         object = layer.weather;
                 }
 
+                if (!object)
+                    continue;
+
                 if (object.filters?.length > 0) {
                     object.filters.push(this._monoFilter);
                 } else {
