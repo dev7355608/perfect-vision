@@ -1182,6 +1182,8 @@ class PerfectVision {
                 brightVisionInDarkness === "bright" ? bright : 0
             );
 
+            this_.radius = Math.max(opts.dim, opts.bright);
+
             const d = canvas.dimensions;
             const minR = Math.min(token.w, token.h) * 0.5;
             opts.dim = opts.dim === 0 && opts.bright === 0 ? minR : opts.dim;
@@ -1271,7 +1273,7 @@ class PerfectVision {
 
                     c_.fov.clear();
 
-                    if (this.radius > 0)
+                    if (this_.radius > 0)
                         c_.fov.beginFill(0xFFFFFF, 1.0).drawPolygon(this_.fov).endFill();
                 } else if (c_.fov) {
                     const index = c.getChildIndex(c_.fov);
@@ -1313,7 +1315,7 @@ class PerfectVision {
                     delete c_.fovDimToBright;
                 }
 
-                c.light.visible = sight;
+                c.light.visible = sight && this_.radius > 0;
 
                 if (!c.light.filters)
                     c.light.filters = [PerfectVision._visionFilter];
