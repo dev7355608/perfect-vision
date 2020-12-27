@@ -1,14 +1,12 @@
 # Perfect Vision (Foundry VTT Module)
 
-Darkvision rules for Dungeons & Dragons 5e, Pathfinder 2e, and other systems. The vision rules are also fully customizable!
-
-Also included are other light-related improvements. For example, dim/bright vision doesn't ruin animated lights anymore by making the darker areas of the light brighter. Now an animated light looks the same whether or not the token has dim/bright vision.
+Darkvision rules for *Dungeons & Dragons 5e*, *Dungeons & Dragons 3.5e*, *Pathfinder 2e*, and other systems. The vision rules are also fully customizable!
 
 ## Features
 
 ### Global Illumination Light
 
-A scene with *Global Illumination* is rendered by default in dim light entirely, more precisely each token is given infinite dim vision. This setting gives you three choices: *None*, *Dim Light*, and *Bright Light*. If set to *Dim (Bright) Light*, the entire scene is illuminated with *dim (bright) light* and, if set to *None*, the scene is illuminated according to the scene's *Darkness Level* only. You can set it in the module settings for all scenes as well as for each scene individually. You can find the scene-specific setting next to the *Global Illumination* setting in the scene configuration.
+A scene with *Global Illumination* is rendered by default in dim light entirely, more precisely each token is given infinite dim vision. This setting gives you three choices: *None*, *Dim Light*, and *Bright Light*. If set to *Dim (Bright) Light*, the entire scene is illuminated with *dim (bright) light* and, if set to *None*, the scene is illuminated according to the scene's *Darkness Level* only. Even if set to *None*, everything in line-of-sight is visible and in color. You can set it in the module settings for all scenes as well as for each scene individually. You can find the scene-specific setting next to the *Global Illumination* setting in the scene configuration.
 
 ### Improved GM Vision
 
@@ -52,4 +50,4 @@ If enabled, token icons are affected by monochrome vision. Otherwise, they are n
 
 ### Monochrome Special Effects
 
-If enabled, FXMaster's and Token Magic FX's special effects are affected by monochrome vision. Otherwise, they are not.
+If enabled, FXMaster's and Token Magic FX's special effects are affected by monochrome vision. Otherwise, they are not. Special effects attached to tokens are only affected by this setting if *Monochrome Token Icons* is enabled as well.

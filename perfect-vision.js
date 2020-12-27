@@ -50,7 +50,7 @@ class PerfectVision {
             Object.assign(this._settings, this._visionRulesPresets[this._settings.visionRules]);
         }
 
-        this._settings.monoVisionColor = game.settings.get("perfect-vision", "monoVisionColor");
+        this._settings.monoVisionColor = game.settings.get("perfect-vision", "monoVisionColor") || "#ffffff";
         this._settings.monoTokenIcons = game.settings.get("perfect-vision", "monoTokenIcons");
         this._settings.monoSpecialEffects = game.settings.get("perfect-vision", "monoSpecialEffects");
     }
@@ -77,7 +77,7 @@ class PerfectVision {
     static _registerSettings() {
         game.settings.register("perfect-vision", "globalLight", {
             name: "Global Illumination Light",
-            hint: "This setting affects only scenes with Global Illumination. If set to Dim (Bright) Light, the entire scene is illuminated with dim (bright) light and, if set to None, the scene is illuminated according to the scene's Darkness Level only. Each scene can also be configured individually. You can find this setting next to Global Illumination in the scene configuration.",
+            hint: "This setting affects only scenes with Global Illumination. If set to Dim (Bright) Light, the entire scene is illuminated with dim (bright) light and, if set to None, the scene is illuminated according to the scene's Darkness Level only. Even if set to None, everything in line-of-sight is visible and in color. Each scene can also be configured individually. You can find this setting next to Global Illumination in the scene configuration.",
             scope: "world",
             config: true,
             type: String,
@@ -201,7 +201,7 @@ class PerfectVision {
 
         game.settings.register("perfect-vision", "monoSpecialEffects", {
             name: "Monochrome Special Effects",
-            hint: "If enabled, FXMaster's and Token Magic FX's special effects are affected by monochrome vision. Otherwise, they are not.",
+            hint: "If enabled, FXMaster's and Token Magic FX's special effects are affected by monochrome vision. Otherwise, they are not. Special effects attached to tokens are only affected by this setting if Monochrome Token Icons is enabled as well.",
             scope: "world",
             config: true,
             type: Boolean,
@@ -365,29 +365,31 @@ class PerfectVision {
     static _renderSettingsConfig(sheet, html, data) {
         let prefix = "perfect-vision";
 
+        const settings = game.settings.sheet.getData().data.modules.find(m => m.title === "Perfect Vision").settings.filter(
+            s => s.module === "perfect-vision");
+
         if (sheet instanceof TokenConfig) {
             const token = sheet.object;
             prefix = `flags.${prefix}`;
 
             const config = this._renderConfigTemplate({
-                settings: game.settings.sheet.getData().data.modules.find(m => m.title === "Perfect Vision").settings.filter(
-                    s => s.module === "perfect-vision" && [
-                        "visionRules",
-                        "dimVisionInDarkness",
-                        "dimVisionInDimLight",
-                        "brightVisionInDarkness",
-                        "brightVisionInDimLight",
-                        "monoVisionColor"
-                    ].includes(s.key)).map(s => {
-                        if (s.key === "visionRules") {
-                            s.choices = mergeObject({ "default": "Default" }, s.choices);
-                            s.default = "default";
-                            s.value = token.getFlag(s.module, s.key) ?? "default";
-                        } else {
-                            s.value = token.getFlag(s.module, s.key);
-                        }
-                        return s;
-                    })
+                settings: settings.filter(s => [
+                    "visionRules",
+                    "dimVisionInDarkness",
+                    "dimVisionInDimLight",
+                    "brightVisionInDarkness",
+                    "brightVisionInDimLight",
+                    "monoVisionColor"
+                ].includes(s.key)).map(s => {
+                    if (s.key === "visionRules") {
+                        s.choices = mergeObject({ "default": "Default" }, s.choices);
+                        s.default = "default";
+                        s.value = token.getFlag(s.module, s.key) ?? "default";
+                    } else {
+                        s.value = token.getFlag(s.module, s.key);
+                    }
+                    return s;
+                })
             }, {
                 allowProtoMethodsByDefault: true,
                 allowProtoPropertiesByDefault: true
@@ -412,6 +414,10 @@ class PerfectVision {
 
             if (!visionRules)
                 return;
+
+            const defaultVisionRules = settings.find(s => s.key === "visionRules").choices[this._settings.visionRules];
+
+            html.find(`select[name="${prefix}.visionRules"] > option[value="default"]`).html(`Default (${defaultVisionRules})`);
 
             html.find(`select[name="${prefix}.dimVisionInDarkness"]`).prop("disabled", visionRules !== "custom");
             html.find(`select[name="${prefix}.dimVisionInDimLight"]`).prop("disabled", visionRules !== "custom");
@@ -446,7 +452,13 @@ class PerfectVision {
 
             const inputMonochromeVisionColor = html.find(`input[name="${prefix}.monoVisionColor"]`);
             inputMonochromeVisionColor.attr("class", "color");
-            inputMonochromeVisionColor.next().attr("value", inputMonochromeVisionColor.val());
+
+            if (sheet instanceof TokenConfig)
+                inputMonochromeVisionColor.attr("placeholder", `Default (${this._settings.monoVisionColor})`);
+            else
+                inputMonochromeVisionColor.attr("placeholder", `#ffffff`);
+
+            inputMonochromeVisionColor.next().attr("value", inputMonochromeVisionColor.val() || this._settings.monoVisionColor);
         };
 
         update();
@@ -462,13 +474,16 @@ class PerfectVision {
         const globalLightLabel = globalLight.prev();
         globalLightLabel.after(`<div class="form-fields"></div>`);
 
+        const defaultGlobalLight = game.settings.sheet.getData().data.modules.find(m => m.title === "Perfect Vision").settings.find(
+            s => s.module === "perfect-vision" && s.key === "globalLight").choices[this._settings.globalLight];
+
         const globalLightFields = globalLightLabel.next();
         globalLight.css("margin", globalLight.css("margin"));
         globalLight.remove();
         globalLightFields.append(`\
                 <select name="flags.perfect-vision.globalLight">
                     <optgroup label="Global Illumination Light">
-                        <option value="default">Default</option>
+                        <option value="default">Default (${defaultGlobalLight})</option>
                         <option value="bright">Bright Light</option>
                         <option value="dim">Dim Light</option>
                         <option value="none">None</option>
