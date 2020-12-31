@@ -1171,11 +1171,16 @@ class PerfectVision {
             let dim = token.getLightRadius(token.data.dimSight);
             let bright = token.getLightRadius(token.data.brightSight);
 
-            opts.dim = Math.max(
+            const sign = Math.sign(Math.min(dim, bright));
+
+            dim = Math.abs(dim);
+            bright = Math.abs(bright);
+
+            opts.dim = sign * Math.max(
                 dimVisionInDarkness === "dim" || dimVisionInDarkness === "dim_mono" ? dim : 0,
                 brightVisionInDarkness === "dim" || brightVisionInDarkness === "dim_mono" ? bright : 0
             );
-            opts.bright = Math.max(
+            opts.bright = sign * Math.max(
                 dimVisionInDarkness === "bright" || dimVisionInDarkness === "bright_mono" ? dim : 0,
                 brightVisionInDarkness === "bright" || brightVisionInDarkness === "bright_mono" ? bright : 0
             );
@@ -1197,7 +1202,7 @@ class PerfectVision {
                 brightVisionInDarkness === "bright" ? bright : 0
             );
 
-            this_.radius = Math.max(opts.dim, opts.bright);
+            this_.radius = Math.max(Math.abs(opts.dim), Math.abs(opts.bright));
 
             const d = canvas.dimensions;
             const minR = Math.min(token.w, token.h) * 0.5;
