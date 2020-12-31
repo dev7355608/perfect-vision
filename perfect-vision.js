@@ -77,14 +77,14 @@ class PerfectVision {
     static _registerSettings() {
         game.settings.register("perfect-vision", "globalLight", {
             name: "Global Illumination Light",
-            hint: "This setting affects only scenes with Global Illumination. If set to Dim (Bright) Light, the entire scene is illuminated with dim (bright) light and, if set to None, the scene is illuminated according to the scene's Darkness Level only. Even if set to None, everything in line-of-sight is visible and in color. Each scene can also be configured individually. You can find this setting next to Global Illumination in the scene configuration.",
+            hint: "This setting affects only scenes with Global Illumination. If set to Dim (Bright) Light, the entire scene is illuminated with dim (bright) light and, if set to Scene Darkness, the scene is illuminated according to the scene's Darkness Level only. Even if set to Scene Darkness, everything in line-of-sight is visible and in color. Each scene can also be configured individually. You can find this setting next to Global Illumination in the scene configuration.",
             scope: "world",
             config: true,
             type: String,
             choices: {
                 "bright": "Bright Light",
                 "dim": "Dim Light",
-                "none": "None",
+                "none": "Scene Darkness",
             },
             default: "dim",
             onChange: () => this._update()
@@ -102,7 +102,7 @@ class PerfectVision {
 
         game.settings.register("perfect-vision", "visionRules", {
             name: "Vision Rules",
-            hint: "Choose one of the presets, or select Custom and set your own rules. It is also possible to set rules for each token individually. You can find these token-specific settings in the token configuration under the Vision tab.",
+            hint: "Choose one of the presets, or select Custom and set your own rules. It is also possible to set rules for each token individually. You can find these token-specific settings in the token configuration under the Vision tab. Dim (Bright) Vision in Darkness controls what dim (bright) vision looks like in darkness, i.e., in areas that are not illuminated by light sources. Dim (Bright) Vision in Dim Light controls how dim (bright) vision interacts with dim light, i.e., if dim light becomes bright light or not. Scene Darkness is the level of darkness in areas without light sources. It's the darkness controlled by Darkness Level in the scene configuration. Total Darkness means no vision. Select an option with monochrome to create vision without color in darkness. It's grayscale vision as long as the Monochrome Vision Color is white.",
             scope: "world",
             config: true,
             type: String,
@@ -482,14 +482,14 @@ class PerfectVision {
         globalLight.remove();
         globalLightFields.append(`\
                 <select name="flags.perfect-vision.globalLight">
-                    <optgroup label="Global Illumination Light">
-                        <option value="default">Default (${defaultGlobalLight})</option>
-                        <option value="bright">Bright Light</option>
-                        <option value="dim">Dim Light</option>
-                        <option value="none">None</option>
-                    </optgroup>
+                    <option value="default">Default (${defaultGlobalLight})</option>
+                    <option value="bright">Bright Light</option>
+                    <option value="dim">Dim Light</option>
+                    <option value="none">Scene Darkness</option>
                 </select>`);
         globalLightFields.append(globalLight);
+
+        globalLightFields.next().append(" If set to Dim (Bright) Light, the entire scene is illuminated with dim (bright) light and, if set to Scene Darkness, the scene is illuminated according to the scene's Darkness Level only.");
 
         html.find(`select[name="flags.perfect-vision.globalLight"]`)
             .val(sheet.object.getFlag("perfect-vision", "globalLight") ?? "default")
