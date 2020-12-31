@@ -62,6 +62,9 @@ class PerfectVision {
         this._refreshSight = true;
         this._refresh = true;
 
+        if (!canvas?.ready)
+            return;
+
         this._updateMonoFilter(tokens);
 
         for (const token of tokens ?? canvas.tokens.placeables)
@@ -333,7 +336,7 @@ class PerfectVision {
     static _renderConfigTemplate = Handlebars.compile(`\
         {{#*inline "settingPartial"}}
         <div class="form-group">
-            <label>{{this.name}}</label>
+            <label>{{this.name}}:</label>
             {{#if this.isCheckbox}}
             <input type="checkbox" name="flags.{{this.module}}.{{this.key}}" data-dtype="Boolean" {{checked this.value}}/>
 
@@ -354,6 +357,19 @@ class PerfectVision {
             {{else}}
             <input type="text" name="flags.{{this.module}}.{{this.key}}" value="{{this.value}}" data-dtype="{{this.type}}"/>
             {{/if}}
+        </div>
+        {{/inline}}
+
+        {{#each settings}}
+        {{> settingPartial}}
+        {{/each}}`
+    );
+
+    static _renderConfigTemplate2 = Handlebars.compile(`\
+        {{#*inline "settingPartial"}}
+        <div class="form-group">
+            <label>{{this.name}}{{#if this.units}} <span class="units">({{ this.units }})</span>{{/if}}:</label>
+            <input type="number" name="flags.{{this.module}}.{{this.key}}" value="{{this.value}}"/>
         </div>
         {{/inline}}
 
@@ -397,6 +413,22 @@ class PerfectVision {
 
             html.find(`input[name="vision"]`).parent().after(config);
             $(config).on("change", "input,select,textarea", sheet._onChangeInput.bind(sheet));
+
+            const config2 = this._renderConfigTemplate2({
+                settings: [{
+                    module: "perfect-vision",
+                    key: "sightLimit",
+                    value: token.getFlag("perfect-vision", "sightLimit"),
+                    name: "Sight Limit",
+                    units: "Distance"
+                }]
+            }, {
+                allowProtoMethodsByDefault: true,
+                allowProtoPropertiesByDefault: true
+            });
+
+            html.find(`input[name="sightAngle"]`).parent().before(config2);
+            $(config2).on("change", "input,select,textarea", sheet._onChangeInput.bind(sheet));
         } else {
             console.assert(sheet instanceof SettingsConfig);
         }
@@ -409,15 +441,32 @@ class PerfectVision {
         html.find(`input[name="${prefix}.monoVisionColor"]`).after(colorInput)
         $(colorInput).on("change", sheet._onChangeInput.bind(sheet));
 
+        const defaultVisionRules = settings.find(s => s.key === "visionRules").choices[this._settings.visionRules];
+
+        html.find(`select[name="${prefix}.visionRules"] > option[value="default"]`).html(`Default (${defaultVisionRules})`);
+
+        const inputMonochromeVisionColor = html.find(`input[name="${prefix}.monoVisionColor"]`);
+        inputMonochromeVisionColor.attr("class", "color");
+
+        if (sheet instanceof TokenConfig)
+            inputMonochromeVisionColor.attr("placeholder", `Default (${this._settings.monoVisionColor})`);
+        else
+            inputMonochromeVisionColor.attr("placeholder", `#ffffff`);
+
+        if (sheet instanceof TokenConfig) {
+            if (sheet.object.scene) {
+                const defaultSightLimit = sheet.object.scene.getFlag("perfect-vision", "sightLimit");
+                html.find(`input[name="${prefix}.sightLimit"]`).attr("placeholder", `Scene Default (${defaultSightLimit ?? "Unlimited"})`);
+            } else {
+                html.find(`input[name="${prefix}.sightLimit"]`).attr("placeholder", "Unlimited");
+            }
+        }
+
         const update = () => {
             const visionRules = html.find(`select[name="${prefix}.visionRules"]`).val();
 
             if (!visionRules)
                 return;
-
-            const defaultVisionRules = settings.find(s => s.key === "visionRules").choices[this._settings.visionRules];
-
-            html.find(`select[name="${prefix}.visionRules"] > option[value="default"]`).html(`Default (${defaultVisionRules})`);
 
             html.find(`select[name="${prefix}.dimVisionInDarkness"]`).prop("disabled", visionRules !== "custom");
             html.find(`select[name="${prefix}.dimVisionInDimLight"]`).prop("disabled", visionRules !== "custom");
@@ -451,14 +500,10 @@ class PerfectVision {
             }
 
             const inputMonochromeVisionColor = html.find(`input[name="${prefix}.monoVisionColor"]`);
-            inputMonochromeVisionColor.attr("class", "color");
+            inputMonochromeVisionColor.next().val(inputMonochromeVisionColor.val() || this._settings.monoVisionColor);
 
-            if (sheet instanceof TokenConfig)
-                inputMonochromeVisionColor.attr("placeholder", `Default (${this._settings.monoVisionColor})`);
-            else
-                inputMonochromeVisionColor.attr("placeholder", `#ffffff`);
-
-            inputMonochromeVisionColor.next().attr("value", inputMonochromeVisionColor.val() || this._settings.monoVisionColor);
+            if (!sheet._minimized)
+                sheet.setPosition(sheet.position);
         };
 
         update();
@@ -494,6 +539,22 @@ class PerfectVision {
         html.find(`select[name="flags.perfect-vision.globalLight"]`)
             .val(sheet.object.getFlag("perfect-vision", "globalLight") ?? "default")
             .on("change", sheet._onChangeInput.bind(sheet));
+
+        html.find(`input[name="tokenVision"]`).parent().after(`\
+            <div class="form-group">
+                <label>Sight Limit <span class="units">(Distance)</span></label>
+                <div class="form-fields">
+                    <input type="number" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
+                </div>
+                <p class="notes">Limit the sight of all tokens within this scene. The limit can be set for each token individually in the token configuration under the Vision tab.</p>
+            </div>`);
+
+        html.find(`input[name="flags.perfect-vision.sightLimit"]`)
+            .attr("value", sheet.object.getFlag("perfect-vision", "sightLimit"))
+            .on("change", sheet._onChangeInput.bind(sheet));
+
+        if (!sheet._minimized)
+            sheet.setPosition(sheet.position);
     }
 
     static _hooks = {};
@@ -1083,6 +1144,54 @@ class PerfectVision {
         });
     }
 
+    static _computeFov(source, radius, fovCache = null) {
+        if (fovCache && fovCache[radius])
+            return fovCache[radius];
+
+        const fovPoints = [];
+
+        if (radius > 0) {
+            const d = canvas.dimensions;
+            const distance = fovCache?.distance ?? Math.max(
+                source.radius,
+                Math.hypot(
+                    Math.max(source.x, d.width - source.x),
+                    Math.max(source.x, d.height - source.y)
+                )
+            );
+
+            if (fovCache)
+                fovCache.distance = distance;
+
+            const limit = Math.clamped(radius / distance, 0, 1);
+            const points = source.los.points;
+
+            for (let i = 0; i < points.length; i += 2) {
+                const p = { x: points[i], y: points[i + 1] };
+                const r = new Ray(source, p);
+                const t0 = Math.clamped(r.distance / distance, 0, 1);
+                const q = t0 <= limit ? p : r.project(limit / t0);
+                fovPoints.push(q)
+            }
+        }
+
+        const fov = new PIXI.Polygon(...fovPoints);
+
+        if (fovCache)
+            fovCache[radius] = fov;
+
+        return fov;
+    };
+
+    static _limitSight(token, fovCache = null) {
+        const minR = Math.min(token.w, token.h) * 0.5;
+        const sightLimit = token._original?.getFlag("perfect-vision", "sightLimit") ?? token._original?.scene?.getFlag("perfect-vision", "sightLimit")
+            ?? token.getFlag("perfect-vision", "sightLimit") ?? token.scene?.getFlag("perfect-vision", "sightLimit");
+
+        if (typeof (sightLimit) === "number")
+            token.vision.los = this._computeFov(token.vision, Math.max(token.getLightRadius(Math.abs(sightLimit)), minR), fovCache);
+    }
+
     static _registerHooks() {
         this._postHook(PointSource, "_createContainer", function (c, shaderCls) {
             if (shaderCls === StandardIlluminationShader || shaderCls.prototype instanceof StandardIlluminationShader) {
@@ -1135,6 +1244,8 @@ class PerfectVision {
                     this_.fovColor = original_.fovColor;
                     this_.fovDimToBright = original_.fovDimToBright;
                     this_.monoVisionColor = original_.monoVisionColor;
+
+                    PerfectVision._limitSight(token);
                 }
 
                 return retVal
@@ -1204,7 +1315,6 @@ class PerfectVision {
 
             this_.radius = Math.max(Math.abs(opts.dim), Math.abs(opts.bright));
 
-            const d = canvas.dimensions;
             const minR = Math.min(token.w, token.h) * 0.5;
             opts.dim = opts.dim === 0 && opts.bright === 0 ? minR : opts.dim;
 
@@ -1212,49 +1322,17 @@ class PerfectVision {
 
             this_.fov = this.fov;
 
-            const distance = Math.max(
-                this.radius,
-                Math.hypot(
-                    Math.max(this.x, d.width - this.x),
-                    Math.max(this.x, d.height - this.y)
-                )
-            );
-
             const fovCache = { [this.radius]: this.fov };
-            const computeFov = (radius) => {
-                if (fovCache[radius])
-                    return fovCache[radius];
 
-                const fovPoints = [];
-
-                if (radius > 0) {
-                    const limit = Math.clamped(radius / distance, 0, 1);
-                    const points = this.los.points;
-
-                    for (let i = 0; i < points.length; i += 2) {
-                        const p = { x: points[i], y: points[i + 1] };
-                        const r = new Ray(this, p);
-                        const t0 = Math.clamped(r.distance / distance, 0, 1);
-                        const q = t0 <= limit ? p : r.project(limit / t0);
-                        fovPoints.push(q)
-                    }
-                }
-
-                const fov = new PIXI.Polygon(...fovPoints);
-                fovCache[radius] = fov;
-
-                return fov;
-            };
-
-            this.fov = computeFov(Math.max(visionRadius, minR));
+            this.fov = PerfectVision._computeFov(this, Math.max(visionRadius, minR), fovCache);
 
             if (visionRadius > 0)
-                this_.fovMono = computeFov(visionRadius);
+                this_.fovMono = PerfectVision._computeFov(this, visionRadius, fovCache);
             else
                 this_.fovMono = null;
 
             if (visionRadiusColor > 0)
-                this_.fovColor = computeFov(visionRadiusColor);
+                this_.fovColor = PerfectVision._computeFov(this, visionRadiusColor, fovCache);
             else
                 this_.fovColor = null;
 
@@ -1265,10 +1343,12 @@ class PerfectVision {
                 );
 
                 if (radius > 0)
-                    this_.fovDimToBright = computeFov(radius);
+                    this_.fovDimToBright = PerfectVision._computeFov(this, radius, fovCache);
                 else
                     this_.fovDimToBright = null;
             }
+
+            PerfectVision._limitSight(token, fovCache);
 
             return retVal;
         });
