@@ -386,7 +386,7 @@ class PerfectVision {
         {{#*inline "settingPartial"}}
         <div class="form-group">
             <label>{{this.name}}{{#if this.units}} <span class="units">({{ this.units }})</span>{{/if}}:</label>
-            <input type="number" name="flags.{{this.module}}.{{this.key}}" value="{{this.value}}"/>
+            <input type="number" step="0.1" name="flags.{{this.module}}.{{this.key}}" value="{{this.value}}"/>
         </div>
         {{/inline}}
 
@@ -561,7 +561,7 @@ class PerfectVision {
             <div class="form-group">
                 <label>Sight Limit <span class="units">(Distance)</span></label>
                 <div class="form-fields">
-                    <input type="number" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
+                    <input type="number" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
                 </div>
                 <p class="notes">Limit the sight of all tokens within this scene. The limit can be set for each token individually in the token configuration under the Vision tab.</p>
             </div>`);
