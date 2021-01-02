@@ -1282,7 +1282,7 @@ class PerfectVision {
             let dim = token.getLightRadius(token.data.dimSight);
             let bright = token.getLightRadius(token.data.brightSight);
 
-            const sign = Math.sign(Math.min(dim, bright));
+            const sign = Math.min(dim, bright) < 0 ? -1 : +1;
 
             dim = Math.abs(dim);
             bright = Math.abs(bright);
