@@ -1,6 +1,6 @@
 # Perfect Vision (Foundry VTT Module)
 
-Darkvision rules for *Dungeons & Dragons 5e*, *Dungeons & Dragons 3.5e*, *Pathfinder 2e*, and other systems. The vision rules are also fully customizable!
+Darkvision rules for *Dungeons & Dragons 5e*, *Dungeons & Dragons 3.5e*, *Pathfinder 2e*, and other systems, as well as other vision-related features and improvements.
 
 ## Features
 
@@ -55,6 +55,10 @@ If enabled, FXMaster's and Token Magic FX's special effects are affected by mono
 ### Fog of War Weather
 
 If enabled, weather effects are visible in the fog of war. Otherwise, weather is only visible in line-of-sight.
+
+### Actual Fog of War
+
+If enabled, the fog of war is overlaid with a fog effect.
 
 ### Sight Limit
 

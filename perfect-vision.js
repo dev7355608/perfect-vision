@@ -54,6 +54,7 @@ class PerfectVision {
         this._settings.monoTokenIcons = game.settings.get("perfect-vision", "monoTokenIcons");
         this._settings.monoSpecialEffects = game.settings.get("perfect-vision", "monoSpecialEffects");
         this._settings.fogOfWarWeather = game.settings.get("perfect-vision", "fogOfWarWeather");
+        this._settings.actualFogOfWar = game.settings.get("perfect-vision", "actualFogOfWar");
     }
 
     static _update(tokens = null) {
@@ -70,6 +71,9 @@ class PerfectVision {
 
         for (const token of tokens ?? canvas.tokens.placeables)
             token.updateSource({ defer: true });
+
+        if (!tokens)
+            this._updateFog();
     }
 
     static _init() {
@@ -222,6 +226,16 @@ class PerfectVision {
             default: true,
             onChange: () => this._update()
         });
+
+        game.settings.register("perfect-vision", "actualFogOfWar", {
+            name: "Actual Fog of War",
+            hint: "If enabled, the fog of war is overlaid with a fog effect.",
+            scope: "world",
+            config: true,
+            type: Boolean,
+            default: false,
+            onChange: () => this._update()
+        });
     }
 
     static _setup() {
@@ -301,6 +315,12 @@ class PerfectVision {
             if (sc_.fovDimToBright)
                 mask.layers[3].addChild(sc_.fovDimToBright);
         }
+
+        const sight = canvas.sight;
+        const sight_ = PerfectVision._extend(sight, {});
+
+        if (sight_.fog?.weatherEffect)
+            sight_.fog.weatherEffect._updateParticleEmitters();
 
         this._refresh = true;
     }
@@ -886,6 +906,14 @@ class PerfectVision {
         return this._effectsFilter_;
     }
 
+    static _fogFilter_ = null;
+
+    static get _fogFilter() {
+        if (!this._fogFilter_)
+            this._fogFilter_ = new this._MaskFilter("1.0 - a");
+        return this._fogFilter_;
+    }
+
     // Based on PixiJS Filters' GlowFilter
     static _GlowFilter = class extends PIXI.Filter {
         constructor(strength = 1.0, intensity = 1.0, quality = 1.0, distance = 2) {
@@ -1269,6 +1297,167 @@ class PerfectVision {
         return fov;
     };
 
+    // Based on FXMasters' FogWeatherEffect
+    static _FogEffect = class extends SpecialEffect {
+        static get label() {
+            return "Fog of War";
+        }
+
+        static get effectOptions() {
+            const options = super.effectOptions;
+            options.density.min = 0.01;
+            options.density.value = 0.02;
+            options.density.max = 0.10;
+            options.density.step = 0.01;
+            return options;
+        }
+
+        getParticleEmitters() {
+            return [this._getFogEmitter(this.parent)];
+        }
+
+        _getFogEmitter(parent) {
+            const config = this.constructor._getFogEmitterConfig(this.options);
+            const art = this.constructor._getFogEmitterArt(this.options);
+            const emitter = new PIXI.particles.Emitter(parent, art, config);
+            return emitter;
+        }
+
+        static _getFogEmitterConfig(options) {
+            const density = options.density.value;
+            const d = canvas.dimensions;
+            const maxParticles =
+                Math.ceil((d.width / d.size) * (d.height / d.size) * density);
+            const config = mergeObject(
+                this.CONFIG,
+                {
+                    spawnRect: {
+                        x: d.paddingX,
+                        y: d.paddingY,
+                        w: d.sceneWidth,
+                        h: d.sceneHeight
+                    },
+                    maxParticles: maxParticles,
+                    frequency: this.CONFIG.lifetime.min / maxParticles
+                },
+                { inplace: false }
+            );
+            return config;
+        }
+
+        static _getFogEmitterArt(options) {
+            return [
+                "./modules/perfect-vision/assets/cloud1.png",
+                "./modules/perfect-vision/assets/cloud2.png",
+                "./modules/perfect-vision/assets/cloud3.png",
+                "./modules/perfect-vision/assets/cloud4.png"
+            ];
+        }
+
+        _updateParticleEmitters() {
+            const config = this.constructor._getFogEmitterConfig(this.options);
+
+            this.emitters.forEach(e => {
+                e.frequency = config.frequency;
+                e.maxParticles = config.maxParticles;
+                e.startAlpha = PIXI.particles.PropertyNode.createList(config.alpha);
+            });
+        }
+
+        static get CONFIG() {
+            const darknessLevel = canvas.lighting.darknessLevel;
+            const factor = 1 + 3 * (1 - darknessLevel);
+            return mergeObject(
+                SpecialEffect.DEFAULT_CONFIG,
+                {
+                    alpha: {
+                        list: [
+                            { value: 0 * factor, time: 0 },
+                            { value: 0.02 * factor, time: 0.1 },
+                            { value: 0.05 * factor, time: 0.5 },
+                            { value: 0.02 * factor, time: 0.9 },
+                            { value: 0 * factor, time: 1 }
+                        ],
+                        isStepped: false
+                    },
+                    scale: {
+                        start: 3.0,
+                        end: 3.0,
+                        minimumScaleMultiplier: 1.0
+                    },
+                    speed: {
+                        start: 15,
+                        end: 10,
+                        minimumSpeedMultiplier: 0.2
+                    },
+                    color: {
+                        start: "ffffff",
+                        end: "ffffff"
+                    },
+                    startRotation: {
+                        min: 0,
+                        max: 360
+                    },
+                    rotation: {
+                        min: 0,
+                        max: 360
+                    },
+                    rotationSpeed: {
+                        min: 0.0,
+                        max: 0.0
+                    },
+                    acceleration: {
+                        x: 0,
+                        y: 0
+                    },
+                    lifetime: {
+                        min: 10,
+                        max: 25,
+                    },
+                    blendMode: "normal",
+                    emitterLifetime: -1
+                },
+                { inplace: false }
+            );
+        };
+    }
+
+    static _updateFog() {
+        const sight = canvas.sight;
+        const sight_ = PerfectVision._extend(sight, {});
+
+        if (!sight_.fog) {
+            sight_.fog = sight.addChildAt(new PIXI.Container(), sight.getChildIndex(sight.fog));
+            sight_.filter = sight._blurDistance > 0 ?
+                new PIXI.filters.BlurFilter(sight._blurDistance) :
+                new PIXI.filters.AlphaFilter(1.0);
+            sight_.filter.autoFit = sight.filter.autoFit;
+            sight_.fog.filter = PerfectVision._fogFilter;
+            sight_.fog.filter.autoFit = sight_.filter.autoFit;
+
+            if (sight_.filter instanceof PIXI.filters.AlphaFilter)
+                sight_.fog.filters = [sight_.fog.filter];
+            else
+                sight_.fog.filters = [sight_.fog.filter, sight_.filter];
+
+            sight_.fog.filterArea = sight.fog.filterArea;
+        }
+
+        if (sight_.fog.weatherEffect)
+            sight_.fog.weatherEffect.stop();
+
+        if (!sight_.fog.weather)
+            sight_.fog.weather = sight_.fog.addChild(new PIXI.Container());
+
+        sight_.fog.visible = this._settings.actualFogOfWar;
+
+        if (!sight_.fog.visible)
+            return;
+
+        sight_.fog.weatherEffect = new this._FogEffect(sight_.fog.weather);
+        sight_.fog.weatherEffect.play();
+    }
+
     static _registerHooks() {
         this._postHook(PointSource, "_createContainer", function (c, shaderCls) {
             if (shaderCls === StandardIlluminationShader || shaderCls.prototype instanceof StandardIlluminationShader) {
@@ -1525,7 +1714,13 @@ class PerfectVision {
 
         this._postHook(Canvas, "_updateBlur", function () {
             const sight = canvas.sight;
+            const sight_ = PerfectVision._extend(sight, {});
+
             const blur = sight.filter.blur;
+
+            if (sight_.filter)
+                sight_.filter.blur = blur;
+
             const mask = PerfectVision._mask;
 
             if (mask.filter instanceof PerfectVision._GlowFilter)
@@ -1546,6 +1741,30 @@ class PerfectVision {
             PerfectVision._updateFilters();
 
             return retVal;
+        });
+
+        this._postHook(SightLayer, "draw", async function () {
+            const retVal = await arguments[0];
+
+            PerfectVision._updateFog();
+
+            return retVal;
+        });
+
+        this._preHook(SightLayer, "tearDown", function () {
+            const this_ = PerfectVision._extend(this);
+
+            if (this_.fog) {
+                if (this_.fog.weatherEffect)
+                    this_.fog.weatherEffect.stop();
+
+                this_.fog.weather = this_.fog.weatherEffect = null;
+
+                this_.fog.destroy(true);
+                delete this_.fog;
+            }
+
+            return arguments;
         });
 
         this._postHook(LightingLayer, "draw", async function () {
