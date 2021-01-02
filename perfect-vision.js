@@ -53,6 +53,7 @@ class PerfectVision {
         this._settings.monoVisionColor = game.settings.get("perfect-vision", "monoVisionColor") || "#ffffff";
         this._settings.monoTokenIcons = game.settings.get("perfect-vision", "monoTokenIcons");
         this._settings.monoSpecialEffects = game.settings.get("perfect-vision", "monoSpecialEffects");
+        this._settings.fogOfWarWeather = game.settings.get("perfect-vision", "fogOfWarWeather");
     }
 
     static _update(tokens = null) {
@@ -65,7 +66,7 @@ class PerfectVision {
         if (!canvas?.ready)
             return;
 
-        this._updateMonoFilter(tokens);
+        this._updateFilters(tokens);
 
         for (const token of tokens ?? canvas.tokens.placeables)
             token.updateSource({ defer: true });
@@ -211,6 +212,28 @@ class PerfectVision {
             default: false,
             onChange: () => this._update()
         });
+
+        game.settings.register("perfect-vision", "fogOfWarWeather", {
+            name: "Fog of War Weather",
+            hint: "If enabled, weather effects are visible in the fog of war. Otherwise, weather is only visible in line-of-sight.",
+            scope: "world",
+            config: true,
+            type: Boolean,
+            default: true,
+            onChange: () => this._update()
+        });
+    }
+
+    static _setup() {
+        if (game.modules.get("fxmaster")?.active) {
+            this._postHook(Canvas.layers.fxmaster, "addChild", function () {
+                PerfectVision._updateFilters();
+                return arguments[0];
+            });
+            Hooks.on("switchFilter", () => PerfectVision._updateFilters());
+            Hooks.on("switchWeather", () => PerfectVision._updateFilters());
+            Hooks.on("updateWeather", () => PerfectVision._updateFilters());
+        }
     }
 
     static _canvasReady() {
@@ -318,6 +341,8 @@ class PerfectVision {
         this._monoFilter.enabled = canvas.sight.tokenVision && canvas.sight.sources.size > 0 && !canvas.lighting.globalLight;
         this._monoFilter.uniforms.uTint = monoVisionColor ?? [1, 1, 1];
 
+        this._effectsFilter.enabled = this._monoFilter.enabled;
+
         const ilm = canvas.lighting.illumination;
         const ilm_ = this._extend(ilm);
 
@@ -326,6 +351,8 @@ class PerfectVision {
         } else {
             ilm_.background.visible = false;
         }
+
+        this._updateFilters();
 
         this._refresh = true;
     }
@@ -343,7 +370,7 @@ class PerfectVision {
             return;
 
         if (!hasProperty(data, "flags.perfect-vision")) {
-            this._updateMonoFilter();
+            this._updateFilters();
             return;
         }
 
@@ -850,6 +877,14 @@ class PerfectVision {
         return this._lightFilter_;
     }
 
+    static _effectsFilter_ = null;
+
+    static get _effectsFilter() {
+        if (!this._effectsFilter_)
+            this._effectsFilter_ = new this._MaskFilter("a");
+        return this._effectsFilter_;
+    }
+
     // Based on PixiJS Filters' GlowFilter
     static _GlowFilter = class extends PIXI.Filter {
         constructor(strength = 1.0, intensity = 1.0, quality = 1.0, distance = 2) {
@@ -1043,7 +1078,7 @@ class PerfectVision {
         return this._monoFilter_noAutoFit_;
     }
 
-    static _updateMonoFilter(placeables = null) {
+    static _updateFilters(placeables = null) {
         this._monoFilter.zOrder = this._monoFilter.rank = 0;
 
         if (!placeables) {
@@ -1057,6 +1092,11 @@ class PerfectVision {
 
                     if (monoFilterIndex >= 0)
                         layer.filters.splice(monoFilterIndex, 1);
+
+                    let effectsFilterIndex = layer.filters ? layer.filters.indexOf(this._effectsFilter) : -1;
+
+                    if (effectsFilterIndex >= 0)
+                        layer.filters.splice(effectsFilterIndex, 1);
                 }
 
                 let object = layer;
@@ -1074,6 +1114,13 @@ class PerfectVision {
                     if (monoFilterIndex >= 0)
                         layer.weather.filters.splice(monoFilterIndex, 1);
 
+                    for (const child of layer.children) {
+                        let effectsFilterIndex = child.filters ? child.filters.indexOf(this._effectsFilter) : -1;
+
+                        if (effectsFilterIndex >= 0)
+                            child.filters.splice(effectsFilterIndex, 1);
+                    }
+
                     if (this._settings.monoSpecialEffects)
                         object = layer;
                     else
@@ -1088,14 +1135,31 @@ class PerfectVision {
                 } else {
                     object.filters = [this._monoFilter];
                 }
+
+                if (layerName === "effects" || layerName === "fxmaster") {
+                    let objects;
+
+                    if (this._settings.fogOfWarWeather)
+                        objects = layer.children.filter(child => child !== layer.weather && child !== layer.mask);
+                    else
+                        objects = [layer];
+
+                    for (const object of objects) {
+                        if (object.filters?.length > 0) {
+                            object.filters.push(this._effectsFilter);
+                        } else {
+                            object.filters = [this._effectsFilter];
+                        }
+                    }
+                }
             }
 
-            this._updateMonoFilter(canvas.tokens.placeables);
-            this._updateMonoFilter(canvas.tiles.placeables);
-            this._updateMonoFilter(canvas.templates.placeables);
+            this._updateFilters(canvas.tokens.placeables);
+            this._updateFilters(canvas.tiles.placeables);
+            this._updateFilters(canvas.templates.placeables);
 
             if (canvas.roofs)
-                this._updateMonoFilter(canvas.roofs.children);
+                this._updateFilters(canvas.roofs.children);
         } else {
             for (const placeable of placeables) {
                 let sprite;
@@ -1471,7 +1535,7 @@ class PerfectVision {
             this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
             this.mask = this_.msk;
 
-            PerfectVision._updateMonoFilter();
+            PerfectVision._updateFilters();
 
             return retVal;
         });
@@ -1619,7 +1683,7 @@ class PerfectVision {
         this._postHook(Token, "draw", async function () {
             const retVal = await arguments[0];
 
-            PerfectVision._updateMonoFilter([this]);
+            PerfectVision._updateFilters([this]);
 
             return retVal;
         });
@@ -1627,7 +1691,7 @@ class PerfectVision {
         this._postHook(Tile, "draw", async function () {
             const retVal = await arguments[0];
 
-            PerfectVision._updateMonoFilter([this]);
+            PerfectVision._updateFilters([this]);
 
             return retVal;
         });
@@ -1635,19 +1699,19 @@ class PerfectVision {
         this._postHook(MeasuredTemplate, "draw", async function () {
             const retVal = await arguments[0];
 
-            PerfectVision._updateMonoFilter([this]);
+            PerfectVision._updateFilters([this]);
 
             return retVal;
         });
 
         if (game.modules.get("tokenmagic")?.active) {
             this._postHook(PlaceableObject, "_TMFXsetRawFilters", function (retVal, filters) {
-                PerfectVision._updateMonoFilter([this]);
+                PerfectVision._updateFilters([this]);
                 return retVal;
             });
             Hooks.once("ready", () => {
                 this._postHook("TokenMagic", "_clearImgFiltersByPlaceable", function (retVal, placeable) {
-                    PerfectVision._updateMonoFilter([placeable]);
+                    PerfectVision._updateFilters([placeable]);
                     return retVal;
                 })
             });
@@ -1655,10 +1719,12 @@ class PerfectVision {
 
         if (game.modules.get("roofs")?.active) {
             this._postHook("RoofsLayer", "createRoof", function (retVal, tile) {
-                PerfectVision._updateMonoFilter([tile.roof.container]);
+                PerfectVision._updateFilters([tile.roof.container]);
                 return retVal;
             });
         }
+
+        Hooks.once("setup", (...args) => PerfectVision._setup(...args));
 
         Hooks.on("canvasReady", (...args) => PerfectVision._canvasReady(...args));
 

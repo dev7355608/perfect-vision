@@ -52,6 +52,10 @@ If enabled, token icons are affected by monochrome vision. Otherwise, they are n
 
 If enabled, FXMaster's and Token Magic FX's special effects are affected by monochrome vision. Otherwise, they are not. Special effects attached to tokens are only affected by this setting if *Monochrome Token Icons* is enabled as well.
 
+### Fog of War Weather
+
+If enabled, weather effects are visible in the fog of war. Otherwise, weather is only visible in line-of-sight.
+
 ### Sight Limit
 
 You find this setting in the scene configuration, which limits the sight of all tokens in the scene, but you can also set the limit for each token individually in the token configuration under the *Vision* tab.
