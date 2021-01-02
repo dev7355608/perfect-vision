@@ -1118,15 +1118,19 @@ class PerfectVision {
                             sprite.filters = null;
                     }
 
-                    if (!(placeable instanceof Token) || this._settings.monoTokenIcons) {
-                        if (sprite.filters?.length > 0) {
-                            if (this._settings.monoSpecialEffects)
-                                sprite.filters.push(this._monoFilter_noAutoFit);
-                            else
-                                sprite.filters.unshift(this._monoFilter_noAutoFit);
-                        } else {
-                            sprite.filters = [this._monoFilter];
-                        }
+                    if (placeable instanceof Token && !this._settings.monoTokenIcons)
+                        continue;
+
+                    if (placeable instanceof Tile && (placeable.data.flags?.startMarker || placeable.data.flags?.turnMarker))
+                        continue;
+
+                    if (sprite.filters?.length > 0) {
+                        if (this._settings.monoSpecialEffects)
+                            sprite.filters.push(this._monoFilter_noAutoFit);
+                        else
+                            sprite.filters.unshift(this._monoFilter_noAutoFit);
+                    } else {
+                        sprite.filters = [this._monoFilter];
                     }
                 }
             }
