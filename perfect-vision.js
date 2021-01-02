@@ -1047,7 +1047,7 @@ class PerfectVision {
         this._monoFilter.zOrder = this._monoFilter.rank = 0;
 
         if (!placeables) {
-            for (const layerName of ["background", "fxmaster"]) {
+            for (const layerName of ["background", "effects", "fxmaster"]) {
                 const layer = canvas[layerName];
 
                 if (!layer) continue;
@@ -1068,7 +1068,7 @@ class PerfectVision {
                         layer.img.filters.splice(monoFilterIndex, 1);
 
                     object = layer.img ?? layer;
-                } else if (layerName === "fxmaster") {
+                } else if (layerName === "effects" || layerName === "fxmaster") {
                     let monoFilterIndex = layer.weather?.filters ? layer.weather.filters.indexOf(this._monoFilter) : -1;
 
                     if (monoFilterIndex >= 0)
