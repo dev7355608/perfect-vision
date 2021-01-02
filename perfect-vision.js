@@ -1156,7 +1156,7 @@ class PerfectVision {
                 source.radius,
                 Math.hypot(
                     Math.max(source.x, d.width - source.x),
-                    Math.max(source.x, d.height - source.y)
+                    Math.max(source.y, d.height - source.y)
                 )
             );
 
