@@ -240,7 +240,7 @@ class PerfectVision {
 
     static _setup() {
         if (game.modules.get("fxmaster")?.active) {
-            this._postHook(Canvas.layers.fxmaster, "addChild", function () {
+            this._postHook("Canvas.layers.fxmaster.prototype", "addChild", function () {
                 PerfectVision._updateFilters();
                 return arguments[0];
             });
@@ -631,6 +631,24 @@ class PerfectVision {
             sheet.setPosition(sheet.position);
     }
 
+    static _getGlobalVariable() {
+        console.assert(typeof (arguments[0]) === "string" && arguments[0] !== "this" && arguments[0] !== "arguments" && /^[a-zA-Z_$][0-9a-zA-Z_$]*$/.test(arguments[0]));
+        return globalThis[arguments[0]] ?? this._eval(arguments[0]);
+    }
+
+    static _getGlobalProperty(key) {
+        const split = key.split(".");
+        let target = this._getGlobalVariable(split.splice(0, 1)[0]);
+
+        for (let p of split) {
+            target = target || {};
+            if (p in target) target = target[p];
+            else return undefined;
+        }
+
+        return target;
+    }
+
     static _hooks = {};
 
     static _hook(cls, methodName, type, func) {
@@ -645,22 +663,49 @@ class PerfectVision {
             libWrapper.unregister("perfect-vision", target, false);
             libWrapper.register("perfect-vision", target, this._buildLibWrapperHook(target), "WRAPPER");
         } else {
-            const prototype = typeof (cls) === "string" ? getProperty(globalThis, cls) : cls.prototype;
-            const method = prototype[methodName];
+            const prototype = typeof (cls) === "string" ? this._getGlobalProperty(cls) : cls.prototype;
+
+            console.assert(prototype);
+
+            let currentPrototype = prototype;
+            let descriptor;
+
+            while (!descriptor && currentPrototype) {
+                descriptor = Object.getOwnPropertyDescriptor(currentPrototype, methodName);
+                currentPrototype = Object.getPrototypeOf(currentPrototype);
+            }
+
+            console.assert(descriptor);
+
+            const method = descriptor.get ?? descriptor.value;
+
+            console.assert(method);
+
+            let wrapper;
 
             if (type === "pre") {
-                prototype[methodName] = function () {
+                wrapper = function () {
                     return method.apply(this, func.apply(this, arguments));
                 };
             } else if (type === "post") {
-                prototype[methodName] = function () {
+                wrapper = function () {
                     return func.call(this, method.apply(this, arguments), ...arguments);
                 };
             } else if (type === "wrap") {
-                prototype[methodName] = function () {
+                wrapper = function () {
                     return func.call(this, (...args) => method.apply(this, args), ...arguments);
                 };
             }
+
+            let attributes;
+
+            if (descriptor?.get) {
+                attributes = { get: wrapper };
+            } else {
+                attributes = { value: wrapper };
+            }
+
+            Object.defineProperty(prototype, methodName, { ...descriptor, ...attributes, configurable: true });
         }
     }
 
@@ -1304,7 +1349,7 @@ class PerfectVision {
         return fov;
     };
 
-    // Based on FXMasters' FogWeatherEffect
+    // Based on FXMaster's FogWeatherEffect
     static _FogEffect = class extends SpecialEffect {
         static get label() {
             return "Fog of War";
@@ -1755,6 +1800,26 @@ class PerfectVision {
             return retVal;
         });
 
+        this._postHook("EffectsLayer", "layerOptions", function () {
+            return mergeObject(arguments[0], {
+                zIndex: Canvas.layers.fxmaster?.layerOptions.zIndex ?? 180
+            });
+        });
+
+        this._postHook(EffectsLayer, "draw", async function () {
+            const retVal = await arguments[0];
+
+            const this_ = PerfectVision._extend(this, {});
+
+            this_.msk = this.addChild(new PIXI.Graphics());
+            this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
+            this.mask = this_.msk;
+
+            PerfectVision._updateFilters();
+
+            return retVal;
+        });
+
         this._postHook(SightLayer, "draw", async function () {
             const retVal = await arguments[0];
 
@@ -1981,3 +2046,5 @@ class PerfectVision {
 }
 
 Hooks.once("init", (...args) => PerfectVision._init(...args));
+
+Object.defineProperty(PerfectVision, "_eval", { value: eval, writable: false, configurable: false, enumerable: false });
