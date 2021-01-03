@@ -332,15 +332,15 @@ class PerfectVision {
 
         let mask = this._mask;
 
-        mask.fov.clear();
+        mask.msk.clear();
 
         if (canvas.sight.tokenVision && canvas.sight.sources.size > 0) {
-            mask.fov.beginFill(0xFFFFFF, 1.0);
+            mask.msk.beginFill(0xFFFFFF, 1.0);
 
             for (const source of canvas.sight.sources) {
                 if (!source.active) continue;
 
-                mask.fov.drawPolygon(source.los);
+                mask.msk.drawPolygon(source.los);
 
                 const source_ = this._extend(source);
 
@@ -354,9 +354,16 @@ class PerfectVision {
                 }
             }
 
-            mask.fov.endFill();
+            for (const source of canvas.lighting.sources) {
+                if (!source.active || source.type === CONST.SOURCE_TYPES.LOCAL)
+                    continue;
 
-            mask.mask = mask.fov;
+                mask.msk.drawPolygon(source.fov);
+            }
+
+            mask.msk.endFill();
+
+            mask.mask = mask.msk;
         } else {
             mask.mask = null;
         }
@@ -736,8 +743,8 @@ class PerfectVision {
                 this._mask_.layers[2],
                 this._mask_.layers[3]
             );
-            this._mask_.fov = this._mask_.addChild(new PIXI.Graphics());
-            this._mask_.mask = this._mask_.fov;
+            this._mask_.msk = this._mask_.addChild(new PIXI.Graphics());
+            this._mask_.mask = this._mask_.msk;
         }
         return this._mask_;
     }
