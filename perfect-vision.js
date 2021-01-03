@@ -371,7 +371,7 @@ class PerfectVision {
         this._monoFilter.enabled = canvas.sight.tokenVision && canvas.sight.sources.size > 0;
         this._monoFilter.uniforms.uTint = monoVisionColor ?? [1, 1, 1];
 
-        this._effectsFilter.enabled = this._monoFilter.enabled;
+        this._sightFilter.enabled = this._monoFilter.enabled;
 
         const ilm = canvas.lighting.illumination;
         const ilm_ = this._extend(ilm);
@@ -905,12 +905,12 @@ class PerfectVision {
         return this._lightFilter_;
     }
 
-    static _effectsFilter_ = null;
+    static _sightFilter_ = null;
 
-    static get _effectsFilter() {
-        if (!this._effectsFilter_)
-            this._effectsFilter_ = new this._MaskFilter("a");
-        return this._effectsFilter_;
+    static get _sightFilter() {
+        if (!this._sightFilter_)
+            this._sightFilter_ = new this._MaskFilter("a");
+        return this._sightFilter_;
     }
 
     static _fogFilter_ = null;
@@ -1129,10 +1129,10 @@ class PerfectVision {
                     if (monoFilterIndex >= 0)
                         layer.filters.splice(monoFilterIndex, 1);
 
-                    let effectsFilterIndex = layer.filters ? layer.filters.indexOf(this._effectsFilter) : -1;
+                    let sightFilterIndex = layer.filters ? layer.filters.indexOf(this._sightFilter) : -1;
 
-                    if (effectsFilterIndex >= 0)
-                        layer.filters.splice(effectsFilterIndex, 1);
+                    if (sightFilterIndex >= 0)
+                        layer.filters.splice(sightFilterIndex, 1);
                 }
 
                 let object = layer;
@@ -1151,10 +1151,10 @@ class PerfectVision {
                         layer.weather.filters.splice(monoFilterIndex, 1);
 
                     for (const child of layer.children) {
-                        let effectsFilterIndex = child.filters ? child.filters.indexOf(this._effectsFilter) : -1;
+                        let sightFilterIndex = child.filters ? child.filters.indexOf(this._sightFilter) : -1;
 
-                        if (effectsFilterIndex >= 0)
-                            child.filters.splice(effectsFilterIndex, 1);
+                        if (sightFilterIndex >= 0)
+                            child.filters.splice(sightFilterIndex, 1);
                     }
 
                     if (this._settings.monoSpecialEffects)
@@ -1182,9 +1182,9 @@ class PerfectVision {
 
                     for (const object of objects) {
                         if (object.filters?.length > 0) {
-                            object.filters.push(this._effectsFilter);
+                            object.filters.push(this._sightFilter);
                         } else {
-                            object.filters = [this._effectsFilter];
+                            object.filters = [this._sightFilter];
                         }
                     }
                 }
@@ -1450,16 +1450,21 @@ class PerfectVision {
             sight_.fog.filterArea = sight.fog.filterArea;
         }
 
+        sight_.fog.visible = sight.fogExploration && this._settings.actualFogOfWar;
+
+        if (!sight_.fog.visible) {
+            if (sight_.fog.weatherEffect) {
+                sight_.fog.weatherEffect.stop();
+                delete sight_.fog.weatherEffect;
+            }
+            return;
+        }
+
         if (sight_.fog.weatherEffect)
-            sight_.fog.weatherEffect.stop();
+            return;
 
         if (!sight_.fog.weather)
             sight_.fog.weather = sight_.fog.addChild(new PIXI.Container());
-
-        sight_.fog.visible = this._settings.actualFogOfWar;
-
-        if (!sight_.fog.visible)
-            return;
 
         sight_.fog.weatherEffect = new this._FogEffect(sight_.fog.weather);
         sight_.fog.weatherEffect.play();
