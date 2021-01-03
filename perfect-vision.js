@@ -293,11 +293,13 @@ class PerfectVision {
         for (const source of canvas.lighting.sources) {
             if (!source.active) continue;
 
-            const sc = source.illumination;
-            const sc_ = this._extend(sc);
+            if (source !== ilm_.globalLight2) {
+                const sc = source.illumination;
+                const sc_ = this._extend(sc);
 
-            if (sc_.fovLight)
-                mask.layers[2].addChild(sc_.fovLight);
+                if (sc_.fovLight)
+                    mask.layers[2].addChild(sc_.fovLight);
+            }
         }
 
         for (const source of canvas.sight.sources) {
@@ -1681,6 +1683,9 @@ class PerfectVision {
             const this_ = PerfectVision._extend(this);
             const c_ = PerfectVision._extend(c);
 
+            const ilm = canvas.lighting.illumination;
+            const ilm_ = PerfectVision._extend(ilm);
+
             const sight = canvas.sight.tokenVision && canvas.sight.sources.size > 0;
 
             if (this_.isVision) {
@@ -1759,7 +1764,7 @@ class PerfectVision {
 
                 c.light.visible = true;
                 c.light.filters = null;
-                c_.light.visible = sight && this.ratio < 1 && !this.darkness;
+                c_.light.visible = sight && this.ratio < 1 && !this.darkness && this !== ilm_.globalLight2;
 
                 if (!c_.light.filters)
                     c_.light.filters = [PerfectVision._lightFilter];
@@ -1952,6 +1957,16 @@ class PerfectVision {
                         }
                     }
                 });
+
+                c_.globalLight2 = new PointSource();
+                c_.globalLight2.initialize(opts);
+                c_.globalLight2.type = SOURCE_TYPES.LOCAL;
+                c_.globalLight2.dim = 0;
+                c_.globalLight2.bright = 0;
+                c_.globalLight2.ratio = 0;
+                Object.defineProperty(c_.globalLight2, "darknessThreshold", { get: () => this.globalLight ? -Infinity : +Infinity });
+                c_.globalLight2.illumination.zIndex = -1;
+                c_.globalLight2.illumination.renderable = false;
             }
 
             return c;
@@ -1961,7 +1976,8 @@ class PerfectVision {
             const ilm = this.illumination;
             const ilm_ = PerfectVision._extend(ilm);
 
-            this.sources.set("PerfectVision.Light", ilm_.globalLight);
+            this.sources.set("PerfectVision.Light.1", ilm_.globalLight);
+            this.sources.set("PerfectVision.Light.2", ilm_.globalLight2);
             ilm_.globalLight._resetIlluminationUniforms = true;
 
             return arguments;
