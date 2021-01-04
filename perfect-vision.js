@@ -85,7 +85,7 @@ class PerfectVision {
     static _registerSettings() {
         game.settings.register("perfect-vision", "globalLight", {
             name: "Global Illumination Light",
-            hint: "This setting affects only scenes with Global Illumination. If set to Dim (Bright) Light, the entire scene is illuminated with dim (bright) light and, if set to Scene Darkness, the scene is illuminated according to the scene's Darkness Level only. Even if set to Scene Darkness, everything in line-of-sight is visible and in color. Each scene can also be configured individually. You can find this setting next to Global Illumination in the scene configuration.",
+            hint: "This setting affects only scenes with Global Illumination. If set to Dim (Bright) Light, the entire scene is illuminated with dim (bright) light and, if set to Scene Darkness, the scene is illuminated according to the scene's Darkness Level only. Each scene can also be configured individually. You can find this setting next to Global Illumination in the scene configuration.",
             scope: "world",
             config: true,
             type: String,
@@ -110,7 +110,7 @@ class PerfectVision {
 
         game.settings.register("perfect-vision", "visionRules", {
             name: "Vision Rules",
-            hint: "Choose one of the presets, or select Custom and set your own rules. It is also possible to set rules for each token individually. You can find these token-specific settings in the token configuration under the Vision tab. Dim (Bright) Vision in Darkness controls what dim (bright) vision looks like in darkness, i.e., in areas that are not illuminated by light sources. Dim (Bright) Vision in Dim Light controls how dim (bright) vision interacts with dim light, i.e., if dim light becomes bright light or not. Scene Darkness is the level of darkness in areas without light sources. It's the darkness controlled by Darkness Level in the scene configuration. Total Darkness means no vision. Select an option with monochrome to create vision without color in darkness. It's grayscale vision as long as the Monochrome Vision Color is white.",
+            hint: "Choose one of the presets, or select Custom and set your own rules. It is also possible to set rules for each token individually. You can find these token-specific settings in the token configuration under the Vision tab. Dim (Bright) Vision in Darkness controls what dim (bright) vision looks like in darkness, i.e., in areas that are not illuminated by light sources. Dim (Bright) Vision in Dim Light controls how dim (bright) vision interacts with dim light, i.e., if dim light becomes bright light or not. Scene Darkness is the level of darkness in areas without light sources. It's the darkness controlled by Darkness Level in the scene configuration. Total Darkness means no vision at all. Select an option with monochrome to create vision without color in darkness. It's grayscale vision as long as the Monochrome Vision Color is white. If the scene's Darkness Level is 0, it looks the same as it would with non-monochrome vision. But as the Darkness Level increases the saturation decreases accordingly.",
             scope: "world",
             config: true,
             type: String,
@@ -280,12 +280,14 @@ class PerfectVision {
             ilm_.background.visible = false;
         }
 
+        this._monoFilter.uniforms.uDarknessLevel = canvas.lighting.darknessLevel;
+
         const mask = this._mask;
 
         mask.background.clear();
 
         if (canvas.lighting.globalLight)
-            mask.background.beginFill(0xFF0000, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
+            mask.background.beginFill(0x00FF00, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
 
         for (const layer of mask.layers)
             layer.removeChildren();
@@ -372,10 +374,9 @@ class PerfectVision {
             mask.mask = null;
         }
 
-        this._monoFilter.enabled = canvas.sight.tokenVision && canvas.sight.sources.size > 0;
         this._monoFilter.uniforms.uTint = monoVisionColor ?? [1, 1, 1];
 
-        this._sightFilter.enabled = this._monoFilter.enabled;
+        this._sightFilter.enabled = canvas.sight.tokenVision && canvas.sight.sources.size > 0;
 
         const ilm = canvas.lighting.illumination;
         const ilm_ = this._extend(ilm);
@@ -1072,6 +1073,7 @@ class PerfectVision {
                 uniform sampler2D uSampler;
                 uniform sampler2D uMask;
                 uniform vec3 uTint;
+                uniform float uDarknessLevel;
 
                 varying vec2 vTextureCoord;
                 varying vec2 vMaskCoord;
@@ -1117,7 +1119,7 @@ class PerfectVision {
                     float a = srgba.a;
                     float y = rgb2y(rgb);
                     vec3 tint = srgb2rgb(uTint);
-                    gl_FragColor = vec4(rgb2srgb(mix(vec3(y), mix(y2mono(y, tint), rgb, mask.r), mask.a)), a);
+                    gl_FragColor = vec4(rgb2srgb(mix(mix(vec3(y), y2mono(y, tint), mask.a), rgb, max(mask.r, 1.0 - uDarknessLevel))), a);
                 }`,
                 ...args
             );
@@ -1719,7 +1721,7 @@ class PerfectVision {
                     if (!c_.fovMono)
                         c_.fovMono = new PIXI.Graphics();
 
-                    c_.fovMono.clear().beginFill(canvas.lighting.globalLight ? 0xFFFF00 : 0x00FF00, 1.0).drawPolygon(this_.fovMono).endFill();
+                    c_.fovMono.clear().beginFill(0x00FF00, 1.0).drawPolygon(this_.fovMono).endFill();
                 } else if (c_.fovMono) {
                     c_.fovMono.destroy();
                     delete c_.fovMono;
@@ -1755,18 +1757,13 @@ class PerfectVision {
                 c_.light.visible = false;
                 c_.light.filters = null;
             } else {
-                if (!canvas.lighting.globalLight) {
-                    if (!c_.fovLight)
-                        c_.fovLight = new PIXI.Graphics();
+                if (!c_.fovLight)
+                    c_.fovLight = new PIXI.Graphics();
 
-                    c_.fovLight.clear();
+                c_.fovLight.clear();
 
-                    if (this.radius > 0)
-                        c_.fovLight.beginFill(0xFF0000, 1.0).drawPolygon(this.fov).endFill();
-                } else if (c_.fovLight) {
-                    c_.fovLight.destroy();
-                    delete c_.fovLight;
-                }
+                if (this.radius > 0)
+                    c_.fovLight.beginFill(0xFF0000, 1.0).drawPolygon(this.fov).endFill();
 
                 c.light.visible = true;
                 c.light.filters = null;

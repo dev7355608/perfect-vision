@@ -6,7 +6,7 @@ Darkvision rules for *Dungeons & Dragons 5e*, *Dungeons & Dragons 3.5e*, *Pathfi
 
 ### Global Illumination Light
 
-A scene with *Global Illumination* is rendered by default in dim light entirely, more precisely each token is given infinite dim vision. This setting gives you three choices: *Scene Darkness*, *Dim Light*, and *Bright Light*. If set to *Dim (Bright) Light*, the entire scene is illuminated with dim (bright) light and, if set to *Scene Darkness*, the scene is illuminated according to the scene's *Darkness Level* only. Even if set to *Scene Darkness*, everything in line-of-sight is visible and in color. You can set it in the module settings for all scenes as well as for each scene individually. You can find the scene-specific setting next to the *Global Illumination* setting in the scene configuration.
+A scene with *Global Illumination* is rendered by default in dim light entirely, more precisely each token is given infinite dim vision. This setting gives you three choices: *Scene Darkness*, *Dim Light*, and *Bright Light*. If set to *Dim (Bright) Light*, the entire scene is illuminated with dim (bright) light and, if set to *Scene Darkness*, the scene is illuminated according to the scene's *Darkness Level* only. You can set it in the module settings for all scenes as well as for each scene individually. You can find the scene-specific setting next to the *Global Illumination* setting in the scene configuration.
 
 ### Improved GM Vision
 
@@ -20,9 +20,9 @@ There are the following presets to choose from: *Dungeons & Dragons 5e*, *Dungeo
 
 *Dim (Bright) Vision in Darkness* controls what dim (bright) vision looks like in darkness, i.e., in areas that are not illuminated by light sources. *Dim (Bright) Vision in Dim Light* controls how dim (bright) vision interacts with dim light, i.e., if dim light becomes bright light or not.
 
-*Scene Darkness* is the level of darkness in areas without light sources. It's the darkness controlled by *Darkness Level* in the scene configuration. *Total Darkness* means no vision.
+*Scene Darkness* is the level of darkness in areas without light sources. It's the darkness controlled by *Darkness Level* in the scene configuration. *Total Darkness* means no vision at all.
 
-Select an option with *monochrome* to create vision without color in darkness. It's grayscale vision as long as the *Monochrome Vision Color* is white.
+Select an option with *monochrome* to create vision without color in darkness. It's grayscale vision as long as the *Monochrome Vision Color* is white. If the scene's *Darkness Level* is 0, it looks the same as it would with non-*monochrome* vision. But as the *Darkness Level* increases the saturation decreases accordingly.
 
 #### Foundry VTT
 
