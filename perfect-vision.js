@@ -956,7 +956,7 @@ class PerfectVision {
 
     static get _sightFilter() {
         if (!this._sightFilter_)
-            this._sightFilter_ = new this._MaskFilter("a");
+            this._sightFilter_ = new this._MaskFilter("max(r, g)");
         return this._sightFilter_;
     }
 
@@ -964,7 +964,7 @@ class PerfectVision {
 
     static get _fogFilter() {
         if (!this._fogFilter_)
-            this._fogFilter_ = new this._MaskFilter("1.0 - a");
+            this._fogFilter_ = new this._MaskFilter("1.0 - max(r, g)");
         return this._fogFilter_;
     }
 
@@ -1653,22 +1653,25 @@ class PerfectVision {
 
             this.fov = PerfectVision._computeFov(this, Math.max(visionRadius, minR), fovCache);
 
-            if (visionRadius > 0 && !token._original)
-                this_.fovMono = PerfectVision._computeFov(this, visionRadius, fovCache);
+            if (!token._original)
+                this_.fovMono = this.fov;
             else
-                delete this._fovMono;
+                delete this_.fovMono;
 
             if (visionRadiusColor > 0 && !token._original)
-                this_.fovColor = PerfectVision._computeFov(this, visionRadiusColor, fovCache);
+                this_.fovColor = PerfectVision._computeFov(this, Math.max(visionRadiusColor, minR), fovCache);
             else
                 delete this_.fovColor;
 
+            if (this_.fovMono === this_.fovColor)
+                delete this_.fovMono;
+
             if (visionRadiusDimToBright > 0 && !token._original)
-                this_.fovDimToBright = PerfectVision._computeFov(this, visionRadiusDimToBright, fovCache);
+                this_.fovDimToBright = PerfectVision._computeFov(this, Math.max(visionRadiusDimToBright, minR), fovCache);
             else
                 delete this_.fovDimToBright;
 
-            if (monoVisionColor && !token._original)
+            if (monoVisionColor && visionRadius > 0 && !token._original)
                 this_.monoVisionColor = monoVisionColor;
             else
                 delete this_.monoVisionColor
