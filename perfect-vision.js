@@ -346,13 +346,15 @@ class PerfectVision {
 
                 const source_ = this._extend(source);
 
-                if (source_.fovMono) {
-                    if (monoVisionColor) {
-                        monoVisionColor = undefined;
-                        break;
+                if (source_.monoVisionColor) {
+                    if (monoVisionColor && !(
+                        monoVisionColor[0] === source_.monoVisionColor[0] &&
+                        monoVisionColor[1] === source_.monoVisionColor[1] &&
+                        monoVisionColor[2] === source_.monoVisionColor[2])) {
+                        monoVisionColor = [1, 1, 1];
+                    } else {
+                        monoVisionColor = source_.monoVisionColor;
                     }
-
-                    monoVisionColor = source_.monoVisionColor;
                 }
             }
 
@@ -1671,7 +1673,7 @@ class PerfectVision {
             else
                 delete this_.fovDimToBright;
 
-            if (monoVisionColor && visionRadius > 0 && !token._original)
+            if (monoVisionColor && this_.fovMono)
                 this_.monoVisionColor = monoVisionColor;
             else
                 delete this_.monoVisionColor
