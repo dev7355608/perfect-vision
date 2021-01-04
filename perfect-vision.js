@@ -1254,7 +1254,8 @@ class PerfectVision {
                 } else if (placeable instanceof Tile) {
                     sprite = placeable.tile.img;
                 } else if (placeable instanceof MeasuredTemplate) {
-                    sprite = placeable.template;
+                    if (placeable.texture)
+                        sprite = placeable.template;
                 } else if (placeable instanceof PIXI.DisplayObject) {
                     sprite = placeable;
                 }
