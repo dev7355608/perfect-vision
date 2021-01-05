@@ -53,6 +53,7 @@ class PerfectVision {
         this._settings.monoVisionColor = game.settings.get("perfect-vision", "monoVisionColor") || "#ffffff";
         this._settings.monoTokenIcons = game.settings.get("perfect-vision", "monoTokenIcons");
         this._settings.monoSpecialEffects = game.settings.get("perfect-vision", "monoSpecialEffects");
+        this._settings.useMonoDarkness = game.settings.get("perfect-vision", "useMonoDarkness");
         this._settings.fogOfWarWeather = game.settings.get("perfect-vision", "fogOfWarWeather");
         this._settings.actualFogOfWar = game.settings.get("perfect-vision", "actualFogOfWar");
     }
@@ -110,7 +111,7 @@ class PerfectVision {
 
         game.settings.register("perfect-vision", "visionRules", {
             name: "Vision Rules",
-            hint: "Choose one of the presets, or select Custom and set your own rules. It is also possible to set rules for each token individually. You can find these token-specific settings in the token configuration under the Vision tab. Dim (Bright) Vision in Darkness controls what dim (bright) vision looks like in darkness, i.e., in areas that are not illuminated by light sources. Dim (Bright) Vision in Dim Light controls how dim (bright) vision interacts with dim light, i.e., if dim light becomes bright light or not. Scene Darkness is the level of darkness in areas without light sources. It's the darkness controlled by Darkness Level in the scene configuration. Total Darkness means no vision at all. Select an option with monochrome to create vision without color in darkness. It's grayscale vision as long as the Monochrome Vision Color is white. If the scene's Darkness Level is 0, it looks the same as it would with non-monochrome vision. But as the Darkness Level increases the saturation decreases accordingly.",
+            hint: "Choose one of the presets, or select Custom and set your own rules. It is also possible to set rules for each token individually. You can find these token-specific settings in the token configuration under the Vision tab. Dim (Bright) Vision in Darkness controls what dim (bright) vision looks like in darkness, i.e., in areas that are not illuminated by light sources. Dim (Bright) Vision in Dim Light controls how dim (bright) vision interacts with dim light, i.e., if dim light becomes bright light or not. Scene Darkness is the level of darkness in areas without light sources. It's the darkness controlled by Darkness Level in the scene configuration. Total Darkness means no vision at all. Select an option with monochrome to create vision without color in darkness. It's grayscale vision as long as the Monochrome Vision Color is white.",
             scope: "world",
             config: true,
             type: String,
@@ -217,6 +218,16 @@ class PerfectVision {
             onChange: () => this._update()
         });
 
+        game.settings.register("perfect-vision", "useMonoDarkness", {
+            name: "Use Darkness Level for Monochrome Filter",
+            hint: "If enabled, monochrome vision is affected by the scene's Darkness Level: If the scene's Darkness Level is 0, it looks the same as it would with non-monochrome vision. But as the Darkness Level increases the saturation decreases accordingly.",
+            scope: "world",
+            config: true,
+            type: Boolean,
+            default: false,
+            onChange: () => this._update()
+        });
+
         game.settings.register("perfect-vision", "fogOfWarWeather", {
             name: "Fog of War Weather",
             hint: "If enabled, weather effects are visible in the fog of war. Otherwise, weather is only visible in line-of-sight.",
@@ -280,7 +291,7 @@ class PerfectVision {
             ilm_.background.visible = false;
         }
 
-        this._monoFilter.uniforms.uDarknessLevel = canvas.lighting.darknessLevel;
+        this._monoFilter.uniforms.uDarknessLevel = this._settings.useMonoDarkness ? canvas.lighting.darknessLevel : 1;
 
         const mask = this._mask;
 
