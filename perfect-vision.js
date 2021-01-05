@@ -374,9 +374,10 @@ class PerfectVision {
             mask.mask = null;
         }
 
+        this._monoFilter.enabled = canvas.sight.tokenVision && canvas.sight.sources.size > 0;
         this._monoFilter.uniforms.uTint = monoVisionColor ?? [1, 1, 1];
 
-        this._sightFilter.enabled = canvas.sight.tokenVision && canvas.sight.sources.size > 0;
+        this._sightFilter.enabled = this._monoFilter.enabled;
 
         const ilm = canvas.lighting.illumination;
         const ilm_ = this._extend(ilm);
