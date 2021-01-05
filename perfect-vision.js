@@ -1864,6 +1864,13 @@ class PerfectVision {
             return retVal;
         });
 
+        this._postHook(LightingLayer, "_configureChannels", function (channels) {
+            const dim = CONFIG.Canvas.lightLevels.dim;
+            channels.dim.rgb = channels.bright.rgb.map((c, i) => (dim * c) + ((1 - dim) * channels.background.rgb[i]));
+            channels.dim.hex = rgbToHex(channels.dim.rgb);
+            return channels;
+        });
+
         this._postHook(LightingLayer, "_drawIlluminationContainer", function (c) {
             const c_ = PerfectVision._extend(c, {});
 
