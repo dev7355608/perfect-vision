@@ -641,6 +641,28 @@ class PerfectVision {
             .attr("value", sheet.object.getFlag("perfect-vision", "sightLimit"))
             .on("change", sheet._onChangeInput.bind(sheet));
 
+        const addColorSetting = (name, label) => {
+            const defaultColor = "#" + ("000000" + CONFIG.Canvas[name].toString(16)).slice(-6);
+
+            html.find(`input[name="darkness"]`).parent().parent().before(`\
+                <div class="form-group">
+                    <label>${label}</label>
+                    <div class="form-fields">
+                        <input type="text" name="flags.perfect-vision.${name}" placeholder="Default (${defaultColor})" data-dtype="String">
+                        <input type="color" data-edit="flags.perfect-vision.${name}">
+                    </div>
+                </div>`);
+
+            html.find(`input[name="flags.perfect-vision.${name}"]`).next()
+                .attr("value", sheet.object.getFlag("perfect-vision", name) || defaultColor);
+            html.find(`input[name="flags.perfect-vision.${name}"]`)
+                .attr("value", sheet.object.getFlag("perfect-vision", name))
+                .on("change", sheet._onChangeInput.bind(sheet));
+        };
+
+        addColorSetting("daylightColor", "Daylight Color");
+        addColorSetting("darknessColor", "Darkness Color");
+
         if (!sheet._minimized)
             sheet.setPosition(sheet.position);
     }
@@ -1696,12 +1718,19 @@ class PerfectVision {
             return retVal;
         });
 
-        this._postHook(PointSource, "drawLight", function (c) {
+        this._wrapHook(PointSource, "drawLight", function (wrapped, opts) {
             const this_ = PerfectVision._extend(this);
-            const c_ = PerfectVision._extend(c);
 
             const ilm = canvas.lighting.illumination;
             const ilm_ = PerfectVision._extend(ilm);
+
+            if (ilm_.updateChannels) {
+                opts = opts ?? {};
+                opts.updateChannels = true;
+            }
+
+            const c = wrapped(opts);
+            const c_ = PerfectVision._extend(c);
 
             const sight = canvas.sight.tokenVision && canvas.sight.sources.size > 0;
 
@@ -1880,10 +1909,25 @@ class PerfectVision {
             return retVal;
         });
 
-        this._postHook(LightingLayer, "_configureChannels", function (channels) {
+        this._wrapHook(LightingLayer, "_configureChannels", function (wrapped, ...args) {
+            const ilm = this.illumination;
+            const ilm_ = PerfectVision._extend(ilm);
+
+            const daylightColor = CONFIG.Canvas.daylightColor;
+            const darknessColor = CONFIG.Canvas.darknessColor;
+
+            CONFIG.Canvas.daylightColor = ilm_.daylightColor;
+            CONFIG.Canvas.darknessColor = ilm_.darknessColor;
+
+            const channels = wrapped(...args);
+
             const dim = CONFIG.Canvas.lightLevels.dim;
             channels.dim.rgb = channels.bright.rgb.map((c, i) => (dim * c) + ((1 - dim) * channels.background.rgb[i]));
             channels.dim.hex = rgbToHex(channels.dim.rgb);
+
+            CONFIG.Canvas.daylightColor = daylightColor;
+            CONFIG.Canvas.darknessColor = darknessColor;
+
             return channels;
         });
 
@@ -1998,7 +2042,7 @@ class PerfectVision {
             return c;
         });
 
-        this._preHook(LightingLayer, "refresh", function () {
+        this._wrapHook(LightingLayer, "refresh", function (wrapped, ...args) {
             const ilm = this.illumination;
             const ilm_ = PerfectVision._extend(ilm);
 
@@ -2006,7 +2050,30 @@ class PerfectVision {
             this.sources.set("PerfectVision.Light.2", ilm_.globalLight2);
             ilm_.globalLight._resetIlluminationUniforms = true;
 
-            return arguments;
+            let daylightColor = canvas.scene.getFlag("perfect-vision", "daylightColor");
+            let darknessColor = canvas.scene.getFlag("perfect-vision", "darknessColor");
+
+            if (daylightColor)
+                daylightColor = colorStringToHex(daylightColor);
+            else
+                daylightColor = CONFIG.Canvas.daylightColor;
+
+            if (darknessColor)
+                darknessColor = colorStringToHex(darknessColor);
+            else
+                darknessColor = CONFIG.Canvas.darknessColor;
+
+            if (daylightColor !== ilm_.daylightColor || darknessColor !== ilm_.darknessColor)
+                ilm_.updateChannels = true;
+
+            ilm_.daylightColor = daylightColor;
+            ilm_.darknessColor = darknessColor;
+
+            const retVal = wrapped(...args);
+
+            delete ilm_.updateChannels;
+
+            return retVal;
         });
 
         this._preHook(Token, "updateSource", function () {

@@ -67,3 +67,7 @@ If enabled, the fog of war is overlaid with a fog effect.
 ### Sight Limit
 
 You find this setting in the scene configuration, which limits the sight of all tokens in the scene, but you can also set the limit for each token individually in the token configuration under the *Vision* tab.
+
+### Daylight and Darkness Colors
+
+You may set the color of daylight and darkness in the scene configuration (*Darkness Level* = 0: full daylight, *Darkness Level* = 1: complete darkness).
