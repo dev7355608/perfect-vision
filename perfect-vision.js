@@ -27,12 +27,6 @@ class PerfectVision {
             brightVisionInDarkness: "bright",
             brightVisionInDimLight: "bright"
         },
-        "pf1e": {
-            dimVisionInDarkness: "darkness",
-            dimVisionInDimLight: "bright",
-            brightVisionInDarkness: "bright_mono",
-            brightVisionInDimLight: "dim"
-        },
         "pf2e": {
             dimVisionInDarkness: "darkness",
             dimVisionInDimLight: "bright",
@@ -123,12 +117,11 @@ class PerfectVision {
             choices: {
                 "custom": "Custom",
                 "fvtt": "Foundry VTT",
-                "dnd35e": "Dungeons & Dragons 3.5e",
+                "dnd35e": "Dungeons & Dragons 3.5e / Pathfinder 1e",
                 "dnd5e": "Dungeons & Dragons 5e",
-                "pf1e": "Pathfinder 1e",
                 "pf2e": "Pathfinder 2e",
             },
-            default: game.system.id === "dnd5e" ? "dnd5e" : (game.system.id === "pf1" ? "pf1e" : (game.system.id === "pf2e" ? "pf2e" : (game.system.id === "D35E" ? "dnd35e" : "fvtt"))),
+            default: game.system.id === "dnd5e" ? "dnd5e" : (game.system.id === "pf2e" ? "pf2e" : (game.system.id === "D35E" || game.system.id === "pf1" ? "dnd35e" : "fvtt")),
             onChange: () => this._update()
         });
 
