@@ -276,11 +276,13 @@ class PerfectVision {
             const s = 1 / Math.max(...canvas.lighting.channels.background.rgb);
             ilm_.background.tint = rgbToHex(canvas.lighting.channels.background.rgb.map(c => c * s));
             ilm_.background.visible = true;
+
+            this._monoFilter.uniforms.uSaturation = 1;
         } else {
             ilm_.background.visible = false;
-        }
 
-        this._monoFilter.uniforms.uDarknessLevel = canvas.lighting.darknessLevel;
+            this._monoFilter.uniforms.uSaturation = 1 - canvas.lighting.darknessLevel;
+        }
 
         const mask = this._mask;
 
@@ -1073,7 +1075,7 @@ class PerfectVision {
                 uniform sampler2D uSampler;
                 uniform sampler2D uMask;
                 uniform vec3 uTint;
-                uniform float uDarknessLevel;
+                uniform float uSaturation;
 
                 varying vec2 vTextureCoord;
                 varying vec2 vMaskCoord;
@@ -1119,7 +1121,7 @@ class PerfectVision {
                     float a = srgba.a;
                     float y = rgb2y(rgb);
                     vec3 tint = srgb2rgb(uTint);
-                    gl_FragColor = vec4(rgb2srgb(mix(mix(vec3(y), y2mono(y, tint), mask.a), rgb, max(mask.r, 1.0 - uDarknessLevel))), a);
+                    gl_FragColor = vec4(rgb2srgb(mix(mix(vec3(y), y2mono(y, tint), mask.a), rgb, max(mask.r, uSaturation))), a);
                 }`,
                 ...args
             );
