@@ -1,6 +1,6 @@
 # Perfect Vision (Foundry VTT Module)
 
-Darkvision rules for *Dungeons & Dragons 5e*, *Dungeons & Dragons 3.5e*, *Pathfinder 2e*, and other systems, as well as other vision-related features and improvements.
+Darkvision rules for *Dungeons & Dragons 3.5e/5e*, *Pathfinder 1e/2e*, and other systems, as well as other vision-related features and improvements.
 
 ## Features
 
@@ -14,7 +14,7 @@ If the *Darkness Level* of the scene is very high, it can be very difficult for 
 
 ### Vision Rules
 
-There are the following presets to choose from: *Dungeons & Dragons 5e*, *Dungeons & Dragons 3.5e*, *Pathfinder 2e*, and *Foundry VTT*. You may also select *Custom* and set your own rules. It is also possible to set rules for each token individually. You can find these token-specific settings in the token configuration under the *Vision* tab.
+There are the following presets to choose from: *Dungeons & Dragons 5e*, *Dungeons & Dragons 3.5e*, *Pathfinder 1e*, *Pathfinder 2e*, and *Foundry VTT*. You may also select *Custom* and set your own rules. It is also possible to set rules for each token individually. You can find these token-specific settings in the token configuration under the *Vision* tab.
 
 #### Custom
 
@@ -35,6 +35,10 @@ Bright vision is *darkvision*.
 #### Dungeons & Dragons 5e
 
 Dim vision is *darkvision*, and bright vision is Foundry's default.
+
+#### Pathfinder 1e
+
+Bright vision is *darkvision*.
 
 #### Pathfinder 2e
 
