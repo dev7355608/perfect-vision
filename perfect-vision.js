@@ -1779,6 +1779,13 @@ class PerfectVision {
             return c;
         });
 
+        // Remove as soon as minimumCoreVersion > 0.7.9
+        if (game.data.version === "0.7.9") {
+            this._wrapHook(PointSource, "drawLight", function (wrapped, arg) {
+                return wrapped(typeof (arg) === "boolean" || arg === 0 ? { updateChannels: arg === 0 || arg } : arg);
+            });
+        }
+
         this._postHook(Canvas, "_updateBlur", function () {
             const sight = canvas.sight;
             const sight_ = PerfectVision._extend(sight, {});
