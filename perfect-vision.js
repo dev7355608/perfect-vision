@@ -63,22 +63,27 @@ class PerfectVision {
         this._settings.actualFogOfWar = game.settings.get("perfect-vision", "actualFogOfWar");
     }
 
-    static _update(tokens = null) {
-        this._updateSettings();
+    static _update({ settings = false, refresh = false, filters = false, tokens = null, fog = false } = {}) {
+        if (settings)
+            this._updateSettings();
 
-        this._refreshLighting = true;
-        this._refreshSight = true;
-        this._refresh = true;
+        if (refresh) {
+            this._refreshLighting = true;
+            this._refreshSight = true;
+            this._refresh = true;
+        }
 
         if (!canvas?.ready)
             return;
 
-        this._updateFilters(tokens);
+        if (filters)
+            this._updateFilters(tokens);
 
-        for (const token of tokens ?? canvas.tokens.placeables)
-            token.updateSource({ defer: true });
+        if (tokens)
+            for (const token of tokens)
+                token.updateSource({ defer: true });
 
-        if (!tokens)
+        if (fog)
             this._updateFog();
     }
 
@@ -101,7 +106,7 @@ class PerfectVision {
                 "none": "Scene Darkness",
             },
             default: "dim",
-            onChange: () => this._update()
+            onChange: () => this._update({ settings: true, refresh: true })
         });
 
         game.settings.register("perfect-vision", "improvedGMVision", {
@@ -111,7 +116,7 @@ class PerfectVision {
             config: true,
             type: Boolean,
             default: false,
-            onChange: () => this._update()
+            onChange: () => this._update({ settings: true, refresh: game.user.isGM })
         });
 
         game.settings.register("perfect-vision", "visionRules", {
@@ -129,7 +134,7 @@ class PerfectVision {
                 "pf2e": "Pathfinder 2e",
             },
             default: game.system.id === "dnd5e" ? "dnd5e" : (game.system.id === "pf1" ? "pf1e" : (game.system.id === "pf2e" ? "pf2e" : (game.system.id === "D35E" ? "dnd35e" : "fvtt"))),
-            onChange: () => this._update()
+            onChange: () => this._update({ settings: true, refresh: true, tokens: canvas.tokens.placeables })
         });
 
         game.settings.register("perfect-vision", "dimVisionInDarkness", {
@@ -147,7 +152,7 @@ class PerfectVision {
                 "darkness": "Total Darkness",
             },
             default: "dim",
-            onChange: () => this._update()
+            onChange: () => this._update({ settings: true, refresh: true, tokens: canvas.tokens.placeables })
         });
 
         game.settings.register("perfect-vision", "dimVisionInDimLight", {
@@ -160,7 +165,7 @@ class PerfectVision {
                 "dim": "Dim Light",
             },
             default: "dim",
-            onChange: () => this._update()
+            onChange: () => this._update({ settings: true, refresh: true, tokens: canvas.tokens.placeables })
         });
 
         game.settings.register("perfect-vision", "brightVisionInDarkness", {
@@ -178,7 +183,7 @@ class PerfectVision {
                 "darkness": "Total Darkness",
             },
             default: "bright",
-            onChange: () => this._update()
+            onChange: () => this._update({ settings: true, refresh: true, tokens: canvas.tokens.placeables })
         });
 
         game.settings.register("perfect-vision", "brightVisionInDimLight", {
@@ -191,7 +196,7 @@ class PerfectVision {
                 "dim": "Dim Light",
             },
             default: "bright",
-            onChange: () => this._update()
+            onChange: () => this._update({ settings: true, refresh: true, tokens: canvas.tokens.placeables })
         });
 
         game.settings.register("perfect-vision", "monoVisionColor", {
@@ -201,7 +206,7 @@ class PerfectVision {
             config: true,
             type: String,
             default: "#ffffff",
-            onChange: () => this._update()
+            onChange: () => this._update({ settings: true, tokens: canvas.tokens.placeables })
         });
 
         game.settings.register("perfect-vision", "monoTokenIcons", {
@@ -211,7 +216,7 @@ class PerfectVision {
             config: true,
             type: Boolean,
             default: false,
-            onChange: () => this._update()
+            onChange: () => this._update({ settings: true, filters: true })
         });
 
         game.settings.register("perfect-vision", "monoSpecialEffects", {
@@ -221,7 +226,7 @@ class PerfectVision {
             config: true,
             type: Boolean,
             default: false,
-            onChange: () => this._update()
+            onChange: () => this._update({ settings: true, filters: true })
         });
 
         game.settings.register("perfect-vision", "fogOfWarWeather", {
@@ -231,7 +236,7 @@ class PerfectVision {
             config: true,
             type: Boolean,
             default: true,
-            onChange: () => this._update()
+            onChange: () => this._update({ settings: true, fog: true })
         });
 
         game.settings.register("perfect-vision", "actualFogOfWar", {
@@ -241,7 +246,7 @@ class PerfectVision {
             config: true,
             type: Boolean,
             default: false,
-            onChange: () => this._update()
+            onChange: () => this._update({ settings: true, fog: true })
         });
     }
 
@@ -266,7 +271,7 @@ class PerfectVision {
         canvas.app.ticker.remove(this._onTick, this);
         canvas.app.ticker.add(this._onTick, this, PIXI.UPDATE_PRIORITY.LOW + 1);
 
-        this._update();
+        this._update({ settings: true, refresh: true, filters: true, tokens: canvas.tokens.placeables, fog: true });
     }
 
     static _canvasPan() {
@@ -406,7 +411,7 @@ class PerfectVision {
             return;
 
         const token = canvas.tokens.get(doc._id);
-        this._update([token]);
+        this._update({ refresh: true, filters: true, tokens: [token] });
     }
 
     static _updateScene(entity, data, options, userId) {
@@ -418,7 +423,7 @@ class PerfectVision {
             return;
         }
 
-        this._update();
+        this._update({ refresh: true, filters: true, tokens: canvas.tokens.placeables, fog: true });
     }
 
     static _renderConfigTemplate = Handlebars.compile(`\
@@ -665,6 +670,27 @@ class PerfectVision {
 
         if (!sheet._minimized)
             sheet.setPosition(sheet.position);
+    }
+
+    static _getSceneControlButtons(controls) {
+        const lightingControl = controls.find(c => c.name === "lighting");
+
+        if (lightingControl) {
+            let index = lightingControl.tools.findIndex(t => t.name === "clear");
+
+            if (index < 0)
+                return;
+
+            lightingControl.tools.splice(index, 0, {
+                name: "perfect-vision.improvedGMVision",
+                title: "Improved GM Vision",
+                icon: "fas fa-eye",
+                toggle: true,
+                active: !!game.settings.get("perfect-vision", "improvedGMVision"),
+                visible: game.user.isGM,
+                onClick: toggled => game.settings.set("perfect-vision", "improvedGMVision", toggled),
+            });
+        }
     }
 
     static _getGlobalVariable() {
@@ -2146,6 +2172,8 @@ class PerfectVision {
         Hooks.on("renderTokenConfig", (...args) => PerfectVision._renderTokenConfig(...args));
 
         Hooks.on("renderSceneConfig", (...args) => PerfectVision._renderSceneConfig(...args));
+
+        Hooks.on("getSceneControlButtons", (...args) => PerfectVision._getSceneControlButtons(...args));
 
         Hooks.once("ready", () => {
             if (!game.modules.get("lib-wrapper")?.active && game.user.isGM)
