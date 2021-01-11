@@ -263,7 +263,7 @@ class PerfectVision {
     }
 
     static _canvasReady() {
-        (game.settings.sheet.getData().data.modules.find(m => m.title === "Perfect Vision")?.settings ?? []).forEach(s => {
+        Array.from(game.settings.settings.values()).forEach(s => {
             if (s.module === "perfect-vision" && s.isSelect && s.choices && !s.choices[game.settings.get("perfect-vision", s.key)])
                 game.settings.set("perfect-vision", s.key, s.default);
         });
@@ -476,7 +476,7 @@ class PerfectVision {
     static _renderSettingsConfig(sheet, html, data) {
         let prefix = "perfect-vision";
 
-        const settings = game.settings.sheet.getData().data.modules.find(m => m.title === "Perfect Vision").settings.filter(
+        const settings = Array.from(game.settings.settings.values()).filter(
             s => s.module === "perfect-vision");
 
         if (sheet instanceof TokenConfig) {
@@ -491,7 +491,16 @@ class PerfectVision {
                     "brightVisionInDarkness",
                     "brightVisionInDimLight",
                     "monoVisionColor"
-                ].includes(s.key)).map(s => {
+                ].includes(s.key)).map(setting => {
+                    const s = duplicate(setting);
+                    s.name = game.i18n.localize(s.name);
+                    s.hint = game.i18n.localize(s.hint);
+                    s.value = game.settings.get(s.module, s.key);
+                    s.type = setting.type instanceof Function ? setting.type.name : "String";
+                    s.isCheckbox = setting.type === Boolean;
+                    s.isSelect = s.choices !== undefined;
+                    s.isRange = (setting.type === Number) && s.range;
+
                     if (s.key === "visionRules") {
                         s.choices = mergeObject({ "default": "Default" }, s.choices);
                         s.default = "default";
@@ -499,6 +508,7 @@ class PerfectVision {
                     } else {
                         s.value = token.getFlag(s.module, s.key);
                     }
+
                     return s;
                 })
             }, {
@@ -614,7 +624,7 @@ class PerfectVision {
         const globalLightLabel = globalLight.prev();
         globalLightLabel.after(`<div class="form-fields"></div>`);
 
-        const defaultGlobalLight = game.settings.sheet.getData().data.modules.find(m => m.title === "Perfect Vision").settings.find(
+        const defaultGlobalLight = Array.from(game.settings.settings.values()).find(
             s => s.module === "perfect-vision" && s.key === "globalLight").choices[this._settings.globalLight];
 
         const globalLightFields = globalLightLabel.next();
