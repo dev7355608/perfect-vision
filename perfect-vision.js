@@ -296,6 +296,8 @@ class PerfectVision {
             this._monoFilter.uniforms.uSaturation = 1 - canvas.lighting.darknessLevel;
         }
 
+        ilm_.visionBackground.tint = rgbToHex(this._grayscale(canvas.lighting.channels.background.rgb));
+
         const mask = this._mask;
 
         mask.background.clear();
@@ -922,7 +924,7 @@ class PerfectVision {
     }
 
     static _MaskFilter = class extends PIXI.Filter {
-        constructor(channel = "mask", ...args) {
+        constructor(channel = "mask", bg = "vec4(0.0)", ...args) {
             super(
                 `\
                 precision mediump float;
@@ -960,7 +962,7 @@ class PerfectVision {
                     float g = mask.g;
                     float b = mask.b;
                     float a = mask.a;
-                    gl_FragColor = color * (${channel});
+                    gl_FragColor = mix((${bg}), color, (${channel}));
                 }`,
                 ...args
             );
@@ -988,25 +990,43 @@ class PerfectVision {
 
     static get _backgroundFilter() {
         if (!this._backgroundFilter_)
-            this._backgroundFilter_ = new this._MaskFilter("1.0 - r");
+            this._backgroundFilter_ = new this._MaskFilter("step(1.0, 1.0 - r)");
         return this._backgroundFilter_;
     }
 
     static _visionFilter_ = null;
 
     static get _visionFilter() {
-        if (!this._visionFilter_) {
-            this._visionFilter_ = new this._MaskFilter("g");
-            this._visionFilter_.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
-        }
+        if (!this._visionFilter_)
+            this._visionFilter_ = new this._MaskFilter("step(1.0, g)");
         return this._visionFilter_;
+    }
+
+    static _visionFilterMax_ = null;
+
+    static get _visionFilterMax() {
+        if (!this._visionFilterMax_) {
+            this._visionFilterMax_ = new this._MaskFilter("step(1.0, g)");
+            this._visionFilterMax_.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
+        }
+        return this._visionFilterMax_;
+    }
+
+    static _visionFilterMin_ = null;
+
+    static get _visionFilterMin() {
+        if (!this._visionFilterMin_) {
+            this._visionFilterMin_ = new this._MaskFilter("step(1.0, g)", "vec4(1.0)");
+            this._visionFilterMin_.blendMode = PIXI.BLEND_MODES.MIN_COLOR;
+        }
+        return this._visionFilterMin_;
     }
 
     static _lightFilter_ = null;
 
     static get _lightFilter() {
         if (!this._lightFilter_) {
-            this._lightFilter_ = new this._MaskFilter("b");
+            this._lightFilter_ = new this._MaskFilter("step(1.0, b)");
             this._lightFilter_.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
         }
         return this._lightFilter_;
@@ -1579,6 +1599,39 @@ class PerfectVision {
         sight_.fog.weatherEffect.play();
     }
 
+    static _grayscale(c, d = null) {
+        let [r, g, b] = c;
+
+        if (0.04045 <= r) {
+            r = Math.pow((r + 0.055) / 1.055, 2.4);
+        } else {
+            r /= 12.92;
+        }
+        if (0.04045 <= g) {
+            g = Math.pow((g + 0.055) / 1.055, 2.4);
+        } else {
+            g /= 12.92;
+        }
+
+        if (0.04045 <= b) {
+            b = Math.pow((b + 0.055) / 1.055, 2.4);
+        } else {
+            b /= 12.92;
+        }
+
+        let y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+        if (0.0031308 <= y) {
+            y = 1.055 * Math.pow(y, 1.0 / 2.4) - 0.055;
+        } else {
+            y *= 12.92;
+        }
+
+        d = d ?? [];
+        d[2] = d[1] = d[0] = y;
+        return d;
+    }
+
     static _registerHooks() {
         this._postHook(PointSource, "_createContainer", function (c, shaderCls) {
             if (shaderCls === StandardIlluminationShader || shaderCls.prototype instanceof StandardIlluminationShader) {
@@ -1744,6 +1797,17 @@ class PerfectVision {
             return retVal;
         });
 
+        this._postHook(PointSource, "_initializeBlending", function () {
+            const this_ = PerfectVision._extend(this);
+
+            if (this_.isVision) {
+                this.illumination.light.blendMode = PIXI.BLEND_MODES.NORMAL;
+                this.illumination.zIndex *= -1;
+            }
+
+            return arguments[0];
+        });
+
         this._wrapHook(PointSource, "drawLight", function (wrapped, opts) {
             const this_ = PerfectVision._extend(this);
 
@@ -1755,12 +1819,20 @@ class PerfectVision {
                 opts.updateChannels = true;
             }
 
+            const updateChannels = this._resetIlluminationUniforms || opts?.updateChannels;
+
             const c = wrapped(opts);
             const c_ = PerfectVision._extend(c);
 
             const sight = canvas.sight.tokenVision && canvas.sight.sources.size > 0;
 
             if (this_.isVision) {
+                if (updateChannels) {
+                    const iu = this.illumination.shader.uniforms;
+                    PerfectVision._grayscale(iu.colorDim, iu.colorDim);
+                    PerfectVision._grayscale(iu.colorBright, iu.colorBright);
+                }
+
                 if (this_.fov && this_.fov !== this.fov) {
                     if (!c_.fov) {
                         const index = c.getChildIndex(c.fov);
@@ -1816,7 +1888,9 @@ class PerfectVision {
                 c.light.visible = sight && this_.radius > 0;
 
                 if (!c.light.filters)
-                    c.light.filters = [PerfectVision._visionFilter];
+                    c.light.filters = [];
+
+                c.light.filters[0] = this.darkness ? PerfectVision._visionFilterMin : PerfectVision._visionFilterMax;
 
                 c_.light.visible = false;
                 c_.light.filters = null;
@@ -1965,6 +2039,13 @@ class PerfectVision {
                 c_.background.filter = PerfectVision._backgroundFilter;
                 c_.background.filterArea = canvas.app.renderer.screen;
                 c_.background.filters = [c_.background.filter];
+            }
+
+            {
+                c_.visionBackground = c.addChildAt(new PIXI.Graphics(), c.getChildIndex(c_.background) + 1);
+                c_.visionBackground.filter = PerfectVision._visionFilter;
+                c_.visionBackground.filterArea = canvas.app.renderer.screen;
+                c_.visionBackground.filters = [c_.visionBackground.filter];
             }
 
             {
