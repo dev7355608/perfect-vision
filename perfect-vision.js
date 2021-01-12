@@ -1928,9 +1928,27 @@ class PerfectVision {
         });
 
         // Remove as soon as minimumCoreVersion > 0.7.9
+        // https://gitlab.com/foundrynet/foundryvtt/-/issues/4263
         if (game.data.version === "0.7.9") {
-            this._wrapHook(PointSource, "drawLight", function (wrapped, arg) {
-                return wrapped(typeof (arg) === "boolean" || arg === 0 ? { updateChannels: arg === 0 || arg } : arg);
+            this._preHook(PointSource, "drawLight", function (opts) {
+                return [typeof (opts) === "boolean" || opts === 0 ? { updateChannels: opts === 0 || opts } : opts];
+            });
+
+            const _sources = new Set();
+
+            this._preHook(LightingLayer, "refresh", function () {
+                for (const sources of [this.sources, canvas.sight.sources])
+                    for (const key in sources)
+                        if (!_sources.has(key))
+                            sources[key]._resetIlluminationUniforms = true;
+
+                _sources.clear();
+
+                for (const sources of [this.sources, canvas.sight.sources])
+                    for (const key in sources)
+                        _sources.set(key);
+
+                return arguments;
             });
         }
 
