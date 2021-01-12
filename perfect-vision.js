@@ -1507,22 +1507,24 @@ class PerfectVision {
                 e.frequency = config.frequency;
                 e.maxParticles = config.maxParticles;
                 e.startAlpha = PIXI.particles.PropertyNode.createList(config.alpha);
+                e.startColor = PIXI.particles.PropertyNode.createList(config.color);
             });
         }
 
         static get CONFIG() {
-            const darknessLevel = canvas.lighting.darknessLevel;
-            const factor = 1 + 3 * (1 - darknessLevel);
+            const color = PerfectVision._grayscale(canvas?.lighting?.channels?.bright?.rgb ?? [1, 1, 1]);
+            const colorHex = ("000000" + rgbToHex(color).toString(16)).slice(-6);
+            const alpha = color[0] * 0.1;
             return mergeObject(
                 SpecialEffect.DEFAULT_CONFIG,
                 {
                     alpha: {
                         list: [
-                            { value: 0 * factor, time: 0 },
-                            { value: 0.02 * factor, time: 0.1 },
-                            { value: 0.05 * factor, time: 0.5 },
-                            { value: 0.02 * factor, time: 0.9 },
-                            { value: 0 * factor, time: 1 }
+                            { value: 0.0, time: 0.0 },
+                            { value: alpha / 2, time: 0.1 },
+                            { value: alpha, time: 0.5 },
+                            { value: alpha / 2, time: 0.9 },
+                            { value: 0.0, time: 1.0 }
                         ],
                         isStepped: false
                     },
@@ -1532,13 +1534,13 @@ class PerfectVision {
                         minimumScaleMultiplier: 1.0
                     },
                     speed: {
-                        start: 15,
+                        start: 20,
                         end: 10,
-                        minimumSpeedMultiplier: 0.2
+                        minimumSpeedMultiplier: 0.5
                     },
                     color: {
-                        start: "ffffff",
-                        end: "ffffff"
+                        start: colorHex,
+                        end: colorHex
                     },
                     startRotation: {
                         min: 0,
@@ -1568,11 +1570,11 @@ class PerfectVision {
         };
     }
 
-    static _updateFog() {
+    static _updateFog(draw = false) {
         const sight = canvas.sight;
         const sight_ = PerfectVision._extend(sight, {});
 
-        if (!sight_.fog) {
+        if (!sight_.fog || draw) {
             sight_.fog = sight.addChildAt(new PIXI.Container(), sight.getChildIndex(sight.fog));
             sight_.filter = sight._blurDistance > 0 ?
                 new PIXI.filters.BlurFilter(sight._blurDistance) :
@@ -1986,7 +1988,7 @@ class PerfectVision {
         this._postHook(SightLayer, "draw", async function () {
             const retVal = await arguments[0];
 
-            PerfectVision._updateFog();
+            PerfectVision._updateFog(true);
 
             return retVal;
         });
