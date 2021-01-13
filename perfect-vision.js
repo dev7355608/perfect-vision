@@ -236,7 +236,7 @@ class PerfectVision {
             config: true,
             type: Boolean,
             default: true,
-            onChange: () => this._update({ settings: true, fog: true })
+            onChange: () => this._update({ settings: true, filters: true, fog: true })
         });
 
         game.settings.register("perfect-vision", "actualFogOfWar", {
@@ -1262,55 +1262,54 @@ class PerfectVision {
                 if (!layer) continue;
 
                 {
-                    let monoFilterIndex = layer.filters ? layer.filters.indexOf(this._monoFilter) : -1;
+                    const monoFilterIndex = layer.filters ? layer.filters.indexOf(this._monoFilter) : -1;
 
                     if (monoFilterIndex >= 0)
                         layer.filters.splice(monoFilterIndex, 1);
 
-                    let sightFilterIndex = layer.filters ? layer.filters.indexOf(this._sightFilter) : -1;
+                    let object = layer;
+
+                    if (layerName === "background") {
+                        const monoFilterIndex = layer.img?.filters ? layer.img.filters.indexOf(this._monoFilter) : -1;
+
+                        if (monoFilterIndex >= 0)
+                            layer.img.filters.splice(monoFilterIndex, 1);
+
+                        object = layer.img ?? layer;
+                    } else if (layerName === "effects" || layerName === "fxmaster") {
+                        const monoFilterIndex = layer.weather?.filters ? layer.weather.filters.indexOf(this._monoFilter) : -1;
+
+                        if (monoFilterIndex >= 0)
+                            layer.weather.filters.splice(monoFilterIndex, 1);
+
+                        if (this._settings.monoSpecialEffects)
+                            object = layer;
+                        else
+                            object = layer.weather;
+                    }
+
+                    if (object) {
+                        if (object.filters?.length > 0) {
+                            object.filters.push(this._monoFilter);
+                        } else {
+                            object.filters = [this._monoFilter];
+                        }
+                    }
+                }
+
+                if (layerName === "effects" || layerName === "fxmaster") {
+                    const sightFilterIndex = layer.filters ? layer.filters.indexOf(this._sightFilter) : -1;
 
                     if (sightFilterIndex >= 0)
                         layer.filters.splice(sightFilterIndex, 1);
-                }
-
-                let object = layer;
-
-                if (layerName === "background") {
-                    let monoFilterIndex = layer.img?.filters ? layer.img.filters.indexOf(this._monoFilter) : -1;
-
-                    if (monoFilterIndex >= 0)
-                        layer.img.filters.splice(monoFilterIndex, 1);
-
-                    object = layer.img ?? layer;
-                } else if (layerName === "effects" || layerName === "fxmaster") {
-                    let monoFilterIndex = layer.weather?.filters ? layer.weather.filters.indexOf(this._monoFilter) : -1;
-
-                    if (monoFilterIndex >= 0)
-                        layer.weather.filters.splice(monoFilterIndex, 1);
 
                     for (const child of layer.children) {
-                        let sightFilterIndex = child.filters ? child.filters.indexOf(this._sightFilter) : -1;
+                        const sightFilterIndex = child.filters ? child.filters.indexOf(this._sightFilter) : -1;
 
                         if (sightFilterIndex >= 0)
                             child.filters.splice(sightFilterIndex, 1);
                     }
 
-                    if (this._settings.monoSpecialEffects)
-                        object = layer;
-                    else
-                        object = layer.weather;
-                }
-
-                if (!object)
-                    continue;
-
-                if (object.filters?.length > 0) {
-                    object.filters.push(this._monoFilter);
-                } else {
-                    object.filters = [this._monoFilter];
-                }
-
-                if (layerName === "effects" || layerName === "fxmaster") {
                     let objects;
 
                     if (this._settings.fogOfWarWeather)
@@ -1351,10 +1350,12 @@ class PerfectVision {
 
                 if (sprite) {
                     if (sprite.filters) {
-                        sprite.filters = sprite.filters.filter(filter => !(filter instanceof this._MonoFilter));
+                        const monoFilterIndex = sprite.filters ? Math.max(
+                            sprite.filters.indexOf(this._monoFilter),
+                            sprite.filters.indexOf(this._monoFilter_noAutoFit)) : -1;
 
-                        if (sprite.filters.length === 0)
-                            sprite.filters = null;
+                        if (monoFilterIndex >= 0)
+                            sprite.filters.splice(monoFilterIndex, 1);
                     }
 
                     if (placeable instanceof Token && !this._settings.monoTokenIcons)
@@ -1370,6 +1371,15 @@ class PerfectVision {
                             sprite.filters.unshift(this._monoFilter_noAutoFit);
                     } else {
                         sprite.filters = [this._monoFilter];
+                    }
+
+                    if (placeable instanceof MeasuredTemplate) {
+                        const sightFilterIndex = sprite.filters ? sprite.filters.indexOf(this._sightFilter) : -1;
+
+                        if (sightFilterIndex >= 0)
+                            sprite.filters.splice(sightFilterIndex, 1);
+
+                        sprite.filters.push(this._sightFilter);
                     }
                 }
             }
