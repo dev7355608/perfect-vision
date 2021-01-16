@@ -2654,3 +2654,5 @@ class PerfectVision {
 Hooks.once("init", (...args) => PerfectVision._init(...args));
 
 Object.defineProperty(PerfectVision, "_eval", { value: eval, writable: false, configurable: false, enumerable: false });
+
+export { PerfectVision };
