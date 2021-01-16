@@ -1,14 +1,8 @@
+import { extend } from "./extend.js"
 import { patch } from "./patch.js"
 
 class PerfectVision {
     static _settings;
-    static _extensions = new WeakMap();
-
-    static _extend(object, extension = null) {
-        if (!this._extensions.has(object) && extension instanceof Object)
-            this._extensions.set(object, extension);
-        return this._extensions.get(object);
-    }
 
     static _visionRulesPresets = {
         "fvtt": {
@@ -562,7 +556,7 @@ class PerfectVision {
         this._refreshLighting = false;
 
         const ilm = canvas.lighting.illumination;
-        const ilm_ = this._extend(ilm);
+        const ilm_ = extend(ilm);
 
         if (game.user.isGM && this._settings?.improvedGMVision && canvas.sight.sources.size === 0) {
             const s = 1 / Math.max(...canvas.lighting.channels.background.rgb);
@@ -593,7 +587,7 @@ class PerfectVision {
 
             if (source !== ilm_.globalLight2) {
                 const sc = source.illumination;
-                const sc_ = this._extend(sc);
+                const sc_ = extend(sc);
 
                 if (sc_.fovLight)
                     mask.layers[2].addChild(sc_.fovLight);
@@ -604,7 +598,7 @@ class PerfectVision {
             if (!source.active) continue;
 
             const sc = source.illumination;
-            const sc_ = this._extend(sc);
+            const sc_ = extend(sc);
 
             if (sc_.fovMono)
                 mask.layers[0].addChild(sc_.fovMono);
@@ -617,7 +611,7 @@ class PerfectVision {
         }
 
         const sight = canvas.sight;
-        const sight_ = PerfectVision._extend(sight, {});
+        const sight_ = extend(sight);
 
         if (sight_.fog?.weatherEffect)
             sight_.fog.weatherEffect._updateParticleEmitters();
@@ -642,7 +636,7 @@ class PerfectVision {
 
                 mask.msk.drawPolygon(source.los);
 
-                const source_ = this._extend(source);
+                const source_ = extend(source);
 
                 if (source_.monoVisionColor) {
                     if (monoVisionColor && !(
@@ -675,7 +669,7 @@ class PerfectVision {
         this._sightFilter.enabled = canvas.sight.tokenVision && canvas.sight.sources.size > 0;
 
         const ilm = canvas.lighting.illumination;
-        const ilm_ = this._extend(ilm);
+        const ilm_ = extend(ilm);
 
         if (game.user.isGM && this._settings?.improvedGMVision && canvas.sight.sources.size === 0) {
             ilm_.background.visible = true;
@@ -1794,7 +1788,7 @@ class PerfectVision {
 
     static _updateFog(draw = false) {
         const sight = canvas.sight;
-        const sight_ = PerfectVision._extend(sight, {});
+        const sight_ = extend(sight);
 
         if (!sight_.fog || draw) {
             sight_.fog = sight.addChildAt(new PIXI.Container(), sight.getChildIndex(sight.fog));
@@ -1869,9 +1863,7 @@ class PerfectVision {
     static _registerHooks() {
         patch("PointSource.prototype._createContainer", "POST", function (c, shaderCls) {
             if (shaderCls === StandardIlluminationShader || shaderCls.prototype instanceof StandardIlluminationShader) {
-                PerfectVision._extend(this, {});
-
-                const c_ = PerfectVision._extend(c, {});
+                const c_ = extend(c);
 
                 const lights = new PIXI.Container();
                 const index = c.getChildIndex(c.light);
@@ -1905,7 +1897,7 @@ class PerfectVision {
         });
 
         patch("PointSource.prototype.initialize", "WRAPPER", function (wrapped, opts) {
-            const this_ = PerfectVision._extend(this);
+            const this_ = extend(this);
 
             if (!this_.isVision)
                 return wrapped(opts);
@@ -2038,7 +2030,7 @@ class PerfectVision {
         });
 
         patch("PointSource.prototype._initializeBlending", "POST", function () {
-            const this_ = PerfectVision._extend(this);
+            const this_ = extend(this);
 
             if (this_.isVision) {
                 this.illumination.light.blendMode = PIXI.BLEND_MODES.NORMAL;
@@ -2049,10 +2041,10 @@ class PerfectVision {
         });
 
         patch("PointSource.prototype.drawLight", "WRAPPER", function (wrapped, opts) {
-            const this_ = PerfectVision._extend(this);
+            const this_ = extend(this);
 
             const ilm = canvas.lighting.illumination;
-            const ilm_ = PerfectVision._extend(ilm);
+            const ilm_ = extend(ilm);
 
             if (ilm_.updateChannels) {
                 opts = opts ?? {};
@@ -2062,7 +2054,7 @@ class PerfectVision {
             const updateChannels = this._resetIlluminationUniforms || opts?.updateChannels;
 
             const c = wrapped(opts);
-            const c_ = PerfectVision._extend(c);
+            const c_ = extend(c);
 
             const sight = canvas.sight.tokenVision && canvas.sight.sources.size > 0;
 
@@ -2182,7 +2174,7 @@ class PerfectVision {
 
         patch("Canvas.prototype._updateBlur", "POST", function () {
             const sight = canvas.sight;
-            const sight_ = PerfectVision._extend(sight, {});
+            const sight_ = extend(sight);
 
             const blur = sight.filter.blur;
 
@@ -2200,7 +2192,7 @@ class PerfectVision {
         patch("BackgroundLayer.prototype.draw", "POST", async function () {
             const retVal = await arguments[0];
 
-            const this_ = PerfectVision._extend(this, {});
+            const this_ = extend(this);
 
             this_.msk = this.addChild(new PIXI.Graphics());
             this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
@@ -2220,7 +2212,7 @@ class PerfectVision {
         patch("EffectsLayer.prototype.draw", "POST", async function () {
             const retVal = await arguments[0];
 
-            const this_ = PerfectVision._extend(this, {});
+            const this_ = extend(this);
 
             this_.msk = this.addChild(new PIXI.Graphics());
             this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
@@ -2240,7 +2232,7 @@ class PerfectVision {
         });
 
         patch("SightLayer.prototype.tearDown", "PRE", function () {
-            const this_ = PerfectVision._extend(this);
+            const this_ = extend(this);
 
             if (this_.fog) {
                 if (this_.fog.weatherEffect)
@@ -2259,7 +2251,7 @@ class PerfectVision {
             const retVal = await arguments[0];
 
             const ilm = this.illumination;
-            const ilm_ = PerfectVision._extend(ilm);
+            const ilm_ = extend(ilm);
 
             const bgRect = canvas.dimensions.sceneRect.clone().pad((this._blurDistance ?? 0) * 2);
             ilm_.background.clear().beginFill(0xFFFFFF, 1.0).drawShape(bgRect).endFill();
@@ -2269,7 +2261,7 @@ class PerfectVision {
 
         patch("LightingLayer.prototype._configureChannels", "WRAPPER", function (wrapped, ...args) {
             const ilm = this.illumination;
-            const ilm_ = PerfectVision._extend(ilm);
+            const ilm_ = extend(ilm);
 
             const daylightColor = CONFIG.Canvas.daylightColor;
             const darknessColor = CONFIG.Canvas.darknessColor;
@@ -2290,7 +2282,7 @@ class PerfectVision {
         });
 
         patch("LightingLayer.prototype._drawIlluminationContainer", "POST", function (c) {
-            const c_ = PerfectVision._extend(c, {});
+            const c_ = extend(c);
 
             {
                 c_.background = c.addChildAt(new PIXI.Graphics(), c.getChildIndex(c.background) + 1);
@@ -2409,7 +2401,7 @@ class PerfectVision {
 
         patch("LightingLayer.prototype.refresh", "WRAPPER", function (wrapped, ...args) {
             const ilm = this.illumination;
-            const ilm_ = PerfectVision._extend(ilm);
+            const ilm_ = extend(ilm);
 
             this.sources.set("PerfectVision.Light.1", ilm_.globalLight);
             this.sources.set("PerfectVision.Light.2", ilm_.globalLight2);
@@ -2442,7 +2434,7 @@ class PerfectVision {
         });
 
         patch("Token.prototype.updateSource", "PRE", function () {
-            const vision_ = PerfectVision._extend(this.vision);
+            const vision_ = extend(this.vision);
             vision_.isVision = true;
             vision_.token = this;
             return arguments;
