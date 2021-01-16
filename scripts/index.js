@@ -534,9 +534,6 @@ class PerfectVision {
         this._canvasReady();
 
         canvas.app.ticker.add(this._onTick, this, PIXI.UPDATE_PRIORITY.LOW + 1);
-
-        if (!game.modules.get("lib-wrapper")?.active && game.user.isGM)
-            ui.notifications.warn("The 'Perfect Vision' module recommends to install and activate the 'libWrapper' module.");
     }
 
     static _canvasReady() {
