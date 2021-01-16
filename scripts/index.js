@@ -1,3 +1,5 @@
+import { patch } from "./patch.js"
+
 class PerfectVision {
     static _settings;
     static _extensions = new WeakMap();
@@ -282,7 +284,7 @@ class PerfectVision {
 
     static _setup() {
         if (game.modules.get("fxmaster")?.active) {
-            this._postHook("Canvas.layers.fxmaster.prototype", "addChild", function () {
+            patch("Canvas.layers.fxmaster.prototype.addChild", "POST", function () {
                 PerfectVision._update({ filters: true, layers: ["fxmaster"] });
                 return arguments[0];
             });
@@ -1031,139 +1033,6 @@ class PerfectVision {
                 onClick: toggled => game.settings.set("perfect-vision", "improvedGMVision", toggled),
             });
         }
-    }
-
-    static _getGlobalVariable() {
-        console.assert(typeof (arguments[0]) === "string" && arguments[0] !== "this" && arguments[0] !== "arguments" && /^[a-zA-Z_$][0-9a-zA-Z_$]*$/.test(arguments[0]));
-        return globalThis[arguments[0]] ?? this._eval(arguments[0]);
-    }
-
-    static _getGlobalProperty(key) {
-        const split = key.split(".");
-        let target = this._getGlobalVariable(split.splice(0, 1)[0]);
-
-        for (let p of split) {
-            target = target || {};
-            if (p in target) target = target[p];
-            else return undefined;
-        }
-
-        return target;
-    }
-
-    static _hooks = {};
-
-    static _hook(cls, methodName, type, func) {
-        const target = typeof (cls) === "string" ? `${cls}.${methodName}` : `${cls.name}.prototype.${methodName}`;
-
-        console.log("Perfect Vision | Hooking (%s) %s", type, target);
-
-        this._hooks[target] = this._hooks[target] ?? [];
-        this._hooks[target].push({ type, func });
-
-        if (game.modules.get("lib-wrapper")?.active) {
-            libWrapper.unregister("perfect-vision", target, false);
-            libWrapper.register("perfect-vision", target, this._buildLibWrapperHook(target), "WRAPPER");
-        } else {
-            const prototype = typeof (cls) === "string" ? this._getGlobalProperty(cls) : cls.prototype;
-
-            console.assert(prototype);
-
-            let currentPrototype = prototype;
-            let descriptor;
-
-            while (!descriptor && currentPrototype) {
-                descriptor = Object.getOwnPropertyDescriptor(currentPrototype, methodName);
-                currentPrototype = Object.getPrototypeOf(currentPrototype);
-            }
-
-            console.assert(descriptor);
-
-            const method = descriptor.get ?? descriptor.value;
-
-            console.assert(method);
-
-            let wrapper;
-
-            if (type === "pre") {
-                wrapper = function () {
-                    return method.apply(this, func.apply(this, arguments));
-                };
-            } else if (type === "post") {
-                wrapper = function () {
-                    return func.call(this, method.apply(this, arguments), ...arguments);
-                };
-            } else if (type === "wrap") {
-                wrapper = function () {
-                    return func.call(this, (...args) => method.apply(this, args), ...arguments);
-                };
-            }
-
-            let attributes;
-
-            if (descriptor?.get) {
-                attributes = { get: wrapper };
-            } else {
-                attributes = { value: wrapper };
-            }
-
-            Object.defineProperty(prototype, methodName, { ...descriptor, ...attributes, configurable: true });
-        }
-    }
-
-    static _buildLibWrapperHook(target) {
-        let curr;
-
-        for (const hook of this._hooks[target] ?? []) {
-            if (!curr) {
-                const func = hook.func;
-
-                if (hook.type === "pre") {
-                    curr = function (wrapped, ...args) {
-                        return wrapped(...func.apply(this, args));
-                    };
-                } else if (hook.type === "post") {
-                    curr = function (wrapped, ...args) {
-                        return func.call(this, wrapped(...args), ...args);
-                    };
-                } else if (hook.type === "wrap") {
-                    curr = function (wrapped, ...args) {
-                        return func.call(this, wrapped, ...args);
-                    };
-                }
-            } else {
-                const prev = curr;
-                const func = hook.func;
-
-                if (hook.type === "pre") {
-                    curr = function (wrapped, ...args) {
-                        return prev.call(this, wrapped, ...func.apply(this, args));
-                    };
-                } else if (hook.type === "post") {
-                    curr = function (wrapped, ...args) {
-                        return func.call(this, prev.call(this, wrapped, ...args), ...args);
-                    };
-                } else if (hook.type === "wrap") {
-                    curr = function (wrapped, ...args) {
-                        return func.call(this, (...args) => prev.call(this, wrapped, ...args), ...args);
-                    };
-                }
-            }
-        }
-
-        return curr;
-    }
-
-    static _preHook(cls, methodName, func) {
-        return this._hook(cls, methodName, "pre", func);
-    }
-
-    static _postHook(cls, methodName, func) {
-        return this._hook(cls, methodName, "post", func);
-    }
-
-    static _wrapHook(cls, methodName, func) {
-        return this._hook(cls, methodName, "wrap", func);
     }
 
     static _mask_ = null;
@@ -1998,7 +1867,7 @@ class PerfectVision {
     }
 
     static _registerHooks() {
-        this._postHook(PointSource, "_createContainer", function (c, shaderCls) {
+        patch("PointSource.prototype._createContainer", "POST", function (c, shaderCls) {
             if (shaderCls === StandardIlluminationShader || shaderCls.prototype instanceof StandardIlluminationShader) {
                 PerfectVision._extend(this, {});
 
@@ -2035,7 +1904,7 @@ class PerfectVision {
             return c;
         });
 
-        this._wrapHook(PointSource, "initialize", function (wrapped, opts) {
+        patch("PointSource.prototype.initialize", "WRAPPER", function (wrapped, opts) {
             const this_ = PerfectVision._extend(this);
 
             if (!this_.isVision)
@@ -2168,7 +2037,7 @@ class PerfectVision {
             return retVal;
         });
 
-        this._postHook(PointSource, "_initializeBlending", function () {
+        patch("PointSource.prototype._initializeBlending", "POST", function () {
             const this_ = PerfectVision._extend(this);
 
             if (this_.isVision) {
@@ -2179,7 +2048,7 @@ class PerfectVision {
             return arguments[0];
         });
 
-        this._wrapHook(PointSource, "drawLight", function (wrapped, opts) {
+        patch("PointSource.prototype.drawLight", "WRAPPER", function (wrapped, opts) {
             const this_ = PerfectVision._extend(this);
 
             const ilm = canvas.lighting.illumination;
@@ -2289,13 +2158,13 @@ class PerfectVision {
         // Remove as soon as minimumCoreVersion > 0.7.9
         // https://gitlab.com/foundrynet/foundryvtt/-/issues/4263
         if (game.data.version === "0.7.9") {
-            this._preHook(PointSource, "drawLight", function (opts) {
+            patch("PointSource.prototype.drawLight", "PRE", function (opts) {
                 return [typeof (opts) === "boolean" || opts === 0 ? { updateChannels: opts === 0 || opts } : opts];
             });
 
             const _sources = new Set();
 
-            this._preHook(LightingLayer, "refresh", function () {
+            patch("LightingLayer.prototype.refresh", "PRE", function () {
                 for (const sources of [this.sources, canvas.sight.sources])
                     for (const key in sources)
                         if (!_sources.has(key))
@@ -2311,7 +2180,7 @@ class PerfectVision {
             });
         }
 
-        this._postHook(Canvas, "_updateBlur", function () {
+        patch("Canvas.prototype._updateBlur", "POST", function () {
             const sight = canvas.sight;
             const sight_ = PerfectVision._extend(sight, {});
 
@@ -2328,7 +2197,7 @@ class PerfectVision {
             return arguments[0];
         });
 
-        this._postHook(BackgroundLayer, "draw", async function () {
+        patch("BackgroundLayer.prototype.draw", "POST", async function () {
             const retVal = await arguments[0];
 
             const this_ = PerfectVision._extend(this, {});
@@ -2342,13 +2211,13 @@ class PerfectVision {
             return retVal;
         });
 
-        this._postHook("EffectsLayer", "layerOptions", function () {
+        patch("EffectsLayer.layerOptions", "POST", function () {
             return mergeObject(arguments[0], {
                 zIndex: Canvas.layers.fxmaster?.layerOptions.zIndex ?? 180
             });
         });
 
-        this._postHook(EffectsLayer, "draw", async function () {
+        patch("EffectsLayer.prototype.draw", "POST", async function () {
             const retVal = await arguments[0];
 
             const this_ = PerfectVision._extend(this, {});
@@ -2362,7 +2231,7 @@ class PerfectVision {
             return retVal;
         });
 
-        this._postHook(SightLayer, "draw", async function () {
+        patch("SightLayer.prototype.draw", "POST", async function () {
             const retVal = await arguments[0];
 
             PerfectVision._updateFog(true);
@@ -2370,7 +2239,7 @@ class PerfectVision {
             return retVal;
         });
 
-        this._preHook(SightLayer, "tearDown", function () {
+        patch("SightLayer.prototype.tearDown", "PRE", function () {
             const this_ = PerfectVision._extend(this);
 
             if (this_.fog) {
@@ -2386,7 +2255,7 @@ class PerfectVision {
             return arguments;
         });
 
-        this._postHook(LightingLayer, "draw", async function () {
+        patch("LightingLayer.prototype.draw", "POST", async function () {
             const retVal = await arguments[0];
 
             const ilm = this.illumination;
@@ -2398,7 +2267,7 @@ class PerfectVision {
             return retVal;
         });
 
-        this._wrapHook(LightingLayer, "_configureChannels", function (wrapped, ...args) {
+        patch("LightingLayer.prototype._configureChannels", "WRAPPER", function (wrapped, ...args) {
             const ilm = this.illumination;
             const ilm_ = PerfectVision._extend(ilm);
 
@@ -2420,7 +2289,7 @@ class PerfectVision {
             return channels;
         });
 
-        this._postHook(LightingLayer, "_drawIlluminationContainer", function (c) {
+        patch("LightingLayer.prototype._drawIlluminationContainer", "POST", function (c) {
             const c_ = PerfectVision._extend(c, {});
 
             {
@@ -2538,7 +2407,7 @@ class PerfectVision {
             return c;
         });
 
-        this._wrapHook(LightingLayer, "refresh", function (wrapped, ...args) {
+        patch("LightingLayer.prototype.refresh", "WRAPPER", function (wrapped, ...args) {
             const ilm = this.illumination;
             const ilm_ = PerfectVision._extend(ilm);
 
@@ -2572,14 +2441,14 @@ class PerfectVision {
             return retVal;
         });
 
-        this._preHook(Token, "updateSource", function () {
+        patch("Token.prototype.updateSource", "PRE", function () {
             const vision_ = PerfectVision._extend(this.vision);
             vision_.isVision = true;
             vision_.token = this;
             return arguments;
         });
 
-        this._postHook(Token, "draw", async function () {
+        patch("Token.prototype.draw", "POST", async function () {
             const retVal = await arguments[0];
 
             PerfectVision._update({ filters: true, placeables: [this] });
@@ -2587,7 +2456,7 @@ class PerfectVision {
             return retVal;
         });
 
-        this._postHook(Tile, "draw", async function () {
+        patch("Tile.prototype.draw", "POST", async function () {
             const retVal = await arguments[0];
 
             PerfectVision._update({ filters: true, placeables: [this] });
@@ -2595,7 +2464,7 @@ class PerfectVision {
             return retVal;
         });
 
-        this._postHook(MeasuredTemplate, "draw", async function () {
+        patch("MeasuredTemplate.prototype.draw", "POST", async function () {
             const retVal = await arguments[0];
 
             PerfectVision._update({ filters: true, placeables: [this] });
@@ -2604,12 +2473,12 @@ class PerfectVision {
         });
 
         if (game.modules.get("tokenmagic")?.active) {
-            this._postHook(PlaceableObject, "_TMFXsetRawFilters", function (retVal, filters) {
+            patch("PlaceableObject.prototype._TMFXsetRawFilters", "POST", function (retVal, filters) {
                 PerfectVision._update({ filters: true, placeables: [this] });
                 return retVal;
             });
             Hooks.once("ready", () => {
-                this._postHook("TokenMagic", "_clearImgFiltersByPlaceable", function (retVal, placeable) {
+                patch("TokenMagic._clearImgFiltersByPlaceable", "POST", function (retVal, placeable) {
                     PerfectVision._update({ filters: true, placeables: [placeable] });
                     return retVal;
                 })
@@ -2617,7 +2486,7 @@ class PerfectVision {
         }
 
         if (game.modules.get("roofs")?.active) {
-            this._postHook("RoofsLayer", "createRoof", function (retVal, tile) {
+            patch("RoofsLayer.createRoof", "POST", function (retVal, tile) {
                 PerfectVision._update({ filters: true, placeables: [tile.roof.container] });
                 return retVal;
             });
@@ -2652,7 +2521,5 @@ class PerfectVision {
 }
 
 Hooks.once("init", (...args) => PerfectVision._init(...args));
-
-Object.defineProperty(PerfectVision, "_eval", { value: eval, writable: false, configurable: false, enumerable: false });
 
 export { PerfectVision };
