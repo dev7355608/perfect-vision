@@ -63,7 +63,12 @@ class PerfectVision {
         this._settings.actualFogOfWar = game.settings.get("perfect-vision", "actualFogOfWar");
     }
 
-    static _update({ settings = false, refresh = false, filters = false, tokens = null, fog = false } = {}) {
+    static _isReady = false;
+
+    static _update({ settings = false, refresh = false, filters = false, tokens = null, layers = null, fog = false, migrate = null } = {}) {
+        if (!this._isReady)
+            return;
+
         if (settings)
             this._updateSettings();
 
@@ -73,11 +78,17 @@ class PerfectVision {
             this._refresh = true;
         }
 
+        if (migrate === "world") {
+            this._migrateWorldSettings();
+        } else if (migrate === "client") {
+            this._migrateClientSettings();
+        }
+
         if (!canvas?.ready)
             return;
 
         if (filters)
-            this._updateFilters(tokens);
+            this._updateFilters({ layers: layers, placeables: tokens });
 
         if (tokens)
             for (const token of tokens)
@@ -90,7 +101,6 @@ class PerfectVision {
     static _init() {
         this._registerHooks();
         this._registerSettings();
-        this._updateSettings();
     }
 
     static _registerSettings() {
@@ -248,28 +258,296 @@ class PerfectVision {
             default: false,
             onChange: () => this._update({ settings: true, fog: true })
         });
+
+        game.settings.register("perfect-vision", "_version", {
+            name: "World Settings Version",
+            hint: "World Settings Version",
+            scope: "world",
+            config: false,
+            type: Number,
+            default: 0,
+            onChange: () => this._update({ migrate: "world" })
+        });
+
+        game.settings.register("perfect-vision", "_clientVersion", {
+            name: "Client Settings Version",
+            hint: "Client Settings Version",
+            scope: "client",
+            config: false,
+            type: Number,
+            default: 0,
+            onChange: () => this._update({ migrate: "client" })
+        });
     }
 
     static _setup() {
         if (game.modules.get("fxmaster")?.active) {
             this._postHook("Canvas.layers.fxmaster.prototype", "addChild", function () {
-                PerfectVision._updateFilters();
+                PerfectVision._update({ filters: true, layers: ["fxmaster"] });
                 return arguments[0];
             });
-            Hooks.on("switchFilter", () => PerfectVision._updateFilters());
-            Hooks.on("switchWeather", () => PerfectVision._updateFilters());
-            Hooks.on("updateWeather", () => PerfectVision._updateFilters());
+            Hooks.on("switchFilter", () => PerfectVision._update({ filters: true, layers: ["fxmaster"] }));
+            Hooks.on("switchWeather", () => PerfectVision._update({ filters: true, layers: ["fxmaster"] }));
+            Hooks.on("updateWeather", () => PerfectVision._update({ filters: true, layers: ["fxmaster"] }));
         }
     }
 
-    static _canvasReady() {
-        Array.from(game.settings.settings.values()).forEach(s => {
-            if (s.module === "perfect-vision" && s.isSelect && s.choices && !s.choices[game.settings.get("perfect-vision", s.key)])
-                game.settings.set("perfect-vision", s.key, s.default);
-        });
+    static _flags(entity) {
+        if (entity === "world" || entity === "client") {
+            const flags = {};
+            const storage = game.settings.storage.get(entity);
 
-        canvas.app.ticker.remove(this._onTick, this);
+            if (Symbol.iterator in storage) {
+                for (const [key, value] of storage) {
+                    if (key.startsWith("perfect-vision.")) {
+                        flags["perfect-vision"] = flags["perfect-vision"] ?? {};
+                        flags["perfect-vision"][key.split(/\.(.*)/)[1]] = JSON.parse(value);
+                    }
+                }
+            } else {
+                for (let i = 0; i < storage.length; i++) {
+                    const key = storage.key(i);
+                    const value = storage.getItem(key);
+                    if (key.startsWith("perfect-vision.")) {
+                        flags["perfect-vision"] = flags["perfect-vision"] ?? {};
+                        flags["perfect-vision"][key.split(/\.(.*)/)[1]] = JSON.parse(value);
+                    }
+                }
+            }
+
+            return flags;
+        }
+        if (entity instanceof Actor) {
+            return entity.data.token.flags ?? {};
+        }
+        return entity.data.flags ?? {};
+    }
+
+    static _getFlag(entity, scope, key) {
+        if (entity === "world" || entity === "client") {
+            const scopes = SetupConfiguration.getPackageScopes();
+            if (!scopes.includes(scope)) throw new Error(`Invalid scope for flag ${key}`);
+            key = `${scope}.${key}`;
+            const storage = game.settings.storage.get(entity);
+            const value = storage.getItem(key);
+            return (value ?? false) ? JSON.parse(value) : null;
+        }
+        if (entity instanceof Actor) {
+            const scopes = SetupConfiguration.getPackageScopes();
+            if (!scopes.includes(scope)) throw new Error(`Invalid scope for flag ${key}`);
+            key = `flags.${scope}.${key}`;
+            return getProperty(entity.data.token, key);
+        }
+        return entity.getFlag(scope, key);
+    }
+
+    static async _setFlag(entity, scope, key, value) {
+        if (entity === "world" || entity === "client") {
+            const scopes = SetupConfiguration.getPackageScopes();
+            if (!scopes.includes(scope)) throw new Error(`Invalid scope for flag ${key}`);
+            key = `${scope}.${key}`;
+            if (value === undefined) value = null;
+            const json = JSON.stringify(value);
+            if (entity === "world") {
+                await SocketInterface.dispatch("modifyDocument", {
+                    type: "Setting",
+                    action: "update",
+                    data: { key, value: json }
+                });
+            }
+            const storage = game.settings.storage.get(entity);
+            storage.setItem(key, json);
+            return entity;
+        }
+        if (entity instanceof Actor) {
+            const scopes = SetupConfiguration.getPackageScopes();
+            if (!scopes.includes(scope)) throw new Error(`Invalid scope for flag ${key}`);
+            key = `flags.${scope}.${key}`;
+            return await entity.update({ token: mergeObject(entity.data.token, { [key]: value }, { inplace: false }) });
+        }
+        return await entity.setFlag(scope, key, value);
+
+    }
+
+    static async _unsetFlag(entity, scope, key) {
+        if (entity === "world" || entity === "client") {
+            const scopes = SetupConfiguration.getPackageScopes();
+            if (!scopes.includes(scope)) throw new Error(`Invalid scope for flag ${key}`);
+            key = `${scope}.${key}`;
+            if (entity === "world") {
+                await SocketInterface.dispatch("modifyDocument", {
+                    type: "Setting",
+                    action: "update",
+                    data: { key, value: JSON.stringify(null) }
+                });
+            }
+            const storage = game.settings.storage.get(entity);
+            if (entity === "client") {
+                storage.removeItem(key);
+            } else {
+                storage.delete(key);
+            }
+            return entity;
+        }
+        if (entity instanceof Actor) {
+            const scopes = SetupConfiguration.getPackageScopes();
+            if (!scopes.includes(scope)) throw new Error(`Invalid scope for flag ${key}`);
+            key = `flags.${scope}.-=${key}`;
+            return await entity.update({ token: mergeObject(entity.data.token, { [key]: null }, { inplace: false }) });
+        }
+        return await entity.unsetFlag(scope, key);
+    }
+
+    static _migration = { versions: { world: 1, client: 1, scene: 1, token: 1 }, notified: false, update: false }
+
+    static async _migrate(entity, func) {
+        let type;
+
+        if (entity instanceof Scene) {
+            type = "scene";
+        } else if (entity instanceof Actor) {
+            type = "actor";
+        } else if (entity instanceof Token) {
+            type = "token";
+        } else {
+            type = entity;
+        }
+
+        const versionKey = type !== "client" ? "_version" : "_clientVersion";
+        const flags = Object.keys(getProperty(this._flags(entity), "perfect-vision") ?? {});
+        const canSetFlags = type === "client" || game.user === game.users.find(user => user.isGM && user.active);
+
+        if (flags.length === 0) {
+            return;
+        } else if (flags.length === 1 && flags[0] === versionKey) {
+            if (canSetFlags)
+                await this._unsetFlag(entity, "perfect-vision", versionKey);
+            return;
+        }
+
+        const currentVersion = this._getFlag(entity, "perfect-vision", versionKey) ?? 0;
+        const targetVersion = this._migration.versions[type === "actor" ? "token" : type];
+
+        if (currentVersion === 0 && targetVersion === 1) {
+            if (canSetFlags)
+                await this._setFlag(entity, "perfect-vision", versionKey, targetVersion);
+            return;
+        }
+
+        if (isNewerVersion(currentVersion, targetVersion)) {
+            if (!this._migration.notified) {
+                ui.notifications.error("Please update 'Perfect Vision' to the latest version.");
+                this._migration.notified = true;
+            }
+        } else if (isNewerVersion(targetVersion, currentVersion)) {
+            if (canSetFlags) {
+                console.log(`Perfect Vision | Migrating ${type + (entity.id ? " " + entity.id : "")} from version ${currentVersion} to ${targetVersion}`);
+
+                await this._setFlag(entity, "perfect-vision", versionKey, targetVersion);
+
+                await func(entity, currentVersion);
+
+                if (!this._migration.update) {
+                    canvas.app.ticker.addOnce(this._canvasReady, this);
+                    this._migration.update = true;
+                }
+            } else if (!this._migration.notified) {
+                ui.notifications.error("'Perfect Vision' was updated. The GM needs to connect first to complete the migration. Then reload.");
+                this._migration.notified = true;
+            }
+        }
+    }
+
+    static async _migrateToken(token) {
+        await this._migrate(token, async (token, version) => { /* ... */ });
+    }
+
+    static async _migrateTokens() {
+        for (const scene of game.scenes.entities) {
+            for (const data of scene.getEmbeddedCollection("Token")) {
+                await this._migrateToken(new Token(data, scene));
+            }
+        }
+    }
+
+    static async _migrateActor(actor) {
+        return await this._migrateToken(actor);
+    }
+
+    static async _migrateActors() {
+        for (const actor of game.actors.entities) {
+            await this._migrateActor(actor);
+        }
+    }
+
+    static async _migrateScene(scene) {
+        await this._migrate(scene, async (scene, version) => { /* ... */ });
+    }
+
+    static async _migrateScenes() {
+        for (const scene of game.scenes.entities) {
+            await this._migrateScene(scene);
+        }
+    }
+
+    static async _resetInvalidSettingsToDefault(scope) {
+        for (const s of game.settings.settings.values()) {
+            if (!s.module === "perfect-vision")
+                continue;
+
+            if (s.scope !== scope)
+                continue;
+
+            if (s.choices && !s.choices[game.settings.get(s.module, s.key)]) {
+                await game.settings.set(s.module, s.key, s.default);
+
+                if (!this._migration.update) {
+                    canvas.app.ticker.addOnce(this._canvasReady, this);
+                    this._migration.update = true;
+                }
+            }
+        }
+
+    }
+
+    static async _migrateWorldSettings() {
+        await this._migrate("world", async (scope, version) => { /* ... */ });
+
+        await this._resetInvalidSettingsToDefault("world");
+    }
+
+    static async _migrateClientSettings() {
+        await this._migrate("client", async (scope, version) => { /* ... */ });
+
+        await this._resetInvalidSettingsToDefault("client");
+    }
+
+    static async _migrateSettings() {
+        await this._migrateWorldSettings();
+        await this._migrateClientSettings();
+    }
+
+    static async _ready() {
+        await this._migrateSettings();
+        await this._migrateScenes();
+        await this._migrateActors();
+        await this._migrateTokens();
+
+        this._isReady = true;
+
+        this._canvasReady();
+
         canvas.app.ticker.add(this._onTick, this, PIXI.UPDATE_PRIORITY.LOW + 1);
+
+        if (!game.modules.get("lib-wrapper")?.active && game.user.isGM)
+            ui.notifications.warn("The 'Perfect Vision' module recommends to install and activate the 'libWrapper' module.");
+    }
+
+    static _canvasReady() {
+        this._migration.update = false;
+
+        if (!this._isReady)
+            return;
 
         this._update({ settings: true, refresh: true, filters: true, tokens: canvas.tokens.placeables, fog: true });
     }
@@ -284,7 +562,7 @@ class PerfectVision {
         const ilm = canvas.lighting.illumination;
         const ilm_ = this._extend(ilm);
 
-        if (game.user.isGM && this._settings.improvedGMVision && canvas.sight.sources.size === 0) {
+        if (game.user.isGM && this._settings?.improvedGMVision && canvas.sight.sources.size === 0) {
             const s = 1 / Math.max(...canvas.lighting.channels.background.rgb);
             ilm_.background.tint = rgbToHex(canvas.lighting.channels.background.rgb.map(c => c * s));
             ilm_.background.visible = true;
@@ -397,33 +675,49 @@ class PerfectVision {
         const ilm = canvas.lighting.illumination;
         const ilm_ = this._extend(ilm);
 
-        if (game.user.isGM && this._settings.improvedGMVision && canvas.sight.sources.size === 0) {
+        if (game.user.isGM && this._settings?.improvedGMVision && canvas.sight.sources.size === 0) {
             ilm_.background.visible = true;
         } else {
             ilm_.background.visible = false;
         }
 
-        this._updateFilters();
+        this._update({ filters: true });
 
         this._refresh = true;
     }
 
-    static _updateToken(parent, doc, update, options, userId) {
+    static async _updateToken(scene, data, update, options, userId) {
         if (!hasProperty(update, "flags.perfect-vision"))
             return;
 
-        const token = canvas.tokens.get(doc._id);
-        this._update({ refresh: true, filters: true, tokens: [token] });
+        await this._migrateToken(new Token(data, scene));
+
+        const token = canvas.tokens.get(data._id);
+
+        if (token) {
+            this._update({ refresh: true, filters: true, tokens: [token] });
+        }
     }
 
-    static _updateScene(entity, data, options, userId) {
-        if (data._id !== canvas.scene._id)
+    static async _updateActor(actor, update, options, userId) {
+        if (!hasProperty(update, "flags.perfect-vision"))
             return;
 
-        if (!hasProperty(data, "flags.perfect-vision")) {
-            this._updateFilters();
+        await this._migrateActor(actor);
+    }
+
+    static async _updateScene(scene, update, options, userId) {
+        if (!hasProperty(update, "flags.perfect-vision")) {
+            if (scene.id === canvas.scene?.id)
+                this._update({ filters: true });
+
             return;
         }
+
+        await this._migrateScene(scene);
+
+        if (scene.id !== canvas.scene?.id)
+            return;
 
         this._update({ refresh: true, filters: true, tokens: canvas.tokens.placeables, fog: true });
     }
@@ -474,6 +768,8 @@ class PerfectVision {
     );
 
     static _renderSettingsConfig(sheet, html, data) {
+        console.assert(this._settings);
+
         let prefix = "perfect-vision";
 
         const settings = Array.from(game.settings.settings.values()).filter(
@@ -615,11 +911,36 @@ class PerfectVision {
 
         html.find(`select[name="${prefix}.visionRules"]`).change(update);
         html.find(`button[name="reset"]`).click(update);
+
+        if (sheet instanceof TokenConfig) {
+            const version = document.createElement("input");
+            version.setAttribute("type", "hidden");
+            version.setAttribute("name", `${prefix}._version`);
+            version.setAttribute("value", this._migration.versions.token);
+            version.setAttribute("data-dtype", "Number");
+            html.find(`select[name="${prefix}.visionRules"]`)[0].form.appendChild(version);
+        } else {
+            const version = document.createElement("input");
+            version.setAttribute("type", "hidden");
+            version.setAttribute("name", `${prefix}._version`);
+            version.setAttribute("value", this._migration.versions.world);
+            version.setAttribute("data-dtype", "Number");
+            html.find(`select[name="${prefix}.visionRules"]`)[0].form.appendChild(version);
+
+            const clientVersion = document.createElement("input");
+            clientVersion.setAttribute("type", "hidden");
+            clientVersion.setAttribute("name", `${prefix}._clientVersion`);
+            clientVersion.setAttribute("value", this._migration.versions.client);
+            clientVersion.setAttribute("data-dtype", "Number");
+            html.find(`select[name="${prefix}.visionRules"]`)[0].form.appendChild(clientVersion);
+        }
     }
 
     static _renderTokenConfig = this._renderSettingsConfig;
 
     static _renderSceneConfig(sheet, html, data) {
+        console.assert(this._settings);
+
         const globalLight = html.find(`input[name="globalLight"]`);
         const globalLightLabel = globalLight.prev();
         globalLightLabel.after(`<div class="form-fields"></div>`);
@@ -679,6 +1000,13 @@ class PerfectVision {
 
         addColorSetting("daylightColor", "Daylight Color");
         addColorSetting("darknessColor", "Darkness Color");
+
+        const version = document.createElement("input");
+        version.setAttribute("type", "hidden");
+        version.setAttribute("name", "flags.perfect-vision._version");
+        version.setAttribute("value", this._migration.versions.scene);
+        version.setAttribute("data-dtype", "Number");
+        html.find(`input[name="tokenVision"]`)[0].form.appendChild(version);
 
         if (!sheet._minimized)
             sheet.setPosition(sheet.position);
@@ -918,6 +1246,9 @@ class PerfectVision {
     }
 
     static _onTick() {
+        if (!canvas?.ready)
+            return;
+
         if (this._refreshLighting)
             canvas.lighting.refresh();
 
@@ -986,11 +1317,13 @@ class PerfectVision {
             const texture = PerfectVision._mask.texture;
             this.uniforms.uMask = texture;
 
-            const maskSize = this.uniforms.uMaskSize;
-            maskSize[0] = texture.width;
-            maskSize[1] = texture.height;
-            maskSize[2] = 1 / texture.width;
-            maskSize[3] = 1 / texture.height;
+            if (texture) {
+                const maskSize = this.uniforms.uMaskSize;
+                maskSize[0] = texture.width;
+                maskSize[1] = texture.height;
+                maskSize[2] = 1 / texture.width;
+                maskSize[3] = 1 / texture.height;
+            }
 
             filterManager.applyFilter(this, input, output, clearMode);
         }
@@ -1220,11 +1553,13 @@ class PerfectVision {
             const texture = PerfectVision._mask.texture;
             this.uniforms.uMask = texture;
 
-            const maskSize = this.uniforms.uMaskSize;
-            maskSize[0] = texture.width;
-            maskSize[1] = texture.height;
-            maskSize[2] = 1 / texture.width;
-            maskSize[3] = 1 / texture.height;
+            if (texture) {
+                const maskSize = this.uniforms.uMaskSize;
+                maskSize[0] = texture.width;
+                maskSize[1] = texture.height;
+                maskSize[2] = 1 / texture.width;
+                maskSize[3] = 1 / texture.height;
+            }
 
             filterManager.applyFilter(this, input, output, clearMode);
         }
@@ -1252,11 +1587,24 @@ class PerfectVision {
         return this._monoFilter_noAutoFit_;
     }
 
-    static _updateFilters(placeables = null) {
+    static _updateFilters({ layers = null, placeables = null } = {}) {
         this._monoFilter.zOrder = this._monoFilter.rank = 0;
 
-        if (!placeables) {
-            for (const layerName of ["background", "effects", "fxmaster"]) {
+        if (layers == null && placeables == null) {
+            layers = ["background", "effects", "fxmaster"];
+
+            placeables = [
+                ...canvas.tokens.placeables,
+                ...canvas.tiles.placeables,
+                ...canvas.templates.placeables,
+            ];
+
+            if (canvas.roofs)
+                placeables = [...placeables, canvas.roofs.children];
+        }
+
+        if (layers) {
+            for (const layerName of layers) {
                 const layer = canvas[layerName];
 
                 if (!layer) continue;
@@ -1326,14 +1674,9 @@ class PerfectVision {
                     }
                 }
             }
+        }
 
-            this._updateFilters(canvas.tokens.placeables);
-            this._updateFilters(canvas.tiles.placeables);
-            this._updateFilters(canvas.templates.placeables);
-
-            if (canvas.roofs)
-                this._updateFilters(canvas.roofs.children);
-        } else {
+        if (placeables) {
             for (const placeable of placeables) {
                 let sprite;
 
@@ -1601,7 +1944,7 @@ class PerfectVision {
             sight_.fog.filterArea = sight.fog.filterArea;
         }
 
-        sight_.fog.visible = sight.fogExploration && this._settings.actualFogOfWar;
+        sight_.fog.visible = sight.fogExploration && this._settings?.actualFogOfWar;
 
         if (!sight_.fog.visible) {
             if (sight_.fog.weatherEffect) {
@@ -1701,6 +2044,12 @@ class PerfectVision {
             const token = this_.token;
             const scene = token.scene ?? token._original?.scene;
             const minR = Math.min(token.w, token.h) * 0.5;
+
+            if (!PerfectVision._isReady) {
+                opts.dim = 0;
+                opts.bright = 0;
+                return wrapped(opts);
+            }
 
             let dimVisionInDarkness;
             let dimVisionInDimLight;
@@ -1988,7 +2337,7 @@ class PerfectVision {
             this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
             this.mask = this_.msk;
 
-            PerfectVision._updateFilters();
+            PerfectVision._update({ filters: true, layers: ["background"] });
 
             return retVal;
         });
@@ -2008,7 +2357,7 @@ class PerfectVision {
             this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
             this.mask = this_.msk;
 
-            PerfectVision._updateFilters();
+            PerfectVision._update({ filters: true, layers: ["effects"] });
 
             return retVal;
         });
@@ -2233,7 +2582,7 @@ class PerfectVision {
         this._postHook(Token, "draw", async function () {
             const retVal = await arguments[0];
 
-            PerfectVision._updateFilters([this]);
+            PerfectVision._update({ filters: true, placeables: [this] });
 
             return retVal;
         });
@@ -2241,7 +2590,7 @@ class PerfectVision {
         this._postHook(Tile, "draw", async function () {
             const retVal = await arguments[0];
 
-            PerfectVision._updateFilters([this]);
+            PerfectVision._update({ filters: true, placeables: [this] });
 
             return retVal;
         });
@@ -2249,19 +2598,19 @@ class PerfectVision {
         this._postHook(MeasuredTemplate, "draw", async function () {
             const retVal = await arguments[0];
 
-            PerfectVision._updateFilters([this]);
+            PerfectVision._update({ filters: true, placeables: [this] });
 
             return retVal;
         });
 
         if (game.modules.get("tokenmagic")?.active) {
             this._postHook(PlaceableObject, "_TMFXsetRawFilters", function (retVal, filters) {
-                PerfectVision._updateFilters([this]);
+                PerfectVision._update({ filters: true, placeables: [this] });
                 return retVal;
             });
             Hooks.once("ready", () => {
                 this._postHook("TokenMagic", "_clearImgFiltersByPlaceable", function (retVal, placeable) {
-                    PerfectVision._updateFilters([placeable]);
+                    PerfectVision._update({ filters: true, placeables: [placeable] });
                     return retVal;
                 })
             });
@@ -2269,12 +2618,14 @@ class PerfectVision {
 
         if (game.modules.get("roofs")?.active) {
             this._postHook("RoofsLayer", "createRoof", function (retVal, tile) {
-                PerfectVision._updateFilters([tile.roof.container]);
+                PerfectVision._update({ filters: true, placeables: [tile.roof.container] });
                 return retVal;
             });
         }
 
         Hooks.once("setup", (...args) => PerfectVision._setup(...args));
+
+        Hooks.once("ready", (...args) => PerfectVision._ready(...args));
 
         Hooks.on("canvasReady", (...args) => PerfectVision._canvasReady(...args));
 
@@ -2286,6 +2637,8 @@ class PerfectVision {
 
         Hooks.on("updateToken", (...args) => PerfectVision._updateToken(...args));
 
+        Hooks.on("updateActor", (...args) => PerfectVision._updateActor(...args));
+
         Hooks.on("updateScene", (...args) => PerfectVision._updateScene(...args));
 
         Hooks.on("renderSettingsConfig", (...args) => PerfectVision._renderSettingsConfig(...args));
@@ -2295,11 +2648,6 @@ class PerfectVision {
         Hooks.on("renderSceneConfig", (...args) => PerfectVision._renderSceneConfig(...args));
 
         Hooks.on("getSceneControlButtons", (...args) => PerfectVision._getSceneControlButtons(...args));
-
-        Hooks.once("ready", () => {
-            if (!game.modules.get("lib-wrapper")?.active && game.user.isGM)
-                ui.notifications.warn("The 'Perfect Vision' module recommends to install and activate the 'libWrapper' module.");
-        });
     }
 }
 
