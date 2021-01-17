@@ -1,7 +1,6 @@
 import { extend } from "./extend.js";
 import { patch } from "./patch.js";
 
-var dirty = true;
 const mask = new PIXI.Container();
 
 mask.background = mask.addChild(new PIXI.Graphics());
@@ -18,6 +17,8 @@ mask.addChild(
 
 mask.msk = mask.addChild(new PIXI.Graphics());
 mask.mask = mask.msk;
+
+var dirty;
 
 export const texture = PIXI.RenderTexture.create();
 
@@ -55,8 +56,8 @@ function render() {
             texture.resize(width, height);
         }
 
-        // if (mask.filter instanceof PerfectVision._GlowFilter)
-        //     mask.filter.uniforms.uStrength = canvas.sight.filter.blur / 4;
+        if (mask.filter instanceof GlowFilter)
+            mask.filter.uniforms.uStrength = canvas.sight.filter.blur / 4;
 
         canvas.app.renderer.render(mask, texture, true, undefined, false);
     }
@@ -193,12 +194,17 @@ Hooks.once("init", () => {
 });
 
 Hooks.on("canvasInit", () => {
-    // const blurDistance = game.settings.get("core", "softShadows") ? Math.max(CONFIG.Canvas.blurStrength / 2, 1) : 0;
-    // mask.filter = blurDistance ?
-    //     new PerfectVision._GlowFilter(CONFIG.Canvas.blurStrength / 4, 2.0, 4 / 5, blurDistance) :
-    //     new PIXI.filters.AlphaFilter(1.0);
-    // mask.filters = [mask.filter];
-    // mask.filterArea = canvas.app.renderer.screen;
+    const blurStrength = CONFIG.Canvas.blurStrength;
+    const blurDistance = game.settings.get("core", "softShadows") ? Math.max(blurStrength / 2, 1) : 0;
+
+    mask.filter = blurDistance > 0 ?
+        new GlowFilter(blurStrength / 4, 2.0, 4 / 5, blurDistance) :
+        new PIXI.filters.AlphaFilter(1.0);
+    mask.filter.resolution = canvas.app.renderer.resolution;
+    mask.filters = [mask.filter];
+    mask.filterArea = canvas.app.renderer.screen;
+
+    dirty = true;
 });
 
 Hooks.on("canvasPan", () => {
@@ -206,5 +212,79 @@ Hooks.on("canvasPan", () => {
 });
 
 Hooks.on("ready", () => {
+    dirty = true;
+
     canvas.app.ticker.add(render, null, PIXI.UPDATE_PRIORITY.LOW + 1);
 });
+
+// Based on PixiJS Filters' GlowFilter
+class GlowFilter extends PIXI.Filter {
+    constructor(strength = 1.0, intensity = 1.0, quality = 1.0, distance = 2) {
+        distance = Math.round(distance);
+
+        super(`\
+            precision mediump float;
+
+            attribute vec2 aVertexPosition;
+
+            uniform mat3 projectionMatrix;
+            uniform vec4 inputSize;
+            uniform vec4 outputFrame;
+
+            varying vec2 vTextureCoord;
+
+            void main(void)
+            {
+                vec2 position = aVertexPosition * max(outputFrame.zw, vec2(0.0)) + outputFrame.xy;
+                gl_Position = vec4((projectionMatrix * vec3(position, 1.0)).xy, 0.0, 1.0);
+                vTextureCoord = aVertexPosition * (outputFrame.zw * inputSize.zw);
+            }`, `\
+            precision mediump float;
+
+            uniform sampler2D uSampler;
+            uniform vec4 inputSize;
+            uniform vec4 inputClamp;
+            uniform float uStrength;
+            uniform float uIntensity;
+
+            varying vec2 vTextureCoord;
+
+            const float PI = 3.14159265358979323846264;
+            const float DIST = __DIST__;
+            const float ANGLE_STEP_SIZE = min(__ANGLE_STEP_SIZE__, PI * 2.0);
+            const float ANGLE_STEP_NUM = ceil(PI * 2.0 / ANGLE_STEP_SIZE);
+            const float MAX_TOTAL_ALPHA = ANGLE_STEP_NUM * DIST * (DIST + 1.0) / 2.0;
+
+            void main(void) {
+                vec2 px = inputSize.zw * uStrength;
+                vec4 totalAlpha = vec4(0.0);
+                vec2 direction;
+                vec2 displaced;
+                vec4 color;
+
+                for (float angle = 0.0; angle < PI * 2.0; angle += ANGLE_STEP_SIZE) {
+                    direction = vec2(cos(angle), sin(angle)) * px;
+
+                    for (float curDistance = 0.0; curDistance < DIST; curDistance++) {
+                        displaced = clamp(vTextureCoord + direction *
+                                (curDistance + 1.0), inputClamp.xy, inputClamp.zw);
+
+                        color = texture2D(uSampler, displaced);
+                        totalAlpha += (DIST - curDistance) * color;
+                    }
+                }
+
+                color = texture2D(uSampler, vTextureCoord);
+
+                vec4 alphaRatio = totalAlpha / MAX_TOTAL_ALPHA;
+                vec4 glowAlpha = (1.0 - pow(1.0 - alphaRatio, vec4(uIntensity))) * (1.0 - color);
+                vec4 glowColor = min(1.0 - color, glowAlpha);
+
+                gl_FragColor = color + glowColor;
+                }`.replace(/__ANGLE_STEP_SIZE__/gi, "" + (Math.PI / Math.round(quality * (distance + 1))).toFixed(7))
+            .replace(/__DIST__/gi, distance.toFixed(0) + ".0"));
+
+        this.uniforms.uStrength = strength;
+        this.uniforms.uIntensity = intensity;
+    }
+}
