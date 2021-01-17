@@ -282,7 +282,7 @@ Hooks.on("renderTokenConfig", (sheet, html, data) => {
     version.setAttribute("name", "flags.perfect-vision._version");
     version.setAttribute("value", versions.token);
     version.setAttribute("data-dtype", "Number");
-    html.find(`input[name="vision"]`)[0].form.appendChild(version);
+    html.find(`input[name="vision"]`)[0]?.form?.appendChild(version);
 });
 
 Hooks.on("renderSceneConfig", (sheet, html, data) => {
@@ -291,7 +291,7 @@ Hooks.on("renderSceneConfig", (sheet, html, data) => {
     version.setAttribute("name", "flags.perfect-vision._version");
     version.setAttribute("value", versions.scene);
     version.setAttribute("data-dtype", "Number");
-    html.find(`input[name="tokenVision"]`)[0].form.appendChild(version);
+    html.find(`input[name="tokenVision"]`)[0]?.form?.appendChild(version);
 });
 
 Hooks.on("renderSettingsConfig", (sheet, html, data) => {
@@ -300,14 +300,14 @@ Hooks.on("renderSettingsConfig", (sheet, html, data) => {
     version.setAttribute("name", "perfect-vision._version");
     version.setAttribute("value", versions.world);
     version.setAttribute("data-dtype", "Number");
-    html.find(`select[name="perfect-vision.visionRules"]`)[0].form.appendChild(version);
+    html.find(`select[name="perfect-vision.visionRules"]`)[0]?.form?.appendChild(version);
 
     const clientVersion = document.createElement("input");
     clientVersion.setAttribute("type", "hidden");
     clientVersion.setAttribute("name", "perfect-vision._clientVersion");
     clientVersion.setAttribute("value", versions.client);
     clientVersion.setAttribute("data-dtype", "Number");
-    html.find(`select[name="perfect-vision.visionRules"]`)[0].form.appendChild(clientVersion);
+    html.find(`select[name="perfect-vision.visionRules"]`)[0]?.form?.appendChild(clientVersion);
 });
 
 Hooks.on("init", () => {
@@ -354,9 +354,11 @@ Hooks.on("updateScene", async (scene, update, options, userId) => {
 });
 
 Hooks.once("ready", async () => {
-    await migrateAll().then(onMigration);
+    await migrateAll();
 
     ready = true;
+
+    refresh(true);
 });
 
 var refreshing = false;
@@ -371,7 +373,10 @@ function onMigration(migrated) {
     }
 }
 
-function refresh() {
+function refresh(force = false) {
+    if (!force && (!refreshing || !ready))
+        return;
+
     refreshing = false;
 
     for (const token of canvas.tokens.placeables) {
