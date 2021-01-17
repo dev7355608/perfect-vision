@@ -130,7 +130,7 @@ class FogEffect extends SpecialEffect {
     };
 }
 
-export function update(draw = false) {
+function update(draw = false) {
     const sight = canvas.sight;
     const sight_ = extend(sight);
 
@@ -172,6 +172,16 @@ export function update(draw = false) {
 }
 
 Hooks.once("init", () => {
+    game.settings.register("perfect-vision", "actualFogOfWar", {
+        name: "Actual Fog of War",
+        hint: "If enabled, the fog of war is overlaid with a fog effect.",
+        scope: "world",
+        config: true,
+        type: Boolean,
+        default: false,
+        onChange: () => update()
+    });
+
     patch("SightLayer.prototype.draw", "POST", async function () {
         const retVal = await arguments[0];
 

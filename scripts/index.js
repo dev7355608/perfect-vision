@@ -1,15 +1,16 @@
-import * as Fog from "./fog.js";
+
 import { migrateAll, migrateToken, migrateActor, migrateScene, migrateWorldSettings, migrateClientSettings } from "./migrate.js";
 
 import "./config.js";
 import "./controls.js";
 import "./lighting.js";
 import "./filters.js";
+import "./fog.js";
 
 export var isReady = false;
 
 class PerfectVision {
-    static _update({ refresh = false, placeables = null, tokens = null, layers = null, fog = false, migrate = null } = {}) {
+    static _update({ refresh = false, tokens = null, migrate = null } = {}) {
         if (!isReady)
             return;
 
@@ -30,9 +31,6 @@ class PerfectVision {
         if (tokens)
             for (const token of tokens)
                 token.updateSource({ defer: true });
-
-        if (fog)
-            Fog.update();
     }
 
     static _init() {
@@ -156,16 +154,6 @@ class PerfectVision {
             onChange: () => this._update({ tokens: canvas.tokens.placeables })
         });
 
-        game.settings.register("perfect-vision", "actualFogOfWar", {
-            name: "Actual Fog of War",
-            hint: "If enabled, the fog of war is overlaid with a fog effect.",
-            scope: "world",
-            config: true,
-            type: Boolean,
-            default: false,
-            onChange: () => this._update({ fog: true })
-        });
-
         game.settings.register("perfect-vision", "_version", {
             name: "World Settings Version",
             hint: "World Settings Version",
@@ -215,7 +203,7 @@ class PerfectVision {
         if (!isReady)
             return;
 
-        this._update({ refresh: true, tokens: canvas.tokens.placeables, fog: true });
+        this._update({ refresh: true, tokens: canvas.tokens.placeables });
     }
 
     static _lightingRefresh() {
@@ -255,7 +243,7 @@ class PerfectVision {
         if (scene.id !== canvas.scene?.id)
             return;
 
-        this._update({ refresh: true, tokens: canvas.tokens.placeables, fog: true });
+        this._update({ refresh: true, tokens: canvas.tokens.placeables });
     }
 
     static _onTick() {
