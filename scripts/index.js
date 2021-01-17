@@ -6,39 +6,14 @@ import { patch } from "./patch.js";
 import * as Presets from "./presets.js";
 import { grayscale } from "./utils.js";
 
+import "./config.js";
+
 class PerfectVision {
-    static _settings;
-
-    static _updateSettings() {
-        this._settings = this._settings ?? {};
-        this._settings.globalLight = game.settings.get("perfect-vision", "globalLight");
-        this._settings.improvedGMVision = game.settings.get("perfect-vision", "improvedGMVision");
-        this._settings.visionRules = game.settings.get("perfect-vision", "visionRules");
-
-        if (this._settings.visionRules === "custom") {
-            this._settings.dimVisionInDarkness = game.settings.get("perfect-vision", "dimVisionInDarkness");
-            this._settings.dimVisionInDimLight = game.settings.get("perfect-vision", "dimVisionInDimLight");
-            this._settings.brightVisionInDarkness = game.settings.get("perfect-vision", "brightVisionInDarkness");
-            this._settings.brightVisionInDimLight = game.settings.get("perfect-vision", "brightVisionInDimLight");
-        } else {
-            Object.assign(this._settings, Presets.visionRules[this._settings.visionRules]);
-        }
-
-        this._settings.monoVisionColor = game.settings.get("perfect-vision", "monoVisionColor") || "#ffffff";
-        this._settings.monoTokenIcons = game.settings.get("perfect-vision", "monoTokenIcons");
-        this._settings.monoSpecialEffects = game.settings.get("perfect-vision", "monoSpecialEffects");
-        this._settings.fogOfWarWeather = game.settings.get("perfect-vision", "fogOfWarWeather");
-        this._settings.actualFogOfWar = game.settings.get("perfect-vision", "actualFogOfWar");
-    }
-
     static _isReady = false;
 
-    static _update({ settings = false, refresh = false, filters = false, placeables = null, tokens = null, layers = null, fog = false, migrate = null } = {}) {
+    static _update({ refresh = false, filters = false, placeables = null, tokens = null, layers = null, fog = false, migrate = null } = {}) {
         if (!this._isReady)
             return;
-
-        if (settings)
-            this._updateSettings();
 
         if (refresh) {
             this._refreshLighting = true;
@@ -83,7 +58,7 @@ class PerfectVision {
                 "none": "Scene Darkness",
             },
             default: "dim",
-            onChange: () => this._update({ settings: true, refresh: true })
+            onChange: () => this._update({ refresh: true })
         });
 
         game.settings.register("perfect-vision", "improvedGMVision", {
@@ -93,7 +68,7 @@ class PerfectVision {
             config: true,
             type: Boolean,
             default: false,
-            onChange: () => this._update({ settings: true, refresh: game.user.isGM })
+            onChange: () => this._update({ refresh: game.user.isGM })
         });
 
         game.settings.register("perfect-vision", "visionRules", {
@@ -111,7 +86,7 @@ class PerfectVision {
                 "pf2e": "Pathfinder 2e",
             },
             default: game.system.id === "dnd5e" ? "dnd5e" : (game.system.id === "pf1" ? "pf1e" : (game.system.id === "pf2e" ? "pf2e" : (game.system.id === "D35E" ? "dnd35e" : "fvtt"))),
-            onChange: () => this._update({ settings: true, refresh: true, tokens: canvas.tokens.placeables })
+            onChange: () => this._update({ refresh: true, tokens: canvas.tokens.placeables })
         });
 
         game.settings.register("perfect-vision", "dimVisionInDarkness", {
@@ -129,7 +104,7 @@ class PerfectVision {
                 "darkness": "Total Darkness",
             },
             default: "dim",
-            onChange: () => this._update({ settings: true, refresh: true, tokens: canvas.tokens.placeables })
+            onChange: () => this._update({ refresh: true, tokens: canvas.tokens.placeables })
         });
 
         game.settings.register("perfect-vision", "dimVisionInDimLight", {
@@ -142,7 +117,7 @@ class PerfectVision {
                 "dim": "Dim Light",
             },
             default: "dim",
-            onChange: () => this._update({ settings: true, refresh: true, tokens: canvas.tokens.placeables })
+            onChange: () => this._update({ refresh: true, tokens: canvas.tokens.placeables })
         });
 
         game.settings.register("perfect-vision", "brightVisionInDarkness", {
@@ -160,7 +135,7 @@ class PerfectVision {
                 "darkness": "Total Darkness",
             },
             default: "bright",
-            onChange: () => this._update({ settings: true, refresh: true, tokens: canvas.tokens.placeables })
+            onChange: () => this._update({ refresh: true, tokens: canvas.tokens.placeables })
         });
 
         game.settings.register("perfect-vision", "brightVisionInDimLight", {
@@ -173,7 +148,7 @@ class PerfectVision {
                 "dim": "Dim Light",
             },
             default: "bright",
-            onChange: () => this._update({ settings: true, refresh: true, tokens: canvas.tokens.placeables })
+            onChange: () => this._update({ refresh: true, tokens: canvas.tokens.placeables })
         });
 
         game.settings.register("perfect-vision", "monoVisionColor", {
@@ -183,7 +158,7 @@ class PerfectVision {
             config: true,
             type: String,
             default: "#ffffff",
-            onChange: () => this._update({ settings: true, tokens: canvas.tokens.placeables })
+            onChange: () => this._update({ tokens: canvas.tokens.placeables })
         });
 
         game.settings.register("perfect-vision", "monoTokenIcons", {
@@ -193,7 +168,7 @@ class PerfectVision {
             config: true,
             type: Boolean,
             default: false,
-            onChange: () => this._update({ settings: true, filters: true })
+            onChange: () => this._update({ filters: true })
         });
 
         game.settings.register("perfect-vision", "monoSpecialEffects", {
@@ -203,7 +178,7 @@ class PerfectVision {
             config: true,
             type: Boolean,
             default: false,
-            onChange: () => this._update({ settings: true, filters: true })
+            onChange: () => this._update({ filters: true })
         });
 
         game.settings.register("perfect-vision", "fogOfWarWeather", {
@@ -213,7 +188,7 @@ class PerfectVision {
             config: true,
             type: Boolean,
             default: true,
-            onChange: () => this._update({ settings: true, filters: true, fog: true })
+            onChange: () => this._update({ filters: true, fog: true })
         });
 
         game.settings.register("perfect-vision", "actualFogOfWar", {
@@ -223,7 +198,7 @@ class PerfectVision {
             config: true,
             type: Boolean,
             default: false,
-            onChange: () => this._update({ settings: true, fog: true })
+            onChange: () => this._update({ fog: true })
         });
 
         game.settings.register("perfect-vision", "_version", {
@@ -287,7 +262,7 @@ class PerfectVision {
         if (!this._isReady)
             return;
 
-        this._update({ settings: true, refresh: true, filters: true, tokens: canvas.tokens.placeables, fog: true });
+        this._update({ refresh: true, filters: true, tokens: canvas.tokens.placeables, fog: true });
     }
 
     static _lightingRefresh() {
@@ -296,7 +271,7 @@ class PerfectVision {
         const ilm = canvas.lighting.illumination;
         const ilm_ = extend(ilm);
 
-        if (game.user.isGM && this._settings?.improvedGMVision && canvas.sight.sources.size === 0) {
+        if (canvas.sight.sources.size === 0 && game.user.isGM && game.settings.get("perfect-vision", "improvedGMVision")) {
             const s = 1 / Math.max(...canvas.lighting.channels.background.rgb);
             ilm_.background.tint = rgbToHex(canvas.lighting.channels.background.rgb.map(c => c * s));
             ilm_.background.visible = true;
@@ -313,7 +288,7 @@ class PerfectVision {
         const ilm = canvas.lighting.illumination;
         const ilm_ = extend(ilm);
 
-        if (game.user.isGM && this._settings?.improvedGMVision && canvas.sight.sources.size === 0) {
+        if (canvas.sight.sources.size === 0 && game.user.isGM && game.settings.get("perfect-vision", "improvedGMVision")) {
             ilm_.background.visible = true;
         } else {
             ilm_.background.visible = false;
@@ -356,266 +331,6 @@ class PerfectVision {
             return;
 
         this._update({ refresh: true, filters: true, tokens: canvas.tokens.placeables, fog: true });
-    }
-
-    static _renderConfigTemplate = Handlebars.compile(`\
-        {{#*inline "settingPartial"}}
-        <div class="form-group">
-            <label>{{this.name}}:</label>
-            {{#if this.isCheckbox}}
-            <input type="checkbox" name="flags.{{this.module}}.{{this.key}}" data-dtype="Boolean" {{checked this.value}}/>
-
-            {{else if this.isSelect}}
-            <select name="flags.{{this.module}}.{{this.key}}">
-                {{#select this.value}}
-                {{#each this.choices as |name k|}}
-                <option value="{{k}}">{{localize name}}</option>
-                {{/each}}
-                {{/select}}
-            </select>
-
-            {{else if this.isRange}}
-            <input type="range" name="flags.{{this.module}}.{{this.key}}" data-dtype="Number" value="{{ this.value }}"
-                    min="{{ this.range.min }}" max="{{ this.range.max }}" step="{{ this.range.step }}"/>
-            <span class="range-value">{{this.value}}</span>
-
-            {{else}}
-            <input type="text" name="flags.{{this.module}}.{{this.key}}" value="{{this.value}}" data-dtype="{{this.type}}"/>
-            {{/if}}
-        </div>
-        {{/inline}}
-
-        {{#each settings}}
-        {{> settingPartial}}
-        {{/each}}`
-    );
-
-    static _renderConfigTemplate2 = Handlebars.compile(`\
-        {{#*inline "settingPartial"}}
-        <div class="form-group">
-            <label>{{this.name}}{{#if this.units}} <span class="units">({{ this.units }})</span>{{/if}}:</label>
-            <input type="number" step="0.1" name="flags.{{this.module}}.{{this.key}}" value="{{this.value}}"/>
-        </div>
-        {{/inline}}
-
-        {{#each settings}}
-        {{> settingPartial}}
-        {{/each}}`
-    );
-
-    static _renderSettingsConfig(sheet, html, data) {
-        console.assert(this._settings);
-
-        let prefix = "perfect-vision";
-
-        const settings = Array.from(game.settings.settings.values()).filter(
-            s => s.module === "perfect-vision");
-
-        if (sheet instanceof TokenConfig) {
-            const token = sheet.object;
-            prefix = `flags.${prefix}`;
-
-            const config = this._renderConfigTemplate({
-                settings: settings.filter(s => [
-                    "visionRules",
-                    "dimVisionInDarkness",
-                    "dimVisionInDimLight",
-                    "brightVisionInDarkness",
-                    "brightVisionInDimLight",
-                    "monoVisionColor"
-                ].includes(s.key)).map(setting => {
-                    const s = duplicate(setting);
-                    s.name = game.i18n.localize(s.name);
-                    s.hint = game.i18n.localize(s.hint);
-                    s.value = game.settings.get(s.module, s.key);
-                    s.type = setting.type instanceof Function ? setting.type.name : "String";
-                    s.isCheckbox = setting.type === Boolean;
-                    s.isSelect = s.choices !== undefined;
-                    s.isRange = (setting.type === Number) && s.range;
-
-                    if (s.key === "visionRules") {
-                        s.choices = mergeObject({ "default": "Default" }, s.choices);
-                        s.default = "default";
-                        s.value = token.getFlag(s.module, s.key) ?? "default";
-                    } else {
-                        s.value = token.getFlag(s.module, s.key);
-                    }
-
-                    return s;
-                })
-            }, {
-                allowProtoMethodsByDefault: true,
-                allowProtoPropertiesByDefault: true
-            });
-
-            html.find(`input[name="vision"]`).parent().after(config);
-            $(config).on("change", "input,select,textarea", sheet._onChangeInput.bind(sheet));
-
-            const config2 = this._renderConfigTemplate2({
-                settings: [{
-                    module: "perfect-vision",
-                    key: "sightLimit",
-                    value: token.getFlag("perfect-vision", "sightLimit"),
-                    name: "Sight Limit",
-                    units: "Distance"
-                }]
-            }, {
-                allowProtoMethodsByDefault: true,
-                allowProtoPropertiesByDefault: true
-            });
-
-            html.find(`input[name="sightAngle"]`).parent().before(config2);
-            $(config2).on("change", "input,select,textarea", sheet._onChangeInput.bind(sheet));
-        } else {
-            console.assert(sheet instanceof SettingsConfig);
-        }
-
-        const colorInput = document.createElement("input");
-        colorInput.setAttribute("type", "color");
-        colorInput.setAttribute("value", html.find(`input[name="${prefix}.monoVisionColor"]`).val());
-        colorInput.setAttribute("data-edit", `${prefix}.monoVisionColor`);
-
-        html.find(`input[name="${prefix}.monoVisionColor"]`).after(colorInput)
-        $(colorInput).on("change", sheet._onChangeInput.bind(sheet));
-
-        const defaultVisionRules = settings.find(s => s.key === "visionRules").choices[this._settings.visionRules];
-
-        html.find(`select[name="${prefix}.visionRules"] > option[value="default"]`).html(`Default (${defaultVisionRules})`);
-
-        const inputMonochromeVisionColor = html.find(`input[name="${prefix}.monoVisionColor"]`);
-        inputMonochromeVisionColor.attr("class", "color");
-
-        if (sheet instanceof TokenConfig)
-            inputMonochromeVisionColor.attr("placeholder", `Default (${this._settings.monoVisionColor})`);
-        else
-            inputMonochromeVisionColor.attr("placeholder", `#ffffff`);
-
-        if (sheet instanceof TokenConfig) {
-            if (sheet.object.scene) {
-                const defaultSightLimit = sheet.object.scene.getFlag("perfect-vision", "sightLimit");
-                html.find(`input[name="${prefix}.sightLimit"]`).attr("placeholder", `Scene Default (${defaultSightLimit ?? "Unlimited"})`);
-            } else {
-                html.find(`input[name="${prefix}.sightLimit"]`).attr("placeholder", "Unlimited");
-            }
-        }
-
-        const update = () => {
-            const visionRules = html.find(`select[name="${prefix}.visionRules"]`).val();
-
-            if (!visionRules)
-                return;
-
-            html.find(`select[name="${prefix}.dimVisionInDarkness"]`).prop("disabled", visionRules !== "custom");
-            html.find(`select[name="${prefix}.dimVisionInDimLight"]`).prop("disabled", visionRules !== "custom");
-            html.find(`select[name="${prefix}.brightVisionInDarkness"]`).prop("disabled", visionRules !== "custom");
-            html.find(`select[name="${prefix}.brightVisionInDimLight"]`).prop("disabled", visionRules !== "custom");
-
-            if (sheet instanceof TokenConfig) {
-                if (visionRules !== "custom") {
-                    html.find(`select[name="${prefix}.dimVisionInDarkness"]`).parents(".form-group").hide();
-                    html.find(`select[name="${prefix}.dimVisionInDimLight"]`).parents(".form-group").hide();
-                    html.find(`select[name="${prefix}.brightVisionInDarkness"]`).parents(".form-group").hide();
-                    html.find(`select[name="${prefix}.brightVisionInDimLight"]`).parents(".form-group").hide();
-                } else {
-                    html.find(`select[name="${prefix}.dimVisionInDarkness"]`).parents(".form-group").show();
-                    html.find(`select[name="${prefix}.dimVisionInDimLight"]`).parents(".form-group").show();
-                    html.find(`select[name="${prefix}.brightVisionInDarkness"]`).parents(".form-group").show();
-                    html.find(`select[name="${prefix}.brightVisionInDimLight"]`).parents(".form-group").show();
-                }
-            }
-
-            if (visionRules === "default") {
-                html.find(`select[name="${prefix}.dimVisionInDarkness"]`).val(this._settings.dimVisionInDarkness);
-                html.find(`select[name="${prefix}.dimVisionInDimLight"]`).val(this._settings.dimVisionInDimLight);
-                html.find(`select[name="${prefix}.brightVisionInDarkness"]`).val(this._settings.brightVisionInDarkness);
-                html.find(`select[name="${prefix}.brightVisionInDimLight"]`).val(this._settings.brightVisionInDimLight);
-            } else if (visionRules !== "custom") {
-                html.find(`select[name="${prefix}.dimVisionInDarkness"]`).val(Presets.visionRules[visionRules].dimVisionInDarkness);
-                html.find(`select[name="${prefix}.dimVisionInDimLight"]`).val(Presets.visionRules[visionRules].dimVisionInDimLight);
-                html.find(`select[name="${prefix}.brightVisionInDarkness"]`).val(Presets.visionRules[visionRules].brightVisionInDarkness);
-                html.find(`select[name="${prefix}.brightVisionInDimLight"]`).val(Presets.visionRules[visionRules].brightVisionInDimLight);
-            }
-
-            const inputMonochromeVisionColor = html.find(`input[name="${prefix}.monoVisionColor"]`);
-            inputMonochromeVisionColor.next().val(inputMonochromeVisionColor.val() || this._settings.monoVisionColor);
-
-            if (!sheet._minimized)
-                sheet.setPosition(sheet.position);
-        };
-
-        update();
-
-        html.find(`select[name="${prefix}.visionRules"]`).change(update);
-        html.find(`button[name="reset"]`).click(update);
-    }
-
-    static _renderTokenConfig = this._renderSettingsConfig;
-
-    static _renderSceneConfig(sheet, html, data) {
-        console.assert(this._settings);
-
-        const globalLight = html.find(`input[name="globalLight"]`);
-        const globalLightLabel = globalLight.prev();
-        globalLightLabel.after(`<div class="form-fields"></div>`);
-
-        const defaultGlobalLight = Array.from(game.settings.settings.values()).find(
-            s => s.module === "perfect-vision" && s.key === "globalLight").choices[this._settings.globalLight];
-
-        const globalLightFields = globalLightLabel.next();
-        globalLight.css("margin", globalLight.css("margin"));
-        globalLight.remove();
-        globalLightFields.append(`\
-                <select name="flags.perfect-vision.globalLight">
-                    <option value="default">Default (${defaultGlobalLight})</option>
-                    <option value="bright">Bright Light</option>
-                    <option value="dim">Dim Light</option>
-                    <option value="none">Scene Darkness</option>
-                </select>`);
-        globalLightFields.append(globalLight);
-
-        globalLightFields.next().append(" If set to Dim (Bright) Light, the entire scene is illuminated with dim (bright) light and, if set to Scene Darkness, the scene is illuminated according to the scene's Darkness Level only.");
-
-        html.find(`select[name="flags.perfect-vision.globalLight"]`)
-            .val(sheet.object.getFlag("perfect-vision", "globalLight") ?? "default")
-            .on("change", sheet._onChangeInput.bind(sheet));
-
-        html.find(`input[name="tokenVision"]`).parent().after(`\
-            <div class="form-group">
-                <label>Sight Limit <span class="units">(Distance)</span></label>
-                <div class="form-fields">
-                    <input type="number" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
-                </div>
-                <p class="notes">Limit the sight of all tokens within this scene. The limit can be set for each token individually in the token configuration under the Vision tab.</p>
-            </div>`);
-
-        html.find(`input[name="flags.perfect-vision.sightLimit"]`)
-            .attr("value", sheet.object.getFlag("perfect-vision", "sightLimit"))
-            .on("change", sheet._onChangeInput.bind(sheet));
-
-        const addColorSetting = (name, label) => {
-            const defaultColor = "#" + ("000000" + CONFIG.Canvas[name].toString(16)).slice(-6);
-
-            html.find(`input[name="darkness"]`).parent().parent().before(`\
-                <div class="form-group">
-                    <label>${label}</label>
-                    <div class="form-fields">
-                        <input type="text" name="flags.perfect-vision.${name}" placeholder="Default (${defaultColor})" data-dtype="String">
-                        <input type="color" data-edit="flags.perfect-vision.${name}">
-                    </div>
-                </div>`);
-
-            html.find(`input[name="flags.perfect-vision.${name}"]`).next()
-                .attr("value", sheet.object.getFlag("perfect-vision", name) || defaultColor);
-            html.find(`input[name="flags.perfect-vision.${name}"]`)
-                .attr("value", sheet.object.getFlag("perfect-vision", name))
-                .on("change", sheet._onChangeInput.bind(sheet));
-        };
-
-        addColorSetting("daylightColor", "Daylight Color");
-        addColorSetting("darknessColor", "Darkness Color");
-
-        if (!sheet._minimized)
-            sheet.setPosition(sheet.position);
     }
 
     static _getSceneControlButtons(controls) {
@@ -693,7 +408,7 @@ class PerfectVision {
                         if (monoFilterIndex >= 0)
                             layer.weather.filters.splice(monoFilterIndex, 1);
 
-                        if (this._settings.monoSpecialEffects)
+                        if (game.settings.get("perfect-vision", "monoSpecialEffects"))
                             object = layer;
                         else
                             object = layer.weather;
@@ -723,7 +438,7 @@ class PerfectVision {
 
                     let objects;
 
-                    if (this._settings.fogOfWarWeather)
+                    if (game.settings.get("perfect-vision", "fogOfWarWeather"))
                         objects = layer.children.filter(child => child !== layer.weather && child !== layer.mask);
                     else
                         objects = [layer];
@@ -764,14 +479,14 @@ class PerfectVision {
                             sprite.filters.splice(monoFilterIndex, 1);
                     }
 
-                    if (placeable instanceof Token && !this._settings.monoTokenIcons)
+                    if (placeable instanceof Token && !game.settings.get("perfect-vision", "monoTokenIcons"))
                         continue;
 
                     if (placeable instanceof Tile && (placeable.data.flags?.startMarker || placeable.data.flags?.turnMarker))
                         continue;
 
                     if (sprite.filters?.length > 0) {
-                        if (this._settings.monoSpecialEffects)
+                        if (game.settings.get("perfect-vision", "monoSpecialEffects"))
                             sprite.filters.push(Filters.mono_noAutoFit);
                         else
                             sprite.filters.unshift(Filters.mono_noAutoFit);
@@ -916,24 +631,30 @@ class PerfectVision {
             let brightVisionInDarkness;
             let brightVisionInDimLight;
 
-            const visionRules = token.getFlag("perfect-vision", "visionRules") || "default";
+            let visionRules = token.getFlag("perfect-vision", "visionRules") || "default";
 
-            if (visionRules === "default") {
-                dimVisionInDarkness = PerfectVision._settings.dimVisionInDarkness;
-                dimVisionInDimLight = PerfectVision._settings.dimVisionInDimLight;
-                brightVisionInDarkness = PerfectVision._settings.brightVisionInDarkness;
-                brightVisionInDimLight = PerfectVision._settings.brightVisionInDimLight;
-            } else if (visionRules === "custom") {
-                dimVisionInDarkness = token.getFlag("perfect-vision", "dimVisionInDarkness") || PerfectVision._settings.dimVisionInDarkness;
-                dimVisionInDimLight = token.getFlag("perfect-vision", "dimVisionInDimLight") || PerfectVision._settings.dimVisionInDimLight;
-                brightVisionInDarkness = token.getFlag("perfect-vision", "brightVisionInDarkness") || PerfectVision._settings.brightVisionInDarkness;
-                brightVisionInDimLight = token.getFlag("perfect-vision", "brightVisionInDimLight") || PerfectVision._settings.brightVisionInDimLight;
+            if (visionRules === "custom") {
+                dimVisionInDarkness = token.getFlag("perfect-vision", "dimVisionInDarkness");
+                dimVisionInDimLight = token.getFlag("perfect-vision", "dimVisionInDimLight");
+                brightVisionInDarkness = token.getFlag("perfect-vision", "brightVisionInDarkness");
+                brightVisionInDimLight = token.getFlag("perfect-vision", "brightVisionInDimLight");
             } else {
-                dimVisionInDarkness = Presets.visionRules[visionRules].dimVisionInDarkness;
-                dimVisionInDimLight = Presets.visionRules[visionRules].dimVisionInDimLight;
-                brightVisionInDarkness = Presets.visionRules[visionRules].brightVisionInDarkness;
-                brightVisionInDimLight = Presets.visionRules[visionRules].brightVisionInDimLight;
+                if (visionRules === "default") {
+                    visionRules = game.settings.get("perfect-vision", "visionRules");
+                }
+
+                if (visionRules !== "custom") {
+                    dimVisionInDarkness = Presets.visionRules[visionRules].dimVisionInDarkness;
+                    dimVisionInDimLight = Presets.visionRules[visionRules].dimVisionInDimLight;
+                    brightVisionInDarkness = Presets.visionRules[visionRules].brightVisionInDarkness;
+                    brightVisionInDimLight = Presets.visionRules[visionRules].brightVisionInDimLight;
+                }
             }
+
+            dimVisionInDarkness ||= game.settings.get("perfect-vision", "dimVisionInDarkness");
+            dimVisionInDimLight ||= game.settings.get("perfect-vision", "dimVisionInDimLight");
+            brightVisionInDarkness ||= game.settings.get("perfect-vision", "brightVisionInDarkness");
+            brightVisionInDimLight ||= game.settings.get("perfect-vision", "brightVisionInDimLight");
 
             let dim = token.getLightRadius(token.data.dimSight);
             let bright = token.getLightRadius(token.data.brightSight);
@@ -984,7 +705,7 @@ class PerfectVision {
                 brightVisionInDimLight === "bright" ? bright : 0
             );
             const monoVisionColor = hexToRGB(colorStringToHex(
-                token.getFlag("perfect-vision", "monoVisionColor") || PerfectVision._settings.monoVisionColor
+                token.getFlag("perfect-vision", "monoVisionColor") || game.settings.get("perfect-vision", "monoVisionColor") || "#ffffff"
             ));
 
             this_.radius = Math.max(Math.abs(opts.dim), Math.abs(opts.bright));
@@ -1224,7 +945,7 @@ class PerfectVision {
                         let globalLight = canvas.scene.getFlag("perfect-vision", "globalLight") ?? "default";
 
                         if (globalLight === "default")
-                            globalLight = PerfectVision._settings.globalLight;
+                            globalLight = game.settings.get("perfect-vision", "globalLight");
 
                         switch (globalLight) {
                             case "dim":
@@ -1241,7 +962,7 @@ class PerfectVision {
                         let globalLight = canvas.scene.getFlag("perfect-vision", "globalLight") ?? "default";
 
                         if (globalLight === "default")
-                            globalLight = PerfectVision._settings.globalLight;
+                            globalLight = game.settings.get("perfect-vision", "globalLight");
 
                         switch (globalLight) {
                             case "dim":
@@ -1258,7 +979,7 @@ class PerfectVision {
                         let globalLight = canvas.scene.getFlag("perfect-vision", "globalLight") ?? "default";
 
                         if (globalLight === "default")
-                            globalLight = PerfectVision._settings.globalLight;
+                            globalLight = game.settings.get("perfect-vision", "globalLight");
 
                         switch (globalLight) {
                             case "dim":
@@ -1278,7 +999,7 @@ class PerfectVision {
                         let globalLight = canvas.scene.getFlag("perfect-vision", "globalLight") ?? "default";
 
                         if (globalLight === "default")
-                            globalLight = PerfectVision._settings.globalLight;
+                            globalLight = game.settings.get("perfect-vision", "globalLight");
 
                         switch (globalLight) {
                             case "dim":
@@ -1405,12 +1126,6 @@ class PerfectVision {
         Hooks.on("updateActor", (...args) => PerfectVision._updateActor(...args));
 
         Hooks.on("updateScene", (...args) => PerfectVision._updateScene(...args));
-
-        Hooks.on("renderSettingsConfig", (...args) => PerfectVision._renderSettingsConfig(...args));
-
-        Hooks.on("renderTokenConfig", (...args) => PerfectVision._renderTokenConfig(...args));
-
-        Hooks.on("renderSceneConfig", (...args) => PerfectVision._renderSceneConfig(...args));
 
         Hooks.on("getSceneControlButtons", (...args) => PerfectVision._getSceneControlButtons(...args));
     }
