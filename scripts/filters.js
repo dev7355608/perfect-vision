@@ -1,66 +1,6 @@
 import { extend } from "./extend.js";
-import { texture } from "./mask.js";
+import { texture, Filter as MaskFilter } from "./mask.js";
 import { patch } from "./patch.js";
-
-class MaskFilter extends PIXI.Filter {
-    constructor(channel = "mask", bg = "vec4(0.0)", ...args) {
-        super(
-            `\
-            precision mediump float;
-
-            attribute vec2 aVertexPosition;
-
-            uniform mat3 projectionMatrix;
-            uniform vec4 inputSize;
-            uniform vec4 outputFrame;
-            uniform vec4 uMaskSize;
-
-            varying vec2 vTextureCoord;
-            varying vec2 vMaskCoord;
-
-            void main(void)
-            {
-                vec2 position = aVertexPosition * max(outputFrame.zw, vec2(0.0)) + outputFrame.xy;
-                gl_Position = vec4((projectionMatrix * vec3(position, 1.0)).xy, 0.0, 1.0);
-                vTextureCoord = aVertexPosition * (outputFrame.zw * inputSize.zw);
-                vMaskCoord = position * uMaskSize.zw;
-            }`, `\
-            precision mediump float;
-
-            varying vec2 vTextureCoord;
-            varying vec2 vMaskCoord;
-
-            uniform sampler2D uSampler;
-            uniform sampler2D uMask;
-
-            void main(void)
-            {
-                vec4 color = texture2D(uSampler, vTextureCoord);
-                vec4 mask = texture2D(uMask, vMaskCoord);
-                float r = mask.r;
-                float g = mask.g;
-                float b = mask.b;
-                float a = mask.a;
-                gl_FragColor = mix((${bg}), color, (${channel}));
-            }`,
-            ...args
-        );
-
-        this.uniforms.uMaskSize = new Float32Array(4);
-    }
-
-    apply(filterManager, input, output, clearMode) {
-        this.uniforms.uMask = texture;
-
-        const maskSize = this.uniforms.uMaskSize;
-        maskSize[0] = texture.width;
-        maskSize[1] = texture.height;
-        maskSize[2] = 1 / texture.width;
-        maskSize[3] = 1 / texture.height;
-
-        filterManager.applyFilter(this, input, output, clearMode);
-    }
-}
 
 class MonoFilter extends PIXI.Filter {
     constructor(...args) {
