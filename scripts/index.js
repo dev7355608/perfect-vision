@@ -1,4 +1,5 @@
 import { extend } from "./extend.js"
+import { migrateAll, migrateToken, migrateActor, migrateScene, migrateWorldSettings, migrateClientSettings, versions as migrationVersions } from "./migrate.js"
 import { patch } from "./patch.js"
 
 class PerfectVision {
@@ -75,16 +76,16 @@ class PerfectVision {
         }
 
         if (migrate === "world") {
-            this._migrateWorldSettings();
+            migrateWorldSettings().then((...args) => this._onMigration(...args));
         } else if (migrate === "client") {
-            this._migrateClientSettings();
+            migrateClientSettings().then((...args) => this._onMigration(...args));
         }
 
         if (!canvas?.ready)
             return;
 
         if (filters)
-            this._updateFilters({ layers: layers, placeables: tokens });
+            this._updateFilters({ layers: layers, placeables: placeables ?? tokens });
 
         if (tokens)
             for (const token of tokens)
@@ -288,246 +289,20 @@ class PerfectVision {
         }
     }
 
-    static _flags(entity) {
-        if (entity === "world" || entity === "client") {
-            const flags = {};
-            const storage = game.settings.storage.get(entity);
+    static _updated = true;
 
-            if (Symbol.iterator in storage) {
-                for (const [key, value] of storage) {
-                    if (key.startsWith("perfect-vision.")) {
-                        flags["perfect-vision"] = flags["perfect-vision"] ?? {};
-                        flags["perfect-vision"][key.split(/\.(.*)/)[1]] = JSON.parse(value);
-                    }
-                }
-            } else {
-                for (let i = 0; i < storage.length; i++) {
-                    const key = storage.key(i);
-                    const value = storage.getItem(key);
-                    if (key.startsWith("perfect-vision.")) {
-                        flags["perfect-vision"] = flags["perfect-vision"] ?? {};
-                        flags["perfect-vision"][key.split(/\.(.*)/)[1]] = JSON.parse(value);
-                    }
-                }
-            }
-
-            return flags;
-        }
-        if (entity instanceof Actor) {
-            return entity.data.token.flags ?? {};
-        }
-        return entity.data.flags ?? {};
-    }
-
-    static _getFlag(entity, scope, key) {
-        if (entity === "world" || entity === "client") {
-            const scopes = SetupConfiguration.getPackageScopes();
-            if (!scopes.includes(scope)) throw new Error(`Invalid scope for flag ${key}`);
-            key = `${scope}.${key}`;
-            const storage = game.settings.storage.get(entity);
-            const value = storage.getItem(key);
-            return (value ?? false) ? JSON.parse(value) : null;
-        }
-        if (entity instanceof Actor) {
-            const scopes = SetupConfiguration.getPackageScopes();
-            if (!scopes.includes(scope)) throw new Error(`Invalid scope for flag ${key}`);
-            key = `flags.${scope}.${key}`;
-            return getProperty(entity.data.token, key);
-        }
-        return entity.getFlag(scope, key);
-    }
-
-    static async _setFlag(entity, scope, key, value) {
-        if (entity === "world" || entity === "client") {
-            const scopes = SetupConfiguration.getPackageScopes();
-            if (!scopes.includes(scope)) throw new Error(`Invalid scope for flag ${key}`);
-            key = `${scope}.${key}`;
-            if (value === undefined) value = null;
-            const json = JSON.stringify(value);
-            if (entity === "world") {
-                await SocketInterface.dispatch("modifyDocument", {
-                    type: "Setting",
-                    action: "update",
-                    data: { key, value: json }
-                });
-            }
-            const storage = game.settings.storage.get(entity);
-            storage.setItem(key, json);
-            return entity;
-        }
-        if (entity instanceof Actor) {
-            const scopes = SetupConfiguration.getPackageScopes();
-            if (!scopes.includes(scope)) throw new Error(`Invalid scope for flag ${key}`);
-            key = `flags.${scope}.${key}`;
-            return await entity.update({ token: mergeObject(entity.data.token, { [key]: value }, { inplace: false }) });
-        }
-        return await entity.setFlag(scope, key, value);
-
-    }
-
-    static async _unsetFlag(entity, scope, key) {
-        if (entity === "world" || entity === "client") {
-            const scopes = SetupConfiguration.getPackageScopes();
-            if (!scopes.includes(scope)) throw new Error(`Invalid scope for flag ${key}`);
-            key = `${scope}.${key}`;
-            if (entity === "world") {
-                await SocketInterface.dispatch("modifyDocument", {
-                    type: "Setting",
-                    action: "update",
-                    data: { key, value: JSON.stringify(null) }
-                });
-            }
-            const storage = game.settings.storage.get(entity);
-            if (entity === "client") {
-                storage.removeItem(key);
-            } else {
-                storage.delete(key);
-            }
-            return entity;
-        }
-        if (entity instanceof Actor) {
-            const scopes = SetupConfiguration.getPackageScopes();
-            if (!scopes.includes(scope)) throw new Error(`Invalid scope for flag ${key}`);
-            key = `flags.${scope}.-=${key}`;
-            return await entity.update({ token: mergeObject(entity.data.token, { [key]: null }, { inplace: false }) });
-        }
-        return await entity.unsetFlag(scope, key);
-    }
-
-    static _migration = { versions: { world: 1, client: 1, scene: 1, token: 1 }, notified: false, update: false }
-
-    static async _migrate(entity, func) {
-        let type;
-
-        if (entity instanceof Scene) {
-            type = "scene";
-        } else if (entity instanceof Actor) {
-            type = "actor";
-        } else if (entity instanceof Token) {
-            type = "token";
-        } else {
-            type = entity;
-        }
-
-        const versionKey = type !== "client" ? "_version" : "_clientVersion";
-        const flags = Object.keys(getProperty(this._flags(entity), "perfect-vision") ?? {});
-        const canSetFlags = type === "client" || game.user === game.users.find(user => user.isGM && user.active);
-
-        if (flags.length === 0) {
+    static _onMigration(migrated) {
+        if (!migrated)
             return;
-        } else if (flags.length === 1 && flags[0] === versionKey) {
-            if (canSetFlags)
-                await this._unsetFlag(entity, "perfect-vision", versionKey);
-            return;
+
+        if (this._updated) {
+            this._updated = false;
+            canvas.app.ticker.addOnce(this._canvasReady, this);
         }
-
-        const currentVersion = this._getFlag(entity, "perfect-vision", versionKey) ?? 0;
-        const targetVersion = this._migration.versions[type === "actor" ? "token" : type];
-
-        if (currentVersion === 0 && targetVersion === 1) {
-            if (canSetFlags)
-                await this._setFlag(entity, "perfect-vision", versionKey, targetVersion);
-            return;
-        }
-
-        if (isNewerVersion(currentVersion, targetVersion)) {
-            if (!this._migration.notified) {
-                ui.notifications.error("Please update 'Perfect Vision' to the latest version.");
-                this._migration.notified = true;
-            }
-        } else if (isNewerVersion(targetVersion, currentVersion)) {
-            if (canSetFlags) {
-                console.log(`Perfect Vision | Migrating ${type + (entity.id ? " " + entity.id : "")} from version ${currentVersion} to ${targetVersion}`);
-
-                await this._setFlag(entity, "perfect-vision", versionKey, targetVersion);
-
-                await func(entity, currentVersion);
-
-                if (!this._migration.update) {
-                    canvas.app.ticker.addOnce(this._canvasReady, this);
-                    this._migration.update = true;
-                }
-            } else if (!this._migration.notified) {
-                ui.notifications.error("'Perfect Vision' was updated. The GM needs to connect first to complete the migration. Then reload.");
-                this._migration.notified = true;
-            }
-        }
-    }
-
-    static async _migrateToken(token) {
-        await this._migrate(token, async (token, version) => { /* ... */ });
-    }
-
-    static async _migrateTokens() {
-        for (const scene of game.scenes.entities) {
-            for (const data of scene.getEmbeddedCollection("Token")) {
-                await this._migrateToken(new Token(data, scene));
-            }
-        }
-    }
-
-    static async _migrateActor(actor) {
-        return await this._migrateToken(actor);
-    }
-
-    static async _migrateActors() {
-        for (const actor of game.actors.entities) {
-            await this._migrateActor(actor);
-        }
-    }
-
-    static async _migrateScene(scene) {
-        await this._migrate(scene, async (scene, version) => { /* ... */ });
-    }
-
-    static async _migrateScenes() {
-        for (const scene of game.scenes.entities) {
-            await this._migrateScene(scene);
-        }
-    }
-
-    static async _resetInvalidSettingsToDefault(scope) {
-        for (const s of game.settings.settings.values()) {
-            if (!s.module === "perfect-vision")
-                continue;
-
-            if (s.scope !== scope)
-                continue;
-
-            if (s.choices && !s.choices[game.settings.get(s.module, s.key)]) {
-                await game.settings.set(s.module, s.key, s.default);
-
-                if (!this._migration.update) {
-                    canvas.app.ticker.addOnce(this._canvasReady, this);
-                    this._migration.update = true;
-                }
-            }
-        }
-
-    }
-
-    static async _migrateWorldSettings() {
-        await this._migrate("world", async (scope, version) => { /* ... */ });
-
-        await this._resetInvalidSettingsToDefault("world");
-    }
-
-    static async _migrateClientSettings() {
-        await this._migrate("client", async (scope, version) => { /* ... */ });
-
-        await this._resetInvalidSettingsToDefault("client");
-    }
-
-    static async _migrateSettings() {
-        await this._migrateWorldSettings();
-        await this._migrateClientSettings();
     }
 
     static async _ready() {
-        await this._migrateSettings();
-        await this._migrateScenes();
-        await this._migrateActors();
-        await this._migrateTokens();
+        await migrateAll().then((...args) => this._onMigration(...args));
 
         this._isReady = true;
 
@@ -537,7 +312,7 @@ class PerfectVision {
     }
 
     static _canvasReady() {
-        this._migration.update = false;
+        this._updated = true;
 
         if (!this._isReady)
             return;
@@ -683,7 +458,7 @@ class PerfectVision {
         if (!hasProperty(update, "flags.perfect-vision"))
             return;
 
-        await this._migrateToken(new Token(data, scene));
+        await migrateToken(new Token(data, scene)).then((...args) => this._onMigration(...args));
 
         const token = canvas.tokens.get(data._id);
 
@@ -696,7 +471,7 @@ class PerfectVision {
         if (!hasProperty(update, "flags.perfect-vision"))
             return;
 
-        await this._migrateActor(actor);
+        await migrateActor(actor).then((...args) => this._onMigration(...args));
     }
 
     static async _updateScene(scene, update, options, userId) {
@@ -707,7 +482,7 @@ class PerfectVision {
             return;
         }
 
-        await this._migrateScene(scene);
+        await migrateScene(scene).then((...args) => this._onMigration(...args));
 
         if (scene.id !== canvas.scene?.id)
             return;
@@ -909,21 +684,21 @@ class PerfectVision {
             const version = document.createElement("input");
             version.setAttribute("type", "hidden");
             version.setAttribute("name", `${prefix}._version`);
-            version.setAttribute("value", this._migration.versions.token);
+            version.setAttribute("value", migrationVersions.token);
             version.setAttribute("data-dtype", "Number");
             html.find(`select[name="${prefix}.visionRules"]`)[0].form.appendChild(version);
         } else {
             const version = document.createElement("input");
             version.setAttribute("type", "hidden");
             version.setAttribute("name", `${prefix}._version`);
-            version.setAttribute("value", this._migration.versions.world);
+            version.setAttribute("value", migrationVersions.world);
             version.setAttribute("data-dtype", "Number");
             html.find(`select[name="${prefix}.visionRules"]`)[0].form.appendChild(version);
 
             const clientVersion = document.createElement("input");
             clientVersion.setAttribute("type", "hidden");
             clientVersion.setAttribute("name", `${prefix}._clientVersion`);
-            clientVersion.setAttribute("value", this._migration.versions.client);
+            clientVersion.setAttribute("value", migrationVersions.client);
             clientVersion.setAttribute("data-dtype", "Number");
             html.find(`select[name="${prefix}.visionRules"]`)[0].form.appendChild(clientVersion);
         }
@@ -997,7 +772,7 @@ class PerfectVision {
         const version = document.createElement("input");
         version.setAttribute("type", "hidden");
         version.setAttribute("name", "flags.perfect-vision._version");
-        version.setAttribute("value", this._migration.versions.scene);
+        version.setAttribute("value", migrationVersions.scene);
         version.setAttribute("data-dtype", "Number");
         html.find(`input[name="tokenVision"]`)[0].form.appendChild(version);
 
