@@ -2,6 +2,7 @@ import { extend } from "./extend.js";
 import * as Filters from "./filters.js";
 import { migrateAll, migrateToken, migrateActor, migrateScene, migrateWorldSettings, migrateClientSettings } from "./migrate.js";
 import { patch } from "./patch.js";
+import { grayscale } from "./utils.js";
 
 class PerfectVision {
     static _settings;
@@ -334,7 +335,7 @@ class PerfectVision {
             ilm_.background.visible = false;
         }
 
-        ilm_.visionBackground.tint = rgbToHex(this._grayscale(canvas.lighting.channels.background.rgb));
+        ilm_.visionBackground.tint = rgbToHex(grayscale(canvas.lighting.channels.background.rgb));
 
         const sight = canvas.sight;
         const sight_ = extend(sight);
@@ -964,7 +965,7 @@ class PerfectVision {
         }
 
         static get CONFIG() {
-            const color = PerfectVision._grayscale(canvas?.lighting?.channels?.bright?.rgb ?? [1, 1, 1]);
+            const color = grayscale(canvas?.lighting?.channels?.bright?.rgb ?? [1, 1, 1]);
             const colorHex = ("000000" + rgbToHex(color).toString(16)).slice(-6);
             const alpha = color[0] * 0.1;
             return mergeObject(
@@ -1061,39 +1062,6 @@ class PerfectVision {
 
         sight_.fog.weatherEffect = new this._FogEffect(sight_.fog.weather);
         sight_.fog.weatherEffect.play();
-    }
-
-    static _grayscale(c, d = null) {
-        let [r, g, b] = c;
-
-        if (0.04045 <= r) {
-            r = Math.pow((r + 0.055) / 1.055, 2.4);
-        } else {
-            r /= 12.92;
-        }
-        if (0.04045 <= g) {
-            g = Math.pow((g + 0.055) / 1.055, 2.4);
-        } else {
-            g /= 12.92;
-        }
-
-        if (0.04045 <= b) {
-            b = Math.pow((b + 0.055) / 1.055, 2.4);
-        } else {
-            b /= 12.92;
-        }
-
-        let y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-
-        if (0.0031308 <= y) {
-            y = 1.055 * Math.pow(y, 1.0 / 2.4) - 0.055;
-        } else {
-            y *= 12.92;
-        }
-
-        d = d ?? [];
-        d[2] = d[1] = d[0] = y;
-        return d;
     }
 
     static _registerHooks() {
@@ -1297,8 +1265,8 @@ class PerfectVision {
             if (this_.isVision) {
                 if (updateChannels) {
                     const iu = this.illumination.shader.uniforms;
-                    PerfectVision._grayscale(iu.colorDim, iu.colorDim);
-                    PerfectVision._grayscale(iu.colorBright, iu.colorBright);
+                    grayscale(iu.colorDim, iu.colorDim);
+                    grayscale(iu.colorBright, iu.colorBright);
                 }
 
                 if (this_.fov && this_.fov !== this.fov) {
