@@ -1,5 +1,6 @@
 import { extend } from "./extend.js";
 import { texture } from "./mask.js";
+import { patch } from "./patch.js";
 
 class MaskFilter extends PIXI.Filter {
     constructor(channel = "mask", bg = "vec4(0.0)", ...args) {
@@ -238,4 +239,201 @@ Hooks.on("sightRefresh", () => {
     mono.uniforms.uTint[0] = monoVisionColor[0];
     mono.uniforms.uTint[1] = monoVisionColor[1];
     mono.uniforms.uTint[2] = monoVisionColor[2];
+});
+
+function removeFromDisplayObject(object, ...filters) {
+    if (!object)
+        return;
+
+    for (const filter of filters) {
+        const index = object.filters ? object.filters.indexOf(filter) : -1;
+
+        if (index >= 0)
+            object.filters.splice(index, 1);
+    }
+}
+
+function addFirstToDisplayObject(object, filter) {
+    if (!object)
+        return;
+
+    if (object.filters?.length > 0) {
+        object.filters.unshift(filter);
+    } else if (object.filters) {
+        object.filters[0] = filter;
+    } else {
+        object.filters = [filter];
+    }
+}
+
+function addLastToDisplayObject(object, filter) {
+    if (!object)
+        return;
+
+    if (object.filters?.length > 0) {
+        object.filters.push(filter);
+    } else if (object.filters) {
+        object.filters[0] = filter;
+    } else {
+        object.filters = [filter];
+    }
+}
+
+export function updateLayer(layer) {
+    if (!layer)
+        return;
+
+    removeFromDisplayObject(layer, mono);
+
+    let object = layer;
+
+    if (layer === canvas.background) {
+        removeFromDisplayObject(layer.img, mono);
+
+        object = layer.img ?? layer;
+    } else if (layer === canvas.effects || layer === canvas.fxmaster) {
+        removeFromDisplayObject(layer.weather, mono);
+
+        if (game.settings.get("perfect-vision", "monoSpecialEffects"))
+            object = layer;
+        else
+            object = layer.weather;
+
+        removeFromDisplayObject(layer, sight);
+
+        for (const child of layer.children)
+            removeFromDisplayObject(child, sight);
+
+        let objects;
+
+        if (game.settings.get("perfect-vision", "fogOfWarWeather")) {
+            objects = layer.children.filter(child => child !== layer.weather && child !== layer.mask);
+        } else {
+            objects = [layer];
+        }
+
+        for (const object of objects)
+            addLastToDisplayObject(object, sight);
+    }
+
+    addLastToDisplayObject(object, mono);
+}
+
+export function updatePlaceable(placeable) {
+    if (!placeable)
+        return;
+
+    let sprite;
+
+    if (placeable instanceof Token) {
+        sprite = placeable.icon;
+    } else if (placeable instanceof Tile) {
+        sprite = placeable.tile.img;
+    } else if (placeable instanceof MeasuredTemplate) {
+        sprite = placeable.template;
+    } else if (placeable instanceof PIXI.DisplayObject) {
+        sprite = placeable;
+    }
+
+    removeFromDisplayObject(sprite, mono, mono_noAutoFit, sight);
+
+    if (!sprite)
+        return;
+
+    if (placeable instanceof Token && !game.settings.get("perfect-vision", "monoTokenIcons"))
+        return;
+
+    if (placeable instanceof Tile && (placeable.data.flags?.startMarker || placeable.data.flags?.turnMarker))
+        return;
+
+    if (placeable instanceof MeasuredTemplate)
+        addLastToDisplayObject(sprite, sight);
+
+    if (placeable instanceof MeasuredTemplate && !placeable.texture)
+        return;
+
+    if (sprite.filters?.length > 0) {
+        if (game.settings.get("perfect-vision", "monoSpecialEffects"))
+            addLastToDisplayObject(sprite, mono_noAutoFit);
+        else
+            addFirstToDisplayObject(sprite, mono_noAutoFit);
+    } else {
+        addLastToDisplayObject(sprite, mono);
+    }
+}
+
+export function update({ layers = null, placeables = null } = {}) {
+    mono.zOrder = mono.rank = 0;
+    sight.zOrder = sight.rank = 0;
+
+    if (layers == null && placeables == null) {
+        layers = ["background", "effects", "fxmaster"];
+
+        placeables = [
+            ...canvas.tokens.placeables,
+            ...canvas.tiles.placeables,
+            ...canvas.templates.placeables,
+        ];
+
+        if (canvas.roofs)
+            placeables = [...placeables, canvas.roofs.children];
+    }
+
+    if (layers) {
+        for (const layerName of layers) {
+            const layer = canvas[layerName];
+
+            if (!layer) continue;
+
+            updateLayer(layer);
+        }
+    }
+
+    if (placeables) {
+        for (const placeable of placeables) {
+            updatePlaceable(placeable);
+        }
+    }
+}
+
+Hooks.once("init", () => {
+    patch("BackgroundLayer.prototype.draw", "POST", async function () {
+        const retVal = await arguments[0];
+
+        updateLayer(this);
+
+        return retVal;
+    });
+
+    patch("EffectsLayer.prototype.draw", "POST", async function () {
+        const retVal = await arguments[0];
+
+        updateLayer(this);
+
+        return retVal;
+    });
+
+    patch("Token.prototype.draw", "POST", async function () {
+        const retVal = await arguments[0];
+
+        updatePlaceable(this);
+
+        return retVal;
+    });
+
+    patch("Tile.prototype.draw", "POST", async function () {
+        const retVal = await arguments[0];
+
+        updatePlaceable(this);
+
+        return retVal;
+    });
+
+    patch("MeasuredTemplate.prototype.draw", "POST", async function () {
+        const retVal = await arguments[0];
+
+        updatePlaceable(this);
+
+        return retVal;
+    });
 });

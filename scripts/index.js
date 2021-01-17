@@ -1,4 +1,3 @@
-import { extend } from "./extend.js";
 import * as Filters from "./filters.js";
 import * as Fog from "./fog.js";
 import { migrateAll, migrateToken, migrateActor, migrateScene, migrateWorldSettings, migrateClientSettings } from "./migrate.js";
@@ -30,7 +29,7 @@ class PerfectVision {
             return;
 
         if (filters)
-            this._updateFilters({ layers: layers, placeables: placeables ?? tokens });
+            Filters.update({ layers: layers, placeables: placeables ?? tokens });
 
         if (tokens)
             for (const token of tokens)
@@ -322,193 +321,11 @@ class PerfectVision {
             canvas.sight.refresh();
     }
 
-    static _updateFilters({ layers = null, placeables = null } = {}) {
-        Filters.mono.zOrder = Filters.mono.rank = 0;
-
-        if (layers == null && placeables == null) {
-            layers = ["background", "effects", "fxmaster"];
-
-            placeables = [
-                ...canvas.tokens.placeables,
-                ...canvas.tiles.placeables,
-                ...canvas.templates.placeables,
-            ];
-
-            if (canvas.roofs)
-                placeables = [...placeables, canvas.roofs.children];
-        }
-
-        if (layers) {
-            for (const layerName of layers) {
-                const layer = canvas[layerName];
-
-                if (!layer) continue;
-
-                {
-                    const monoFilterIndex = layer.filters ? layer.filters.indexOf(Filters.mono) : -1;
-
-                    if (monoFilterIndex >= 0)
-                        layer.filters.splice(monoFilterIndex, 1);
-
-                    let object = layer;
-
-                    if (layerName === "background") {
-                        const monoFilterIndex = layer.img?.filters ? layer.img.filters.indexOf(Filters.mono) : -1;
-
-                        if (monoFilterIndex >= 0)
-                            layer.img.filters.splice(monoFilterIndex, 1);
-
-                        object = layer.img ?? layer;
-                    } else if (layerName === "effects" || layerName === "fxmaster") {
-                        const monoFilterIndex = layer.weather?.filters ? layer.weather.filters.indexOf(Filters.mono) : -1;
-
-                        if (monoFilterIndex >= 0)
-                            layer.weather.filters.splice(monoFilterIndex, 1);
-
-                        if (game.settings.get("perfect-vision", "monoSpecialEffects"))
-                            object = layer;
-                        else
-                            object = layer.weather;
-                    }
-
-                    if (object) {
-                        if (object.filters?.length > 0) {
-                            object.filters.push(Filters.mono);
-                        } else {
-                            object.filters = [Filters.mono];
-                        }
-                    }
-                }
-
-                if (layerName === "effects" || layerName === "fxmaster") {
-                    const sightFilterIndex = layer.filters ? layer.filters.indexOf(Filters.sight) : -1;
-
-                    if (sightFilterIndex >= 0)
-                        layer.filters.splice(sightFilterIndex, 1);
-
-                    for (const child of layer.children) {
-                        const sightFilterIndex = child.filters ? child.filters.indexOf(Filters.sight) : -1;
-
-                        if (sightFilterIndex >= 0)
-                            child.filters.splice(sightFilterIndex, 1);
-                    }
-
-                    let objects;
-
-                    if (game.settings.get("perfect-vision", "fogOfWarWeather"))
-                        objects = layer.children.filter(child => child !== layer.weather && child !== layer.mask);
-                    else
-                        objects = [layer];
-
-                    for (const object of objects) {
-                        if (object.filters?.length > 0) {
-                            object.filters.push(Filters.sight);
-                        } else {
-                            object.filters = [Filters.sight];
-                        }
-                    }
-                }
-            }
-        }
-
-        if (placeables) {
-            for (const placeable of placeables) {
-                let sprite;
-
-                if (placeable instanceof Token) {
-                    sprite = placeable.icon;
-                } else if (placeable instanceof Tile) {
-                    sprite = placeable.tile.img;
-                } else if (placeable instanceof MeasuredTemplate) {
-                    if (placeable.texture)
-                        sprite = placeable.template;
-                } else if (placeable instanceof PIXI.DisplayObject) {
-                    sprite = placeable;
-                }
-
-                if (sprite) {
-                    if (sprite.filters) {
-                        const monoFilterIndex = sprite.filters ? Math.max(
-                            sprite.filters.indexOf(Filters.mono),
-                            sprite.filters.indexOf(Filters.mono_noAutoFit)) : -1;
-
-                        if (monoFilterIndex >= 0)
-                            sprite.filters.splice(monoFilterIndex, 1);
-                    }
-
-                    if (placeable instanceof Token && !game.settings.get("perfect-vision", "monoTokenIcons"))
-                        continue;
-
-                    if (placeable instanceof Tile && (placeable.data.flags?.startMarker || placeable.data.flags?.turnMarker))
-                        continue;
-
-                    if (sprite.filters?.length > 0) {
-                        if (game.settings.get("perfect-vision", "monoSpecialEffects"))
-                            sprite.filters.push(Filters.mono_noAutoFit);
-                        else
-                            sprite.filters.unshift(Filters.mono_noAutoFit);
-                    } else {
-                        sprite.filters = [Filters.mono];
-                    }
-
-                    if (placeable instanceof MeasuredTemplate) {
-                        const sightFilterIndex = sprite.filters ? sprite.filters.indexOf(Filters.sight) : -1;
-
-                        if (sightFilterIndex >= 0)
-                            sprite.filters.splice(sightFilterIndex, 1);
-
-                        sprite.filters.push(Filters.sight);
-                    }
-                }
-            }
-        }
-    }
-
     static _registerHooks() {
-        patch("BackgroundLayer.prototype.draw", "POST", async function () {
-            const retVal = await arguments[0];
-
-            PerfectVision._update({ filters: true, layers: ["background"] });
-
-            return retVal;
-        });
-
         patch("EffectsLayer.layerOptions", "POST", function () {
             return mergeObject(arguments[0], {
                 zIndex: Canvas.layers.fxmaster?.layerOptions.zIndex ?? 180
             });
-        });
-
-        patch("EffectsLayer.prototype.draw", "POST", async function () {
-            const retVal = await arguments[0];
-
-            PerfectVision._update({ filters: true, layers: ["effects"] });
-
-            return retVal;
-        });
-
-        patch("Token.prototype.draw", "POST", async function () {
-            const retVal = await arguments[0];
-
-            PerfectVision._update({ filters: true, placeables: [this] });
-
-            return retVal;
-        });
-
-        patch("Tile.prototype.draw", "POST", async function () {
-            const retVal = await arguments[0];
-
-            PerfectVision._update({ filters: true, placeables: [this] });
-
-            return retVal;
-        });
-
-        patch("MeasuredTemplate.prototype.draw", "POST", async function () {
-            const retVal = await arguments[0];
-
-            PerfectVision._update({ filters: true, placeables: [this] });
-
-            return retVal;
         });
 
         if (game.modules.get("tokenmagic")?.active) {
