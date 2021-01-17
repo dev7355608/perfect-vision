@@ -5,7 +5,7 @@ import { patch } from "./patch.js";
 import { presets } from "./presets.js";
 import { grayscale } from "./utils.js";
 
-const backgroundFilter = new MaskFilter("step(1.0, 1.0 - r)");
+const improvedGMVisionFilter = new MaskFilter("step(1.0, 1.0 - r)");
 const visionFilter = new MaskFilter("step(1.0, g)");
 const visionMaxFilter = new MaskFilter("step(1.0, g)");
 const visionMinFilter = new MaskFilter("step(1.0, g)", "vec4(1.0)");
@@ -145,7 +145,7 @@ Hooks.once("init", () => {
             const ilm = canvas.lighting.illumination;
             const ilm_ = extend(ilm);
 
-            ilm_.background.visible = game.user.isGM && enabled;
+            ilm_.improvedGMVision.visible = game.user.isGM && enabled;
         }
     });
 
@@ -315,10 +315,10 @@ Hooks.once("init", () => {
             }
         }
 
-        dimVisionInDarkness ||= game.settings.get("perfect-vision", "dimVisionInDarkness");
-        dimVisionInDimLight ||= game.settings.get("perfect-vision", "dimVisionInDimLight");
-        brightVisionInDarkness ||= game.settings.get("perfect-vision", "brightVisionInDarkness");
-        brightVisionInDimLight ||= game.settings.get("perfect-vision", "brightVisionInDimLight");
+        dimVisionInDarkness = dimVisionInDarkness || game.settings.get("perfect-vision", "dimVisionInDarkness");
+        dimVisionInDimLight = dimVisionInDimLight || game.settings.get("perfect-vision", "dimVisionInDimLight");
+        brightVisionInDarkness = brightVisionInDarkness || game.settings.get("perfect-vision", "brightVisionInDarkness");
+        brightVisionInDimLight = brightVisionInDimLight || game.settings.get("perfect-vision", "brightVisionInDimLight");
 
         let dim = token.getLightRadius(token.data.dimSight);
         let bright = token.getLightRadius(token.data.brightSight);
@@ -499,7 +499,8 @@ Hooks.once("init", () => {
         const ilm_ = extend(ilm);
 
         const bgRect = canvas.dimensions.sceneRect.clone().pad((this._blurDistance ?? 0) * 2);
-        ilm_.background.clear().beginFill(0xFFFFFF, 1.0).drawShape(bgRect).endFill();
+        ilm_.improvedGMVision.clear().beginFill(0xFFFFFF, 1.0).drawShape(bgRect).endFill();
+        ilm_.vision.clear().beginFill(0xFFFFFF, 1.0).drawShape(bgRect).endFill();
 
         return retVal;
     });
@@ -526,18 +527,18 @@ Hooks.once("init", () => {
         const c_ = extend(c);
 
         {
-            c_.background = c.addChildAt(new PIXI.Graphics(), c.getChildIndex(c.background) + 1);
-            c_.background.filter = backgroundFilter;
-            c_.background.filterArea = canvas.app.renderer.screen;
-            c_.background.filters = [c_.background.filter];
-            c_.background.visible = game.user.isGM && game.settings.get("perfect-vision", "improvedGMVision");
+            c_.improvedGMVision = c.addChildAt(new PIXI.Graphics(), c.getChildIndex(c.background) + 1);
+            c_.improvedGMVision.filter = improvedGMVisionFilter;
+            c_.improvedGMVision.filterArea = canvas.app.renderer.screen;
+            c_.improvedGMVision.filters = [c_.improvedGMVision.filter];
+            c_.improvedGMVision.visible = game.user.isGM && game.settings.get("perfect-vision", "improvedGMVision");
         }
 
         {
-            c_.visionBackground = c.addChildAt(new PIXI.Graphics(), c.getChildIndex(c_.background) + 1);
-            c_.visionBackground.filter = visionFilter;
-            c_.visionBackground.filterArea = canvas.app.renderer.screen;
-            c_.visionBackground.filters = [c_.visionBackground.filter];
+            c_.vision = c.addChildAt(new PIXI.Graphics(), c.getChildIndex(c_.improvedGMVision) + 1);
+            c_.vision.filter = visionFilter;
+            c_.vision.filterArea = canvas.app.renderer.screen;
+            c_.vision.filters = [c_.vision.filter];
         }
 
         {
@@ -688,7 +689,7 @@ Hooks.on("canvasInit", () => {
     visionMinFilter.blendMode = PIXI.BLEND_MODES.MIN_COLOR;
     lightFilter.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
 
-    backgroundFilter.resolution = canvas.app.renderer.resolution;
+    improvedGMVisionFilter.resolution = canvas.app.renderer.resolution;
     visionFilter.resolution = canvas.app.renderer.resolution;
     visionMaxFilter.resolution = canvas.app.renderer.resolution;
     visionMinFilter.resolution = canvas.app.renderer.resolution;
@@ -696,20 +697,20 @@ Hooks.on("canvasInit", () => {
 });
 
 Hooks.on("lightingRefresh", () => {
+    const channels = canvas.lighting.channels;
+
     const ilm = canvas.lighting.illumination;
     const ilm_ = extend(ilm);
 
-    const channels = canvas.lighting.channels;
-
     const s = 1 / Math.max(...channels.background.rgb);
-    ilm_.background.tint = rgbToHex(channels.background.rgb.map(c => c * s));
+    ilm_.improvedGMVision.tint = rgbToHex(channels.background.rgb.map(c => c * s));
 
-    ilm_.visionBackground.tint = rgbToHex(grayscale(channels.background.rgb));
+    ilm_.vision.tint = rgbToHex(grayscale(channels.background.rgb));
 });
 
 Hooks.on("sightRefresh", () => {
     const ilm = canvas.lighting.illumination;
     const ilm_ = extend(ilm);
 
-    ilm_.background.renderable = canvas.sight.sources.size === 0;
+    ilm_.improvedGMVision.renderable = canvas.sight.sources.size === 0;
 });
