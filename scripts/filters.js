@@ -99,23 +99,13 @@ class MonoFilter extends PIXI.Filter {
     }
 }
 
-export const background = new MaskFilter("step(1.0, 1.0 - r)");
-
-export const vision = new MaskFilter("step(1.0, g)");
-
-export const visionMax = new MaskFilter("step(1.0, g)");
-
-export const visionMin = new MaskFilter("step(1.0, g)", "vec4(1.0)");
-
-export const light = new MaskFilter("step(1.0, b)");
-
 export const fog = new MaskFilter("1.0 - max(r, g)");
 
-const sight = new MaskFilter("max(r, g)");
+const sightFilter = new MaskFilter("max(r, g)");
 
-const mono = new MonoFilter();
+const monoFilter = new MonoFilter();
 // Remove as soon as pixi.js fixes the auto fit bug.
-const mono_noAutoFit = new Proxy(mono, {
+const monoFilter_noAutoFit = new Proxy(monoFilter, {
     get(target, prop, receiver) {
         if (prop === "autoFit")
             return false;
@@ -124,25 +114,16 @@ const mono_noAutoFit = new Proxy(mono, {
 });
 
 Hooks.on("canvasInit", () => {
-    visionMax.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
-    visionMin.blendMode = PIXI.BLEND_MODES.MIN_COLOR;
-    light.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
-
-    background.resolution = canvas.app.renderer.resolution;
-    vision.resolution = canvas.app.renderer.resolution;
-    visionMax.resolution = canvas.app.renderer.resolution;
-    visionMin.resolution = canvas.app.renderer.resolution;
-    light.resolution = canvas.app.renderer.resolution;
-    sight.resolution = canvas.app.renderer.resolution;
+    sightFilter.resolution = canvas.app.renderer.resolution;
     fog.resolution = canvas.app.renderer.resolution;
-    mono.resolution = canvas.app.renderer.resolution;
+    monoFilter.resolution = canvas.app.renderer.resolution;
 });
 
 Hooks.on("lightingRefresh", () => {
     if (canvas.sight.sources.size === 0 && game.user.isGM && game.settings.get("perfect-vision", "improvedGMVision")) {
-        mono.uniforms.uSaturation = 1;
+        monoFilter.uniforms.uSaturation = 1;
     } else {
-        mono.uniforms.uSaturation = 1 - canvas.lighting.darknessLevel;
+        monoFilter.uniforms.uSaturation = 1 - canvas.lighting.darknessLevel;
     }
 });
 
@@ -169,16 +150,16 @@ Hooks.on("sightRefresh", () => {
             }
         }
 
-        sight.enabled = true;
+        sightFilter.enabled = true;
     } else {
-        sight.enabled = false;
+        sightFilter.enabled = false;
     }
 
     monoVisionColor = monoVisionColor ?? DEFAULT_VISION_COLOR;
 
-    mono.uniforms.uTint[0] = monoVisionColor[0];
-    mono.uniforms.uTint[1] = monoVisionColor[1];
-    mono.uniforms.uTint[2] = monoVisionColor[2];
+    monoFilter.uniforms.uTint[0] = monoVisionColor[0];
+    monoFilter.uniforms.uTint[1] = monoVisionColor[1];
+    monoFilter.uniforms.uTint[2] = monoVisionColor[2];
 });
 
 function removeFromDisplayObject(object, ...filters) {
@@ -223,26 +204,26 @@ function updateLayer(layer) {
     if (!layer)
         return;
 
-    removeFromDisplayObject(layer, mono);
+    removeFromDisplayObject(layer, monoFilter);
 
     let object = layer;
 
     if (layer === canvas.background) {
-        removeFromDisplayObject(layer.img, mono);
+        removeFromDisplayObject(layer.img, monoFilter);
 
         object = layer.img ?? layer;
     } else if (layer === canvas.effects || layer === canvas.fxmaster) {
-        removeFromDisplayObject(layer.weather, mono);
+        removeFromDisplayObject(layer.weather, monoFilter);
 
         if (game.settings.get("perfect-vision", "monoSpecialEffects"))
             object = layer;
         else
             object = layer.weather;
 
-        removeFromDisplayObject(layer, sight);
+        removeFromDisplayObject(layer, sightFilter);
 
         for (const child of layer.children)
-            removeFromDisplayObject(child, sight);
+            removeFromDisplayObject(child, sightFilter);
 
         let objects;
 
@@ -253,10 +234,10 @@ function updateLayer(layer) {
         }
 
         for (const object of objects)
-            addLastToDisplayObject(object, sight);
+            addLastToDisplayObject(object, sightFilter);
     }
 
-    addLastToDisplayObject(object, mono);
+    addLastToDisplayObject(object, monoFilter);
 }
 
 function updatePlaceable(placeable) {
@@ -275,7 +256,7 @@ function updatePlaceable(placeable) {
         sprite = placeable;
     }
 
-    removeFromDisplayObject(sprite, mono, mono_noAutoFit, sight);
+    removeFromDisplayObject(sprite, monoFilter, monoFilter_noAutoFit, sightFilter);
 
     if (!sprite)
         return;
@@ -288,18 +269,18 @@ function updatePlaceable(placeable) {
         return;
 
     if (placeable instanceof MeasuredTemplate)
-        addLastToDisplayObject(sprite, sight);
+        addLastToDisplayObject(sprite, sightFilter);
 
     if (placeable instanceof MeasuredTemplate && !placeable.texture)
         return;
 
     if (sprite.filters?.length > 0) {
         if (game.settings.get("perfect-vision", "monoSpecialEffects"))
-            addLastToDisplayObject(sprite, mono_noAutoFit);
+            addLastToDisplayObject(sprite, monoFilter_noAutoFit);
         else
-            addFirstToDisplayObject(sprite, mono_noAutoFit);
+            addFirstToDisplayObject(sprite, monoFilter_noAutoFit);
     } else {
-        addLastToDisplayObject(sprite, mono);
+        addLastToDisplayObject(sprite, monoFilter);
     }
 }
 
@@ -411,10 +392,10 @@ Hooks.once("init", () => {
             })
         });
 
-        Object.defineProperty(mono, "zOrder", { value: 0, writable: false });
-        Object.defineProperty(mono, "rank", { value: 0, writable: false });
-        Object.defineProperty(sight, "zOrder", { value: 0, writable: false });
-        Object.defineProperty(sight, "rank", { value: 0, writable: false });
+        Object.defineProperty(monoFilter, "zOrder", { value: 0, writable: false });
+        Object.defineProperty(monoFilter, "rank", { value: 0, writable: false });
+        Object.defineProperty(sightFilter, "zOrder", { value: 0, writable: false });
+        Object.defineProperty(sightFilter, "rank", { value: 0, writable: false });
     }
 
     if (game.modules.get("roofs")?.active) {

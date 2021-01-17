@@ -1,10 +1,15 @@
 import { extend } from "./extend.js";
-import * as Filters from "./filters.js";
+import { Filter as MaskFilter } from "./mask.js";
 import { ready } from "./migrate.js";
 import { patch } from "./patch.js";
 import * as Presets from "./presets.js";
 import { grayscale } from "./utils.js";
 
+const backgroundFilter = new MaskFilter("step(1.0, 1.0 - r)");
+const visionFilter = new MaskFilter("step(1.0, g)");
+const visionMaxFilter = new MaskFilter("step(1.0, g)");
+const visionMinFilter = new MaskFilter("step(1.0, g)", "vec4(1.0)");
+const lightFilter = new MaskFilter("step(1.0, b)");
 
 function cloneShader(shader, uniforms = {}) {
     return shader ? new (shader instanceof AbstractBaseShader ? shader.constructor : PIXI.Shader)(
@@ -471,7 +476,7 @@ Hooks.once("init", () => {
             if (!c.light.filters)
                 c.light.filters = [];
 
-            c.light.filters[0] = this.darkness ? Filters.visionMin : Filters.visionMax;
+            c.light.filters[0] = this.darkness ? visionMinFilter : visionMaxFilter;
 
             c_.light.visible = false;
             c_.light.filters = null;
@@ -481,7 +486,7 @@ Hooks.once("init", () => {
             c_.light.visible = sight && this.ratio < 1 && !this.darkness && this !== ilm_.globalLight2;
 
             if (!c_.light.filters && this !== ilm_.globalLight2)
-                c_.light.filters = [Filters.light];
+                c_.light.filters = [lightFilter];
             else if (this === ilm_.globalLight2)
                 c_.light.filters = null;
         }
@@ -524,7 +529,7 @@ Hooks.once("init", () => {
 
         {
             c_.background = c.addChildAt(new PIXI.Graphics(), c.getChildIndex(c.background) + 1);
-            c_.background.filter = Filters.background;
+            c_.background.filter = backgroundFilter;
             c_.background.filterArea = canvas.app.renderer.screen;
             c_.background.filters = [c_.background.filter];
             c_.background.visible = game.user.isGM && game.settings.get("perfect-vision", "improvedGMVision");
@@ -532,7 +537,7 @@ Hooks.once("init", () => {
 
         {
             c_.visionBackground = c.addChildAt(new PIXI.Graphics(), c.getChildIndex(c_.background) + 1);
-            c_.visionBackground.filter = Filters.vision;
+            c_.visionBackground.filter = visionFilter;
             c_.visionBackground.filterArea = canvas.app.renderer.screen;
             c_.visionBackground.filters = [c_.visionBackground.filter];
         }
@@ -678,6 +683,18 @@ Hooks.once("init", () => {
         vision_.token = this;
         return arguments;
     });
+});
+
+Hooks.on("canvasInit", () => {
+    visionMaxFilter.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
+    visionMinFilter.blendMode = PIXI.BLEND_MODES.MIN_COLOR;
+    lightFilter.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
+
+    backgroundFilter.resolution = canvas.app.renderer.resolution;
+    visionFilter.resolution = canvas.app.renderer.resolution;
+    visionMaxFilter.resolution = canvas.app.renderer.resolution;
+    visionMinFilter.resolution = canvas.app.renderer.resolution;
+    lightFilter.resolution = canvas.app.renderer.resolution;
 });
 
 Hooks.on("lightingRefresh", () => {
