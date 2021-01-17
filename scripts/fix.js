@@ -56,4 +56,11 @@ Hooks.once("init", () => {
             zIndex: Canvas.layers.fxmaster?.layerOptions.zIndex ?? 180
         });
     });
+
+    patch("LightingLayer.prototype._configureChannels", "POST", function (channels) {
+        const dim = CONFIG.Canvas.lightLevels.dim;
+        channels.dim.rgb = channels.bright.rgb.map((c, i) => (dim * c) + ((1 - dim) * channels.background.rgb[i]));
+        channels.dim.hex = rgbToHex(channels.dim.rgb);
+        return channels;
+    });
 });

@@ -351,10 +351,6 @@ Hooks.once("init", () => {
 
         const channels = wrapped(...args);
 
-        const dim = CONFIG.Canvas.lightLevels.dim;
-        channels.dim.rgb = channels.bright.rgb.map((c, i) => (dim * c) + ((1 - dim) * channels.background.rgb[i]));
-        channels.dim.hex = rgbToHex(channels.dim.rgb);
-
         CONFIG.Canvas.daylightColor = daylightColor;
         CONFIG.Canvas.darknessColor = darknessColor;
 
