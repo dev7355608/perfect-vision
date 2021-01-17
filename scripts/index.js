@@ -1,4 +1,5 @@
 import { extend } from "./extend.js"
+import * as Mask from "./mask.js"
 import { migrateAll, migrateToken, migrateActor, migrateScene, migrateWorldSettings, migrateClientSettings, versions as migrationVersions } from "./migrate.js"
 import { patch } from "./patch.js"
 
@@ -62,7 +63,7 @@ class PerfectVision {
 
     static _isReady = false;
 
-    static _update({ settings = false, refresh = false, filters = false, tokens = null, layers = null, fog = false, migrate = null } = {}) {
+    static _update({ settings = false, refresh = false, filters = false, placeables = null, tokens = null, layers = null, fog = false, migrate = null } = {}) {
         if (!this._isReady)
             return;
 
@@ -72,7 +73,6 @@ class PerfectVision {
         if (refresh) {
             this._refreshLighting = true;
             this._refreshSight = true;
-            this._refresh = true;
         }
 
         if (migrate === "world") {
@@ -308,7 +308,7 @@ class PerfectVision {
 
         this._canvasReady();
 
-        canvas.app.ticker.add(this._onTick, this, PIXI.UPDATE_PRIORITY.LOW + 1);
+        canvas.app.ticker.add(this._onTick, this, PIXI.UPDATE_PRIORITY.LOW + 2);
     }
 
     static _canvasReady() {
@@ -318,10 +318,6 @@ class PerfectVision {
             return;
 
         this._update({ settings: true, refresh: true, filters: true, tokens: canvas.tokens.placeables, fog: true });
-    }
-
-    static _canvasPan() {
-        this._refresh = true;
     }
 
     static _lightingRefresh() {
@@ -344,51 +340,11 @@ class PerfectVision {
 
         ilm_.visionBackground.tint = rgbToHex(this._grayscale(canvas.lighting.channels.background.rgb));
 
-        const mask = this._mask;
-
-        mask.background.clear();
-
-        if (canvas.lighting.globalLight)
-            mask.background.beginFill(0x00FF00, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
-
-        for (const layer of mask.layers)
-            layer.removeChildren();
-
-        for (const source of canvas.lighting.sources) {
-            if (!source.active) continue;
-
-            if (source !== ilm_.globalLight2) {
-                const sc = source.illumination;
-                const sc_ = extend(sc);
-
-                if (sc_.fovLight)
-                    mask.layers[2].addChild(sc_.fovLight);
-            }
-        }
-
-        for (const source of canvas.sight.sources) {
-            if (!source.active) continue;
-
-            const sc = source.illumination;
-            const sc_ = extend(sc);
-
-            if (sc_.fovMono)
-                mask.layers[0].addChild(sc_.fovMono);
-
-            if (sc_.fovColor)
-                mask.layers[1].addChild(sc_.fovColor);
-
-            if (sc_.fovDimToBright)
-                mask.layers[3].addChild(sc_.fovDimToBright);
-        }
-
         const sight = canvas.sight;
         const sight_ = extend(sight);
 
         if (sight_.fog?.weatherEffect)
             sight_.fog.weatherEffect._updateParticleEmitters();
-
-        this._refresh = true;
     }
 
     static _sightRefresh() {
@@ -396,17 +352,9 @@ class PerfectVision {
 
         let monoVisionColor;
 
-        let mask = this._mask;
-
-        mask.msk.clear();
-
         if (canvas.sight.tokenVision && canvas.sight.sources.size > 0) {
-            mask.msk.beginFill(0xFFFFFF, 1.0);
-
             for (const source of canvas.sight.sources) {
                 if (!source.active) continue;
-
-                mask.msk.drawPolygon(source.los);
 
                 const source_ = extend(source);
 
@@ -421,19 +369,6 @@ class PerfectVision {
                     }
                 }
             }
-
-            for (const source of canvas.lighting.sources) {
-                if (!source.active || source.type === CONST.SOURCE_TYPES.LOCAL)
-                    continue;
-
-                mask.msk.drawPolygon(source.fov);
-            }
-
-            mask.msk.endFill();
-
-            mask.mask = mask.msk;
-        } else {
-            mask.mask = null;
         }
 
         this._monoFilter.uniforms.uTint = monoVisionColor ?? [1, 1, 1];
@@ -450,8 +385,6 @@ class PerfectVision {
         }
 
         this._update({ filters: true });
-
-        this._refresh = true;
     }
 
     static async _updateToken(scene, data, update, options, userId) {
@@ -801,85 +734,6 @@ class PerfectVision {
         }
     }
 
-    static _mask_ = null;
-
-    static get _mask() {
-        if (!this._mask_) {
-            const blurDistance = game.settings.get("core", "softShadows") ? Math.max(CONFIG.Canvas.blurStrength / 2, 1) : 0;
-            this._mask_ = new PIXI.Container();
-            this._mask_.filter = blurDistance ?
-                new PerfectVision._GlowFilter(CONFIG.Canvas.blurStrength / 4, 2.0, 4 / 5, blurDistance) :
-                new PIXI.filters.AlphaFilter(1.0);
-            this._mask_.filters = [this._mask_.filter];
-            this._mask_.filterArea = canvas.app.renderer.screen;
-            this._mask_.background = this._mask_.addChild(new PIXI.Graphics());
-            this._mask_.layers = [
-                new PIXI.Container(),
-                new PIXI.Container(),
-                new PIXI.Container(),
-                new PIXI.Container()
-            ];
-            this._mask_.addChild(
-                this._mask_.layers[0],
-                this._mask_.layers[1],
-                this._mask_.layers[2],
-                this._mask_.layers[3]
-            );
-            this._mask_.msk = this._mask_.addChild(new PIXI.Graphics());
-            this._mask_.mask = this._mask_.msk;
-        }
-        return this._mask_;
-    }
-
-    static _visualizeTexture(texture, name = "") {
-        const dataUrl = canvas.app.renderer.extract.canvas(texture).toDataURL("image/png");
-        const w = window.open();
-        w.document.open();
-        w.document.write(`<html><head><title>${name}</title><head><body style="margin:0;background-image:linear-gradient(45deg, #ccc 25%, transparent 25%),linear-gradient(135deg, #ccc 25%, transparent 25%),linear-gradient(45deg, transparent 75%, #ccc 75%),linear-gradient(135deg, transparent 75%, #ccc 75%);background-size: 2em 2em;background-position:0 0, 1em 0, 1em -1em, 0 -1em;"><iframe src="${dataUrl}" width="100%" height="100%" frameborder="0" scrolling="no"></iframe></body></html>`);
-        w.document.close();
-    }
-
-    static _visualizeMask() {
-        this._visualizeTexture(this._mask.texture, "mask");
-    }
-
-    static _getTexture(object) {
-        const renderer = canvas.app.renderer;
-        const screen = renderer.screen;
-        const resolution = renderer.resolution;
-        const width = screen.width;
-        const height = screen.height;
-
-        if (!object.texture || object.texture === PIXI.Texture.EMPTY) {
-            object.texture = PIXI.RenderTexture.create({
-                width: width,
-                height: height,
-                scaleMode: PIXI.SCALE_MODES.LINEAR,
-                resolution: resolution
-            });
-        } else {
-            if (object.texture.resolution !== resolution) {
-                object.texture.setResolution(resolution);
-            }
-
-            if (object.texture.width !== width || object.texture.height !== height) {
-                object.texture.resize(width, height);
-            }
-        }
-
-        return object.texture;
-    }
-
-    static _stageTransform(object) {
-        const stage = canvas.stage;
-        object.position.copyFrom(stage.position);
-        object.pivot.copyFrom(stage.pivot);
-        object.scale.copyFrom(stage.scale);
-        object.skew.copyFrom(stage.skew);
-        object.rotation = stage.rotation;
-        return object;
-    }
-
     static _onTick() {
         if (!canvas?.ready)
             return;
@@ -889,14 +743,6 @@ class PerfectVision {
 
         if (this._refreshSight)
             canvas.sight.refresh();
-
-        if (this._refresh) {
-            this._refresh = false;
-
-            const mask = this._mask;
-
-            canvas.app.renderer.render(this._stageTransform(mask), this._getTexture(mask), true, undefined, false);
-        }
     }
 
     static _MaskFilter = class extends PIXI.Filter {
@@ -949,7 +795,7 @@ class PerfectVision {
         }
 
         apply(filterManager, input, output, clearMode) {
-            const texture = PerfectVision._mask.texture;
+            const texture = Mask.texture;
             this.uniforms.uMask = texture;
 
             if (texture) {
@@ -1185,7 +1031,7 @@ class PerfectVision {
         }
 
         apply(filterManager, input, output, clearMode) {
-            const texture = PerfectVision._mask.texture;
+            const texture = Mask.texture;
             this.uniforms.uMask = texture;
 
             if (texture) {
@@ -1857,38 +1703,6 @@ class PerfectVision {
                     c.mask = c.fov;
                 }
 
-                if (this_.fovMono) {
-                    if (!c_.fovMono)
-                        c_.fovMono = new PIXI.Graphics();
-
-                    c_.fovMono.clear().beginFill(0x00FF00, 1.0).drawPolygon(this_.fovMono).endFill();
-                } else if (c_.fovMono) {
-                    c_.fovMono.destroy();
-                    delete c_.fovMono;
-                }
-
-                if (this_.fovColor) {
-                    if (!c_.fovColor)
-                        c_.fovColor = new PIXI.Graphics();
-
-                    c_.fovColor.clear().beginFill(0xFFFF00, 1.0).drawPolygon(this_.fovColor).endFill();
-                } else if (c_.fovColor) {
-                    c_.fovColor.destroy();
-                    delete c_.fovColor;
-                }
-
-                if (this_.fovDimToBright) {
-                    if (!c_.fovDimToBright) {
-                        c_.fovDimToBright = new PIXI.Graphics();
-                        c_.fovDimToBright.blendMode = PIXI.BLEND_MODES.ADD;
-                    }
-
-                    c_.fovDimToBright.clear().beginFill(0x0000FF, 1.0).drawPolygon(this_.fovDimToBright).endFill();
-                } else if (c_.fovDimToBright) {
-                    c_.fovDimToBright.destroy();
-                    delete c_.fovDimToBright;
-                }
-
                 c.light.visible = sight && this_.radius > 0;
 
                 if (!c.light.filters)
@@ -1899,23 +1713,16 @@ class PerfectVision {
                 c_.light.visible = false;
                 c_.light.filters = null;
             } else {
-                if (!c_.fovLight)
-                    c_.fovLight = new PIXI.Graphics();
-
-                c_.fovLight.clear();
-
-                if (this.radius > 0)
-                    c_.fovLight.beginFill(0xFF0000, 1.0).drawPolygon(this.fov).endFill();
-
                 c.light.visible = true;
                 c.light.filters = null;
                 c_.light.visible = sight && this.ratio < 1 && !this.darkness && this !== ilm_.globalLight2;
 
-                if (!c_.light.filters)
+                if (!c_.light.filters && this !== ilm_.globalLight2)
                     c_.light.filters = [PerfectVision._lightFilter];
+                else if (this === ilm_.globalLight2)
+                    c_.light.filters = null;
             }
 
-            PerfectVision._refresh = true;
             return c;
         });
 
@@ -1952,11 +1759,6 @@ class PerfectVision {
 
             if (sight_.filter)
                 sight_.filter.blur = blur;
-
-            const mask = PerfectVision._mask;
-
-            if (mask.filter instanceof PerfectVision._GlowFilter)
-                mask.filter.uniforms.uStrength = blur / 4;
 
             return arguments[0];
         });
@@ -2261,8 +2063,6 @@ class PerfectVision {
         Hooks.once("ready", (...args) => PerfectVision._ready(...args));
 
         Hooks.on("canvasReady", (...args) => PerfectVision._canvasReady(...args));
-
-        Hooks.on("canvasPan", (...args) => PerfectVision._canvasPan(...args));
 
         Hooks.on("lightingRefresh", (...args) => PerfectVision._lightingRefresh(...args));
 
