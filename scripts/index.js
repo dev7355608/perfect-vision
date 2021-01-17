@@ -1,7 +1,6 @@
 import * as Filters from "./filters.js";
 import * as Fog from "./fog.js";
 import { migrateAll, migrateToken, migrateActor, migrateScene, migrateWorldSettings, migrateClientSettings } from "./migrate.js";
-import { patch } from "./patch.js";
 
 import "./config.js";
 import "./controls.js";
@@ -221,18 +220,6 @@ class PerfectVision {
         });
     }
 
-    static _setup() {
-        if (game.modules.get("fxmaster")?.active) {
-            patch("Canvas.layers.fxmaster.prototype.addChild", "POST", function () {
-                PerfectVision._update({ filters: true, layers: ["fxmaster"] });
-                return arguments[0];
-            });
-            Hooks.on("switchFilter", () => PerfectVision._update({ filters: true, layers: ["fxmaster"] }));
-            Hooks.on("switchWeather", () => PerfectVision._update({ filters: true, layers: ["fxmaster"] }));
-            Hooks.on("updateWeather", () => PerfectVision._update({ filters: true, layers: ["fxmaster"] }));
-        }
-    }
-
     static _updated = true;
 
     static _onMigration(migrated) {
@@ -322,28 +309,6 @@ class PerfectVision {
     }
 
     static _registerHooks() {
-        if (game.modules.get("tokenmagic")?.active) {
-            patch("PlaceableObject.prototype._TMFXsetRawFilters", "POST", function (retVal, filters) {
-                PerfectVision._update({ filters: true, placeables: [this] });
-                return retVal;
-            });
-            Hooks.once("ready", () => {
-                patch("TokenMagic._clearImgFiltersByPlaceable", "POST", function (retVal, placeable) {
-                    PerfectVision._update({ filters: true, placeables: [placeable] });
-                    return retVal;
-                })
-            });
-        }
-
-        if (game.modules.get("roofs")?.active) {
-            patch("RoofsLayer.createRoof", "POST", function (retVal, tile) {
-                PerfectVision._update({ filters: true, placeables: [tile.roof.container] });
-                return retVal;
-            });
-        }
-
-        Hooks.once("setup", (...args) => PerfectVision._setup(...args));
-
         Hooks.once("ready", (...args) => PerfectVision._ready(...args));
 
         Hooks.on("canvasReady", (...args) => PerfectVision._canvasReady(...args));

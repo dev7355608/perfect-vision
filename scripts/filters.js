@@ -343,6 +343,7 @@ export function updatePlaceable(placeable) {
     if (placeable instanceof Token && !game.settings.get("perfect-vision", "monoTokenIcons"))
         return;
 
+    // Skip Turn Marker
     if (placeable instanceof Tile && (placeable.data.flags?.startMarker || placeable.data.flags?.turnMarker))
         return;
 
@@ -436,4 +437,40 @@ Hooks.once("init", () => {
 
         return retVal;
     });
+
+    if (game.modules.get("tokenmagic")?.active) {
+        patch("PlaceableObject.prototype._TMFXsetRawFilters", "POST", function () {
+            updatePlaceable(this);
+            return arguments[0];
+        });
+
+        Hooks.once("ready", () => {
+            patch("TokenMagic._clearImgFiltersByPlaceable", "POST", function (retVal, placeable) {
+                updatePlaceable(placeable);
+                return retVal;
+            })
+        });
+    }
+
+    if (game.modules.get("roofs")?.active) {
+        patch("RoofsLayer.createRoof", "POST", function (retVal, tile) {
+            updatePlaceable(tile.roof.container);
+            return retVal;
+        });
+    }
+
+    if (game.modules.get("fxmaster")?.active) {
+        Hooks.on("switchFilter", () => updateLayer(canvas.fxmaster));
+        Hooks.on("switchWeather", () => updateLayer(canvas.fxmaster));
+        Hooks.on("updateWeather", () => updateLayer(canvas.fxmaster));
+    }
+});
+
+Hooks.once("setup", () => {
+    if (game.modules.get("fxmaster")?.active) {
+        patch("Canvas.layers.fxmaster.prototype.addChild", "POST", function () {
+            updateLayer(canvas.fxmaster);
+            return arguments[0];
+        });
+    }
 });
