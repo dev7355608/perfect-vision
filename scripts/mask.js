@@ -214,7 +214,7 @@ Hooks.on("canvasPan", () => {
 Hooks.on("ready", () => {
     dirty = true;
 
-    canvas.app.ticker.add(render, null, PIXI.UPDATE_PRIORITY.LOW + 1);
+    canvas.app.ticker.add(render, globalThis, PIXI.UPDATE_PRIORITY.LOW + 1);
 });
 
 // Based on PixiJS Filters' GlowFilter

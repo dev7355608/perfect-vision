@@ -1,10 +1,10 @@
 import { extend } from "./extend.js";
 import * as Filters from "./filters.js";
+import { ready } from "./migrate.js";
 import { patch } from "./patch.js";
 import * as Presets from "./presets.js";
 import { grayscale } from "./utils.js";
 
-import { isReady } from "./index.js";
 
 function cloneShader(shader, uniforms = {}) {
     return shader ? new (shader instanceof AbstractBaseShader ? shader.constructor : PIXI.Shader)(
@@ -281,7 +281,7 @@ Hooks.once("init", () => {
         const scene = token.scene ?? token._original?.scene;
         const minR = Math.min(token.w, token.h) * 0.5;
 
-        if (!isReady) {
+        if (!ready) {
             opts.dim = 0;
             opts.bright = 0;
             return wrapped(opts);

@@ -1,3 +1,5 @@
+export var ready = false;
+
 function getFlags(entity) {
     if (entity === "world" || entity === "client") {
         const storage = game.settings.storage.get(entity);
@@ -111,9 +113,9 @@ async function unsetFlag(entity, key) {
 
 let notifed = false;
 
-export const versions = Object.freeze({ world: 1, client: 1, scene: 1, token: 1 });
+const versions = Object.freeze({ world: 1, client: 1, scene: 1, token: 1 });
 
-export async function migrate(entity, func) {
+async function migrate(entity, func) {
     let type;
 
     if (entity instanceof Scene) {
@@ -172,11 +174,11 @@ export async function migrate(entity, func) {
     return false;
 }
 
-export async function migrateToken(token) {
+async function migrateToken(token) {
     return await migrate(token, async function (version) { /* ... */ });
 }
 
-export async function migrateTokens() {
+async function migrateTokens() {
     const migrated = [];
 
     for (const scene of game.scenes.entities) {
@@ -188,11 +190,11 @@ export async function migrateTokens() {
     return migrated.some(m => m);
 }
 
-export async function migrateActor(actor) {
+async function migrateActor(actor) {
     return await migrateToken(actor);
 }
 
-export async function migrateActors() {
+async function migrateActors() {
     const migrated = [];
 
     for (const actor of game.actors.entities) {
@@ -202,11 +204,11 @@ export async function migrateActors() {
     return migrated.some(m => m);
 }
 
-export async function migrateScene(scene) {
+async function migrateScene(scene) {
     await migrate(scene, async function (version) { /* ... */ });
 }
 
-export async function migrateScenes() {
+async function migrateScenes() {
     const migrated = [];
 
     for (const scene of game.scenes.entities) {
@@ -236,7 +238,7 @@ async function resetInvalidSettingsToDefault(scope) {
     return migrated;
 }
 
-export async function migrateWorldSettings() {
+async function migrateWorldSettings() {
     let migrated = false;
 
     migrated = await migrate("world", async function (version) { /* ... */ }) || migrated;
@@ -245,7 +247,7 @@ export async function migrateWorldSettings() {
     return migrated;
 }
 
-export async function migrateClientSettings() {
+async function migrateClientSettings() {
     let migrated = false;
 
     migrated = await migrate("client", async function (version) { /* ... */ }) || migrated;
@@ -254,7 +256,7 @@ export async function migrateClientSettings() {
     return migrated;
 }
 
-export async function migrateSettings() {
+async function migrateSettings() {
     let migrated = false;
 
     migrated = await migrateClientSettings() || migrated;
@@ -263,7 +265,7 @@ export async function migrateSettings() {
     return migrated;
 }
 
-export async function migrateAll() {
+async function migrateAll() {
     let migrated = false;
 
     migrated = await migrateSettings() || migrated;
@@ -307,3 +309,75 @@ Hooks.on("renderSettingsConfig", (sheet, html, data) => {
     clientVersion.setAttribute("data-dtype", "Number");
     html.find(`select[name="perfect-vision.visionRules"]`)[0].form.appendChild(clientVersion);
 });
+
+Hooks.on("init", () => {
+    game.settings.register("perfect-vision", "_version", {
+        name: "World Settings Version",
+        hint: "World Settings Version",
+        scope: "world",
+        config: false,
+        type: Number,
+        default: 0,
+        onChange: () => migrateWorldSettings()
+    });
+
+    game.settings.register("perfect-vision", "_clientVersion", {
+        name: "Client Settings Version",
+        hint: "Client Settings Version",
+        scope: "client",
+        config: false,
+        type: Number,
+        default: 0,
+        onChange: () => migrateClientSettings()
+    });
+});
+
+Hooks.on("updateToken", async (scene, data, update, options, userId) => {
+    if (!hasProperty(update, "flags.perfect-vision"))
+        return;
+
+    await migrateToken(new Token(data, scene)).then(onMigration);
+});
+
+Hooks.on("updateActor", async (actor, update, options, userId) => {
+    if (!hasProperty(update, "flags.perfect-vision"))
+        return;
+
+    await migrateActor(actor).then(onMigration);
+});
+
+Hooks.on("updateScene", async (scene, update, options, userId) => {
+    if (!hasProperty(update, "flags.perfect-vision"))
+        return;
+
+    await migrateScene(scene).then(onMigration);
+});
+
+Hooks.once("ready", async () => {
+    await migrateAll().then(onMigration);
+
+    ready = true;
+});
+
+var refreshing = false;
+
+function onMigration(migrated) {
+    if (!migrated)
+        return;
+
+    if (!refreshing) {
+        refreshing = true;
+        canvas.app.ticker.addOnce(refresh, globalThis, PIXI.UPDATE_PRIORITY.LOW + 2);
+    }
+}
+
+function refresh() {
+    refreshing = false;
+
+    for (const token of canvas.tokens.placeables) {
+        token.updateSource({ defer: true });
+    }
+
+    canvas.lighting.refresh();
+    canvas.sight.refresh();
+}
