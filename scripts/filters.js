@@ -99,8 +99,6 @@ class MonoFilter extends PIXI.Filter {
     }
 }
 
-export const fog = new MaskFilter("1.0 - max(r, g)");
-
 const sightFilter = new MaskFilter("max(r, g)");
 
 const monoFilter = new MonoFilter();
@@ -115,7 +113,6 @@ const monoFilter_noAutoFit = new Proxy(monoFilter, {
 
 Hooks.on("canvasInit", () => {
     sightFilter.resolution = canvas.app.renderer.resolution;
-    fog.resolution = canvas.app.renderer.resolution;
     monoFilter.resolution = canvas.app.renderer.resolution;
 });
 

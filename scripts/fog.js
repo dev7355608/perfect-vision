@@ -1,7 +1,9 @@
 import { extend } from "./extend.js";
-import { fog as fogFilter } from "./filters.js";
+import { Filter as MaskFilter } from "./mask.js";
 import { patch } from "./patch.js";
 import { grayscale } from "./utils.js";
+
+const fogFilter = new MaskFilter("1.0 - max(r, g)");
 
 // Based on FXMaster's FogWeatherEffect
 class FogEffect extends SpecialEffect {
@@ -216,6 +218,10 @@ Hooks.once("init", () => {
 
         return arguments[0];
     });
+});
+
+Hooks.on("canvasInit", () => {
+    fogFilter.resolution = canvas.app.renderer.resolution;
 });
 
 Hooks.on("lightingRefresh", () => {
