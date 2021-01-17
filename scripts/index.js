@@ -1,7 +1,7 @@
-import { extend } from "./extend.js"
-import * as Mask from "./mask.js"
-import { migrateAll, migrateToken, migrateActor, migrateScene, migrateWorldSettings, migrateClientSettings, versions as migrationVersions } from "./migrate.js"
-import { patch } from "./patch.js"
+import { extend } from "./extend.js";
+import * as Filters from "./filters.js";
+import { migrateAll, migrateToken, migrateActor, migrateScene, migrateWorldSettings, migrateClientSettings, versions as migrationVersions } from "./migrate.js";
+import { patch } from "./patch.js";
 
 class PerfectVision {
     static _settings;
@@ -330,12 +330,8 @@ class PerfectVision {
             const s = 1 / Math.max(...canvas.lighting.channels.background.rgb);
             ilm_.background.tint = rgbToHex(canvas.lighting.channels.background.rgb.map(c => c * s));
             ilm_.background.visible = true;
-
-            this._monoFilter.uniforms.uSaturation = 1;
         } else {
             ilm_.background.visible = false;
-
-            this._monoFilter.uniforms.uSaturation = 1 - canvas.lighting.darknessLevel;
         }
 
         ilm_.visionBackground.tint = rgbToHex(this._grayscale(canvas.lighting.channels.background.rgb));
@@ -349,31 +345,6 @@ class PerfectVision {
 
     static _sightRefresh() {
         this._refreshSight = false;
-
-        let monoVisionColor;
-
-        if (canvas.sight.tokenVision && canvas.sight.sources.size > 0) {
-            for (const source of canvas.sight.sources) {
-                if (!source.active) continue;
-
-                const source_ = extend(source);
-
-                if (source_.monoVisionColor) {
-                    if (monoVisionColor && !(
-                        monoVisionColor[0] === source_.monoVisionColor[0] &&
-                        monoVisionColor[1] === source_.monoVisionColor[1] &&
-                        monoVisionColor[2] === source_.monoVisionColor[2])) {
-                        monoVisionColor = [1, 1, 1];
-                    } else {
-                        monoVisionColor = source_.monoVisionColor;
-                    }
-                }
-            }
-        }
-
-        this._monoFilter.uniforms.uTint = monoVisionColor ?? [1, 1, 1];
-
-        this._sightFilter.enabled = canvas.sight.tokenVision && canvas.sight.sources.size > 0;
 
         const ilm = canvas.lighting.illumination;
         const ilm_ = extend(ilm);
@@ -745,257 +716,8 @@ class PerfectVision {
             canvas.sight.refresh();
     }
 
-    static _MaskFilter = class extends PIXI.Filter {
-        constructor(channel = "mask", bg = "vec4(0.0)", ...args) {
-            super(
-                `\
-                precision mediump float;
-
-                attribute vec2 aVertexPosition;
-
-                uniform mat3 projectionMatrix;
-                uniform vec4 inputSize;
-                uniform vec4 outputFrame;
-                uniform vec4 uMaskSize;
-
-                varying vec2 vTextureCoord;
-                varying vec2 vMaskCoord;
-
-                void main(void)
-                {
-                    vec2 position = aVertexPosition * max(outputFrame.zw, vec2(0.0)) + outputFrame.xy;
-                    gl_Position = vec4((projectionMatrix * vec3(position, 1.0)).xy, 0.0, 1.0);
-                    vTextureCoord = aVertexPosition * (outputFrame.zw * inputSize.zw);
-                    vMaskCoord = position * uMaskSize.zw;
-                }`, `\
-                precision mediump float;
-
-                varying vec2 vTextureCoord;
-                varying vec2 vMaskCoord;
-
-                uniform sampler2D uSampler;
-                uniform sampler2D uMask;
-
-                void main(void)
-                {
-                    vec4 color = texture2D(uSampler, vTextureCoord);
-                    vec4 mask = texture2D(uMask, vMaskCoord);
-                    float r = mask.r;
-                    float g = mask.g;
-                    float b = mask.b;
-                    float a = mask.a;
-                    gl_FragColor = mix((${bg}), color, (${channel}));
-                }`,
-                ...args
-            );
-
-            this.resolution = canvas.app.renderer.resolution;
-
-            this.uniforms.uMaskSize = [0, 0, 0, 0];
-        }
-
-        apply(filterManager, input, output, clearMode) {
-            const texture = Mask.texture;
-            this.uniforms.uMask = texture;
-
-            if (texture) {
-                const maskSize = this.uniforms.uMaskSize;
-                maskSize[0] = texture.width;
-                maskSize[1] = texture.height;
-                maskSize[2] = 1 / texture.width;
-                maskSize[3] = 1 / texture.height;
-            }
-
-            filterManager.applyFilter(this, input, output, clearMode);
-        }
-    };
-
-    static _backgroundFilter_ = null;
-
-    static get _backgroundFilter() {
-        if (!this._backgroundFilter_)
-            this._backgroundFilter_ = new this._MaskFilter("step(1.0, 1.0 - r)");
-        return this._backgroundFilter_;
-    }
-
-    static _visionFilter_ = null;
-
-    static get _visionFilter() {
-        if (!this._visionFilter_)
-            this._visionFilter_ = new this._MaskFilter("step(1.0, g)");
-        return this._visionFilter_;
-    }
-
-    static _visionFilterMax_ = null;
-
-    static get _visionFilterMax() {
-        if (!this._visionFilterMax_) {
-            this._visionFilterMax_ = new this._MaskFilter("step(1.0, g)");
-            this._visionFilterMax_.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
-        }
-        return this._visionFilterMax_;
-    }
-
-    static _visionFilterMin_ = null;
-
-    static get _visionFilterMin() {
-        if (!this._visionFilterMin_) {
-            this._visionFilterMin_ = new this._MaskFilter("step(1.0, g)", "vec4(1.0)");
-            this._visionFilterMin_.blendMode = PIXI.BLEND_MODES.MIN_COLOR;
-        }
-        return this._visionFilterMin_;
-    }
-
-    static _lightFilter_ = null;
-
-    static get _lightFilter() {
-        if (!this._lightFilter_) {
-            this._lightFilter_ = new this._MaskFilter("step(1.0, b)");
-            this._lightFilter_.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
-        }
-        return this._lightFilter_;
-    }
-
-    static _sightFilter_ = null;
-
-    static get _sightFilter() {
-        if (!this._sightFilter_)
-            this._sightFilter_ = new this._MaskFilter("max(r, g)");
-        return this._sightFilter_;
-    }
-
-    static _fogFilter_ = null;
-
-    static get _fogFilter() {
-        if (!this._fogFilter_)
-            this._fogFilter_ = new this._MaskFilter("1.0 - max(r, g)");
-        return this._fogFilter_;
-    }
-
-    static _MonoFilter = class extends PIXI.Filter {
-        constructor(...args) {
-            super(
-                `\
-                precision mediump float;
-
-                attribute vec2 aVertexPosition;
-
-                uniform mat3 projectionMatrix;
-                uniform vec4 inputSize;
-                uniform vec4 outputFrame;
-                uniform vec4 uMaskSize;
-
-                varying vec2 vTextureCoord;
-                varying vec2 vMaskCoord;
-
-                void main(void)
-                {
-                    vec2 position = aVertexPosition * max(outputFrame.zw, vec2(0.0)) + outputFrame.xy;
-                    gl_Position = vec4((projectionMatrix * vec3(position, 1.0)).xy, 0.0, 1.0);
-                    vTextureCoord = aVertexPosition * (outputFrame.zw * inputSize.zw);
-                    vMaskCoord = position * uMaskSize.zw;
-                }`, `\
-                precision mediump float;
-
-                uniform sampler2D uSampler;
-                uniform sampler2D uMask;
-                uniform vec3 uTint;
-                uniform float uSaturation;
-
-                varying vec2 vTextureCoord;
-                varying vec2 vMaskCoord;
-
-                vec3 rgb2srgb(vec3 c)
-                {
-                    vec3 a = 12.92 * c;
-                    vec3 b = 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055;
-                    vec3 s = step(vec3(0.0031308), c);
-                    return mix(a, b, s);
-                }
-
-                vec3 srgb2rgb(vec3 c)
-                {
-                    vec3 a = c / 12.92;
-                    vec3 b = pow((c + 0.055) / 1.055, vec3(2.4));
-                    vec3 s = step(vec3(0.04045), c);
-                    return mix(a, b, s);
-                }
-
-                float rgb2y(vec3 c)
-                {
-                    vec3 w = vec3(0.2126, 0.7152, 0.0722);
-                    return dot(c, w);
-                }
-
-                vec3 y2mono(float y, vec3 tint)
-                {
-                    float tintY = rgb2y(tint);
-                    return mix(
-                        mix(tint, vec3(1.0), (y - tintY) / (1.0 - mix(tintY, 0.0, step(1.0, tintY)))),
-                        tint * (y / mix(tintY, 1.0, step(tintY, 0.0))),
-                        step(y, tintY)
-                    );
-                }
-
-                void main(void)
-                {
-                    vec4 mask = texture2D(uMask, vMaskCoord);
-                    vec4 srgba = texture2D(uSampler, vTextureCoord);
-                    vec3 srgb = srgba.rgb;
-                    vec3 rgb = srgb2rgb(srgb);
-                    float a = srgba.a;
-                    float y = rgb2y(rgb);
-                    vec3 tint = srgb2rgb(uTint);
-                    gl_FragColor = vec4(rgb2srgb(mix(mix(vec3(y), y2mono(y, tint), mask.a), rgb, max(mask.r, uSaturation))), a);
-                }`,
-                ...args
-            );
-
-            this.resolution = canvas.app.renderer.resolution;
-
-            this.uniforms.uMaskSize = [0, 0, 0, 0];
-        }
-
-        apply(filterManager, input, output, clearMode) {
-            const texture = Mask.texture;
-            this.uniforms.uMask = texture;
-
-            if (texture) {
-                const maskSize = this.uniforms.uMaskSize;
-                maskSize[0] = texture.width;
-                maskSize[1] = texture.height;
-                maskSize[2] = 1 / texture.width;
-                maskSize[3] = 1 / texture.height;
-            }
-
-            filterManager.applyFilter(this, input, output, clearMode);
-        }
-    };
-
-    static _monoFilter_ = null;
-    // Remove as soon as pixi.js fixes the auto fit bug.
-    static _monoFilter_noAutoFit_ = null;
-
-    static get _monoFilter() {
-        if (!this._monoFilter_)
-            this._monoFilter_ = new this._MonoFilter();
-        return this._monoFilter_;
-    }
-
-    static get _monoFilter_noAutoFit() {
-        if (!this._monoFilter_noAutoFit_)
-            this._monoFilter_noAutoFit_ = new Proxy(this._monoFilter, {
-                get(target, prop, receiver) {
-                    if (prop === "autoFit")
-                        return false;
-                    return Reflect.get(...arguments);
-                }
-            });
-        return this._monoFilter_noAutoFit_;
-    }
-
     static _updateFilters({ layers = null, placeables = null } = {}) {
-        this._monoFilter.zOrder = this._monoFilter.rank = 0;
+        Filters.mono.zOrder = Filters.mono.rank = 0;
 
         if (layers == null && placeables == null) {
             layers = ["background", "effects", "fxmaster"];
@@ -1017,7 +739,7 @@ class PerfectVision {
                 if (!layer) continue;
 
                 {
-                    const monoFilterIndex = layer.filters ? layer.filters.indexOf(this._monoFilter) : -1;
+                    const monoFilterIndex = layer.filters ? layer.filters.indexOf(Filters.mono) : -1;
 
                     if (monoFilterIndex >= 0)
                         layer.filters.splice(monoFilterIndex, 1);
@@ -1025,14 +747,14 @@ class PerfectVision {
                     let object = layer;
 
                     if (layerName === "background") {
-                        const monoFilterIndex = layer.img?.filters ? layer.img.filters.indexOf(this._monoFilter) : -1;
+                        const monoFilterIndex = layer.img?.filters ? layer.img.filters.indexOf(Filters.mono) : -1;
 
                         if (monoFilterIndex >= 0)
                             layer.img.filters.splice(monoFilterIndex, 1);
 
                         object = layer.img ?? layer;
                     } else if (layerName === "effects" || layerName === "fxmaster") {
-                        const monoFilterIndex = layer.weather?.filters ? layer.weather.filters.indexOf(this._monoFilter) : -1;
+                        const monoFilterIndex = layer.weather?.filters ? layer.weather.filters.indexOf(Filters.mono) : -1;
 
                         if (monoFilterIndex >= 0)
                             layer.weather.filters.splice(monoFilterIndex, 1);
@@ -1045,21 +767,21 @@ class PerfectVision {
 
                     if (object) {
                         if (object.filters?.length > 0) {
-                            object.filters.push(this._monoFilter);
+                            object.filters.push(Filters.mono);
                         } else {
-                            object.filters = [this._monoFilter];
+                            object.filters = [Filters.mono];
                         }
                     }
                 }
 
                 if (layerName === "effects" || layerName === "fxmaster") {
-                    const sightFilterIndex = layer.filters ? layer.filters.indexOf(this._sightFilter) : -1;
+                    const sightFilterIndex = layer.filters ? layer.filters.indexOf(Filters.sight) : -1;
 
                     if (sightFilterIndex >= 0)
                         layer.filters.splice(sightFilterIndex, 1);
 
                     for (const child of layer.children) {
-                        const sightFilterIndex = child.filters ? child.filters.indexOf(this._sightFilter) : -1;
+                        const sightFilterIndex = child.filters ? child.filters.indexOf(Filters.sight) : -1;
 
                         if (sightFilterIndex >= 0)
                             child.filters.splice(sightFilterIndex, 1);
@@ -1074,9 +796,9 @@ class PerfectVision {
 
                     for (const object of objects) {
                         if (object.filters?.length > 0) {
-                            object.filters.push(this._sightFilter);
+                            object.filters.push(Filters.sight);
                         } else {
-                            object.filters = [this._sightFilter];
+                            object.filters = [Filters.sight];
                         }
                     }
                 }
@@ -1101,8 +823,8 @@ class PerfectVision {
                 if (sprite) {
                     if (sprite.filters) {
                         const monoFilterIndex = sprite.filters ? Math.max(
-                            sprite.filters.indexOf(this._monoFilter),
-                            sprite.filters.indexOf(this._monoFilter_noAutoFit)) : -1;
+                            sprite.filters.indexOf(Filters.mono),
+                            sprite.filters.indexOf(Filters.mono_noAutoFit)) : -1;
 
                         if (monoFilterIndex >= 0)
                             sprite.filters.splice(monoFilterIndex, 1);
@@ -1116,20 +838,20 @@ class PerfectVision {
 
                     if (sprite.filters?.length > 0) {
                         if (this._settings.monoSpecialEffects)
-                            sprite.filters.push(this._monoFilter_noAutoFit);
+                            sprite.filters.push(Filters.mono_noAutoFit);
                         else
-                            sprite.filters.unshift(this._monoFilter_noAutoFit);
+                            sprite.filters.unshift(Filters.mono_noAutoFit);
                     } else {
-                        sprite.filters = [this._monoFilter];
+                        sprite.filters = [Filters.mono];
                     }
 
                     if (placeable instanceof MeasuredTemplate) {
-                        const sightFilterIndex = sprite.filters ? sprite.filters.indexOf(this._sightFilter) : -1;
+                        const sightFilterIndex = sprite.filters ? sprite.filters.indexOf(Filters.sight) : -1;
 
                         if (sightFilterIndex >= 0)
                             sprite.filters.splice(sightFilterIndex, 1);
 
-                        sprite.filters.push(this._sightFilter);
+                        sprite.filters.push(Filters.sight);
                     }
                 }
             }
@@ -1340,7 +1062,7 @@ class PerfectVision {
                 new PIXI.filters.BlurFilter(sight._blurDistance) :
                 new PIXI.filters.AlphaFilter(1.0);
             sight_.filter.autoFit = sight.filter.autoFit;
-            sight_.fog.filter = PerfectVision._fogFilter;
+            sight_.fog.filter = Filters.fog;
             sight_.fog.filter.autoFit = sight_.filter.autoFit;
 
             if (sight_.filter instanceof PIXI.filters.AlphaFilter)
@@ -1634,7 +1356,7 @@ class PerfectVision {
                 if (!c.light.filters)
                     c.light.filters = [];
 
-                c.light.filters[0] = this.darkness ? PerfectVision._visionFilterMin : PerfectVision._visionFilterMax;
+                c.light.filters[0] = this.darkness ? Filters.visionMin : Filters.visionMax;
 
                 c_.light.visible = false;
                 c_.light.filters = null;
@@ -1644,7 +1366,7 @@ class PerfectVision {
                 c_.light.visible = sight && this.ratio < 1 && !this.darkness && this !== ilm_.globalLight2;
 
                 if (!c_.light.filters && this !== ilm_.globalLight2)
-                    c_.light.filters = [PerfectVision._lightFilter];
+                    c_.light.filters = [Filters.light];
                 else if (this === ilm_.globalLight2)
                     c_.light.filters = null;
             }
@@ -1786,14 +1508,14 @@ class PerfectVision {
 
             {
                 c_.background = c.addChildAt(new PIXI.Graphics(), c.getChildIndex(c.background) + 1);
-                c_.background.filter = PerfectVision._backgroundFilter;
+                c_.background.filter = Filters.background;
                 c_.background.filterArea = canvas.app.renderer.screen;
                 c_.background.filters = [c_.background.filter];
             }
 
             {
                 c_.visionBackground = c.addChildAt(new PIXI.Graphics(), c.getChildIndex(c_.background) + 1);
-                c_.visionBackground.filter = PerfectVision._visionFilter;
+                c_.visionBackground.filter = Filters.vision;
                 c_.visionBackground.filterArea = canvas.app.renderer.screen;
                 c_.visionBackground.filters = [c_.visionBackground.filter];
             }
