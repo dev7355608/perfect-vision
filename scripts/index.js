@@ -468,12 +468,6 @@ class PerfectVision {
         patch("BackgroundLayer.prototype.draw", "POST", async function () {
             const retVal = await arguments[0];
 
-            const this_ = extend(this);
-
-            this_.msk = this.addChild(new PIXI.Graphics());
-            this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
-            this.mask = this_.msk;
-
             PerfectVision._update({ filters: true, layers: ["background"] });
 
             return retVal;
@@ -487,12 +481,6 @@ class PerfectVision {
 
         patch("EffectsLayer.prototype.draw", "POST", async function () {
             const retVal = await arguments[0];
-
-            const this_ = extend(this);
-
-            this_.msk = this.addChild(new PIXI.Graphics());
-            this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
-            this.mask = this_.msk;
 
             PerfectVision._update({ filters: true, layers: ["effects"] });
 
