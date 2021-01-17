@@ -169,13 +169,13 @@ export const visionMin = new MaskFilter("step(1.0, g)", "vec4(1.0)");
 
 export const light = new MaskFilter("step(1.0, b)");
 
-export const sight = new MaskFilter("max(r, g)");
-
 export const fog = new MaskFilter("1.0 - max(r, g)");
 
-export const mono = new MonoFilter();
+const sight = new MaskFilter("max(r, g)");
+
+const mono = new MonoFilter();
 // Remove as soon as pixi.js fixes the auto fit bug.
-export const mono_noAutoFit = new Proxy(mono, {
+const mono_noAutoFit = new Proxy(mono, {
     get(target, prop, receiver) {
         if (prop === "autoFit")
             return false;
@@ -279,7 +279,7 @@ function addLastToDisplayObject(object, filter) {
     }
 }
 
-export function updateLayer(layer) {
+function updateLayer(layer) {
     if (!layer)
         return;
 
@@ -319,7 +319,7 @@ export function updateLayer(layer) {
     addLastToDisplayObject(object, mono);
 }
 
-export function updatePlaceable(placeable) {
+function updatePlaceable(placeable) {
     if (!placeable)
         return;
 
@@ -363,41 +363,61 @@ export function updatePlaceable(placeable) {
     }
 }
 
-export function update({ layers = null, placeables = null } = {}) {
-    mono.zOrder = mono.rank = 0;
-    sight.zOrder = sight.rank = 0;
+function updateAll() {
+    let layers = ["background", "effects", "fxmaster"];
+    let placeables = [
+        ...canvas.tokens.placeables,
+        ...canvas.tiles.placeables,
+        ...canvas.templates.placeables,
+    ];
 
-    if (layers == null && placeables == null) {
-        layers = ["background", "effects", "fxmaster"];
+    if (canvas.roofs)
+        placeables = [...placeables, canvas.roofs.children];
 
-        placeables = [
-            ...canvas.tokens.placeables,
-            ...canvas.tiles.placeables,
-            ...canvas.templates.placeables,
-        ];
+    for (const layerName of layers) {
+        const layer = canvas[layerName];
 
-        if (canvas.roofs)
-            placeables = [...placeables, canvas.roofs.children];
+        if (!layer) continue;
+
+        updateLayer(layer);
     }
 
-    if (layers) {
-        for (const layerName of layers) {
-            const layer = canvas[layerName];
-
-            if (!layer) continue;
-
-            updateLayer(layer);
-        }
-    }
-
-    if (placeables) {
-        for (const placeable of placeables) {
-            updatePlaceable(placeable);
-        }
+    for (const placeable of placeables) {
+        updatePlaceable(placeable);
     }
 }
 
 Hooks.once("init", () => {
+    game.settings.register("perfect-vision", "monoTokenIcons", {
+        name: "Monochrome Token Icons",
+        hint: "If enabled, token icons are affected by monochrome vision. Otherwise, they are not.",
+        scope: "world",
+        config: true,
+        type: Boolean,
+        default: false,
+        onChange: () => updateAll()
+    });
+
+    game.settings.register("perfect-vision", "monoSpecialEffects", {
+        name: "Monochrome Special Effects",
+        hint: "If enabled, FXMaster's and Token Magic FX's special effects are affected by monochrome vision. Otherwise, they are not. Special effects attached to tokens are only affected by this setting if Monochrome Token Icons is enabled as well.",
+        scope: "world",
+        config: true,
+        type: Boolean,
+        default: false,
+        onChange: () => updateAll()
+    });
+
+    game.settings.register("perfect-vision", "fogOfWarWeather", {
+        name: "Fog of War Weather",
+        hint: "If enabled, weather effects are visible in the fog of war. Otherwise, weather is only visible in line-of-sight.",
+        scope: "world",
+        config: true,
+        type: Boolean,
+        default: true,
+        onChange: () => updateAll()
+    });
+
     patch("BackgroundLayer.prototype.draw", "POST", async function () {
         const retVal = await arguments[0];
 
@@ -450,6 +470,11 @@ Hooks.once("init", () => {
                 return retVal;
             })
         });
+
+        Object.defineProperty(mono, "zOrder", { value: 0, writable: false });
+        Object.defineProperty(mono, "rank", { value: 0, writable: false });
+        Object.defineProperty(sight, "zOrder", { value: 0, writable: false });
+        Object.defineProperty(sight, "rank", { value: 0, writable: false });
     }
 
     if (game.modules.get("roofs")?.active) {
@@ -463,6 +488,16 @@ Hooks.once("init", () => {
         Hooks.on("switchFilter", () => updateLayer(canvas.fxmaster));
         Hooks.on("switchWeather", () => updateLayer(canvas.fxmaster));
         Hooks.on("updateWeather", () => updateLayer(canvas.fxmaster));
+
+        Hooks.on("updateScene", (scene, data, options) => {
+            if (!game.settings.get("fxmaster", "enable")) {
+                return
+            }
+
+            if (hasProperty(data, "flags.fxmaster")) {
+                updateLayer(canvas.fxmaster);
+            }
+        });
     }
 });
 

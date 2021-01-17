@@ -1,15 +1,15 @@
-import * as Filters from "./filters.js";
 import * as Fog from "./fog.js";
 import { migrateAll, migrateToken, migrateActor, migrateScene, migrateWorldSettings, migrateClientSettings } from "./migrate.js";
 
 import "./config.js";
 import "./controls.js";
 import "./lighting.js";
+import "./filters.js";
 
 export var isReady = false;
 
 class PerfectVision {
-    static _update({ refresh = false, filters = false, placeables = null, tokens = null, layers = null, fog = false, migrate = null } = {}) {
+    static _update({ refresh = false, placeables = null, tokens = null, layers = null, fog = false, migrate = null } = {}) {
         if (!isReady)
             return;
 
@@ -26,9 +26,6 @@ class PerfectVision {
 
         if (!canvas?.ready)
             return;
-
-        if (filters)
-            Filters.update({ layers: layers, placeables: placeables ?? tokens });
 
         if (tokens)
             for (const token of tokens)
@@ -159,36 +156,6 @@ class PerfectVision {
             onChange: () => this._update({ tokens: canvas.tokens.placeables })
         });
 
-        game.settings.register("perfect-vision", "monoTokenIcons", {
-            name: "Monochrome Token Icons",
-            hint: "If enabled, token icons are affected by monochrome vision. Otherwise, they are not.",
-            scope: "world",
-            config: true,
-            type: Boolean,
-            default: false,
-            onChange: () => this._update({ filters: true })
-        });
-
-        game.settings.register("perfect-vision", "monoSpecialEffects", {
-            name: "Monochrome Special Effects",
-            hint: "If enabled, FXMaster's and Token Magic FX's special effects are affected by monochrome vision. Otherwise, they are not. Special effects attached to tokens are only affected by this setting if Monochrome Token Icons is enabled as well.",
-            scope: "world",
-            config: true,
-            type: Boolean,
-            default: false,
-            onChange: () => this._update({ filters: true })
-        });
-
-        game.settings.register("perfect-vision", "fogOfWarWeather", {
-            name: "Fog of War Weather",
-            hint: "If enabled, weather effects are visible in the fog of war. Otherwise, weather is only visible in line-of-sight.",
-            scope: "world",
-            config: true,
-            type: Boolean,
-            default: true,
-            onChange: () => this._update({ filters: true, fog: true })
-        });
-
         game.settings.register("perfect-vision", "actualFogOfWar", {
             name: "Actual Fog of War",
             hint: "If enabled, the fog of war is overlaid with a fog effect.",
@@ -248,7 +215,7 @@ class PerfectVision {
         if (!isReady)
             return;
 
-        this._update({ refresh: true, filters: true, tokens: canvas.tokens.placeables, fog: true });
+        this._update({ refresh: true, tokens: canvas.tokens.placeables, fog: true });
     }
 
     static _lightingRefresh() {
@@ -257,8 +224,6 @@ class PerfectVision {
 
     static _sightRefresh() {
         this._refreshSight = false;
-
-        this._update({ filters: true });
     }
 
     static async _updateToken(scene, data, update, options, userId) {
@@ -270,7 +235,7 @@ class PerfectVision {
         const token = canvas.tokens.get(data._id);
 
         if (token) {
-            this._update({ refresh: true, filters: true, tokens: [token] });
+            this._update({ refresh: true, tokens: [token] });
         }
     }
 
@@ -282,19 +247,15 @@ class PerfectVision {
     }
 
     static async _updateScene(scene, update, options, userId) {
-        if (!hasProperty(update, "flags.perfect-vision")) {
-            if (scene.id === canvas.scene?.id)
-                this._update({ filters: true });
-
+        if (!hasProperty(update, "flags.perfect-vision"))
             return;
-        }
 
         await migrateScene(scene).then((...args) => this._onMigration(...args));
 
         if (scene.id !== canvas.scene?.id)
             return;
 
-        this._update({ refresh: true, filters: true, tokens: canvas.tokens.placeables, fog: true });
+        this._update({ refresh: true, tokens: canvas.tokens.placeables, fog: true });
     }
 
     static _onTick() {
