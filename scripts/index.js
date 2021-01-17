@@ -1,3 +1,4 @@
+import "./presets.js";
 import "./migrate.js";
 import "./config.js";
 import "./controls.js";

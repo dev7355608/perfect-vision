@@ -1,4 +1,4 @@
-export const visionRules = {
+export const presets = {
     "fvtt": {
         dimVisionInDarkness: "dim",
         dimVisionInDimLight: "dim",
@@ -30,3 +30,10 @@ export const visionRules = {
         brightVisionInDimLight: "bright"
     },
 };
+
+Hooks.once("init", () => {
+    for (const [id, preset] of Object.entries(presets))
+        preset._id = id;
+
+    presets["default"] = presets[game.system.id === "dnd5e" ? "dnd5e" : (game.system.id === "pf1" ? "pf1e" : (game.system.id === "pf2e" ? "pf2e" : (game.system.id === "D35E" ? "dnd35e" : "fvtt")))];
+});

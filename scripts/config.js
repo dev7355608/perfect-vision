@@ -1,4 +1,4 @@
-import * as Presets from "./presets.js";
+import { presets } from "./presets.js";
 
 const renderConfigTemplate = Handlebars.compile(`\
     {{#*inline "settingPartial"}}
@@ -176,10 +176,10 @@ function renderConfig(sheet, html, data) {
         }
 
         if (visionRules !== "custom") {
-            html.find(`select[name="${prefix}.dimVisionInDarkness"]`).val(Presets.visionRules[visionRules].dimVisionInDarkness);
-            html.find(`select[name="${prefix}.dimVisionInDimLight"]`).val(Presets.visionRules[visionRules].dimVisionInDimLight);
-            html.find(`select[name="${prefix}.brightVisionInDarkness"]`).val(Presets.visionRules[visionRules].brightVisionInDarkness);
-            html.find(`select[name="${prefix}.brightVisionInDimLight"]`).val(Presets.visionRules[visionRules].brightVisionInDimLight);
+            html.find(`select[name="${prefix}.dimVisionInDarkness"]`).val(presets[visionRules].dimVisionInDarkness);
+            html.find(`select[name="${prefix}.dimVisionInDimLight"]`).val(presets[visionRules].dimVisionInDimLight);
+            html.find(`select[name="${prefix}.brightVisionInDarkness"]`).val(presets[visionRules].brightVisionInDarkness);
+            html.find(`select[name="${prefix}.brightVisionInDimLight"]`).val(presets[visionRules].brightVisionInDimLight);
         }
 
         const inputMonochromeVisionColor = html.find(`input[name="${prefix}.monoVisionColor"]`);

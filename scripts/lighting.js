@@ -2,7 +2,7 @@ import { extend } from "./extend.js";
 import { Filter as MaskFilter } from "./mask.js";
 import { ready } from "./migrate.js";
 import { patch } from "./patch.js";
-import * as Presets from "./presets.js";
+import { presets } from "./presets.js";
 import { grayscale } from "./utils.js";
 
 const backgroundFilter = new MaskFilter("step(1.0, 1.0 - r)");
@@ -149,8 +149,6 @@ Hooks.once("init", () => {
         }
     });
 
-    const defaultVisionRules = game.system.id === "dnd5e" ? "dnd5e" : (game.system.id === "pf1" ? "pf1e" : (game.system.id === "pf2e" ? "pf2e" : (game.system.id === "D35E" ? "dnd35e" : "fvtt")));
-
     game.settings.register("perfect-vision", "visionRules", {
         name: "Vision Rules",
         hint: "Choose one of the presets, or select Custom and set your own rules. It is also possible to set rules for each token individually. You can find these token-specific settings in the token configuration under the Vision tab. Dim (Bright) Vision in Darkness controls what dim (bright) vision looks like in darkness, i.e., in areas that are not illuminated by light sources. Dim (Bright) Vision in Dim Light controls how dim (bright) vision interacts with dim light, i.e., if dim light becomes bright light or not. Scene Darkness is the level of darkness in areas without light sources. It's the darkness controlled by Darkness Level in the scene configuration. Total Darkness means no vision at all. Select an option with monochrome to create vision without color in darkness. It's grayscale vision as long as the Monochrome Vision Color is white. If the scene's Darkness Level is 0, it looks the same as it would with non-monochrome vision. But as the Darkness Level increases the saturation decreases accordingly.",
@@ -165,7 +163,7 @@ Hooks.once("init", () => {
             "pf1e": "Pathfinder 1e",
             "pf2e": "Pathfinder 2e",
         },
-        default: defaultVisionRules,
+        default: presets["default"]._id,
         onChange: () => update()
     });
 
@@ -183,7 +181,7 @@ Hooks.once("init", () => {
             "scene_mono": "Scene Darkness (monochrome)",
             "darkness": "Total Darkness",
         },
-        default: Presets.visionRules[defaultVisionRules].dimVisionInDarkness,
+        default: presets["default"].dimVisionInDarkness,
         onChange: () => update()
     });
 
@@ -196,7 +194,7 @@ Hooks.once("init", () => {
             "bright": "Bright Light",
             "dim": "Dim Light",
         },
-        default: Presets.visionRules[defaultVisionRules].dimVisionInDimLight,
+        default: presets["default"].dimVisionInDimLight,
         onChange: () => update()
     });
 
@@ -214,7 +212,7 @@ Hooks.once("init", () => {
             "scene_mono": "Scene Darkness (monochrome)",
             "darkness": "Total Darkness",
         },
-        default: Presets.visionRules[defaultVisionRules].brightVisionInDarkness,
+        default: presets["default"].brightVisionInDarkness,
         onChange: () => update()
     });
 
@@ -227,7 +225,7 @@ Hooks.once("init", () => {
             "bright": "Bright Light",
             "dim": "Dim Light",
         },
-        default: Presets.visionRules[defaultVisionRules].brightVisionInDimLight,
+        default: presets["default"].brightVisionInDimLight,
         onChange: () => update()
     });
 
@@ -310,10 +308,10 @@ Hooks.once("init", () => {
             }
 
             if (visionRules !== "custom") {
-                dimVisionInDarkness = Presets.visionRules[visionRules].dimVisionInDarkness;
-                dimVisionInDimLight = Presets.visionRules[visionRules].dimVisionInDimLight;
-                brightVisionInDarkness = Presets.visionRules[visionRules].brightVisionInDarkness;
-                brightVisionInDimLight = Presets.visionRules[visionRules].brightVisionInDimLight;
+                dimVisionInDarkness = presets[visionRules].dimVisionInDarkness;
+                dimVisionInDimLight = presets[visionRules].dimVisionInDimLight;
+                brightVisionInDarkness = presets[visionRules].brightVisionInDarkness;
+                brightVisionInDimLight = presets[visionRules].brightVisionInDimLight;
             }
         }
 
