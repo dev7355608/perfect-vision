@@ -50,4 +50,10 @@ Hooks.once("init", () => {
 
         return retVal;
     });
+
+    patch("EffectsLayer.layerOptions", "POST", function () {
+        return mergeObject(arguments[0], {
+            zIndex: Canvas.layers.fxmaster?.layerOptions.zIndex ?? 180
+        });
+    });
 });

@@ -322,12 +322,6 @@ class PerfectVision {
     }
 
     static _registerHooks() {
-        patch("EffectsLayer.layerOptions", "POST", function () {
-            return mergeObject(arguments[0], {
-                zIndex: Canvas.layers.fxmaster?.layerOptions.zIndex ?? 180
-            });
-        });
-
         if (game.modules.get("tokenmagic")?.active) {
             patch("PlaceableObject.prototype._TMFXsetRawFilters", "POST", function (retVal, filters) {
                 PerfectVision._update({ filters: true, placeables: [this] });
