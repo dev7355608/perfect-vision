@@ -3,43 +3,11 @@ import * as Filters from "./filters.js";
 import * as Fog from "./fog.js";
 import { migrateAll, migrateToken, migrateActor, migrateScene, migrateWorldSettings, migrateClientSettings } from "./migrate.js";
 import { patch } from "./patch.js";
+import * as Presets from "./presets.js";
 import { grayscale } from "./utils.js";
 
 class PerfectVision {
     static _settings;
-
-    static _visionRulesPresets = {
-        "fvtt": {
-            dimVisionInDarkness: "dim",
-            dimVisionInDimLight: "dim",
-            brightVisionInDarkness: "bright",
-            brightVisionInDimLight: "bright"
-        },
-        "dnd35e": {
-            dimVisionInDarkness: "darkness",
-            dimVisionInDimLight: "dim",
-            brightVisionInDarkness: "bright_mono",
-            brightVisionInDimLight: "dim"
-        },
-        "dnd5e": {
-            dimVisionInDarkness: "dim_mono",
-            dimVisionInDimLight: "bright",
-            brightVisionInDarkness: "bright",
-            brightVisionInDimLight: "bright"
-        },
-        "pf1e": {
-            dimVisionInDarkness: "darkness",
-            dimVisionInDimLight: "dim",
-            brightVisionInDarkness: "bright_mono",
-            brightVisionInDimLight: "dim"
-        },
-        "pf2e": {
-            dimVisionInDarkness: "darkness",
-            dimVisionInDimLight: "bright",
-            brightVisionInDarkness: "bright_mono",
-            brightVisionInDimLight: "bright"
-        },
-    };
 
     static _updateSettings() {
         this._settings = this._settings ?? {};
@@ -53,7 +21,7 @@ class PerfectVision {
             this._settings.brightVisionInDarkness = game.settings.get("perfect-vision", "brightVisionInDarkness");
             this._settings.brightVisionInDimLight = game.settings.get("perfect-vision", "brightVisionInDimLight");
         } else {
-            Object.assign(this._settings, this._visionRulesPresets[this._settings.visionRules]);
+            Object.assign(this._settings, Presets.visionRules[this._settings.visionRules]);
         }
 
         this._settings.monoVisionColor = game.settings.get("perfect-vision", "monoVisionColor") || "#ffffff";
@@ -562,10 +530,10 @@ class PerfectVision {
                 html.find(`select[name="${prefix}.brightVisionInDarkness"]`).val(this._settings.brightVisionInDarkness);
                 html.find(`select[name="${prefix}.brightVisionInDimLight"]`).val(this._settings.brightVisionInDimLight);
             } else if (visionRules !== "custom") {
-                html.find(`select[name="${prefix}.dimVisionInDarkness"]`).val(this._visionRulesPresets[visionRules].dimVisionInDarkness);
-                html.find(`select[name="${prefix}.dimVisionInDimLight"]`).val(this._visionRulesPresets[visionRules].dimVisionInDimLight);
-                html.find(`select[name="${prefix}.brightVisionInDarkness"]`).val(this._visionRulesPresets[visionRules].brightVisionInDarkness);
-                html.find(`select[name="${prefix}.brightVisionInDimLight"]`).val(this._visionRulesPresets[visionRules].brightVisionInDimLight);
+                html.find(`select[name="${prefix}.dimVisionInDarkness"]`).val(Presets.visionRules[visionRules].dimVisionInDarkness);
+                html.find(`select[name="${prefix}.dimVisionInDimLight"]`).val(Presets.visionRules[visionRules].dimVisionInDimLight);
+                html.find(`select[name="${prefix}.brightVisionInDarkness"]`).val(Presets.visionRules[visionRules].brightVisionInDarkness);
+                html.find(`select[name="${prefix}.brightVisionInDimLight"]`).val(Presets.visionRules[visionRules].brightVisionInDimLight);
             }
 
             const inputMonochromeVisionColor = html.find(`input[name="${prefix}.monoVisionColor"]`);
@@ -961,10 +929,10 @@ class PerfectVision {
                 brightVisionInDarkness = token.getFlag("perfect-vision", "brightVisionInDarkness") || PerfectVision._settings.brightVisionInDarkness;
                 brightVisionInDimLight = token.getFlag("perfect-vision", "brightVisionInDimLight") || PerfectVision._settings.brightVisionInDimLight;
             } else {
-                dimVisionInDarkness = PerfectVision._visionRulesPresets[visionRules].dimVisionInDarkness;
-                dimVisionInDimLight = PerfectVision._visionRulesPresets[visionRules].dimVisionInDimLight;
-                brightVisionInDarkness = PerfectVision._visionRulesPresets[visionRules].brightVisionInDarkness;
-                brightVisionInDimLight = PerfectVision._visionRulesPresets[visionRules].brightVisionInDimLight;
+                dimVisionInDarkness = Presets.visionRules[visionRules].dimVisionInDarkness;
+                dimVisionInDimLight = Presets.visionRules[visionRules].dimVisionInDimLight;
+                brightVisionInDarkness = Presets.visionRules[visionRules].brightVisionInDarkness;
+                brightVisionInDimLight = Presets.visionRules[visionRules].brightVisionInDimLight;
             }
 
             let dim = token.getLightRadius(token.data.dimSight);
