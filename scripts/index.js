@@ -7,6 +7,7 @@ import * as Presets from "./presets.js";
 import { grayscale } from "./utils.js";
 
 import "./config.js";
+import "./controls.js";
 
 class PerfectVision {
     static _isReady = false;
@@ -331,27 +332,6 @@ class PerfectVision {
             return;
 
         this._update({ refresh: true, filters: true, tokens: canvas.tokens.placeables, fog: true });
-    }
-
-    static _getSceneControlButtons(controls) {
-        const lightingControl = controls.find(c => c.name === "lighting");
-
-        if (lightingControl) {
-            let index = lightingControl.tools.findIndex(t => t.name === "clear");
-
-            if (index < 0)
-                return;
-
-            lightingControl.tools.splice(index, 0, {
-                name: "perfect-vision.improvedGMVision",
-                title: "Improved GM Vision",
-                icon: "fas fa-eye",
-                toggle: true,
-                active: !!game.settings.get("perfect-vision", "improvedGMVision"),
-                visible: game.user.isGM,
-                onClick: toggled => game.settings.set("perfect-vision", "improvedGMVision", toggled),
-            });
-        }
     }
 
     static _onTick() {
@@ -1126,8 +1106,6 @@ class PerfectVision {
         Hooks.on("updateActor", (...args) => PerfectVision._updateActor(...args));
 
         Hooks.on("updateScene", (...args) => PerfectVision._updateScene(...args));
-
-        Hooks.on("getSceneControlButtons", (...args) => PerfectVision._getSceneControlButtons(...args));
     }
 }
 
