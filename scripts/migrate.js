@@ -280,7 +280,7 @@ Hooks.on("renderTokenConfig", (sheet, html, data) => {
     version.setAttribute("name", "flags.perfect-vision._version");
     version.setAttribute("value", versions.token);
     version.setAttribute("data-dtype", "Number");
-    html.find(`select[name="flags.perfect-vision.visionRules"]`)[0].form.appendChild(version);
+    html.find(`input[name="vision"]`)[0].form.appendChild(version);
 });
 
 Hooks.on("renderSceneConfig", (sheet, html, data) => {
