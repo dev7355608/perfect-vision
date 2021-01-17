@@ -808,18 +808,6 @@ class PerfectVision {
             return c;
         });
 
-        patch("Canvas.prototype._updateBlur", "POST", function () {
-            const sight = canvas.sight;
-            const sight_ = extend(sight);
-
-            const blur = sight.filter.blur;
-
-            if (sight_.filter)
-                sight_.filter.blur = blur;
-
-            return arguments[0];
-        });
-
         patch("BackgroundLayer.prototype.draw", "POST", async function () {
             const retVal = await arguments[0];
 

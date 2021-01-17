@@ -194,6 +194,18 @@ Hooks.once("init", () => {
 
         return arguments;
     });
+
+    patch("Canvas.prototype._updateBlur", "POST", function () {
+        const sight = canvas.sight;
+        const sight_ = extend(sight);
+
+        const blur = sight.filter.blur;
+
+        if (sight_.filter)
+            sight_.filter.blur = blur;
+
+        return arguments[0];
+    });
 });
 
 Hooks.on("lightingRefresh", () => {
