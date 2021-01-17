@@ -1,6 +1,6 @@
 import { extend } from "./extend.js";
 import * as Filters from "./filters.js";
-import { migrateAll, migrateToken, migrateActor, migrateScene, migrateWorldSettings, migrateClientSettings, versions as migrationVersions } from "./migrate.js";
+import { migrateAll, migrateToken, migrateActor, migrateScene, migrateWorldSettings, migrateClientSettings } from "./migrate.js";
 import { patch } from "./patch.js";
 
 class PerfectVision {
@@ -583,29 +583,6 @@ class PerfectVision {
 
         html.find(`select[name="${prefix}.visionRules"]`).change(update);
         html.find(`button[name="reset"]`).click(update);
-
-        if (sheet instanceof TokenConfig) {
-            const version = document.createElement("input");
-            version.setAttribute("type", "hidden");
-            version.setAttribute("name", `${prefix}._version`);
-            version.setAttribute("value", migrationVersions.token);
-            version.setAttribute("data-dtype", "Number");
-            html.find(`select[name="${prefix}.visionRules"]`)[0].form.appendChild(version);
-        } else {
-            const version = document.createElement("input");
-            version.setAttribute("type", "hidden");
-            version.setAttribute("name", `${prefix}._version`);
-            version.setAttribute("value", migrationVersions.world);
-            version.setAttribute("data-dtype", "Number");
-            html.find(`select[name="${prefix}.visionRules"]`)[0].form.appendChild(version);
-
-            const clientVersion = document.createElement("input");
-            clientVersion.setAttribute("type", "hidden");
-            clientVersion.setAttribute("name", `${prefix}._clientVersion`);
-            clientVersion.setAttribute("value", migrationVersions.client);
-            clientVersion.setAttribute("data-dtype", "Number");
-            html.find(`select[name="${prefix}.visionRules"]`)[0].form.appendChild(clientVersion);
-        }
     }
 
     static _renderTokenConfig = this._renderSettingsConfig;
@@ -672,13 +649,6 @@ class PerfectVision {
 
         addColorSetting("daylightColor", "Daylight Color");
         addColorSetting("darknessColor", "Darkness Color");
-
-        const version = document.createElement("input");
-        version.setAttribute("type", "hidden");
-        version.setAttribute("name", "flags.perfect-vision._version");
-        version.setAttribute("value", migrationVersions.scene);
-        version.setAttribute("data-dtype", "Number");
-        html.find(`input[name="tokenVision"]`)[0].form.appendChild(version);
 
         if (!sheet._minimized)
             sheet.setPosition(sheet.position);
