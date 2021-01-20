@@ -1,30 +1,11 @@
 import { extend } from "./extend.js";
-import { texture, Filter as MaskFilter } from "./mask.js";
+import { texture, BaseFilter, Filter as MaskFilter } from "./mask.js";
 import { patch } from "./patch.js";
 
-class MonoFilter extends PIXI.Filter {
+class MonoFilter extends BaseFilter {
     constructor(...args) {
         super(
             `\
-            precision mediump float;
-
-            attribute vec2 aVertexPosition;
-
-            uniform mat3 projectionMatrix;
-            uniform vec4 inputSize;
-            uniform vec4 outputFrame;
-            uniform vec4 uMaskSize;
-
-            varying vec2 vTextureCoord;
-            varying vec2 vMaskCoord;
-
-            void main(void)
-            {
-                vec2 position = aVertexPosition * max(outputFrame.zw, vec2(0.0)) + outputFrame.xy;
-                gl_Position = vec4((projectionMatrix * vec3(position, 1.0)).xy, 0.0, 1.0);
-                vTextureCoord = aVertexPosition * (outputFrame.zw * inputSize.zw);
-                vMaskCoord = position * uMaskSize.zw;
-            }`, `\
             precision mediump float;
 
             uniform sampler2D uSampler;
@@ -81,21 +62,8 @@ class MonoFilter extends PIXI.Filter {
             ...args
         );
 
-        this.uniforms.uMaskSize = new Float32Array(4);
         this.uniforms.uTint = new Float32Array(3);
         this.uniforms.uSaturation = 1;
-    }
-
-    apply(filterManager, input, output, clearMode) {
-        this.uniforms.uMask = texture;
-
-        const maskSize = this.uniforms.uMaskSize;
-        maskSize[0] = texture.width;
-        maskSize[1] = texture.height;
-        maskSize[2] = 1 / texture.width;
-        maskSize[3] = 1 / texture.height;
-
-        filterManager.applyFilter(this, input, output, clearMode);
     }
 }
 
@@ -109,54 +77,6 @@ const monoFilter_noAutoFit = new Proxy(monoFilter, {
             return false;
         return Reflect.get(...arguments);
     }
-});
-
-Hooks.on("canvasInit", () => {
-    sightFilter.resolution = canvas.app.renderer.resolution;
-    monoFilter.resolution = canvas.app.renderer.resolution;
-});
-
-Hooks.on("lightingRefresh", () => {
-    if (canvas.sight.sources.size === 0 && game.user.isGM && game.settings.get("perfect-vision", "improvedGMVision")) {
-        monoFilter.uniforms.uSaturation = 1;
-    } else {
-        monoFilter.uniforms.uSaturation = 1 - canvas.lighting.darknessLevel;
-    }
-});
-
-const DEFAULT_VISION_COLOR = [1, 1, 1];
-
-Hooks.on("sightRefresh", () => {
-    let monoVisionColor;
-
-    if (canvas.sight.tokenVision && canvas.sight.sources.size > 0) {
-        for (const source of canvas.sight.sources) {
-            if (!source.active) continue;
-
-            const source_ = extend(source);
-
-            if (source_.monoVisionColor) {
-                if (monoVisionColor && !(
-                    monoVisionColor[0] === source_.monoVisionColor[0] &&
-                    monoVisionColor[1] === source_.monoVisionColor[1] &&
-                    monoVisionColor[2] === source_.monoVisionColor[2])) {
-                    monoVisionColor = DEFAULT_VISION_COLOR;
-                } else {
-                    monoVisionColor = source_.monoVisionColor;
-                }
-            }
-        }
-
-        sightFilter.enabled = true;
-    } else {
-        sightFilter.enabled = false;
-    }
-
-    monoVisionColor = monoVisionColor ?? DEFAULT_VISION_COLOR;
-
-    monoFilter.uniforms.uTint[0] = monoVisionColor[0];
-    monoFilter.uniforms.uTint[1] = monoVisionColor[1];
-    monoFilter.uniforms.uTint[2] = monoVisionColor[2];
 });
 
 function removeFromDisplayObject(object, ...filters) {
@@ -425,5 +345,56 @@ Hooks.once("setup", () => {
             updateLayer(canvas.fxmaster);
             return arguments[0];
         });
+    }
+});
+
+Hooks.on("canvasInit", () => {
+    sightFilter.resolution = canvas.app.renderer.resolution;
+    monoFilter.resolution = canvas.app.renderer.resolution;
+});
+
+Hooks.on("lightingRefresh", () => {
+    if (canvas.sight.sources.size === 0 && game.user.isGM && game.settings.get("perfect-vision", "improvedGMVision")) {
+        monoFilter.uniforms.uSaturation = 1;
+    } else {
+        monoFilter.uniforms.uSaturation = 1 - canvas.lighting.darknessLevel;
+    }
+});
+
+Hooks.on("sightRefresh", () => {
+    let monoVisionColor;
+
+    if (canvas.sight.tokenVision && canvas.sight.sources.size > 0) {
+        for (const source of canvas.sight.sources) {
+            if (!source.active) continue;
+
+            const source_ = extend(source);
+
+            if (source_.monoVisionColor) {
+                if (monoVisionColor && !(
+                    monoVisionColor[0] === source_.monoVisionColor[0] &&
+                    monoVisionColor[1] === source_.monoVisionColor[1] &&
+                    monoVisionColor[2] === source_.monoVisionColor[2])) {
+                    monoVisionColor = undefined;
+                    break;
+                } else {
+                    monoVisionColor = source_.monoVisionColor;
+                }
+            }
+        }
+
+        sightFilter.enabled = true;
+    } else {
+        sightFilter.enabled = false;
+    }
+
+    if (monoVisionColor) {
+        monoFilter.uniforms.uTint[0] = monoVisionColor[0];
+        monoFilter.uniforms.uTint[1] = monoVisionColor[1];
+        monoFilter.uniforms.uTint[2] = monoVisionColor[2];
+    } else {
+        monoFilter.uniforms.uTint[0] = 1;
+        monoFilter.uniforms.uTint[1] = 1;
+        monoFilter.uniforms.uTint[2] = 1;
     }
 });

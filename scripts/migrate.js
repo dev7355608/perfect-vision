@@ -1,4 +1,6 @@
-export var ready = false;
+import { patch } from "./patch.js";
+
+const versions = Object.freeze({ world: 1, client: 1, scene: 1, token: 1 });
 
 function getFlags(entity) {
     if (entity === "world" || entity === "client") {
@@ -112,8 +114,6 @@ async function unsetFlag(entity, key) {
 }
 
 let notifed = false;
-
-const versions = Object.freeze({ world: 1, client: 1, scene: 1, token: 1 });
 
 async function migrate(entity, func) {
     let type;
@@ -276,6 +276,64 @@ async function migrateAll() {
     return migrated;
 }
 
+var ready = false;
+var refreshing = false;
+
+function onMigration(migrated) {
+    if (!migrated)
+        return;
+
+    if (!refreshing) {
+        refreshing = true;
+        canvas.app.ticker.addOnce(refresh, globalThis, PIXI.UPDATE_PRIORITY.LOW + 2);
+    }
+}
+
+function refresh(force = false) {
+    if (!force && (!refreshing || !ready))
+        return;
+
+    refreshing = false;
+
+    for (const token of canvas.tokens.placeables) {
+        token.updateSource({ defer: true });
+    }
+
+    canvas.lighting.refresh();
+    canvas.sight.refresh();
+}
+
+Hooks.once("init", () => {
+    game.settings.register("perfect-vision", "_version", {
+        name: "World Settings Version",
+        hint: "World Settings Version",
+        scope: "world",
+        config: false,
+        type: Number,
+        default: 0,
+        onChange: () => migrateWorldSettings()
+    });
+
+    game.settings.register("perfect-vision", "_clientVersion", {
+        name: "Client Settings Version",
+        hint: "Client Settings Version",
+        scope: "client",
+        config: false,
+        type: Number,
+        default: 0,
+        onChange: () => migrateClientSettings()
+    });
+
+    patch("SightLayer.prototype.refresh", "PRE", function (opts) {
+        if (!ready) {
+            opts = opts ?? {};
+            opts.noUpdateFog = true;
+            return [opts];
+        }
+        return arguments;
+    });
+});
+
 Hooks.on("renderTokenConfig", (sheet, html, data) => {
     const version = document.createElement("input");
     version.setAttribute("type", "hidden");
@@ -310,28 +368,6 @@ Hooks.on("renderSettingsConfig", (sheet, html, data) => {
     html.find(`select[name="perfect-vision.visionRules"]`)[0]?.form?.appendChild(clientVersion);
 });
 
-Hooks.on("init", () => {
-    game.settings.register("perfect-vision", "_version", {
-        name: "World Settings Version",
-        hint: "World Settings Version",
-        scope: "world",
-        config: false,
-        type: Number,
-        default: 0,
-        onChange: () => migrateWorldSettings()
-    });
-
-    game.settings.register("perfect-vision", "_clientVersion", {
-        name: "Client Settings Version",
-        hint: "Client Settings Version",
-        scope: "client",
-        config: false,
-        type: Number,
-        default: 0,
-        onChange: () => migrateClientSettings()
-    });
-});
-
 Hooks.on("updateToken", async (scene, data, update, options, userId) => {
     if (!hasProperty(update, "flags.perfect-vision"))
         return;
@@ -360,29 +396,3 @@ Hooks.once("ready", async () => {
 
     refresh(true);
 });
-
-var refreshing = false;
-
-function onMigration(migrated) {
-    if (!migrated)
-        return;
-
-    if (!refreshing) {
-        refreshing = true;
-        canvas.app.ticker.addOnce(refresh, globalThis, PIXI.UPDATE_PRIORITY.LOW + 2);
-    }
-}
-
-function refresh(force = false) {
-    if (!force && (!refreshing || !ready))
-        return;
-
-    refreshing = false;
-
-    for (const token of canvas.tokens.placeables) {
-        token.updateSource({ defer: true });
-    }
-
-    canvas.lighting.refresh();
-    canvas.sight.refresh();
-}

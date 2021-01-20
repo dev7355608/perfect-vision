@@ -1,23 +1,3 @@
-const _eval = eval;
-
-function getGlobalVariable() {
-    console.assert(typeof (arguments[0]) === "string" && arguments[0] !== "this" && arguments[0] !== "arguments" && /^[a-zA-Z_$][0-9a-zA-Z_$]*$/.test(arguments[0]));
-    return globalThis[arguments[0]] ?? _eval(arguments[0]);
-}
-
-function getGlobalProperty(key) {
-    const split = key.split(".");
-    let target = getGlobalVariable(split.splice(0, 1)[0]);
-
-    for (let p of split) {
-        target = target || {};
-        if (p in target) target = target[p];
-        else return undefined;
-    }
-
-    return target;
-}
-
 const wrappers = {};
 
 export function patch(target, type, func) {
@@ -111,6 +91,26 @@ export function patch(target, type, func) {
 
         Object.defineProperty(object, property, { ...descriptor, ...attributes, configurable: true });
     }
+}
+
+const _eval = eval;
+
+function getGlobalVariable() {
+    console.assert(typeof (arguments[0]) === "string" && arguments[0] !== "this" && arguments[0] !== "arguments" && /^[a-zA-Z_$][0-9a-zA-Z_$]*$/.test(arguments[0]));
+    return globalThis[arguments[0]] ?? _eval(arguments[0]);
+}
+
+function getGlobalProperty(key) {
+    const split = key.split(".");
+    let target = getGlobalVariable(split.splice(0, 1)[0]);
+
+    for (let p of split) {
+        target = target || {};
+        if (p in target) target = target[p];
+        else return undefined;
+    }
+
+    return target;
 }
 
 Hooks.once("ready", () => {

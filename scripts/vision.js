@@ -1,6 +1,5 @@
 import { extend } from "./extend.js";
 import { Filter as MaskFilter } from "./mask.js";
-import { ready } from "./migrate.js";
 import { patch } from "./patch.js";
 import { presets } from "./presets.js";
 import { grayscale } from "./utils.js";
@@ -90,34 +89,6 @@ function update() {
     canvas.sight.refresh();
 }
 
-Hooks.on("updateToken", (scene, data, update, options, userId) => {
-    if (scene.id !== canvas.scene?.id || !hasProperty(update, "flags.perfect-vision"))
-        return;
-
-    const token = canvas.tokens.get(data._id);
-
-    if (token) {
-        token.updateSource({ defer: true });
-
-        canvas.addPendingOperation("LightingLayer.refresh", canvas.lighting.refresh, canvas.lighting);
-        canvas.addPendingOperation("SightLayer.refresh", canvas.sight.refresh, canvas.sight, [{
-            forceUpdateFog: token.hasLimitedVisionAngle
-        }]);
-    }
-});
-
-Hooks.on("updateScene", (scene, update, options, userId) => {
-    if (scene.id !== canvas.scene?.id || !hasProperty(update, "flags.perfect-vision"))
-        return;
-
-    for (const token of canvas.tokens.placeables) {
-        token.updateSource({ defer: true });
-    }
-
-    canvas.lighting.refresh();
-    canvas.sight.refresh();
-});
-
 Hooks.once("init", () => {
     game.settings.register("perfect-vision", "globalLight", {
         name: "Global Illumination Light",
@@ -141,11 +112,9 @@ Hooks.once("init", () => {
         config: true,
         type: Boolean,
         default: false,
-        onChange: (enabled) => {
-            const ilm = canvas.lighting.illumination;
-            const ilm_ = extend(ilm);
-
-            ilm_.improvedGMVision.visible = game.user.isGM && enabled;
+        onChange: () => {
+            if (game.user.isGM)
+                canvas.lighting.refresh();
         }
     });
 
@@ -283,12 +252,6 @@ Hooks.once("init", () => {
         const token = this_.token;
         const scene = token.scene ?? token._original?.scene;
         const minR = Math.min(token.w, token.h) * 0.5;
-
-        if (!ready) {
-            opts.dim = 0;
-            opts.bright = 0;
-            return wrapped(opts);
-        }
 
         let dimVisionInDarkness;
         let dimVisionInDimLight;
@@ -532,6 +495,7 @@ Hooks.once("init", () => {
             c_.improvedGMVision.filterArea = canvas.app.renderer.screen;
             c_.improvedGMVision.filters = [c_.improvedGMVision.filter];
             c_.improvedGMVision.visible = game.user.isGM && game.settings.get("perfect-vision", "improvedGMVision");
+            c_.improvedGMVision.renderable = canvas.sight.sources.size === 0;
         }
 
         {
@@ -696,6 +660,34 @@ Hooks.on("canvasInit", () => {
     lightFilter.resolution = canvas.app.renderer.resolution;
 });
 
+Hooks.on("updateToken", (scene, data, update, options, userId) => {
+    if (scene.id !== canvas.scene?.id || !hasProperty(update, "flags.perfect-vision"))
+        return;
+
+    const token = canvas.tokens.get(data._id);
+
+    if (token) {
+        token.updateSource({ defer: true });
+
+        canvas.addPendingOperation("LightingLayer.refresh", canvas.lighting.refresh, canvas.lighting);
+        canvas.addPendingOperation("SightLayer.refresh", canvas.sight.refresh, canvas.sight, [{
+            forceUpdateFog: token.hasLimitedVisionAngle
+        }]);
+    }
+});
+
+Hooks.on("updateScene", (scene, update, options, userId) => {
+    if (scene.id !== canvas.scene?.id || !hasProperty(update, "flags.perfect-vision"))
+        return;
+
+    for (const token of canvas.tokens.placeables) {
+        token.updateSource({ defer: true });
+    }
+
+    canvas.lighting.refresh();
+    canvas.sight.refresh();
+});
+
 Hooks.on("lightingRefresh", () => {
     const channels = canvas.lighting.channels;
 
@@ -704,6 +696,7 @@ Hooks.on("lightingRefresh", () => {
 
     const s = 1 / Math.max(...channels.background.rgb);
     ilm_.improvedGMVision.tint = rgbToHex(channels.background.rgb.map(c => c * s));
+    ilm_.improvedGMVision.visible = game.user.isGM && game.settings.get("perfect-vision", "improvedGMVision");
 
     ilm_.vision.tint = rgbToHex(grayscale(channels.background.rgb));
 });

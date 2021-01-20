@@ -30,8 +30,8 @@ export function visualize() {
     w.document.close();
 }
 
-export class Filter extends PIXI.Filter {
-    constructor(channel = "mask", bg = "vec4(0.0)", ...args) {
+export class BaseFilter extends PIXI.Filter {
+    constructor(fragmentSource, ...args) {
         super(
             `\
             precision mediump float;
@@ -52,7 +52,30 @@ export class Filter extends PIXI.Filter {
                 gl_Position = vec4((projectionMatrix * vec3(position, 1.0)).xy, 0.0, 1.0);
                 vTextureCoord = aVertexPosition * (outputFrame.zw * inputSize.zw);
                 vMaskCoord = position * uMaskSize.zw;
-            }`, `\
+            }`,
+            fragmentSource, ...args
+        );
+
+        this.uniforms.uMaskSize = new Float32Array(4);
+    }
+
+    apply(filterManager, input, output, clearMode) {
+        this.uniforms.uMask = texture;
+
+        const maskSize = this.uniforms.uMaskSize;
+        maskSize[0] = texture.width;
+        maskSize[1] = texture.height;
+        maskSize[2] = 1 / texture.width;
+        maskSize[3] = 1 / texture.height;
+
+        filterManager.applyFilter(this, input, output, clearMode);
+    }
+}
+
+export class Filter extends BaseFilter {
+    constructor(channel = "mask", bg = "vec4(0.0)", ...args) {
+        super(
+            `\
             precision mediump float;
 
             varying vec2 vTextureCoord;
@@ -73,20 +96,6 @@ export class Filter extends PIXI.Filter {
             }`,
             ...args
         );
-
-        this.uniforms.uMaskSize = new Float32Array(4);
-    }
-
-    apply(filterManager, input, output, clearMode) {
-        this.uniforms.uMask = texture;
-
-        const maskSize = this.uniforms.uMaskSize;
-        maskSize[0] = texture.width;
-        maskSize[1] = texture.height;
-        maskSize[2] = 1 / texture.width;
-        maskSize[3] = 1 / texture.height;
-
-        filterManager.applyFilter(this, input, output, clearMode);
     }
 }
 
@@ -122,73 +131,6 @@ function render() {
         canvas.app.renderer.render(mask, texture, true, undefined, false);
     }
 }
-
-Hooks.on("lightingRefresh", () => {
-    mask.background.clear();
-
-    if (canvas.lighting.globalLight)
-        mask.background.beginFill(0x00FF00, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
-
-    for (const layer of mask.layers)
-        layer.removeChildren();
-
-    for (const source of canvas.lighting.sources) {
-        if (!source.active) continue;
-
-        const sc = source.illumination;
-        const sc_ = extend(sc);
-
-        if (sc_.fovLight)
-            mask.layers[1].addChild(sc_.fovLight);
-    }
-
-    for (const source of canvas.sight.sources) {
-        if (!source.active) continue;
-
-        const sc = source.illumination;
-        const sc_ = extend(sc);
-
-        if (sc_.fovMono)
-            mask.layers[0].addChild(sc_.fovMono);
-
-        if (sc_.fovColor)
-            mask.layers[1].addChild(sc_.fovColor);
-
-        if (sc_.fovDimToBright)
-            mask.layers[2].addChild(sc_.fovDimToBright);
-    }
-
-    dirty = true;
-});
-
-Hooks.on("sightRefresh", () => {
-    mask.msk.clear();
-
-    if (canvas.sight.tokenVision && canvas.sight.sources.size > 0) {
-        mask.msk.beginFill(0xFFFFFF, 1.0);
-
-        for (const source of canvas.sight.sources) {
-            if (!source.active) continue;
-
-            mask.msk.drawPolygon(source.los);
-        }
-
-        for (const source of canvas.lighting.sources) {
-            if (!source.active || source.type === CONST.SOURCE_TYPES.LOCAL)
-                continue;
-
-            mask.msk.drawPolygon(source.fov);
-        }
-
-        mask.msk.endFill();
-
-        mask.mask = mask.msk;
-    } else {
-        mask.mask = null;
-    }
-
-    dirty = true;
-});
 
 Hooks.once("init", () => {
     patch("PointSource.prototype.drawLight", "POST", function (c) {
@@ -275,6 +217,73 @@ Hooks.on("ready", () => {
     dirty = true;
 
     canvas.app.ticker.add(render, globalThis, PIXI.UPDATE_PRIORITY.LOW + 1);
+});
+
+Hooks.on("lightingRefresh", () => {
+    mask.background.clear();
+
+    if (canvas.lighting.globalLight)
+        mask.background.beginFill(0x00FF00, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
+
+    for (const layer of mask.layers)
+        layer.removeChildren();
+
+    for (const source of canvas.lighting.sources) {
+        if (!source.active) continue;
+
+        const sc = source.illumination;
+        const sc_ = extend(sc);
+
+        if (sc_.fovLight)
+            mask.layers[1].addChild(sc_.fovLight);
+    }
+
+    for (const source of canvas.sight.sources) {
+        if (!source.active) continue;
+
+        const sc = source.illumination;
+        const sc_ = extend(sc);
+
+        if (sc_.fovMono)
+            mask.layers[0].addChild(sc_.fovMono);
+
+        if (sc_.fovColor)
+            mask.layers[1].addChild(sc_.fovColor);
+
+        if (sc_.fovDimToBright)
+            mask.layers[2].addChild(sc_.fovDimToBright);
+    }
+
+    dirty = true;
+});
+
+Hooks.on("sightRefresh", () => {
+    mask.msk.clear();
+
+    if (canvas.sight.tokenVision && canvas.sight.sources.size > 0) {
+        mask.msk.beginFill(0xFFFFFF, 1.0);
+
+        for (const source of canvas.sight.sources) {
+            if (!source.active) continue;
+
+            mask.msk.drawPolygon(source.los);
+        }
+
+        for (const source of canvas.lighting.sources) {
+            if (!source.active || source.type === CONST.SOURCE_TYPES.LOCAL)
+                continue;
+
+            mask.msk.drawPolygon(source.fov);
+        }
+
+        mask.msk.endFill();
+
+        mask.mask = mask.msk;
+    } else {
+        mask.mask = null;
+    }
+
+    dirty = true;
 });
 
 // Based on PixiJS Filters' GlowFilter
