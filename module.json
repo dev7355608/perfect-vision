@@ -6,8 +6,8 @@
   "version": "1.6.2",
   "minimumCoreVersion": "0.7.8",
   "compatibleCoreVersion": "0.7.9",
-  "scripts": [
-    "perfect-vision.js"
+  "esmodules": [
+    "scripts/index.js"
   ],
   "url": "https://github.com/dev7355608/perfect-vision",
   "manifest": "https://raw.githubusercontent.com/dev7355608/perfect-vision/main/module.json",
