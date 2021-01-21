@@ -121,21 +121,14 @@ function updateLayer(layer) {
     if (!layer)
         return;
 
-    removeFromDisplayObject(layer, monoFilter);
-
-    let object = layer;
-
     if (layer === canvas.background) {
+        removeFromDisplayObject(layer, monoFilter);
         removeFromDisplayObject(layer.img, monoFilter);
-
-        object = layer.img ?? layer;
+        addLastToDisplayObject(layer.img ?? layer, monoFilter);
     } else if (layer === canvas.effects || layer === canvas.fxmaster) {
+        removeFromDisplayObject(layer, monoFilter);
         removeFromDisplayObject(layer.weather, monoFilter);
-
-        if (game.settings.get("perfect-vision", "monoSpecialEffects"))
-            object = layer;
-        else
-            object = layer.weather;
+        addLastToDisplayObject(game.settings.get("perfect-vision", "monoSpecialEffects") ? layer : layer.weather, monoFilter);
 
         removeFromDisplayObject(layer, sightFilter);
 
@@ -153,8 +146,6 @@ function updateLayer(layer) {
         for (const object of objects)
             addLastToDisplayObject(object, sightFilter);
     }
-
-    addLastToDisplayObject(object, monoFilter);
 }
 
 function updatePlaceable(placeable) {
@@ -185,11 +176,26 @@ function updatePlaceable(placeable) {
     if (placeable instanceof Tile && (placeable.data.flags?.startMarker || placeable.data.flags?.turnMarker))
         return;
 
-    if (placeable instanceof MeasuredTemplate)
-        addLastToDisplayObject(sprite, sightFilter);
+    if (placeable instanceof MeasuredTemplate) {
+        const highlight = canvas.grid.getHighlightLayer(`Template.${placeable.id}`);
 
-    if (placeable instanceof MeasuredTemplate && !placeable.texture)
-        return;
+        removeFromDisplayObject(highlight, sightFilter);
+
+        if (!placeable.owner) {
+            addLastToDisplayObject(sprite, sightFilter);
+            addLastToDisplayObject(highlight, sightFilter);
+
+            placeable.ruler.renderable = false;
+            placeable.controlIcon.renderable = false;
+
+            if (placeable.handle) {
+                placeable.handle.renderable = false;
+            }
+        }
+
+        if (!placeable.texture || canvas.templates._active && placeable.owner)
+            return;
+    }
 
     if (sprite.filters?.length > 0) {
         if (game.settings.get("perfect-vision", "monoSpecialEffects"))
@@ -254,6 +260,22 @@ Hooks.once("init", () => {
         type: Boolean,
         default: true,
         onChange: () => updateAll()
+    });
+
+    patch("TemplateLayer.prototype.activate", "POST", function () {
+        for (const template of canvas.templates.placeables) {
+            updatePlaceable(template);
+        }
+
+        return arguments[0];
+    });
+
+    patch("TemplateLayer.prototype.deactivate", "POST", function () {
+        for (const template of canvas.templates.placeables) {
+            updatePlaceable(template);
+        }
+
+        return arguments[0];
     });
 
     patch("BackgroundLayer.prototype.draw", "POST", async function () {
