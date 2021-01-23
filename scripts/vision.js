@@ -77,9 +77,21 @@ function computeFov(source, radius, fovCache = null) {
     return fov;
 }
 
-function update() {
-    if (!canvas?.ready)
+var refreshHookID = null;
+
+function refresh() {
+    if (!canvas?.ready) {
+        if (refreshHookID == null) {
+            refreshHookID = Hooks.once("canvasReady", refresh);
+        }
+
         return;
+    }
+
+    if (refreshHookID != null) {
+        refreshHookID = null;
+        Hooks.off("canvasReady", refresh);
+    }
 
     for (const token of canvas.tokens.placeables) {
         token.updateSource({ defer: true });
@@ -102,7 +114,7 @@ Hooks.once("init", () => {
             "none": "Scene Darkness",
         },
         default: "dim",
-        onChange: () => update()
+        onChange: () => refresh()
     });
 
     game.settings.register("perfect-vision", "improvedGMVision", {
@@ -113,7 +125,7 @@ Hooks.once("init", () => {
         type: Boolean,
         default: false,
         onChange: () => {
-            if (game.user.isGM)
+            if (game.user.isGM && canvas?.ready)
                 canvas.lighting.refresh();
         }
     });
@@ -133,7 +145,7 @@ Hooks.once("init", () => {
             "pf2e": "Pathfinder 2e",
         },
         default: presets["default"]._id,
-        onChange: () => update()
+        onChange: () => refresh()
     });
 
     game.settings.register("perfect-vision", "dimVisionInDarkness", {
@@ -151,7 +163,7 @@ Hooks.once("init", () => {
             "darkness": "Total Darkness",
         },
         default: presets["default"].dimVisionInDarkness,
-        onChange: () => update()
+        onChange: () => refresh()
     });
 
     game.settings.register("perfect-vision", "dimVisionInDimLight", {
@@ -164,7 +176,7 @@ Hooks.once("init", () => {
             "dim": "Dim Light",
         },
         default: presets["default"].dimVisionInDimLight,
-        onChange: () => update()
+        onChange: () => refresh()
     });
 
     game.settings.register("perfect-vision", "brightVisionInDarkness", {
@@ -182,7 +194,7 @@ Hooks.once("init", () => {
             "darkness": "Total Darkness",
         },
         default: presets["default"].brightVisionInDarkness,
-        onChange: () => update()
+        onChange: () => refresh()
     });
 
     game.settings.register("perfect-vision", "brightVisionInDimLight", {
@@ -195,7 +207,7 @@ Hooks.once("init", () => {
             "dim": "Dim Light",
         },
         default: presets["default"].brightVisionInDimLight,
-        onChange: () => update()
+        onChange: () => refresh()
     });
 
     game.settings.register("perfect-vision", "monoVisionColor", {
@@ -205,7 +217,7 @@ Hooks.once("init", () => {
         config: true,
         type: String,
         default: "#ffffff",
-        onChange: () => update()
+        onChange: () => refresh()
     });
 
     patch("PointSource.prototype._createContainer", "POST", function (c, shaderCls) {

@@ -277,23 +277,30 @@ async function migrateAll() {
 }
 
 var ready = false;
-var refreshing = false;
 
 function onMigration(migrated) {
-    if (!migrated)
+    if (!migrated || !ready)
         return;
 
-    if (!refreshing) {
-        refreshing = true;
-        canvas.app.ticker.addOnce(refresh, globalThis, PIXI.UPDATE_PRIORITY.LOW + 2);
-    }
+    canvas.app.ticker.remove(refresh, globalThis);
+    canvas.app.ticker.addOnce(refresh, globalThis, PIXI.UPDATE_PRIORITY.LOW + 2);
 }
 
-function refresh(force = false) {
-    if (!force && (!refreshing || !ready))
-        return;
+var refreshHookID = null;
 
-    refreshing = false;
+function refresh() {
+    if (!canvas?.ready) {
+        if (refreshHookID == null) {
+            refreshHookID = Hooks.once("canvasReady", refresh);
+        }
+
+        return;
+    }
+
+    if (refreshHookID != null) {
+        refreshHookID = null;
+        Hooks.off("canvasReady", refresh);
+    }
 
     for (const token of canvas.tokens.placeables) {
         token.updateSource({ defer: true });
@@ -394,5 +401,5 @@ Hooks.once("ready", async () => {
 
     ready = true;
 
-    refresh(true);
+    refresh();
 });
