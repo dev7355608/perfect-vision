@@ -1,5 +1,5 @@
 import "./presets.js";
-import "./migrate.js";
+// import "./migrate.js";
 import "./config.js";
 import "./controls.js";
 import "./vision.js";
