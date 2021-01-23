@@ -222,7 +222,7 @@ async function resetInvalidSettingsToDefault(scope) {
     let migrated = false;
 
     for (const s of game.settings.settings.values()) {
-        if (!s.module === "perfect-vision")
+        if (s.module !== "perfect-vision")
             continue;
 
         if (s.scope !== scope)
