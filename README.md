@@ -75,3 +75,7 @@ You find this setting in the scene configuration, which limits the sight of all 
 ### Daylight and Darkness Colors
 
 You may set the color of daylight and darkness in the scene configuration (*Darkness Level* = 0: full daylight, *Darkness Level* = 1: complete darkness).
+
+### New Light Type: Local Light (Unrestricted)
+
+This light type acts like a local light that shines through walls, i.e., it is unrestricted like universal lights but doesn't reveal anything outside line-of-sight.
