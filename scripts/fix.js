@@ -2,29 +2,54 @@ import { extend } from "./extend.js";
 import { patch } from "./patch.js";
 
 Hooks.once("init", () => {
-    // Fix https://gitlab.com/foundrynet/foundryvtt/-/issues/4263
-    if (game.data.version === "0.7.9") {
+    // https://gitlab.com/foundrynet/foundryvtt/-/issues/4263
+    if (isNewerVersion(game.data.version, "0.7.8")) {
+        let _darknessChanged;
+
         patch("PointSource.prototype.drawLight", "PRE", function (opts) {
-            return [typeof (opts) === "boolean" || opts === 0 ? { updateChannels: opts === 0 || opts } : opts];
+            opts = typeof (opts) === "object" ? opts : { updateChannels: !!opts };
+
+            if (_darknessChanged !== undefined) {
+                opts.updateChannels = opts.updateChannels || _darknessChanged;
+            }
+
+            return [opts];
         });
 
         const _sources = new Set();
 
-        patch("LightingLayer.prototype.refresh", "PRE", function () {
-            for (const sources of [this.sources, canvas.sight.sources])
-                for (const key in sources)
-                    if (!_sources.has(key))
+        patch("LightingLayer.prototype.refresh", "WRAPPER", function (wrapped, darkness) {
+            _darknessChanged = darkness != undefined && (darkness !== this.darknessLevel)
+
+            for (const sources of [this.sources, canvas.sight.sources]) {
+                for (const key in sources) {
+                    if (!_sources.has(key)) {
                         sources[key]._resetIlluminationUniforms = true;
+                    }
+                }
+            }
 
             _sources.clear();
 
-            for (const sources of [this.sources, canvas.sight.sources])
-                for (const key in sources)
+            for (const sources of [this.sources, canvas.sight.sources]) {
+                for (const key in sources) {
                     _sources.set(key);
+                }
+            }
 
-            return arguments;
+            const retVal = wrapped(darkness);
+
+            _darknessChanged = undefined;
+
+            return retVal;
         });
     }
+
+    patch("SceneConfig.prototype.close", "POST", async function () {
+        canvas.lighting.refresh(canvas.scene.data.darkness);
+
+        return await arguments[0];
+    });
 
     // Fix flickering border pixels
     patch("BackgroundLayer.prototype.draw", "POST", async function () {
