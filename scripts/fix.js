@@ -88,4 +88,30 @@ Hooks.once("init", () => {
         channels.dim.hex = rgbToHex(channels.dim.rgb);
         return channels;
     });
+
+    // https://gitlab.com/foundrynet/foundryvtt/-/issues/4565
+    patch("normalizeRadians", "POST", function (nr) {
+        return nr < -Math.PI ? nr + 2 * Math.PI : nr;
+    });
+
+    patch("Ray.fromAngle", "POST", function (ray) {
+        ray.angle = normalizeRadians(ray.angle);
+        return ray;
+    });
+
+    patch("SightLayer._castRays", "POST", function (rays) {
+        for (const ray of rays) {
+            rays.angle = normalizeRadians(ray.angle);
+        }
+
+        rays.sort((ray1, ray2) => ray1.angle - ray2.angle);
+
+        for (let i = rays.length - 1; i > 0; i--) {
+            if (rays[i].angle === rays[i - 1].angle) {
+                rays.splice(i, 1);
+            }
+        }
+
+        return rays;
+    });
 });
