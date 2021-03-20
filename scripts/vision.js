@@ -369,9 +369,6 @@ Hooks.once("init", () => {
         else
             delete this_.fovColor;
 
-        if (this_.fovMono === this_.fovColor)
-            delete this_.fovMono;
-
         if (visionRadiusDimToBright > 0 && !token._original)
             this_.fovDimToBright = computeFov(this, Math.max(visionRadiusDimToBright, minR), fovCache);
         else
