@@ -3,7 +3,26 @@ const wrappers = {};
 export function patch(target, type, func) {
     console.log("Perfect Vision | Patching %s (%s)", target, type);
 
-    if (game.modules.get("lib-wrapper")?.active) {
+    let [, object, property] = target.match(/(?:(.*)\.)?(.*)/);
+
+    object = object ? getGlobalProperty(object) : globalThis;
+
+    console.assert(object);
+    console.assert(property);
+
+    let descriptor;
+
+    for (let currentObject = object; !descriptor && currentObject; currentObject = Object.getPrototypeOf(currentObject)) {
+        descriptor = Object.getOwnPropertyDescriptor(currentObject, property);
+    }
+
+    console.assert(descriptor);
+
+    const method = descriptor.get ?? descriptor.value;
+
+    console.assert(method);
+
+    if (game.modules.get("lib-wrapper")?.active && (wrappers[target] || descriptor.configurable)) {
         let wrapper = wrappers[target];
 
         if (!wrapper) {
@@ -44,27 +63,6 @@ export function patch(target, type, func) {
 
         libWrapper.register("perfect-vision", target, wrapper, "WRAPPER");
     } else {
-        let [, object, property] = target.match(/(.*)\.(.*)/);
-
-        console.assert(object);
-        console.assert(property);
-
-        object = getGlobalProperty(object);
-
-        let currentObject = object;
-        let descriptor;
-
-        while (!descriptor && currentObject) {
-            descriptor = Object.getOwnPropertyDescriptor(currentObject, property);
-            currentObject = Object.getPrototypeOf(currentObject);
-        }
-
-        console.assert(descriptor);
-
-        const method = descriptor.get ?? descriptor.value;
-
-        console.assert(method);
-
         let wrapper;
 
         if (type === "PRE") {
@@ -89,7 +87,13 @@ export function patch(target, type, func) {
             attributes = { value: wrapper };
         }
 
-        Object.defineProperty(object, property, { ...descriptor, ...attributes, configurable: true });
+        if (descriptor.value && !descriptor.configurable) {
+            console.assert(descriptor.writable);
+
+            object[property] = wrapper;
+        } else {
+            Object.defineProperty(object, property, { ...descriptor, ...attributes, configurable: true });
+        }
     }
 }
 
