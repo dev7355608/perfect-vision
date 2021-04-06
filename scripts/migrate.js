@@ -113,6 +113,7 @@ async function unsetFlag(entity, key) {
     return await entity.unsetFlag("perfect-vision", key);
 }
 
+let migrator;
 let notifed = false;
 
 async function migrate(entity, func) {
@@ -130,7 +131,7 @@ async function migrate(entity, func) {
 
     const versionKey = type !== "client" ? "_version" : "_clientVersion";
     const flags = Object.keys(getFlags(entity) ?? {});
-    const canUpdateFlags = type === "client" || game.user === game.users.find(user => user.isGM && user.active);
+    const canUpdateFlags = type === "client" || game.user === migrator;
 
     if (flags.length === 0) {
         return false;
@@ -329,6 +330,22 @@ Hooks.once("init", () => {
         type: Number,
         default: 0,
         onChange: () => migrateClientSettings()
+    });
+
+    patch("Game.prototype.initializeEntities", "POST", function () {
+        if (migrator !== undefined) {
+            return;
+        }
+
+        const activeGMs = game.users.filter(user => user.isGM && user.active);
+
+        if (activeGMs.length === 1) {
+            migrator = activeGMs[0];
+        } else {
+            migrator = null;
+        }
+
+        return arguments[0];
     });
 
     patch("SightLayer.prototype.refresh", "PRE", function (opts) {
