@@ -56,6 +56,10 @@ If enabled, token icons are affected by monochrome vision. Otherwise, they are n
 
 If enabled, FXMaster's and Token Magic FX's special effects are affected by monochrome vision. Otherwise, they are not. Special effects attached to tokens are only affected by this setting if *Monochrome Token Icons* is enabled as well.
 
+### Force Monochrome Vision
+
+If disabled, monochrome vision is affected by the scene's *Darkness Level*. If the scene's *Darkness Level* is 0, it looks the same as it would with non-monochrome vision. But as the *Darkness Level* increases the saturation decreases accordingly. If enabled, monochrome vision is always completely monochrome.
+
 ### Fog of War Weather
 
 If enabled, weather effects are visible in the fog of war. Otherwise, weather is only visible in line-of-sight.
