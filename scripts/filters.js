@@ -381,8 +381,10 @@ Hooks.once("setup", () => {
 });
 
 Hooks.on("canvasInit", () => {
-    sightFilter.resolution = canvas.app.renderer.resolution;
-    monoFilter.resolution = canvas.app.renderer.resolution;
+    const resolution = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
+
+    sightFilter.resolution = resolution;
+    monoFilter.resolution = resolution;
 });
 
 Hooks.on("lightingRefresh", () => {

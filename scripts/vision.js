@@ -662,11 +662,13 @@ Hooks.on("canvasInit", () => {
     visionMinFilter.blendMode = PIXI.BLEND_MODES.MIN_COLOR;
     lightFilter.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
 
-    improvedGMVisionFilter.resolution = canvas.app.renderer.resolution;
-    visionFilter.resolution = canvas.app.renderer.resolution;
-    visionMaxFilter.resolution = canvas.app.renderer.resolution;
-    visionMinFilter.resolution = canvas.app.renderer.resolution;
-    lightFilter.resolution = canvas.app.renderer.resolution;
+    const resolution = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
+
+    improvedGMVisionFilter.resolution = resolution;
+    visionFilter.resolution = resolution;
+    visionMaxFilter.resolution = resolution;
+    visionMinFilter.resolution = resolution;
+    lightFilter.resolution = resolution;
 });
 
 Hooks.on("updateToken", (scene, data, update, options, userId) => {
