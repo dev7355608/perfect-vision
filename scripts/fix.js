@@ -130,4 +130,13 @@ Hooks.once("init", () => {
         this.filter.resolution = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
         return retVal;
     });
+
+    // https://gitlab.com/foundrynet/foundryvtt/-/issues/4413
+    patch("SightLayer.prototype._configureFogResolution", "POST", function () {
+        const d = canvas.dimensions;
+        let res = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
+        if ((d.sceneWidth * res * d.sceneHeight * res) > (16000 ** 2)) res /= 4;
+        else if ((d.sceneWidth * res * d.sceneHeight * res) > (8000 ** 2)) res /= 2;
+        return res;
+    });
 });
