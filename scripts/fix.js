@@ -16,24 +16,24 @@ Hooks.once("init", () => {
             return [opts];
         });
 
-        const _sources = new Set();
+        let _sources = new WeakSet();
 
         patch("LightingLayer.prototype.refresh", "WRAPPER", function (wrapped, darkness) {
             _darknessChanged = darkness != undefined && (darkness !== this.darknessLevel)
 
             for (const sources of [this.sources, canvas.sight.sources]) {
-                for (const key in sources) {
-                    if (!_sources.has(key)) {
-                        sources[key]._resetIlluminationUniforms = true;
+                for (const source of sources) {
+                    if (!_sources.has(source)) {
+                        source._resetIlluminationUniforms = true;
                     }
                 }
             }
 
-            _sources.clear();
+            _sources = new WeakSet();
 
             for (const sources of [this.sources, canvas.sight.sources]) {
-                for (const key in sources) {
-                    _sources.set(key);
+                for (const source of sources) {
+                    _sources.add(source);
                 }
             }
 
