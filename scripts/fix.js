@@ -114,4 +114,20 @@ Hooks.once("init", () => {
 
         return rays;
     });
+
+    patch("LightingLayer.prototype._drawColorationContainer", "POST", function (c) {
+        c.filter.resolution = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
+        return c;
+    });
+
+    patch("LightingLayer.prototype._drawIlluminationContainer", "POST", function (c) {
+        c.filter.resolution = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
+        return c;
+    });
+
+    patch("SightLayer.prototype.draw", "POST", async function () {
+        const retVal = await arguments[0];
+        this.filter.resolution = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
+        return retVal;
+    });
 });
