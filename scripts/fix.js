@@ -120,8 +120,8 @@ Hooks.once("init", () => {
 
         if (c.filter instanceof PIXI.filters.FXAAFilter && c.filter.program.uniformData.inputPixel) {
             c.filter.program = PIXI.Program.from(
-                c.filter.program.vertexSrc.replace(/#define SHADER_NAME .*\n/i, "").replaceAll("inputPixel", "inputSize"),
-                c.filter.program.fragmentSrc.replace(/#define SHADER_NAME .*\n/i, "").replaceAll("inputPixel", "inputSize")
+                c.filter.program.vertexSrc.replace(/#define SHADER_NAME .*\n/i, "").replace(/inputPixel/g, "inputSize"),
+                c.filter.program.fragmentSrc.replace(/#define SHADER_NAME .*\n/i, "").replace(/inputPixel/g, "inputSize")
             );
         }
 
