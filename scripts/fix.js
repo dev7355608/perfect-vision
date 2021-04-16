@@ -101,7 +101,7 @@ Hooks.once("init", () => {
 
     patch("SightLayer._castRays", "POST", function (rays) {
         for (const ray of rays) {
-            rays.angle = normalizeRadians(ray.angle);
+            ray.angle = normalizeRadians(ray.angle);
         }
 
         rays.sort((ray1, ray2) => ray1.angle - ray2.angle);
