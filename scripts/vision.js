@@ -255,6 +255,13 @@ Hooks.once("init", () => {
         return c;
     });
 
+    function getLightRadius(token, units) {
+        if (units === 0) return 0;
+        const u = Math.abs(units);
+        const hw = (token.w / 2);
+        return (((u / canvas.dimensions.distance) * canvas.dimensions.size) + hw) * Math.sign(units);
+    }
+
     patch("PointSource.prototype.initialize", "WRAPPER", function (wrapped, opts) {
         const this_ = extend(this);
 
@@ -295,8 +302,8 @@ Hooks.once("init", () => {
         brightVisionInDarkness = brightVisionInDarkness || game.settings.get("perfect-vision", "brightVisionInDarkness");
         brightVisionInDimLight = brightVisionInDimLight || game.settings.get("perfect-vision", "brightVisionInDimLight");
 
-        let dim = token.getLightRadius(token.data.dimSight);
-        let bright = token.getLightRadius(token.data.brightSight);
+        let dim = getLightRadius(token, token.data.dimSight);
+        let bright = getLightRadius(token, token.data.brightSight);
 
         const sign = Math.min(dim, bright) < 0 ? -1 : +1;
 
@@ -309,7 +316,7 @@ Hooks.once("init", () => {
             sightLimit = parseFloat(scene?.getFlag("perfect-vision", "sightLimit"));
 
         if (!Number.isNaN(sightLimit)) {
-            sightLimit = Math.max(token.getLightRadius(Math.abs(sightLimit)), minR);
+            sightLimit = Math.max(getLightRadius(token, Math.abs(sightLimit)), minR);
             dim = Math.min(dim, sightLimit);
             bright = Math.min(bright, sightLimit);
         }
