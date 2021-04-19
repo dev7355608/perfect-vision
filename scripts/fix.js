@@ -140,11 +140,18 @@ Hooks.once("init", () => {
     });
 
     // https://gitlab.com/foundrynet/foundryvtt/-/issues/4413
-    patch("SightLayer.prototype._configureFogResolution", "POST", function () {
+    patch("SightLayer.prototype._configureFogResolution", "OVERRIDE", function () {
         const d = canvas.dimensions;
+        const gl = canvas.app.renderer.gl;
+        const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+
         let res = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
-        if ((d.sceneWidth * res * d.sceneHeight * res) > (16000 ** 2)) res /= 4;
-        else if ((d.sceneWidth * res * d.sceneHeight * res) > (8000 ** 2)) res /= 2;
+
+        while (Math.max(d.sceneWidth, d.sceneHeight) * res > maxTextureSize
+            || d.sceneWidth * res * d.sceneHeight * res > 4096 * 4096) {
+            res /= 2;
+        }
+
         return res;
     });
 });

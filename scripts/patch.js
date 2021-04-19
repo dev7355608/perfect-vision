@@ -27,10 +27,12 @@ export function patch(target, type, func) {
 
         if (!wrapper) {
             if (type === "PRE") {
+                type = "WRAPPER";
                 wrapper = function (wrapped, ...args) {
                     return wrapped(...func.apply(this, args));
                 };
             } else if (type === "POST") {
+                type = "WRAPPER";
                 wrapper = function (wrapped, ...args) {
                     return func.call(this, wrapped(...args), ...args);
                 };
@@ -38,17 +40,23 @@ export function patch(target, type, func) {
                 wrapper = function (wrapped, ...args) {
                     return func.call(this, wrapped, ...args);
                 };
+            } else if (type === "OVERRIDE") {
+                wrapper = func;
             }
         } else {
+            console.assert(type !== "OVERRIDE");
+
             libWrapper.unregister("perfect-vision", target);
 
             const _wrapper = wrapper;
 
             if (type === "PRE") {
+                type = "WRAPPER";
                 wrapper = function (wrapped, ...args) {
                     return _wrapper.call(this, wrapped, ...func.apply(this, args));
                 };
             } else if (type === "POST") {
+                type = "WRAPPER";
                 wrapper = function (wrapped, ...args) {
                     return func.call(this, _wrapper.call(this, wrapped, ...args), ...args);
                 };
@@ -61,7 +69,7 @@ export function patch(target, type, func) {
 
         wrappers[target] = wrapper;
 
-        libWrapper.register("perfect-vision", target, wrapper, "WRAPPER");
+        libWrapper.register("perfect-vision", target, wrapper, type);
     } else {
         let wrapper;
 
@@ -77,6 +85,8 @@ export function patch(target, type, func) {
             wrapper = function () {
                 return func.call(this, (...args) => method.apply(this, args), ...arguments);
             };
+        } else if (type === "OVERRIDE") {
+            wrapper = func;
         }
 
         let attributes;
