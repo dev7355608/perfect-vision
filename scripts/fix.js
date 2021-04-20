@@ -1,6 +1,28 @@
 import { extend } from "./extend.js";
 import { patch } from "./patch.js";
 
+PIXI.AbstractRenderer.prototype.resize = function (screenWidth, screenHeight) {
+    this.view.width = Math.round(screenWidth * this.resolution);
+    this.view.height = Math.round(screenHeight * this.resolution);
+
+    screenWidth = this.view.width / this.resolution;
+    screenHeight = this.view.height / this.resolution;
+
+    this.screen.width = screenWidth;
+    this.screen.height = screenHeight;
+
+    this.view.style.width = `${screenWidth}px`;
+    this.view.style.height = `${screenHeight}px`;
+
+    this.emit('resize', screenWidth, screenHeight);
+}
+
+PIXI.Renderer.prototype.resize = function (screenWidth, screenHeight) {
+    PIXI.AbstractRenderer.prototype.resize.call(this, screenWidth, screenHeight);
+
+    this.runners.resize.emit(this.screen.height, this.screen.width);
+}
+
 Hooks.once("init", () => {
     // https://gitlab.com/foundrynet/foundryvtt/-/issues/4263
     if (isNewerVersion(game.data.version, "0.7.8")) {
