@@ -46,13 +46,13 @@ const renderConfigTemplate2 = Handlebars.compile(`\
 );
 
 function renderConfig(sheet, html, data) {
+    const document = sheet.object;
     let prefix = "perfect-vision";
 
     const settings = Array.from(game.settings.settings.values()).filter(
         s => s.module === "perfect-vision");
 
     if (sheet instanceof TokenConfig) {
-        const token = sheet.object;
         prefix = `flags.${prefix}`;
 
         const config = renderConfigTemplate({
@@ -76,9 +76,9 @@ function renderConfig(sheet, html, data) {
                 if (s.key === "visionRules") {
                     s.choices = mergeObject({ "default": "Default" }, s.choices);
                     s.default = "default";
-                    s.value = token.getFlag(s.module, s.key) ?? "default";
+                    s.value = document.getFlag(s.module, s.key) ?? "default";
                 } else {
-                    s.value = token.getFlag(s.module, s.key);
+                    s.value = document.getFlag(s.module, s.key);
                 }
 
                 return s;
@@ -95,7 +95,7 @@ function renderConfig(sheet, html, data) {
             settings: [{
                 module: "perfect-vision",
                 key: "sightLimit",
-                value: token.getFlag("perfect-vision", "sightLimit"),
+                value: document.getFlag("perfect-vision", "sightLimit"),
                 name: "Sight Limit",
                 units: "Distance"
             }]
@@ -110,7 +110,7 @@ function renderConfig(sheet, html, data) {
         console.assert(sheet instanceof SettingsConfig);
     }
 
-    const colorInput = document.createElement("input");
+    const colorInput = window.document.createElement("input");
     colorInput.setAttribute("type", "color");
     colorInput.setAttribute("value", html.find(`input[name="${prefix}.monoVisionColor"]`).val());
     colorInput.setAttribute("data-edit", `${prefix}.monoVisionColor`);
@@ -131,8 +131,16 @@ function renderConfig(sheet, html, data) {
         inputMonochromeVisionColor.attr("placeholder", `#ffffff`);
 
     if (sheet instanceof TokenConfig) {
-        if (sheet.object.scene) {
-            const defaultSightLimit = sheet.object.scene.getFlag("perfect-vision", "sightLimit");
+        let scene;
+
+        if (isNewerVersion(game.data.version, "0.8")) {
+            scene = document.parent;
+        } else {
+            scene = document.scene;
+        }
+
+        if (scene) {
+            const defaultSightLimit = scene.getFlag("perfect-vision", "sightLimit");
             html.find(`input[name="${prefix}.sightLimit"]`).attr("placeholder", `Scene Default (${defaultSightLimit ?? "Unlimited"})`);
         } else {
             html.find(`input[name="${prefix}.sightLimit"]`).attr("placeholder", "Unlimited");
@@ -200,6 +208,8 @@ Hooks.on("renderSettingsConfig", renderConfig);
 Hooks.on("renderTokenConfig", renderConfig);
 
 Hooks.on("renderSceneConfig", (sheet, html, data) => {
+    const document = sheet.object;
+
     const globalLight = html.find(`input[name="globalLight"]`);
     const globalLightLabel = globalLight.prev();
     globalLightLabel.after(`<div class="form-fields"></div>`);
@@ -222,7 +232,7 @@ Hooks.on("renderSceneConfig", (sheet, html, data) => {
     globalLightFields.next().append(" If set to Dim (Bright) Light, the entire scene is illuminated with dim (bright) light and, if set to Scene Darkness, the scene is illuminated according to the scene's Darkness Level only.");
 
     html.find(`select[name="flags.perfect-vision.globalLight"]`)
-        .val(sheet.object.getFlag("perfect-vision", "globalLight") ?? "default")
+        .val(document.getFlag("perfect-vision", "globalLight") ?? "default")
         .on("change", sheet._onChangeInput.bind(sheet));
 
     html.find(`input[name="tokenVision"]`).parent().after(`\
@@ -235,7 +245,7 @@ Hooks.on("renderSceneConfig", (sheet, html, data) => {
         </div>`);
 
     html.find(`input[name="flags.perfect-vision.sightLimit"]`)
-        .attr("value", sheet.object.getFlag("perfect-vision", "sightLimit"))
+        .attr("value", document.getFlag("perfect-vision", "sightLimit"))
         .on("change", sheet._onChangeInput.bind(sheet));
 
     const addColorSetting = (name, label) => {
@@ -251,9 +261,9 @@ Hooks.on("renderSceneConfig", (sheet, html, data) => {
             </div>`);
 
         html.find(`input[name="flags.perfect-vision.${name}"]`).next()
-            .attr("value", sheet.object.getFlag("perfect-vision", name) || defaultColor);
+            .attr("value", document.getFlag("perfect-vision", name) || defaultColor);
         html.find(`input[name="flags.perfect-vision.${name}"]`)
-            .attr("value", sheet.object.getFlag("perfect-vision", name))
+            .attr("value", document.getFlag("perfect-vision", name))
             .on("change", sheet._onChangeInput.bind(sheet));
     };
 

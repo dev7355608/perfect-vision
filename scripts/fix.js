@@ -41,7 +41,7 @@ Hooks.once("init", () => {
         let _sources = new WeakSet();
 
         patch("LightingLayer.prototype.refresh", "WRAPPER", function (wrapped, darkness) {
-            _darknessChanged = darkness != undefined && (darkness !== this.darknessLevel)
+            _darknessChanged = darkness != undefined && (darkness !== this.darknessLevel);
 
             for (const sources of [this.sources, canvas.sight.sources]) {
                 for (const source of sources) {
@@ -55,7 +55,9 @@ Hooks.once("init", () => {
 
             for (const sources of [this.sources, canvas.sight.sources]) {
                 for (const source of sources) {
-                    _sources.add(source);
+                    if (source.active) {
+                        _sources.add(source);
+                    }
                 }
             }
 
@@ -67,11 +69,13 @@ Hooks.once("init", () => {
         });
     }
 
-    patch("SceneConfig.prototype.close", "POST", async function () {
-        canvas.lighting.refresh(canvas.scene.data.darkness);
+    if (isNewerVersion("0.8", game.data.version)) {
+        patch("SceneConfig.prototype.close", "POST", async function () {
+            canvas.lighting.refresh(canvas.scene.data.darkness);
 
-        return await arguments[0];
-    });
+            return await arguments[0];
+        });
+    }
 
     // Fix flickering border pixels
     patch("BackgroundLayer.prototype.draw", "POST", async function () {
@@ -111,31 +115,33 @@ Hooks.once("init", () => {
         return channels;
     });
 
-    // https://gitlab.com/foundrynet/foundryvtt/-/issues/4565
-    patch("normalizeRadians", "POST", function (nr) {
-        return nr < -Math.PI ? nr + 2 * Math.PI : nr;
-    });
+    if (isNewerVersion("0.8.0", game.data.version)) {
+        // https://gitlab.com/foundrynet/foundryvtt/-/issues/4565
+        patch("normalizeRadians", "POST", function (nr) {
+            return nr < -Math.PI ? nr + 2 * Math.PI : nr;
+        });
 
-    patch("Ray.fromAngle", "POST", function (ray) {
-        ray.angle = normalizeRadians(ray.angle);
-        return ray;
-    });
-
-    patch("SightLayer._castRays", "POST", function (rays) {
-        for (const ray of rays) {
+        patch("Ray.fromAngle", "POST", function (ray) {
             ray.angle = normalizeRadians(ray.angle);
-        }
+            return ray;
+        });
 
-        rays.sort((ray1, ray2) => ray1.angle - ray2.angle);
-
-        for (let i = rays.length - 1; i > 0; i--) {
-            if (rays[i].angle === rays[i - 1].angle) {
-                rays.splice(i, 1);
+        patch("SightLayer._castRays", "POST", function (rays) {
+            for (const ray of rays) {
+                ray.angle = normalizeRadians(ray.angle);
             }
-        }
 
-        return rays;
-    });
+            rays.sort((ray1, ray2) => ray1.angle - ray2.angle);
+
+            for (let i = rays.length - 1; i > 0; i--) {
+                if (rays[i].angle === rays[i - 1].angle) {
+                    rays.splice(i, 1);
+                }
+            }
+
+            return rays;
+        });
+    }
 
     patch("LightingLayer.prototype._drawColorationContainer", "POST", function (c) {
         c.filter.resolution = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));

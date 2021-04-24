@@ -8,8 +8,9 @@ function getFlags(entity) {
         let flags;
 
         if (Symbol.iterator in storage) {
-            for (const [key, value] of storage) {
+            for (const key of storage.keys()) {
                 if (key.startsWith("perfect-vision.")) {
+                    const value = storage.getItem(key);
                     flags = flags ?? {};
                     flags[key.split(/\.(.*)/)[1]] = JSON.parse(value);
                 }
@@ -17,8 +18,8 @@ function getFlags(entity) {
         } else {
             for (let i = 0; i < storage.length; i++) {
                 const key = storage.key(i);
-                const value = storage.getItem(key);
                 if (key.startsWith("perfect-vision.")) {
+                    const value = storage.getItem(key);
                     flags = flags ?? {};
                     flags[key.split(/\.(.*)/)[1]] = JSON.parse(value);
                 }

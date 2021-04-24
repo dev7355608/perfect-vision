@@ -365,12 +365,12 @@ Hooks.once("init", () => {
         Hooks.on("switchWeather", () => updateLayer(canvas.fxmaster));
         Hooks.on("updateWeather", () => updateLayer(canvas.fxmaster));
 
-        Hooks.on("updateScene", (scene, data, options) => {
+        Hooks.on("updateScene", (scene, change, options) => {
             if (!game.settings.get("fxmaster", "enable")) {
                 return
             }
 
-            if (hasProperty(data, "flags.fxmaster")) {
+            if (hasProperty(change, "flags.fxmaster")) {
                 updateLayer(canvas.fxmaster);
             }
         });

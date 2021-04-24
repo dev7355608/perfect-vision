@@ -69,7 +69,13 @@ function computeFov(source, radius, fovCache = null) {
         }
     }
 
-    const fov = new PIXI.Polygon(...fovPoints);
+    let fov;
+
+    if (isNewerVersion("0.8.0", game.data.version)) {
+        fov = new PIXI.Polygon(...fovPoints);
+    } else {
+        fov = new SourcePolygon(source.x, source.y, radius, ...fovPoints);
+    }
 
     if (fovCache)
         fovCache[radius] = fov;
@@ -453,14 +459,14 @@ Hooks.once("init", () => {
             if (!c.light.filters)
                 c.light.filters = [];
 
-            c.light.filters[0] = this.darkness ? visionMinFilter : visionMaxFilter;
+            c.light.filters[0] = (this.isDarkness ?? this.darkness) ? visionMinFilter : visionMaxFilter;
 
             c_.light.visible = false;
             c_.light.filters = null;
         } else {
             c.light.visible = true;
             c.light.filters = null;
-            c_.light.visible = sight && this.ratio < 1 && !this.darkness && this !== ilm_.globalLight2;
+            c_.light.visible = sight && this.ratio < 1 && !(this.isDarkness ?? this.darkness) && this !== ilm_.globalLight2;
 
             if (!c_.light.filters && this !== ilm_.globalLight2)
                 c_.light.filters = [lightFilter];
@@ -530,12 +536,12 @@ Hooks.once("init", () => {
                 z: -1,
                 dim: radius,
                 bright: 0,
-                type: SOURCE_TYPES.UNIVERSAL
+                type: CONST.SOURCE_TYPES.UNIVERSAL
             };
 
             c_.globalLight = new PointSource();
             c_.globalLight.initialize(opts);
-            c_.globalLight.type = SOURCE_TYPES.LOCAL;
+            c_.globalLight.type = CONST.SOURCE_TYPES.LOCAL;
             Object.defineProperty(c_.globalLight, "dim", {
                 get: () => {
                     let globalLight = canvas.scene.getFlag("perfect-vision", "globalLight") ?? "default";
@@ -607,14 +613,35 @@ Hooks.once("init", () => {
                     }
                 }
             });
+            Object.defineProperty(c_.globalLight, "darkness", {
+                get: () => {
+                    if (!this.globalLight)
+                        return { min: NaN, max: NaN };
+
+                    let globalLight = canvas.scene.getFlag("perfect-vision", "globalLight") ?? "default";
+
+                    if (globalLight === "default")
+                        globalLight = game.settings.get("perfect-vision", "globalLight");
+
+                    switch (globalLight) {
+                        case "dim":
+                            return { min: -Infinity, max: +Infinity };
+                        case "bright":
+                            return { min: -Infinity, max: +Infinity };
+                        default:
+                            return { min: NaN, max: NaN };
+                    }
+                }
+            });
 
             c_.globalLight2 = new PointSource();
             c_.globalLight2.initialize(opts);
-            c_.globalLight2.type = SOURCE_TYPES.LOCAL;
+            c_.globalLight2.type = CONST.SOURCE_TYPES.LOCAL;
             c_.globalLight2.dim = 0;
             c_.globalLight2.bright = 0;
             c_.globalLight2.ratio = 0;
             Object.defineProperty(c_.globalLight2, "darknessThreshold", { get: () => this.globalLight ? -Infinity : +Infinity });
+            Object.defineProperty(c_.globalLight2, "darkness", { get: () => this.globalLight ? { min: -Infinity, max: +Infinity } : { min: NaN, max: NaN } });
             c_.globalLight2.illumination.zIndex = -1;
             c_.globalLight2.illumination.renderable = false;
         }
@@ -686,11 +713,19 @@ Hooks.on("canvasInit", () => {
     lightFilter.resolution = resolution;
 });
 
-Hooks.on("updateToken", (scene, data, update, options, userId) => {
-    if (scene.id !== canvas.scene?.id || !hasProperty(update, "flags.perfect-vision"))
+Hooks.on("updateToken", (document, change, options, userId, arg) => {
+    let scene;
+
+    if (isNewerVersion(game.data.version, "0.8")) {
+        scene = document.parent;
+    } else {
+        [scene, document, change, options, userId] = [document, change, options, userId, arg];
+    }
+
+    if (!scene?.isView || !hasProperty(change, "flags.perfect-vision"))
         return;
 
-    const token = canvas.tokens.get(data._id);
+    const token = canvas.tokens.get(document._id);
 
     if (token) {
         token.updateSource({ defer: true });
@@ -702,8 +737,8 @@ Hooks.on("updateToken", (scene, data, update, options, userId) => {
     }
 });
 
-Hooks.on("updateScene", (scene, update, options, userId) => {
-    if (scene.id !== canvas.scene?.id || !hasProperty(update, "flags.perfect-vision"))
+Hooks.on("updateScene", (scene, change, options, userId) => {
+    if (!scene.isView || !hasProperty(change, "flags.perfect-vision"))
         return;
 
     for (const token of canvas.tokens.placeables) {
