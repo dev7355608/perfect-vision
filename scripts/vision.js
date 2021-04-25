@@ -643,6 +643,14 @@ Hooks.once("init", () => {
         else
             darknessColor = CONFIG.Canvas.darknessColor;
 
+        const sanitize = hex => {
+            const x = [(hex >> 16) & 0xff, (hex >> 8) & 0xff, hex & 0xff].map(x => Math.max(x, 0xf));
+            return (x[0] << 16) + (x[1] << 8) + x[2];
+        }
+
+        daylightColor = sanitize(daylightColor);
+        darknessColor = sanitize(darknessColor);
+
         if (daylightColor !== ilm_.daylightColor || darknessColor !== ilm_.darknessColor)
             ilm_.updateChannels = true;
 
