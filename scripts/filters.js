@@ -71,7 +71,7 @@ const sightFilter = new MaskFilter("max(r, g)");
 
 const monoFilter = new MonoFilter();
 // Remove as soon as pixi.js fixes the auto fit bug.
-const monoFilter_noAutoFit = new Proxy(monoFilter, {
+let monoFilter_noAutoFit = new Proxy(monoFilter, {
     get(target, prop, receiver) {
         if (prop === "autoFit")
             return false;
@@ -345,6 +345,12 @@ Hooks.once("init", () => {
         Object.defineProperty(monoFilter, "rank", { value: 0, writable: false });
         Object.defineProperty(sightFilter, "zOrder", { value: 0, writable: false });
         Object.defineProperty(sightFilter, "rank", { value: 0, writable: false });
+
+        if (isNewerVersion(PIXI.VERSION, "5.3.4") || isNewerVersion(game.modules.get("tokenmagic").data.version, "0.5")) {
+            monoFilter_noAutoFit = monoFilter;
+        }
+    } else {
+        monoFilter_noAutoFit = monoFilter;
     }
 
     if (game.modules.get("roofs")?.active) {
