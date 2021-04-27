@@ -593,46 +593,50 @@ Hooks.once("init", () => {
                     }
                 }
             });
-            Object.defineProperty(c_.globalLight, "darknessThreshold", {
-                get: () => {
-                    if (!this.globalLight)
-                        return +Infinity;
 
-                    let globalLight = canvas.scene.getFlag("perfect-vision", "globalLight") ?? "default";
-
-                    if (globalLight === "default")
-                        globalLight = game.settings.get("perfect-vision", "globalLight");
-
-                    switch (globalLight) {
-                        case "dim":
-                            return -Infinity;
-                        case "bright":
-                            return -Infinity;
-                        default:
+            if (!isNewerVersion(game.data.version, "0.8")) {
+                Object.defineProperty(c_.globalLight, "darknessThreshold", {
+                    get: () => {
+                        if (!this.globalLight)
                             return +Infinity;
+
+                        let globalLight = canvas.scene.getFlag("perfect-vision", "globalLight") ?? "default";
+
+                        if (globalLight === "default")
+                            globalLight = game.settings.get("perfect-vision", "globalLight");
+
+                        switch (globalLight) {
+                            case "dim":
+                                return -Infinity;
+                            case "bright":
+                                return -Infinity;
+                            default:
+                                return +Infinity;
+                        }
                     }
-                }
-            });
-            Object.defineProperty(c_.globalLight, "darkness", {
-                get: () => {
-                    if (!this.globalLight)
-                        return { min: NaN, max: NaN };
-
-                    let globalLight = canvas.scene.getFlag("perfect-vision", "globalLight") ?? "default";
-
-                    if (globalLight === "default")
-                        globalLight = game.settings.get("perfect-vision", "globalLight");
-
-                    switch (globalLight) {
-                        case "dim":
-                            return { min: -Infinity, max: +Infinity };
-                        case "bright":
-                            return { min: -Infinity, max: +Infinity };
-                        default:
+                });
+            } else {
+                Object.defineProperty(c_.globalLight, "darkness", {
+                    get: () => {
+                        if (!this.globalLight)
                             return { min: NaN, max: NaN };
+
+                        let globalLight = canvas.scene.getFlag("perfect-vision", "globalLight") ?? "default";
+
+                        if (globalLight === "default")
+                            globalLight = game.settings.get("perfect-vision", "globalLight");
+
+                        switch (globalLight) {
+                            case "dim":
+                                return { min: -Infinity, max: +Infinity };
+                            case "bright":
+                                return { min: -Infinity, max: +Infinity };
+                            default:
+                                return { min: NaN, max: NaN };
+                        }
                     }
-                }
-            });
+                });
+            }
 
             c_.globalLight2 = new PointSource();
             c_.globalLight2.initialize(opts);
@@ -640,8 +644,13 @@ Hooks.once("init", () => {
             c_.globalLight2.dim = 0;
             c_.globalLight2.bright = 0;
             c_.globalLight2.ratio = 0;
-            Object.defineProperty(c_.globalLight2, "darknessThreshold", { get: () => this.globalLight ? -Infinity : +Infinity });
-            Object.defineProperty(c_.globalLight2, "darkness", { get: () => this.globalLight ? { min: -Infinity, max: +Infinity } : { min: NaN, max: NaN } });
+
+            if (!isNewerVersion(game.data.version, "0.8")) {
+                Object.defineProperty(c_.globalLight2, "darknessThreshold", { get: () => this.globalLight ? -Infinity : +Infinity });
+            } else {
+                Object.defineProperty(c_.globalLight2, "darkness", { get: () => this.globalLight ? { min: -Infinity, max: +Infinity } : { min: NaN, max: NaN } });
+            }
+
             c_.globalLight2.illumination.zIndex = -1;
             c_.globalLight2.illumination.renderable = false;
         }
