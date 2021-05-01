@@ -25,7 +25,7 @@ PIXI.Renderer.prototype.resize = function (screenWidth, screenHeight) {
 
 Hooks.once("init", () => {
     // https://gitlab.com/foundrynet/foundryvtt/-/issues/4263
-    if (isNewerVersion(game.data.version, "0.7.8")) {
+    if (isNewerVersion(game.data.version, "0.7.8") && isNewerVersion("0.8.2", game.data.version)) {
         let _darknessChanged;
 
         patch("PointSource.prototype.drawLight", "PRE", function (opts) {
@@ -78,17 +78,31 @@ Hooks.once("init", () => {
     }
 
     // Fix flickering border pixels
-    patch("BackgroundLayer.prototype.draw", "POST", async function () {
-        const retVal = await arguments[0];
+    if (isNewerVersion(game.data.version, "0.8.1")) {
+        patch("MapLayer.prototype.draw", "POST", async function () {
+            const retVal = await arguments[0];
 
-        const this_ = extend(this);
+            const this_ = extend(this);
 
-        this_.msk = this.addChild(new PIXI.Graphics());
-        this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
-        this.mask = this_.msk;
+            this_.msk = this.addChild(new PIXI.Graphics());
+            this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
+            this.mask = this_.msk;
 
-        return retVal;
-    });
+            return retVal;
+        });
+    } else {
+        patch("BackgroundLayer.prototype.draw", "POST", async function () {
+            const retVal = await arguments[0];
+
+            const this_ = extend(this);
+
+            this_.msk = this.addChild(new PIXI.Graphics());
+            this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
+            this.mask = this_.msk;
+
+            return retVal;
+        });
+    }
 
     patch("EffectsLayer.prototype.draw", "POST", async function () {
         const retVal = await arguments[0];

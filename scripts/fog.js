@@ -137,7 +137,7 @@ function update(draw = false) {
     const sight_ = extend(sight);
 
     if (!sight_.fog || draw) {
-        sight_.fog = sight.addChildAt(new PIXI.Container(), sight.getChildIndex(sight.fog));
+        sight_.fog = sight.addChildAt(new PIXI.Container(), 0);
         sight_.filter = sight._blurDistance > 0 ?
             new PIXI.filters.BlurFilter(sight._blurDistance) :
             new PIXI.filters.AlphaFilter(1.0);
@@ -150,7 +150,7 @@ function update(draw = false) {
         else
             sight_.fog.filters = [sight_.fog.filter, sight_.filter];
 
-        sight_.fog.filterArea = sight.fog.filterArea;
+        sight_.fog.filterArea = canvas.app.screen;
     }
 
     sight_.fog.visible = sight.fogExploration && game.settings.get("perfect-vision", "actualFogOfWar");
@@ -174,6 +174,9 @@ function update(draw = false) {
 }
 
 Hooks.once("init", () => {
+    if (isNewerVersion(game.data.version, "0.8"))
+        return;
+
     game.settings.register("perfect-vision", "actualFogOfWar", {
         name: "Actual Fog of War",
         hint: "If enabled, the fog of war is overlaid with a fog effect.",

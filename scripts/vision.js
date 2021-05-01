@@ -283,13 +283,21 @@ Hooks.once("init", () => {
         let brightVisionInDarkness;
         let brightVisionInDimLight;
 
-        let visionRules = token.getFlag("perfect-vision", "visionRules") || "default";
+        let document;
+
+        if (isNewerVersion(game.data.version, "0.8")) {
+            document = token.document;
+        } else {
+            document = token;
+        }
+
+        let visionRules = document.getFlag("perfect-vision", "visionRules") || "default";
 
         if (visionRules === "custom") {
-            dimVisionInDarkness = token.getFlag("perfect-vision", "dimVisionInDarkness");
-            dimVisionInDimLight = token.getFlag("perfect-vision", "dimVisionInDimLight");
-            brightVisionInDarkness = token.getFlag("perfect-vision", "brightVisionInDarkness");
-            brightVisionInDimLight = token.getFlag("perfect-vision", "brightVisionInDimLight");
+            dimVisionInDarkness = document.getFlag("perfect-vision", "dimVisionInDarkness");
+            dimVisionInDimLight = document.getFlag("perfect-vision", "dimVisionInDimLight");
+            brightVisionInDarkness = document.getFlag("perfect-vision", "brightVisionInDarkness");
+            brightVisionInDimLight = document.getFlag("perfect-vision", "brightVisionInDimLight");
         } else {
             if (visionRules === "default") {
                 visionRules = game.settings.get("perfect-vision", "visionRules");
@@ -316,7 +324,7 @@ Hooks.once("init", () => {
         dim = Math.abs(dim);
         bright = Math.abs(bright);
 
-        let sightLimit = parseFloat(token.getFlag("perfect-vision", "sightLimit"));
+        let sightLimit = parseFloat(document.getFlag("perfect-vision", "sightLimit"));
 
         if (Number.isNaN(sightLimit))
             sightLimit = parseFloat(scene?.getFlag("perfect-vision", "sightLimit"));
@@ -357,7 +365,7 @@ Hooks.once("init", () => {
             brightVisionInDimLight === "bright" ? bright : 0
         );
         const monoVisionColor = hexToRGB(colorStringToHex(
-            token.getFlag("perfect-vision", "monoVisionColor") || game.settings.get("perfect-vision", "monoVisionColor") || "#ffffff"
+            document.getFlag("perfect-vision", "monoVisionColor") || game.settings.get("perfect-vision", "monoVisionColor") || "#ffffff"
         ));
 
         this_.radius = Math.max(Math.abs(opts.dim), Math.abs(opts.bright));
@@ -734,15 +742,30 @@ Hooks.on("updateToken", (document, change, options, userId, arg) => {
     if (!scene?.isView || !hasProperty(change, "flags.perfect-vision"))
         return;
 
-    const token = canvas.tokens.get(document._id);
+    let id;
+
+    if (isNewerVersion(game.data.version, "0.8")) {
+        id = document.id;
+    } else {
+        id = document._id;
+    }
+
+    const token = canvas.tokens.get(id);
 
     if (token) {
         token.updateSource({ defer: true });
 
-        canvas.addPendingOperation("LightingLayer.refresh", canvas.lighting.refresh, canvas.lighting);
-        canvas.addPendingOperation("SightLayer.refresh", canvas.sight.refresh, canvas.sight, [{
-            forceUpdateFog: token.hasLimitedVisionAngle
-        }]);
+        if (isNewerVersion(game.data.version, "0.8.1")) {
+            canvas.perception.schedule({
+                lighting: { refresh: true },
+                sight: { refresh: true, forceUpdateFog: token.hasLimitedVisionAngle }
+            });
+        } else {
+            canvas.addPendingOperation("LightingLayer.refresh", canvas.lighting.refresh, canvas.lighting);
+            canvas.addPendingOperation("SightLayer.refresh", canvas.sight.refresh, canvas.sight, [{
+                forceUpdateFog: token.hasLimitedVisionAngle
+            }]);
+        }
     }
 });
 
