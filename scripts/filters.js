@@ -153,14 +153,20 @@ function updatePlaceable(placeable) {
         return;
 
     let sprite;
+    let sight = true;
 
     if (placeable instanceof Token) {
         sprite = placeable.icon;
     } else if (placeable instanceof Tile) {
-        if (isNewerVersion(game.data.version, "0.8.1")) {
+        if (!isNewerVersion(game.data.version, "0.8") && game.modules.get("blood-n-guts")?.active && placeable.layer === canvas.blood) {
             sprite = placeable.tile;
+            sight = false;
         } else {
-            sprite = placeable.tile.img;
+            if (isNewerVersion(game.data.version, "0.8.1")) {
+                sprite = placeable.tile;
+            } else {
+                sprite = placeable.tile.img;
+            }
         }
     } else if (placeable instanceof MeasuredTemplate) {
         sprite = placeable.template;
@@ -209,6 +215,10 @@ function updatePlaceable(placeable) {
     } else {
         addLastToDisplayObject(sprite, monoFilter);
     }
+
+    if (!sight) {
+        addLastToDisplayObject(sprite, sightFilter);
+    }
 }
 
 function updateAll() {
@@ -222,6 +232,12 @@ function updateAll() {
         placeables = [...placeables, ...canvas.background.placeables, ...canvas.foreground.placeables];
     } else {
         placeables = [...placeables, ...canvas.tiles.placeables];
+
+        if (!isNewerVersion(game.data.version, "0.8")) {
+            if (game.modules.get("blood-n-guts")?.active) {
+                placeables = [...placeables, ...canvas.blood.placeables];
+            }
+        }
     }
 
     if (game.modules.get("roofs")?.active) {
@@ -300,12 +316,12 @@ Hooks.once("init", () => {
         return arguments[0];
     });
 
-    patch("TemplateLayer.prototype.deactivate", "POST", function () {
+    patch("TemplateLayer.prototype.deactivate", "PRE", function () {
         for (const template of canvas.templates.placeables) {
             updatePlaceable(template);
         }
 
-        return arguments[0];
+        return arguments;
     });
 
     if (isNewerVersion(game.data.version, "0.8.1")) {
@@ -349,6 +365,22 @@ Hooks.once("init", () => {
 
         return retVal;
     });
+
+    if (!isNewerVersion(game.data.version, "0.8")) {
+        if (game.modules.get("blood-n-guts")?.active) {
+            Hooks.once("ready", () => {
+                patch("Canvas.layers.blood.layerOptions.objectClass.prototype.draw", "POST", async function () {
+                    const retVal = await arguments[0];
+
+                    updatePlaceable(this);
+
+                    return retVal;
+                });
+
+                updateAll();
+            });
+        }
+    }
 
     patch("MeasuredTemplate.prototype.draw", "POST", async function () {
         const retVal = await arguments[0];

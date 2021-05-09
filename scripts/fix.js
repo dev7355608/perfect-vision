@@ -85,6 +85,10 @@ Hooks.once("init", () => {
 
                 const this_ = extend(this);
 
+                if (this_.msk?.parent) {
+                    this_.msk.parent.removeChild(this_.msk);
+                }
+
                 this_.msk = this.addChild(new PIXI.Graphics());
                 this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
                 this.mask = this_.msk;
@@ -96,6 +100,10 @@ Hooks.once("init", () => {
                 const retVal = await arguments[0];
 
                 const this_ = extend(this);
+
+                if (this_.msk?.parent) {
+                    this_.msk.parent.removeChild(this_.msk);
+                }
 
                 this_.msk = this.addChild(new PIXI.Graphics());
                 this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
@@ -110,6 +118,10 @@ Hooks.once("init", () => {
         const retVal = await arguments[0];
 
         const this_ = extend(this);
+
+        if (this_.msk?.parent) {
+            this_.msk.parent.removeChild(this_.msk);
+        }
 
         this_.msk = this.addChild(new PIXI.Graphics());
         this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
