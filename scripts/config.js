@@ -46,13 +46,14 @@ const renderConfigTemplate2 = Handlebars.compile(`\
 );
 
 function renderConfig(sheet, html, data) {
-    const document = sheet.object;
+    let document;
     let prefix = "perfect-vision";
 
     const settings = Array.from(game.settings.settings.values()).filter(
         s => s.module === "perfect-vision");
 
     if (sheet instanceof TokenConfig) {
+        document = sheet.token;
         prefix = `flags.${prefix}`;
 
         const config = renderConfigTemplate({

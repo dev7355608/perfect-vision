@@ -85,26 +85,50 @@ function computeFov(source, radius, fovCache = null) {
 
 var refreshHookID = null;
 
-function refresh() {
-    if (!canvas?.ready) {
-        if (refreshHookID == null) {
-            refreshHookID = Hooks.once("canvasReady", refresh);
+function refresh({ lighting = true, sight = true, initialize = true } = {}) {
+    if (isNewerVersion(game.data.version, "0.8.1")) {
+        if (canvas?.ready) {
+            canvas.perception.schedule({
+                lighting: { initialize, refresh: lighting },
+                sight: { initialize, refresh: sight }
+            });
+        }
+    } else {
+        if (!canvas?.ready) {
+            if (refreshHookID == null) {
+                refreshHookID = Hooks.once("canvasReady", refresh);
+            }
+
+            return;
         }
 
-        return;
-    }
+        if (refreshHookID != null) {
+            refreshHookID = null;
+            Hooks.off("canvasReady", refresh);
+        }
 
-    if (refreshHookID != null) {
-        refreshHookID = null;
-        Hooks.off("canvasReady", refresh);
-    }
+        if (initialize) {
+            if (lighting) {
+                for (const light of canvas.lighting.placeables) {
+                    light.updateSource({ defer: true });
+                }
+            }
 
-    for (const token of canvas.tokens.placeables) {
-        token.updateSource({ defer: true });
-    }
+            if (sight) {
+                for (const token of canvas.tokens.placeables) {
+                    token.updateSource({ defer: true });
+                }
+            }
+        }
 
-    canvas.lighting.refresh();
-    canvas.sight.refresh();
+        if (lighting) {
+            canvas.lighting.refresh();
+        }
+
+        if (sight) {
+            canvas.sight.refresh();
+        }
+    }
 }
 
 Hooks.once("init", () => {
@@ -131,8 +155,8 @@ Hooks.once("init", () => {
         type: Boolean,
         default: false,
         onChange: () => {
-            if (game.user.isGM && canvas?.ready)
-                canvas.lighting.refresh();
+            if (game.user.isGM)
+                refresh({ sight: false, initialize: false });
         }
     });
 
@@ -773,12 +797,23 @@ Hooks.on("updateScene", (scene, change, options, userId) => {
     if (!scene.isView || !hasProperty(change, "flags.perfect-vision"))
         return;
 
-    for (const token of canvas.tokens.placeables) {
-        token.updateSource({ defer: true });
-    }
+    if (isNewerVersion(game.data.version, "0.8.1")) {
+        canvas.perception.schedule({
+            lighting: { initialize: true, refresh: true },
+            sight: { initialize: true, refresh: true }
+        });
+    } else {
+        for (const light of canvas.lighting.placeables) {
+            light.updateSource({ defer: true });
+        }
 
-    canvas.lighting.refresh();
-    canvas.sight.refresh();
+        for (const token of canvas.tokens.placeables) {
+            token.updateSource({ defer: true });
+        }
+
+        canvas.lighting.refresh();
+        canvas.sight.refresh();
+    }
 });
 
 Hooks.on("lightingRefresh", () => {
