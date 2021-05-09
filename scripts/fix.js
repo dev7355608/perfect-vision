@@ -77,31 +77,33 @@ Hooks.once("init", () => {
         });
     }
 
-    // Fix flickering border pixels
-    if (isNewerVersion(game.data.version, "0.8.1")) {
-        patch("MapLayer.prototype.draw", "POST", async function () {
-            const retVal = await arguments[0];
+    if (!game.modules.get("grape_juice-isometrics")?.active) {
+        // Fix flickering border pixels
+        if (isNewerVersion(game.data.version, "0.8.1")) {
+            patch("MapLayer.prototype.draw", "POST", async function () {
+                const retVal = await arguments[0];
 
-            const this_ = extend(this);
+                const this_ = extend(this);
 
-            this_.msk = this.addChild(new PIXI.Graphics());
-            this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
-            this.mask = this_.msk;
+                this_.msk = this.addChild(new PIXI.Graphics());
+                this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
+                this.mask = this_.msk;
 
-            return retVal;
-        });
-    } else {
-        patch("BackgroundLayer.prototype.draw", "POST", async function () {
-            const retVal = await arguments[0];
+                return retVal;
+            });
+        } else {
+            patch("BackgroundLayer.prototype.draw", "POST", async function () {
+                const retVal = await arguments[0];
 
-            const this_ = extend(this);
+                const this_ = extend(this);
 
-            this_.msk = this.addChild(new PIXI.Graphics());
-            this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
-            this.mask = this_.msk;
+                this_.msk = this.addChild(new PIXI.Graphics());
+                this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
+                this.mask = this_.msk;
 
-            return retVal;
-        });
+                return retVal;
+            });
+        }
     }
 
     patch("EffectsLayer.prototype.draw", "POST", async function () {

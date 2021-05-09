@@ -121,7 +121,7 @@ function updateLayer(layer) {
     if (!layer)
         return;
 
-    if (layer === canvas.background || layer === canvas.foreground) {
+    if (layer === canvas.background || layer === canvas.foreground || (!isNewerVersion(game.data.version, "0.8") && layer instanceof BackgroundLayer && layer.iso_layer)) {
         removeFromDisplayObject(layer, monoFilter);
         removeFromDisplayObject(layer.img, monoFilter);
         addLastToDisplayObject(layer.img ?? layer, monoFilter);
@@ -224,8 +224,9 @@ function updateAll() {
         placeables = [...placeables, ...canvas.tiles.placeables];
     }
 
-    if (canvas.roofs)
+    if (game.modules.get("roofs")?.active) {
         placeables = [...placeables, ...canvas.roofs.children];
+    }
 
     for (const layerName of layers) {
         const layer = canvas[layerName];
@@ -233,6 +234,16 @@ function updateAll() {
         if (!layer) continue;
 
         updateLayer(layer);
+    }
+
+    if (!isNewerVersion(game.data.version, "0.8")) {
+        if (game.modules.get("grape_juice-isometrics")?.active) {
+            for (const layer of canvas.stage.children) {
+                if (layer instanceof BackgroundLayer && layer.iso_layer) {
+                    updateLayer(layer);
+                }
+            }
+        }
     }
 
     for (const placeable of placeables) {
