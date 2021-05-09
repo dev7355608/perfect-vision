@@ -694,9 +694,11 @@ Hooks.once("init", () => {
         const ilm = this.illumination;
         const ilm_ = extend(ilm);
 
-        this.sources.set("PerfectVision.Light.1", ilm_.globalLight);
-        this.sources.set("PerfectVision.Light.2", ilm_.globalLight2);
-        ilm_.globalLight._resetIlluminationUniforms = true;
+        if (this.hasGlobalIllumination()) {
+            this.sources.set("PerfectVision.Light.1", ilm_.globalLight);
+            this.sources.set("PerfectVision.Light.2", ilm_.globalLight2);
+            ilm_.globalLight._resetIlluminationUniforms = true;
+        }
 
         let daylightColor = canvas.scene.getFlag("perfect-vision", "daylightColor");
         let darknessColor = canvas.scene.getFlag("perfect-vision", "darknessColor");
