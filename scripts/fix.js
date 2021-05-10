@@ -174,11 +174,13 @@ Hooks.once("init", () => {
     patch("LightingLayer.prototype._drawColorationContainer", "POST", function (c) {
         c.filter.resolution = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
 
-        if (c.filter instanceof PIXI.filters.FXAAFilter && c.filter.program.uniformData.inputPixel) {
-            c.filter.program = PIXI.Program.from(
-                c.filter.program.vertexSrc.replace(/#define SHADER_NAME .*\n/i, "").replace(/inputPixel/g, "inputSize"),
-                c.filter.program.fragmentSrc.replace(/#define SHADER_NAME .*\n/i, "").replace(/inputPixel/g, "inputSize")
-            );
+        if (!isNewerVersion(PIXI.VERSION, "6.0.3")) {
+            if (c.filter instanceof PIXI.filters.FXAAFilter && c.filter.program.uniformData.inputPixel) {
+                c.filter.program = PIXI.Program.from(
+                    c.filter.program.vertexSrc.replace(/#define SHADER_NAME .*\n/i, "").replace(/inputPixel/g, "inputSize"),
+                    c.filter.program.fragmentSrc.replace(/#define SHADER_NAME .*\n/i, "").replace(/inputPixel/g, "inputSize")
+                );
+            }
         }
 
         return c;

@@ -694,10 +694,17 @@ Hooks.once("init", () => {
         const ilm = this.illumination;
         const ilm_ = extend(ilm);
 
-        if (this.hasGlobalIllumination()) {
+        const darknessLevel = Math.clamped(args[0] ?? this.darknessLevel, 0, 1);
+        const sd = canvas.scene.data;
+        const hasGlobalIllumination = sd.globalLight && (!sd.globalLightThreshold || (darknessLevel <= sd.globalLightThreshold));
+
+        if (hasGlobalIllumination) {
             this.sources.set("PerfectVision.Light.1", ilm_.globalLight);
             this.sources.set("PerfectVision.Light.2", ilm_.globalLight2);
             ilm_.globalLight._resetIlluminationUniforms = true;
+        } else {
+            this.sources.delete("PerfectVision.Light.1");
+            this.sources.delete("PerfectVision.Light.2");
         }
 
         let daylightColor = canvas.scene.getFlag("perfect-vision", "daylightColor");
@@ -721,8 +728,10 @@ Hooks.once("init", () => {
         daylightColor = sanitize(daylightColor);
         darknessColor = sanitize(darknessColor);
 
-        if (daylightColor !== ilm_.daylightColor || darknessColor !== ilm_.darknessColor)
+        if (daylightColor !== ilm_.daylightColor || darknessColor !== ilm_.darknessColor) {
+            this.channels = null;
             ilm_.updateChannels = true;
+        }
 
         ilm_.daylightColor = daylightColor;
         ilm_.darknessColor = darknessColor;
