@@ -22,7 +22,7 @@ export function patch(target, type, func) {
 
     console.assert(method);
 
-    if (game.modules.get("lib-wrapper")?.active && (wrappers[target] || descriptor.configurable)) {
+    if (game.modules.get("lib-wrapper")?.active && (wrappers[target] || descriptor.configurable || descriptor.get && descriptor.set)) {
         let wrapper = wrappers[target];
 
         if (!wrapper) {

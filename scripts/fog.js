@@ -158,7 +158,7 @@ function update(draw = false) {
     if (!sight_.fog.visible) {
         if (sight_.fog.weatherEffect) {
             sight_.fog.weatherEffect.stop();
-            delete sight_.fog.weatherEffect;
+            sight_.fog.weatherEffect = null;
         }
         return;
     }
@@ -204,7 +204,7 @@ Hooks.once("init", () => {
 
             this_.fog.weather = this_.fog.weatherEffect = null;
             this_.fog.destroy(true);
-            delete this_.fog;
+            this_.fog = null;
         }
 
         return arguments;

@@ -141,7 +141,7 @@ Hooks.once("init", () => {
 
         const c_ = extend(c);
 
-        if (this_.isVision) {
+        if (this.sourceType === "sight" || this_.isVision) {
             if (this_.fovMono) {
                 if (!c_.fovMono)
                     c_.fovMono = new PIXI.Graphics();
@@ -149,7 +149,7 @@ Hooks.once("init", () => {
                 c_.fovMono.clear().beginFill(0x00FF00, 1.0).drawPolygon(this_.fovMono).endFill();
             } else if (c_.fovMono) {
                 c_.fovMono.destroy();
-                delete c_.fovMono;
+                c_.fovMono = null;
             }
 
             if (this_.fovColor) {
@@ -161,7 +161,7 @@ Hooks.once("init", () => {
                 c_.fovColor.clear().beginFill(0xFF0000, 1.0).drawPolygon(this_.fovColor).endFill();
             } else if (c_.fovColor) {
                 c_.fovColor.destroy();
-                delete c_.fovColor;
+                c_.fovColor = null;
             }
 
             if (this_.fovDimToBright) {
@@ -173,7 +173,7 @@ Hooks.once("init", () => {
                 c_.fovDimToBright.clear().beginFill(0x0000FF, 1.0).drawPolygon(this_.fovDimToBright).endFill();
             } else if (c_.fovDimToBright) {
                 c_.fovDimToBright.destroy();
-                delete c_.fovDimToBright;
+                c_.fovDimToBright = null;
             }
         } else {
             if (this !== ilm_.globalLight2) {
@@ -186,7 +186,7 @@ Hooks.once("init", () => {
                     c_.fovLight.beginFill(0xFF0000, 1.0).drawPolygon(this.fov).endFill();
             } else if (c_.fovLight) {
                 c_.fovLight.destroy();
-                delete c_.fovLight;
+                c_.fovLight = null;
             }
         }
 

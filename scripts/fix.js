@@ -212,6 +212,13 @@ Hooks.once("init", () => {
 
         return res;
     });
+
+    if (isNewerVersion(game.data.version, "0.8.2")) {
+        patch("AbstractBaseMaskFilter.create", "POST", function (filter) {
+            filter.resolution = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
+            return filter;
+        });
+    }
 });
 
 // https://gitlab.com/foundrynet/foundryvtt/-/issues/4850

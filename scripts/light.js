@@ -12,20 +12,27 @@ Hooks.once("init", () => {
         return data;
     });
 
-    patch("AmbientLight.prototype.updateSource", "PRE", function () {
-        const source_ = extend(this.source);
-        source_.isLight = true;
-        source_.light = this;
-        return arguments;
-    });
+    if (!isNewerVersion(game.data.version, "0.8.2")) {
+        patch("AmbientLight.prototype.updateSource", "PRE", function () {
+            const source_ = extend(this.source);
+            source_.isLight = true;
+            source_.light = this;
+            return arguments;
+        });
+    }
 
-    patch("PointSource.prototype.initialize", "WRAPPER", function (wrapped, opts) {
+    patch("PointSource.prototype.initialize", "WRAPPER", function (wrapped, data) {
         const this_ = extend(this);
 
-        if (!this_.isLight)
-            return wrapped(opts);
+        if (isNewerVersion(game.data.version, "0.8.2")) {
+            if (this.sourceType !== "light")
+                return wrapped(data);
+        } else {
+            if (!this_.isLight)
+                return wrapped(data);
+        }
 
-        const light = this_.light;
+        const light = this.object ?? this_.light;
 
         let document;
 
@@ -35,14 +42,14 @@ Hooks.once("init", () => {
             document = light;
         }
 
-        const localUnrestricted = (opts?.type == null || opts.type === CONST.SOURCE_TYPES.LOCAL) && document.getFlag("perfect-vision", "unrestricted");
+        const localUnrestricted = (data?.type == null || data.type === CONST.SOURCE_TYPES.LOCAL) && document.getFlag("perfect-vision", "unrestricted");
 
         if (localUnrestricted) {
-            opts = opts ?? {};
-            opts.type = CONST.SOURCE_TYPES.UNIVERSAL;
+            data = data ?? {};
+            data.type = CONST.SOURCE_TYPES.UNIVERSAL;
         }
 
-        const retVal = wrapped(opts);
+        const retVal = wrapped(data);
 
         if (localUnrestricted) {
             this.type = CONST.SOURCE_TYPES.LOCAL;
