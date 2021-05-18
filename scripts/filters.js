@@ -135,16 +135,18 @@ function updateLayer(layer) {
         for (const child of layer.children)
             removeFromDisplayObject(child, sightFilter);
 
-        let objects;
+        if (!isNewerVersion(game.data.version, "0.8.3")) {
+            let objects;
 
-        if (game.settings.get("perfect-vision", "fogOfWarWeather")) {
-            objects = layer.children.filter(child => child !== layer.weather && child !== layer.mask);
-        } else {
-            objects = [layer];
+            if (game.settings.get("perfect-vision", "fogOfWarWeather")) {
+                objects = layer.children.filter(child => child !== layer.weather && child !== layer.mask);
+            } else {
+                objects = [layer];
+            }
+
+            for (const object of objects)
+                addLastToDisplayObject(object, sightFilter);
         }
-
-        for (const object of objects)
-            addLastToDisplayObject(object, sightFilter);
     }
 }
 
@@ -222,7 +224,14 @@ function updatePlaceable(placeable) {
 }
 
 function updateAll() {
-    let layers = ["background", "effects", "fxmaster"];
+    let layers = ["background"];
+
+    if (isNewerVersion(game.data.version, "0.8.1")) {
+        layers = [...layers, "foreground"];
+    }
+
+    layers = [...layers, "effects", "fxmaster"];
+
     let placeables = [
         ...canvas.tokens.placeables,
         ...canvas.templates.placeables,
@@ -298,15 +307,17 @@ Hooks.once("init", () => {
         onChange: () => updateAll()
     });
 
-    game.settings.register("perfect-vision", "fogOfWarWeather", {
-        name: "Fog of War Weather",
-        hint: "If enabled, weather effects are visible in the fog of war. Otherwise, weather is only visible in line-of-sight.",
-        scope: "world",
-        config: true,
-        type: Boolean,
-        default: true,
-        onChange: () => updateAll()
-    });
+    if (!isNewerVersion(game.data.version, "0.8.3")) {
+        game.settings.register("perfect-vision", "fogOfWarWeather", {
+            name: "Fog of War Weather",
+            hint: "If enabled, weather effects are visible in the fog of war. Otherwise, weather is only visible in line-of-sight.",
+            scope: "world",
+            config: true,
+            type: Boolean,
+            default: true,
+            onChange: () => updateAll()
+        });
+    }
 
     patch("TemplateLayer.prototype.activate", "POST", function () {
         for (const template of canvas.templates.placeables) {

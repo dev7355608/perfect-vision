@@ -125,8 +125,13 @@ function render() {
             texture.resize(width, height);
         }
 
-        if (mask.filter instanceof GlowFilter)
-            mask.filter.uniforms.uStrength = canvas.sight.filter.blur / 4;
+        if (isNewerVersion(game.data.version, "0.8.3")) {
+            if (mask.filter instanceof GlowFilter)
+                mask.filter.uniforms.uStrength = canvas.blurDistance / 4;
+        } else {
+            if (mask.filter instanceof GlowFilter)
+                mask.filter.uniforms.uStrength = canvas.sight.filter.blur / 4;
+        }
 
         canvas.app.renderer.render(mask, texture, true, undefined, false);
     }
@@ -193,6 +198,13 @@ Hooks.once("init", () => {
         dirty = true;
         return c;
     });
+
+    if (isNewerVersion(game.data.version, "0.8.3")) {
+        patch("Canvas.prototype.updateBlur", "POST", function () {
+            dirty = true;
+            return arguments[0];
+        });
+    }
 });
 
 Hooks.on("canvasInit", () => {

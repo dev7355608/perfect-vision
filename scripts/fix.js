@@ -219,6 +219,13 @@ Hooks.once("init", () => {
             return filter;
         });
     }
+
+    if (isNewerVersion(game.data.version, "0.8.3")) {
+        patch("Canvas.prototype.createBlurFilter", "POST", function (filter) {
+            filter.resolution = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
+            return filter;
+        });
+    }
 });
 
 // https://gitlab.com/foundrynet/foundryvtt/-/issues/4850
