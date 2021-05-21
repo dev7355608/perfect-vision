@@ -135,18 +135,16 @@ function updateLayer(layer) {
         for (const child of layer.children)
             removeFromDisplayObject(child, sightFilter);
 
-        if (!isNewerVersion(game.data.version, "0.8.3")) {
-            let objects;
+        let objects;
 
-            if (game.settings.get("perfect-vision", "fogOfWarWeather")) {
-                objects = layer.children.filter(child => child !== layer.weather && child !== layer.mask);
-            } else {
-                objects = [layer];
-            }
-
-            for (const object of objects)
-                addLastToDisplayObject(object, sightFilter);
+        if (!isNewerVersion(game.data.version, "0.8.4") && game.settings.get("perfect-vision", "fogOfWarWeather")) {
+            objects = layer.children.filter(child => child !== layer.weather && child !== layer.mask);
+        } else {
+            objects = [layer];
         }
+
+        for (const object of objects)
+            addLastToDisplayObject(object, sightFilter);
     }
 }
 
