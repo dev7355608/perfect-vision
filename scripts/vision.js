@@ -150,8 +150,8 @@ Hooks.once("init", () => {
     game.settings.register("perfect-vision", "improvedGMVision", {
         name: "Improved GM Vision",
         hint: "Improves the visibility in darkness for the GM massively while lit areas of the scene are still rendered normally.",
-        scope: "world",
-        config: true,
+        scope: isNewerVersion(game.data.version, "0.8.4") ? "client" : "world",
+        config: !isNewerVersion(game.data.version, "0.8.4"),
         type: Boolean,
         default: false,
         onChange: () => {
