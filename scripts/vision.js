@@ -132,20 +132,22 @@ function refresh({ lighting = true, sight = true, initialize = true } = {}) {
 }
 
 Hooks.once("init", () => {
-    game.settings.register("perfect-vision", "globalLight", {
-        name: "Global Illumination Light",
-        hint: "This setting affects only scenes with Global Illumination. If set to Dim (Bright) Light, the entire scene is illuminated with dim (bright) light and, if set to Scene Darkness, the scene is illuminated according to the scene's Darkness Level only. Each scene can also be configured individually. You can find this setting next to Global Illumination in the scene configuration.",
-        scope: "world",
-        config: true,
-        type: String,
-        choices: {
-            "bright": "Bright Light",
-            "dim": "Dim Light",
-            "none": "Scene Darkness",
-        },
-        default: "dim",
-        onChange: () => refresh()
-    });
+    if (!isNewerVersion(game.data.version, "0.8.4")) {
+        game.settings.register("perfect-vision", "globalLight", {
+            name: "Global Illumination Light",
+            hint: "This setting affects only scenes with Global Illumination. If set to Dim (Bright) Light, the entire scene is illuminated with dim (bright) light and, if set to Scene Darkness, the scene is illuminated according to the scene's Darkness Level only. Each scene can also be configured individually. You can find this setting next to Global Illumination in the scene configuration.",
+            scope: "world",
+            config: true,
+            type: String,
+            choices: {
+                "bright": "Bright Light",
+                "dim": "Dim Light",
+                "none": "Scene Darkness",
+            },
+            default: "dim",
+            onChange: () => refresh()
+        });
+    }
 
     game.settings.register("perfect-vision", "improvedGMVision", {
         name: "Improved GM Vision",
@@ -580,7 +582,7 @@ Hooks.once("init", () => {
             c_.vision.filters = [c_.vision.filter];
         }
 
-        {
+        if (!isNewerVersion(game.data.version, "0.8.4")) {
             const d = canvas.dimensions;
             const radius = 0.5 * Math.hypot(d.width, d.height) + (this._blurDistance ?? 0);
             const opts = {
@@ -717,23 +719,25 @@ Hooks.once("init", () => {
         const ilm = this.illumination;
         const ilm_ = extend(ilm);
 
-        const darknessLevel = Math.clamped(args[0] ?? this.darknessLevel, 0, 1);
-        const sd = canvas.scene.data;
-        const hasGlobalIllumination = sd.globalLight && (!sd.globalLightThreshold || (darknessLevel <= sd.globalLightThreshold));
+        if (!isNewerVersion(game.data.version, "0.8.4")) {
+            const darknessLevel = Math.clamped(args[0] ?? this.darknessLevel, 0, 1);
+            const sd = canvas.scene.data;
+            const hasGlobalIllumination = sd.globalLight && (!sd.globalLightThreshold || (darknessLevel <= sd.globalLightThreshold));
 
-        if (hasGlobalIllumination) {
-            this.sources.set("PerfectVision.Light.1", ilm_.globalLight);
+            if (hasGlobalIllumination) {
+                this.sources.set("PerfectVision.Light.1", ilm_.globalLight);
 
-            if (ilm_.globalLight2) {
-                this.sources.set("PerfectVision.Light.2", ilm_.globalLight2);
-            }
+                if (ilm_.globalLight2) {
+                    this.sources.set("PerfectVision.Light.2", ilm_.globalLight2);
+                }
 
-            ilm_.globalLight._resetIlluminationUniforms = true;
-        } else {
-            this.sources.delete("PerfectVision.Light.1");
+                ilm_.globalLight._resetIlluminationUniforms = true;
+            } else {
+                this.sources.delete("PerfectVision.Light.1");
 
-            if (ilm_.globalLight2) {
-                this.sources.delete("PerfectVision.Light.2");
+                if (ilm_.globalLight2) {
+                    this.sources.delete("PerfectVision.Light.2");
+                }
             }
         }
 

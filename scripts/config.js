@@ -211,30 +211,32 @@ Hooks.on("renderTokenConfig", renderConfig);
 Hooks.on("renderSceneConfig", (sheet, html, data) => {
     const document = sheet.object;
 
-    const globalLight = html.find(`input[name="globalLight"]`);
-    const globalLightLabel = globalLight.prev();
-    globalLightLabel.after(`<div class="form-fields"></div>`);
+    if (!isNewerVersion(game.data.version, "0.8.4")) {
+        const globalLight = html.find(`input[name="globalLight"]`);
+        const globalLightLabel = globalLight.prev();
+        globalLightLabel.after(`<div class="form-fields"></div>`);
 
-    const defaultGlobalLight = Array.from(game.settings.settings.values()).find(
-        s => s.module === "perfect-vision" && s.key === "globalLight").choices[game.settings.get("perfect-vision", "globalLight")];
+        const defaultGlobalLight = Array.from(game.settings.settings.values()).find(
+            s => s.module === "perfect-vision" && s.key === "globalLight").choices[game.settings.get("perfect-vision", "globalLight")];
 
-    const globalLightFields = globalLightLabel.next();
-    globalLight.css("margin", globalLight.css("margin"));
-    globalLight.remove();
-    globalLightFields.append(`\
-            <select name="flags.perfect-vision.globalLight">
-                <option value="default">Default (${defaultGlobalLight})</option>
-                <option value="bright">Bright Light</option>
-                <option value="dim">Dim Light</option>
-                <option value="none">Scene Darkness</option>
-            </select>`);
-    globalLightFields.append(globalLight);
+        const globalLightFields = globalLightLabel.next();
+        globalLight.css("margin", globalLight.css("margin"));
+        globalLight.remove();
+        globalLightFields.append(`\
+                <select name="flags.perfect-vision.globalLight">
+                    <option value="default">Default (${defaultGlobalLight})</option>
+                    <option value="bright">Bright Light</option>
+                    <option value="dim">Dim Light</option>
+                    <option value="none">Scene Darkness</option>
+                </select>`);
+        globalLightFields.append(globalLight);
 
-    globalLightFields.next().append(" If set to Dim (Bright) Light, the entire scene is illuminated with dim (bright) light and, if set to Scene Darkness, the scene is illuminated according to the scene's Darkness Level only.");
+        globalLightFields.next().append(" If set to Dim (Bright) Light, the entire scene is illuminated with dim (bright) light and, if set to Scene Darkness, the scene is illuminated according to the scene's Darkness Level only.");
 
-    html.find(`select[name="flags.perfect-vision.globalLight"]`)
-        .val(document.getFlag("perfect-vision", "globalLight") ?? "default")
-        .on("change", sheet._onChangeInput.bind(sheet));
+        html.find(`select[name="flags.perfect-vision.globalLight"]`)
+            .val(document.getFlag("perfect-vision", "globalLight") ?? "default")
+            .on("change", sheet._onChangeInput.bind(sheet));
+    }
 
     html.find(`input[name="tokenVision"]`).parent().after(`\
         <div class="form-group">
