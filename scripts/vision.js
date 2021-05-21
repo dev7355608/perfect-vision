@@ -480,7 +480,7 @@ Hooks.once("init", () => {
 
         const sight = canvas.sight.tokenVision && canvas.sight.sources.size > 0;
 
-        if (this.sourceType === "sight" || this_.type === "vision") {
+        if (this.sourceType === "sight" || this_.isVision) {
             if (updateChannels) {
                 const iu = this.illumination.shader.uniforms;
                 grayscale(iu.colorDim, iu.colorDim);
