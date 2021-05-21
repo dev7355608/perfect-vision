@@ -238,7 +238,8 @@ Hooks.on("renderSceneConfig", (sheet, html, data) => {
             .on("change", sheet._onChangeInput.bind(sheet));
     }
 
-    html.find(`input[name="tokenVision"]`).parent().after(`\
+    if (!isNewerVersion(game.data.version, "0.8.4")) {
+        html.find(`input[name="tokenVision"]`).parent().after(`\
         <div class="form-group">
             <label>Sight Limit <span class="units">(Distance)</span></label>
             <div class="form-fields">
@@ -246,6 +247,16 @@ Hooks.on("renderSceneConfig", (sheet, html, data) => {
             </div>
             <p class="notes">Limit the sight of all tokens within this scene. The limit can be set for each token individually in the token configuration under the Vision tab.</p>
         </div>`);
+    } else {
+        html.find(`input[name="globalLight"]`).parent().after(`\
+        <div class="form-group">
+            <label>Sight Limit <span class="units">(Distance)</span></label>
+            <div class="form-fields">
+                <input type="number" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
+            </div>
+            <p class="notes">Limit the sight of all controlled Tokens. This limit is in effect even if Unrestricted Vision Range is enabled. The limit can be set for each token individually in the token configuration under the Vision tab.</p>
+        </div>`);
+    }
 
     html.find(`input[name="flags.perfect-vision.sightLimit"]`)
         .attr("value", document.getFlag("perfect-vision", "sightLimit"))
