@@ -741,6 +741,24 @@ Hooks.once("init", () => {
             }
         }
 
+        if (isNewerVersion(game.data.version, "0.8.4")) {
+            const this_ = extend(this);
+
+            let saturation = this_.saturation;
+
+            if (saturation === undefined) {
+                if (canvas.scene.getFlag("perfect-vision", "forceSaturation")) {
+                    saturation = canvas.scene.getFlag("perfect-vision", "saturation") ?? 0;
+                } else {
+                    const darknessLevel = Math.clamped(args[0] ?? this.darknessLevel, 0, 1);
+
+                    saturation = 1 - darknessLevel;
+                }
+            }
+
+            this_.saturationLevel = saturation = Math.clamped(saturation, 0, 1);
+        }
+
         let daylightColor = canvas.scene.getFlag("perfect-vision", "daylightColor");
         let darknessColor = canvas.scene.getFlag("perfect-vision", "darknessColor");
 

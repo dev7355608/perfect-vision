@@ -295,15 +295,17 @@ Hooks.once("init", () => {
         onChange: () => updateAll()
     });
 
-    game.settings.register("perfect-vision", "forceMonoVision", {
-        name: "Force Monochrome Vision",
-        hint: "If disabled, monochrome vision is affected by the scene's Darkness Level. If the scene's Darkness Level is 0, it looks the same as it would with non-monochrome vision. But as the Darkness Level increases the saturation decreases accordingly. If enabled, monochrome vision is always completely monochrome.",
-        scope: "world",
-        config: true,
-        type: Boolean,
-        default: false,
-        onChange: () => updateAll()
-    });
+    if (!isNewerVersion(game.data.version, "0.8.4")) {
+        game.settings.register("perfect-vision", "forceMonoVision", {
+            name: "Force Monochrome Vision",
+            hint: "If disabled, monochrome vision is affected by the scene's Darkness Level. If the scene's Darkness Level is 0, it looks the same as it would with non-monochrome vision. But as the Darkness Level increases the saturation decreases accordingly. If enabled, monochrome vision is always completely monochrome.",
+            scope: "world",
+            config: true,
+            type: Boolean,
+            default: false,
+            onChange: () => updateAll()
+        });
+    }
 
     if (!isNewerVersion(game.data.version, "0.8.3")) {
         game.settings.register("perfect-vision", "fogOfWarWeather", {
@@ -468,10 +470,16 @@ Hooks.on("lightingRefresh", () => {
     if (canvas.sight.sources.size === 0 && game.user.isGM && game.settings.get("perfect-vision", "improvedGMVision")) {
         monoFilter.uniforms.uSaturation = 1;
     } else {
-        if (game.settings.get("perfect-vision", "forceMonoVision")) {
-            monoFilter.uniforms.uSaturation = 0;
+        if (isNewerVersion(game.data.version, "0.8.4")) {
+            const lighting_ = extend(canvas.lighting);
+
+            monoFilter.uniforms.uSaturation = lighting_.saturationLevel;
         } else {
-            monoFilter.uniforms.uSaturation = 1 - canvas.lighting.darknessLevel;
+            if (game.settings.get("perfect-vision", "forceMonoVision")) {
+                monoFilter.uniforms.uSaturation = 0;
+            } else {
+                monoFilter.uniforms.uSaturation = 1 - canvas.lighting.darknessLevel;
+            }
         }
     }
 });

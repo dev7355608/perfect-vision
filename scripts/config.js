@@ -1,3 +1,5 @@
+import { extend } from "./extend.js";
+import { patch } from "./patch.js";
 import { presets } from "./presets.js";
 
 const renderConfigTemplate = Handlebars.compile(`\
@@ -262,6 +264,43 @@ Hooks.on("renderSceneConfig", (sheet, html, data) => {
         .attr("value", document.getFlag("perfect-vision", "sightLimit"))
         .on("change", sheet._onChangeInput.bind(sheet));
 
+    if (isNewerVersion(game.data.version, "0.8.4")) {
+        html.find(`input[name="darkness"]`).parent().parent().after(`\
+            <div class="form-group">
+                <label>Saturation Level</label>
+                <div class="form-fields">
+                    <label class="checkbox">
+                        <input type="checkbox" name="flags.perfect-vision.forceSaturation">
+                    </label>
+                    <input type="range" name="flags.perfect-vision.saturation" value="0" min="0" max="1" step="0.05">
+                    <span class="range-value">0</span>
+                </div>
+                <p class="notes">Desaturate unilluminated areas and monochrome vision. If disabled, the saturation is linked to the Darkness Level.</p>
+            </div>`);
+
+        html.find(`input[name="flags.perfect-vision.forceSaturation"]`)
+            .attr("checked", document.getFlag("perfect-vision", "forceSaturation"))
+            .on("change", (event) => {
+                const lighting_ = extend(canvas.lighting);
+
+                if (event.target.checked) {
+                    lighting_.saturation = Number(sheet.form.elements["flags.perfect-vision.saturation"].value);
+                } else {
+                    lighting_.saturation = 1 - Number(sheet.form.elements["darkness"].value);
+                }
+
+                canvas.lighting.refresh(Number(sheet.form.elements["darkness"].value));
+
+                lighting_.saturation = undefined;
+            });
+
+        html.find(`input[name="flags.perfect-vision.saturation"]`).next()
+            .html(document.getFlag("perfect-vision", "saturation"))
+        html.find(`input[name="flags.perfect-vision.saturation"]`)
+            .attr("value", document.getFlag("perfect-vision", "saturation"))
+            .on("change", sheet._onChangeInput.bind(sheet));
+    }
+
     const addColorSetting = (name, label) => {
         const defaultColor = "#" + ("000000" + CONFIG.Canvas[name].toString(16)).slice(-6);
 
@@ -286,4 +325,32 @@ Hooks.on("renderSceneConfig", (sheet, html, data) => {
 
     if (!sheet._minimized)
         sheet.setPosition(sheet.position);
+});
+
+Hooks.once("init", () => {
+    if (isNewerVersion(game.data.version, "0.8.4")) {
+        patch("SceneConfig.prototype._onChangeRange", "WRAPPER", function (wrapped, event) {
+            const lighting_ = extend(canvas.lighting);
+
+            if (this.form.elements["flags.perfect-vision.forceSaturation"].checked) {
+                lighting_.saturation = Number(this.form.elements["flags.perfect-vision.saturation"].value);
+            } else {
+                lighting_.saturation = 1 - Number(this.form.elements["darkness"].value);
+            }
+
+            const retVal = wrapped(event);
+
+            const rng = event.target;
+
+            if (rng.name === "flags.perfect-vision.saturation" && this.object.isView) {
+                if (this.form.elements["flags.perfect-vision.forceSaturation"].checked) {
+                    canvas.lighting.refresh(Number(this.form.elements["darkness"].value));
+                }
+            }
+
+            lighting_.saturation = undefined;
+
+            return retVal;
+        });
+    }
 });
