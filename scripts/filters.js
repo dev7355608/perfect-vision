@@ -281,17 +281,17 @@ Hooks.once("init", () => {
         scope: "world",
         config: true,
         type: Boolean,
-        default: false,
+        default: true,
         onChange: () => updateAll()
     });
 
     game.settings.register("perfect-vision", "monoSpecialEffects", {
         name: "Monochrome Special Effects",
-        hint: "If enabled, FXMaster's and Token Magic FX's special effects are affected by monochrome vision. Otherwise, they are not. Special effects attached to tokens are only affected by this setting if Monochrome Token Icons is enabled as well.",
+        hint: "If enabled, special effects are affected by monochrome vision. Otherwise, they are not. Special effects attached to tokens are only affected by this setting if Monochrome Token Icons is enabled as well.",
         scope: "world",
         config: true,
         type: Boolean,
-        default: false,
+        default: true,
         onChange: () => updateAll()
     });
 
