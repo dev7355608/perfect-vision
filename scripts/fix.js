@@ -11,8 +11,10 @@ PIXI.AbstractRenderer.prototype.resize = function (screenWidth, screenHeight) {
     this.screen.width = screenWidth;
     this.screen.height = screenHeight;
 
-    this.view.style.width = `${screenWidth}px`;
-    this.view.style.height = `${screenHeight}px`;
+    if (this.autoDensity || this.view.id === "board") {
+        this.view.style.width = `${screenWidth}px`;
+        this.view.style.height = `${screenHeight}px`;
+    }
 
     this.emit('resize', screenWidth, screenHeight);
 }
@@ -20,7 +22,7 @@ PIXI.AbstractRenderer.prototype.resize = function (screenWidth, screenHeight) {
 PIXI.Renderer.prototype.resize = function (screenWidth, screenHeight) {
     PIXI.AbstractRenderer.prototype.resize.call(this, screenWidth, screenHeight);
 
-    this.runners.resize.emit(this.screen.height, this.screen.width);
+    this.runners.resize.emit(this.screen.width, this.screen.height);
 }
 
 Hooks.once("init", () => {
