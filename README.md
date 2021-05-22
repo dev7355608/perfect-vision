@@ -6,11 +6,21 @@ Darkvision rules for *Dungeons & Dragons 3.5e/5e*, *Pathfinder 1e/2e*, and other
 
 ### Global Illumination Light
 
+> Removed in PV 1.9.0 / FVTT 0.8.5: The default is now *Scene Darkness*. To achieve the *Dim*/*Bright Light* effect as before, use a *Unrestricted Local Light*.
+
 A scene with *Global Illumination* is rendered by default in dim light entirely, more precisely each token is given infinite dim vision. This setting gives you three choices: *Scene Darkness*, *Dim Light*, and *Bright Light*. If set to *Dim (Bright) Light*, the entire scene is illuminated with dim (bright) light and, if set to *Scene Darkness*, the scene is illuminated according to the scene's *Darkness Level* only. You can set it in the module settings for all scenes as well as for each scene individually. You can find the scene-specific setting next to the *Global Illumination* setting in the scene configuration.
 
 ### Improved GM Vision
 
+> This setting is no longer accessible through the *Module Settings* since PV 1.9.0 / FVTT 0.8.5. You find it now in *Lighting Controls* (*Scene Control Buttons*).
+
 If the *Darkness Level* of the scene is very high, it can be very difficult for the GM to see in unilluminated areas of the map. If this setting enabled, the visibility in darkness is improved massively for the GM while the lit areas of the scene are still rendered normally.
+
+Script-Macro to toggle *Improved GM Vision*:
+
+```js
+game.settings.set("perfect-vision", "improvedGMVision", !game.settings.get("perfect-vision", "improvedGMVision"));
+```
 
 ### Vision Rules
 
@@ -46,7 +56,9 @@ Dim vision is *low-light vision*, and bright vision is *darkvision*.
 
 ### Monochrome Vision Color
 
-Set this color to anything other than white to make monochrome vision stand out visibly in darkness. For example, choose a green tone to make it look like night vision goggles. This setting affects only scenes without *Global Illumination*. You can also choose a color for each token individually in the token configuration under the *Vision* tab.
+If it is set to white, monochrome vision is grayscale. Set this color to anything other than white to make monochrome vision stand out visibly in darkness. For example, choose a green tone to make it look like night vision goggles. This setting affects only scenes without *Global Illumination*. You can also choose a color for each token individually in the token configuration under the *Vision* tab.
+
+The amount of desaturation is linked to the scene's *Darkness Level* in a way such that, if it is 0, monochrome and non-monochrome vision are indistinguishable, unless the *Saturation Level* is set to a specific value in the scene configuration.
 
 ### Monochrome Token Icons
 
@@ -54,17 +66,23 @@ If enabled, token icons are affected by monochrome vision. Otherwise, they are n
 
 ### Monochrome Special Effects
 
-If enabled, FXMaster's and Token Magic FX's special effects are affected by monochrome vision. Otherwise, they are not. Special effects attached to tokens are only affected by this setting if *Monochrome Token Icons* is enabled as well.
+If enabled, special effects are affected by monochrome vision. Otherwise, they are not. Special effects attached to tokens are only affected by this setting if *Monochrome Token Icons* is enabled as well.
 
 ### Force Monochrome Vision
+
+> Removed in PV 1.9.0 / FVTT 0.8.5: Use the new scene setting *Saturation Level*, check the box, and set it to 0.
 
 If disabled, monochrome vision is affected by the scene's *Darkness Level*. If the scene's *Darkness Level* is 0, it looks the same as it would with non-monochrome vision. But as the *Darkness Level* increases the saturation decreases accordingly. If enabled, monochrome vision is always completely monochrome.
 
 ### Fog of War Weather
 
+> Removed in PV 1.9.0 / FVTT 0.8.5. Weather is only visible in line-of-sight now by default.
+
 If enabled, weather effects are visible in the fog of war. Otherwise, weather is only visible in line-of-sight.
 
 ### Actual Fog of War
+
+> Removed in PV 1.9.0 / FVTT 0.8.5.
 
 If enabled, the fog of war is overlaid with a fog effect.
 
@@ -75,6 +93,10 @@ You find this setting in the scene configuration, which limits the sight of all 
 ### Daylight and Darkness Colors
 
 You may set the color of daylight and darkness in the scene configuration (*Darkness Level* = 0: full daylight, *Darkness Level* = 1: complete darkness).
+
+### Saturation Level
+
+Desaturate unilluminated areas and monochrome vision. If disabled, the saturation is linked to the Darkness Level.
 
 ### New Light Type: Local Light (Unrestricted)
 
