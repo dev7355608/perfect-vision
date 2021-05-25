@@ -426,11 +426,13 @@ Hooks.once("init", () => {
         monoFilter_noAutoFit = monoFilter;
     }
 
-    if (game.modules.get("roofs")?.active) {
-        patch("RoofsLayer.createRoof", "POST", function (retVal, tile) {
-            updatePlaceable(tile.roof.container);
-            return retVal;
-        });
+    if (!isNewerVersion(game.data.version, "0.8.4")) {
+        if (game.modules.get("roofs")?.active) {
+            patch("RoofsLayer.createRoof", "POST", function (retVal, tile) {
+                updatePlaceable(tile.roof.container);
+                return retVal;
+            });
+        }
     }
 
     if (game.modules.get("fxmaster")?.active) {
@@ -447,6 +449,36 @@ Hooks.once("init", () => {
                 updateLayer(canvas.fxmaster);
             }
         });
+
+        if (isNewerVersion(game.data.version, "0.8.4")) {
+            Hooks.once("ready", () => {
+                import("../../fxmaster/filters/FilterManager.js").then(module => {
+                    const { filterManager } = module;
+
+                    canvas.fxmaster.filterManager = filterManager;
+
+                    patch("canvas.fxmaster.filterManager.activate", "POST", function () {
+                        updateLayer(canvas.background);
+                        updateLayer(canvas.foreground);
+                        updateLayer(canvas.tokens);
+
+                        return arguments[0];
+                    });
+
+                    patch("canvas.fxmaster.filterManager.update", "POST", function () {
+                        updateLayer(canvas.background);
+                        updateLayer(canvas.foreground);
+                        updateLayer(canvas.tokens);
+
+                        return arguments[0];
+                    });
+
+                    updateLayer(canvas.background);
+                    updateLayer(canvas.foreground);
+                    updateLayer(canvas.tokens);
+                });
+            });
+        }
     }
 });
 
