@@ -132,11 +132,19 @@ Hooks.once("init", () => {
         return retVal;
     });
 
-    patch("EffectsLayer.layerOptions", "POST", function () {
-        return mergeObject(arguments[0], {
-            zIndex: Canvas.layers.fxmaster?.layerOptions.zIndex ?? 180
+    if (isNewerVersion(game.data.version, "0.8")) {
+        patch("EffectsLayer.layerOptions", "POST", function () {
+            return mergeObject(arguments[0], {
+                zIndex: Canvas.layers.fxmaster?.layerOptions.zIndex ?? 250
+            });
         });
-    });
+    } else {
+        patch("EffectsLayer.layerOptions", "POST", function () {
+            return mergeObject(arguments[0], {
+                zIndex: Canvas.layers.fxmaster?.layerOptions.zIndex ?? 180
+            });
+        });
+    }
 
     patch("LightingLayer.prototype._configureChannels", "POST", function (channels) {
         const dim = CONFIG.Canvas.lightLevels.dim;

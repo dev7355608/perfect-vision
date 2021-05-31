@@ -247,8 +247,10 @@ function updateAll() {
         }
     }
 
-    if (game.modules.get("roofs")?.active) {
-        placeables = [...placeables, ...canvas.roofs.children];
+    if (!isNewerVersion(game.data.version, "0.8")) {
+        if (game.modules.get("roofs")?.active) {
+            placeables = [...placeables, ...canvas.roofs.children];
+        }
     }
 
     for (const layerName of layers) {
