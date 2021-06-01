@@ -1,3 +1,4 @@
+import { extend } from "./extend.js";
 import { patch } from "./patch.js";
 
 PIXI.AbstractRenderer.prototype.resize = function (screenWidth, screenHeight) {
