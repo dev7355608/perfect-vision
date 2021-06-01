@@ -1,4 +1,3 @@
-import { extend } from "./extend.js";
 import { patch } from "./patch.js";
 
 PIXI.AbstractRenderer.prototype.resize = function (screenWidth, screenHeight) {
@@ -79,58 +78,60 @@ Hooks.once("init", () => {
         });
     }
 
-    if (!game.modules.get("grape_juice-isometrics")?.active) {
-        // Fix flickering border pixels
-        if (isNewerVersion(game.data.version, "0.8.1")) {
-            patch("MapLayer.prototype.draw", "POST", async function () {
-                const retVal = await arguments[0];
+    if (isNewerVersion("0.8", game.data.version)) {
+        if (!game.modules.get("grape_juice-isometrics")?.active) {
+            // Fix flickering border pixels
+            if (isNewerVersion(game.data.version, "0.8.1")) {
+                patch("MapLayer.prototype.draw", "POST", async function () {
+                    const retVal = await arguments[0];
 
-                const this_ = extend(this);
+                    const this_ = extend(this);
 
-                if (this_.msk?.parent) {
-                    this_.msk.parent.removeChild(this_.msk);
-                }
+                    if (this_.msk?.parent) {
+                        this_.msk.parent.removeChild(this_.msk);
+                    }
 
-                this_.msk = this.addChild(new PIXI.Graphics());
-                this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
-                this.mask = this_.msk;
+                    this_.msk = this.addChild(new PIXI.Graphics());
+                    this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
+                    this.mask = this_.msk;
 
-                return retVal;
-            });
-        } else {
-            patch("BackgroundLayer.prototype.draw", "POST", async function () {
-                const retVal = await arguments[0];
+                    return retVal;
+                });
+            } else {
+                patch("BackgroundLayer.prototype.draw", "POST", async function () {
+                    const retVal = await arguments[0];
 
-                const this_ = extend(this);
+                    const this_ = extend(this);
 
-                if (this_.msk?.parent) {
-                    this_.msk.parent.removeChild(this_.msk);
-                }
+                    if (this_.msk?.parent) {
+                        this_.msk.parent.removeChild(this_.msk);
+                    }
 
-                this_.msk = this.addChild(new PIXI.Graphics());
-                this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
-                this.mask = this_.msk;
+                    this_.msk = this.addChild(new PIXI.Graphics());
+                    this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
+                    this.mask = this_.msk;
 
-                return retVal;
-            });
+                    return retVal;
+                });
+            }
         }
+
+        patch("EffectsLayer.prototype.draw", "POST", async function () {
+            const retVal = await arguments[0];
+
+            const this_ = extend(this);
+
+            if (this_.msk?.parent) {
+                this_.msk.parent.removeChild(this_.msk);
+            }
+
+            this_.msk = this.addChild(new PIXI.Graphics());
+            this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
+            this.mask = this_.msk;
+
+            return retVal;
+        });
     }
-
-    patch("EffectsLayer.prototype.draw", "POST", async function () {
-        const retVal = await arguments[0];
-
-        const this_ = extend(this);
-
-        if (this_.msk?.parent) {
-            this_.msk.parent.removeChild(this_.msk);
-        }
-
-        this_.msk = this.addChild(new PIXI.Graphics());
-        this_.msk.beginFill(0xFFFFFF, 1.0).drawShape(canvas.dimensions.sceneRect).endFill();
-        this.mask = this_.msk;
-
-        return retVal;
-    });
 
     if (isNewerVersion(game.data.version, "0.8")) {
         patch("EffectsLayer.layerOptions", "POST", function () {
