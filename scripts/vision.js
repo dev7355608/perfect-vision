@@ -479,9 +479,14 @@ Hooks.once("init", () => {
             opts.updateChannels = true;
         }
 
-        const updateChannels = this._resetIlluminationUniforms || opts?.updateChannels;
+        const updateChannels = this._resetIlluminationUniforms || opts?.updateChannels || this._lightingVersion < canvas.lighting.version;
 
         const c = wrapped(opts);
+
+        if (c === null) {
+            return null;
+        }
+
         const c_ = extend(c);
 
         const sight = canvas.sight.tokenVision && canvas.sight.sources.size > 0;

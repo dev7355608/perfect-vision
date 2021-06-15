@@ -139,6 +139,10 @@ function render() {
 
 Hooks.once("init", () => {
     patch("PointSource.prototype.drawLight", "POST", function (c) {
+        if (c === null) {
+            return null;
+        }
+
         const this_ = extend(this);
 
         const ilm = canvas.lighting.illumination;
