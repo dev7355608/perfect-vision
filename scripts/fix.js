@@ -210,20 +210,40 @@ Hooks.once("init", () => {
     });
 
     // https://gitlab.com/foundrynet/foundryvtt/-/issues/4413
-    patch("SightLayer.prototype._configureFogResolution", "OVERRIDE", function () {
-        const d = canvas.dimensions;
-        const gl = canvas.app.renderer.gl;
-        const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+    if (isNewerVersion(game.data.version, "0.8.6")) {
+        patch("SightLayer.prototype._configureFogResolution", "OVERRIDE", function () {
+            const d = canvas.dimensions;
+            const gl = canvas.app.renderer.gl;
+            const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
 
-        let res = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
+            let resolution = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
 
-        while (Math.max(d.sceneWidth, d.sceneHeight) * res > maxTextureSize
-            || d.sceneWidth * res * d.sceneHeight * res > 4096 * 4096) {
-            res /= 2;
-        }
+            while (Math.max(d.sceneWidth, d.sceneHeight) * resolution > maxTextureSize
+                || d.sceneWidth * resolution * d.sceneHeight * resolution > 4096 * 4096) {
+                resolution /= 2;
+            }
 
-        return res;
-    });
+            const width = d.sceneWidth.toNearest(resolution, "ceil");
+            const height = d.sceneHeight.toNearest(resolution, "ceil");
+
+            return { resolution, width, height }
+        });
+    } else {
+        patch("SightLayer.prototype._configureFogResolution", "OVERRIDE", function () {
+            const d = canvas.dimensions;
+            const gl = canvas.app.renderer.gl;
+            const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+
+            let res = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
+
+            while (Math.max(d.sceneWidth, d.sceneHeight) * res > maxTextureSize
+                || d.sceneWidth * res * d.sceneHeight * res > 4096 * 4096) {
+                res /= 2;
+            }
+
+            return res;
+        });
+    }
 
     if (isNewerVersion(game.data.version, "0.8.2")) {
         patch("AbstractBaseMaskFilter.create", "POST", function (filter) {
