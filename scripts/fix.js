@@ -217,16 +217,17 @@ Hooks.once("init", () => {
             const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
 
             let resolution = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
+            let width = d.sceneWidth.toNearest(1 / resolution, "ceil");
+            let height = d.sceneHeight.toNearest(1 / resolution, "ceil");
 
-            while (Math.max(d.sceneWidth, d.sceneHeight) * resolution > maxTextureSize
-                || d.sceneWidth * resolution * d.sceneHeight * resolution > 4096 * 4096) {
+            while (Math.max(width, height) * resolution > maxTextureSize
+                || (width * resolution) * (height * resolution) > 4096 * 4096) {
                 resolution /= 2;
+                width = d.sceneWidth.toNearest(1 / resolution, "ceil");
+                height = d.sceneHeight.toNearest(1 / resolution, "ceil");
             }
 
-            const width = d.sceneWidth.toNearest(resolution, "ceil");
-            const height = d.sceneHeight.toNearest(resolution, "ceil");
-
-            return { resolution, width, height }
+            return { resolution, width, height };
         });
     } else {
         patch("SightLayer.prototype._configureFogResolution", "OVERRIDE", function () {
