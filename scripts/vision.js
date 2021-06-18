@@ -819,7 +819,7 @@ Hooks.on("canvasInit", () => {
     visionMinFilter.blendMode = PIXI.BLEND_MODES.MIN_COLOR;
     lightFilter.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
 
-    const resolution = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
+    const resolution = Math.pow(2, Math.ceil(Math.log2(canvas.app.renderer.resolution)));
 
     improvedGMVisionFilter.resolution = resolution;
     visionFilter.resolution = resolution;

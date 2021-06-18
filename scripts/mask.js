@@ -218,7 +218,7 @@ Hooks.on("canvasInit", () => {
     mask.filter = blurDistance > 0 ?
         new GlowFilter(blurStrength / 4, 2.0, 4 / 5, blurDistance) :
         new PIXI.filters.AlphaFilter(1.0);
-    mask.filter.resolution = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
+    mask.filter.resolution = Math.pow(2, Math.ceil(Math.log2(canvas.app.renderer.resolution)));
     mask.filters = [mask.filter];
     mask.filterArea = canvas.app.renderer.screen;
 

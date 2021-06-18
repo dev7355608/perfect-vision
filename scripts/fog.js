@@ -224,7 +224,7 @@ Hooks.once("init", () => {
 });
 
 Hooks.on("canvasInit", () => {
-    fogFilter.resolution = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
+    fogFilter.resolution = Math.pow(2, Math.ceil(Math.log2(canvas.app.renderer.resolution)));
 });
 
 Hooks.on("lightingRefresh", () => {

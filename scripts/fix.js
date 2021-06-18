@@ -184,7 +184,7 @@ Hooks.once("init", () => {
     }
 
     patch("LightingLayer.prototype._drawColorationContainer", "POST", function (c) {
-        c.filter.resolution = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
+        c.filter.resolution = Math.pow(2, Math.ceil(Math.log2(canvas.app.renderer.resolution)));
 
         if (!isNewerVersion(PIXI.VERSION, "6.0.3")) {
             if (c.filter instanceof PIXI.filters.FXAAFilter && c.filter.program.uniformData.inputPixel) {
@@ -199,13 +199,13 @@ Hooks.once("init", () => {
     });
 
     patch("LightingLayer.prototype._drawIlluminationContainer", "POST", function (c) {
-        c.filter.resolution = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
+        c.filter.resolution = Math.pow(2, Math.ceil(Math.log2(canvas.app.renderer.resolution)));
         return c;
     });
 
     patch("SightLayer.prototype.draw", "POST", async function () {
         const retVal = await arguments[0];
-        this.filter.resolution = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
+        this.filter.resolution = Math.pow(2, Math.ceil(Math.log2(canvas.app.renderer.resolution)));
         return retVal;
     });
 
@@ -216,7 +216,7 @@ Hooks.once("init", () => {
             const gl = canvas.app.renderer.gl;
             const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
 
-            let resolution = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
+            let resolution = Math.pow(2, Math.ceil(Math.log2(canvas.app.renderer.resolution)));
             let width = d.sceneWidth.toNearest(1 / resolution, "ceil");
             let height = d.sceneHeight.toNearest(1 / resolution, "ceil");
 
@@ -235,7 +235,7 @@ Hooks.once("init", () => {
             const gl = canvas.app.renderer.gl;
             const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
 
-            let res = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
+            let res = Math.pow(2, Math.ceil(Math.log2(canvas.app.renderer.resolution)));
 
             while (Math.max(d.sceneWidth, d.sceneHeight) * res > maxTextureSize
                 || d.sceneWidth * res * d.sceneHeight * res > 4096 * 4096) {
@@ -248,14 +248,14 @@ Hooks.once("init", () => {
 
     if (isNewerVersion(game.data.version, "0.8.2")) {
         patch("AbstractBaseMaskFilter.create", "POST", function (filter) {
-            filter.resolution = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
+            filter.resolution = Math.pow(2, Math.ceil(Math.log2(canvas.app.renderer.resolution)));
             return filter;
         });
     }
 
     if (isNewerVersion(game.data.version, "0.8.3")) {
         patch("Canvas.prototype.createBlurFilter", "POST", function (filter) {
-            filter.resolution = Math.pow(2, Math.floor(Math.log2(canvas.app.renderer.resolution)));
+            filter.resolution = Math.pow(2, Math.ceil(Math.log2(canvas.app.renderer.resolution)));
             return filter;
         });
     }
