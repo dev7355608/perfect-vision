@@ -547,7 +547,14 @@ Hooks.once("init", () => {
         const ilm = this.illumination;
         const ilm_ = extend(ilm);
 
-        const bgRect = canvas.dimensions.sceneRect.clone().pad((this._blurDistance ?? 0) * 2);
+        let bgRect;
+
+        if (isNewerVersion(game.data.version, "0.8.6")) {
+            bgRect = canvas.dimensions.rect.clone().pad((CONFIG.Canvas.blurStrength ?? 0) * 2);
+        } else {
+            bgRect = canvas.dimensions.sceneRect.clone().pad((this._blurDistance ?? 0) * 2);
+        }
+
         ilm_.improvedGMVision.clear().beginFill(0xFFFFFF, 1.0).drawShape(bgRect).endFill();
         ilm_.vision.clear().beginFill(0xFFFFFF, 1.0).drawShape(bgRect).endFill();
 
@@ -908,4 +915,5 @@ Hooks.on("sightRefresh", () => {
     const ilm_ = extend(ilm);
 
     ilm_.improvedGMVision.renderable = canvas.sight.sources.size === 0;
+    ilm_.vision.renderable = canvas.sight.sources.size !== 0;
 });
