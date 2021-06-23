@@ -6,7 +6,7 @@ import { grayscale } from "./utils.js";
 
 const improvedGMVisionFilter = new MaskFilter("step(1.0, 1.0 - r)");
 const visionFilter = new MaskFilter("step(1.0, g)");
-const visionMaxFilter = new MaskFilter("step(1.0, g)");
+const visionMaxFilter = new MaskFilter("step(1.0, g)", "vec4(dim * 0.8125, 1.0)", "uniform vec3 dim;");
 const visionMinFilter = new MaskFilter("step(1.0, g)", "vec4(1.0)");
 const lightFilter = new MaskFilter("step(1.0, b)");
 
@@ -453,14 +453,14 @@ Hooks.once("init", () => {
     patch("PointSource.prototype._initializeBlending", "POST", function () {
         if (isNewerVersion(game.data.version, "0.8.2")) {
             if (this.sourceType === "sight") {
-                this.illumination.light.blendMode = PIXI.BLEND_MODES.NORMAL;
+                this.illumination.light.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
                 this.illumination.zIndex *= -1;
             }
         } else {
             const this_ = extend(this);
 
             if (this_.isVision) {
-                this.illumination.light.blendMode = PIXI.BLEND_MODES.NORMAL;
+                this.illumination.light.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
                 this.illumination.zIndex *= -1;
             }
         }
@@ -805,6 +805,8 @@ Hooks.once("init", () => {
         ilm_.darknessColor = darknessColor;
 
         const retVal = wrapped(...args);
+
+        visionMaxFilter.uniforms.dim = this.channels.dim.rgb;
 
         ilm_.updateChannels = null;
 

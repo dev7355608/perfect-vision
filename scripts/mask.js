@@ -73,7 +73,7 @@ export class BaseFilter extends PIXI.Filter {
 }
 
 export class Filter extends BaseFilter {
-    constructor(channel = "mask", bg = "vec4(0.0)", ...args) {
+    constructor(channel = "mask", bg = "vec4(0.0)", extra = "", ...args) {
         super(
             `\
             precision mediump float;
@@ -83,6 +83,8 @@ export class Filter extends BaseFilter {
 
             uniform sampler2D uSampler;
             uniform sampler2D uMask;
+
+            ${extra}
 
             void main(void)
             {
