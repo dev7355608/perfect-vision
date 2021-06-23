@@ -125,7 +125,7 @@ function updateLayer(layer) {
         removeFromDisplayObject(layer, monoFilter);
         removeFromDisplayObject(layer.img, monoFilter);
         addLastToDisplayObject(layer.img ?? layer, monoFilter);
-    } else if (layer === canvas.effects || layer === canvas.fxmaster) {
+    } else if (layer === canvas.effects || layer === canvas.fxmaster || layer === canvas.specials) {
         removeFromDisplayObject(layer, monoFilter);
         removeFromDisplayObject(layer.weather, monoFilter);
         addLastToDisplayObject(game.settings.get("perfect-vision", "monoSpecialEffects") ? layer : layer.weather, monoFilter);
@@ -438,9 +438,9 @@ Hooks.once("init", () => {
     }
 
     if (game.modules.get("fxmaster")?.active) {
-        Hooks.on("switchFilter", () => updateLayer(canvas.fxmaster));
-        Hooks.on("switchWeather", () => updateLayer(canvas.fxmaster));
-        Hooks.on("updateWeather", () => updateLayer(canvas.fxmaster));
+        Hooks.on("switchFilter", () => { updateLayer(canvas.fxmaster); updateLayer(canvas.specials) });
+        Hooks.on("switchWeather", () => { updateLayer(canvas.fxmaster); updateLayer(canvas.specials) });
+        Hooks.on("updateWeather", () => { updateLayer(canvas.fxmaster); updateLayer(canvas.specials) });
 
         Hooks.on("updateScene", (scene, change, options) => {
             if (!game.settings.get("fxmaster", "enable")) {
@@ -449,6 +449,7 @@ Hooks.once("init", () => {
 
             if (hasProperty(change, "flags.fxmaster")) {
                 updateLayer(canvas.fxmaster);
+                updateLayer(canvas.specials);
             }
         });
 
@@ -478,6 +479,11 @@ Hooks.once("setup", () => {
     if (game.modules.get("fxmaster")?.active) {
         patch("Canvas.layers.fxmaster.prototype.addChild", "POST", function () {
             updateLayer(canvas.fxmaster);
+            return arguments[0];
+        });
+
+        patch("Canvas.layers.specials.prototype.addChild", "POST", function () {
+            updateLayer(canvas.specials);
             return arguments[0];
         });
     }
