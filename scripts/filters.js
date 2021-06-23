@@ -454,31 +454,26 @@ Hooks.once("init", () => {
 
         if (isNewerVersion(game.data.version, "0.8.4")) {
             Hooks.once("ready", () => {
-                import("../../fxmaster/filters/FilterManager.js").then(module => {
-                    const { filterManager } = module;
 
-                    canvas.fxmaster.filterManager = filterManager;
-
-                    patch("canvas.fxmaster.filterManager.activate", "POST", function () {
-                        updateLayer(canvas.background);
-                        updateLayer(canvas.foreground);
-                        updateLayer(canvas.tokens);
-
-                        return arguments[0];
-                    });
-
-                    patch("canvas.fxmaster.filterManager.update", "POST", function () {
-                        updateLayer(canvas.background);
-                        updateLayer(canvas.foreground);
-                        updateLayer(canvas.tokens);
-
-                        return arguments[0];
-                    });
-
+                patch("FXMASTER.filters.activate", "POST", function () {
                     updateLayer(canvas.background);
                     updateLayer(canvas.foreground);
                     updateLayer(canvas.tokens);
+
+                    return arguments[0];
                 });
+
+                patch("FXMASTER.filters.update", "POST", function () {
+                    updateLayer(canvas.background);
+                    updateLayer(canvas.foreground);
+                    updateLayer(canvas.tokens);
+
+                    return arguments[0];
+                });
+
+                updateLayer(canvas.background);
+                updateLayer(canvas.foreground);
+                updateLayer(canvas.tokens);
             });
         }
     }
