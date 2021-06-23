@@ -453,27 +453,22 @@ Hooks.once("init", () => {
         });
 
         if (isNewerVersion(game.data.version, "0.8.4")) {
-            Hooks.once("ready", () => {
+            patch("FXMASTER.filters.activate", "POST", function () {
+                updateLayer(canvas.background);
+                updateLayer(canvas.foreground);
+                updateLayer(canvas.tokens);
 
-                patch("FXMASTER.filters.activate", "POST", function () {
-                    updateLayer(canvas.background);
-                    updateLayer(canvas.foreground);
-                    updateLayer(canvas.tokens);
+                return arguments[0];
+            });
 
-                    return arguments[0];
-                });
-
-                patch("FXMASTER.filters.update", "POST", function () {
-                    updateLayer(canvas.background);
-                    updateLayer(canvas.foreground);
-                    updateLayer(canvas.tokens);
-
-                    return arguments[0];
-                });
+            patch("FXMASTER.filters.update", "POST", async function () {
+                const retVal = await arguments[0];
 
                 updateLayer(canvas.background);
                 updateLayer(canvas.foreground);
                 updateLayer(canvas.tokens);
+
+                return retVal;
             });
         }
     }
