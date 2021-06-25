@@ -210,41 +210,27 @@ Hooks.once("init", () => {
     });
 
     // https://gitlab.com/foundrynet/foundryvtt/-/issues/4413
-    if (isNewerVersion(game.data.version, "0.8.6")) {
-        patch("SightLayer.prototype._configureFogResolution", "OVERRIDE", function () {
-            const d = canvas.dimensions;
-            const gl = canvas.app.renderer.gl;
-            const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+    patch("SightLayer.prototype._configureFogResolution", "OVERRIDE", function () {
+        const d = canvas.dimensions;
+        const gl = canvas.app.renderer.gl;
+        const maxTextureSize = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE), 4096);
 
-            let resolution = Math.pow(2, Math.ceil(Math.log2(canvas.app.renderer.resolution)));
-            let width = d.sceneWidth.toNearest(1 / resolution, "ceil");
-            let height = d.sceneHeight.toNearest(1 / resolution, "ceil");
+        let resolution = Math.pow(2, Math.ceil(Math.log2(canvas.app.renderer.resolution)));
+        let width = Math.ceil(d.sceneWidth * resolution) / resolution;
+        let height = Math.ceil(d.sceneHeight * resolution) / resolution;
 
-            while (Math.max(width, height) * resolution > maxTextureSize
-                || (width * resolution) * (height * resolution) > 4096 * 4096) {
-                resolution /= 2;
-                width = d.sceneWidth.toNearest(1 / resolution, "ceil");
-                height = d.sceneHeight.toNearest(1 / resolution, "ceil");
-            }
+        while (Math.max(width, height) * resolution > maxTextureSize) {
+            resolution /= 2;
+            width = Math.ceil(d.sceneWidth * resolution) / resolution;
+            height = Math.ceil(d.sceneHeight * resolution) / resolution;
+        }
 
+        if (isNewerVersion(game.data.version, "0.8.6")) {
             return { resolution, width, height };
-        });
-    } else {
-        patch("SightLayer.prototype._configureFogResolution", "OVERRIDE", function () {
-            const d = canvas.dimensions;
-            const gl = canvas.app.renderer.gl;
-            const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
-
-            let res = Math.pow(2, Math.ceil(Math.log2(canvas.app.renderer.resolution)));
-
-            while (Math.max(d.sceneWidth, d.sceneHeight) * res > maxTextureSize
-                || d.sceneWidth * res * d.sceneHeight * res > 4096 * 4096) {
-                res /= 2;
-            }
-
-            return res;
-        });
-    }
+        } else {
+            return resolution;
+        }
+    });
 
     if (isNewerVersion(game.data.version, "0.8.2")) {
         patch("AbstractBaseMaskFilter.create", "POST", function (filter) {

@@ -482,10 +482,12 @@ Hooks.once("setup", () => {
             return arguments[0];
         });
 
-        patch("Canvas.layers.specials.prototype.addChild", "POST", function () {
-            updateLayer(canvas.specials);
-            return arguments[0];
-        });
+        if (Canvas.layers.specials) {
+            patch("Canvas.layers.specials.prototype.addChild", "POST", function () {
+                updateLayer(canvas.specials);
+                return arguments[0];
+            });
+        }
     }
 });
 
