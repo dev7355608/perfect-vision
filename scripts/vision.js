@@ -42,39 +42,57 @@ function computeFov(source, radius, fovCache = null) {
     if (fovCache && fovCache[radius])
         return fovCache[radius];
 
-    const fovPoints = [];
-
-    if (radius > 0) {
-        const d = canvas.dimensions;
-        const distance = fovCache?.distance ?? Math.max(
-            source.radius,
-            Math.hypot(
-                Math.max(source.x, d.width - source.x),
-                Math.max(source.y, d.height - source.y)
-            )
-        );
-
-        if (fovCache)
-            fovCache.distance = distance;
-
-        const limit = Math.clamped(radius / distance, 0, 1);
-        const points = source.los.points;
-
-        for (let i = 0; i < points.length; i += 2) {
-            const p = { x: points[i], y: points[i + 1] };
-            const r = new Ray(source, p);
-            const t0 = Math.clamped(r.distance / distance, 0, 1);
-            const q = t0 <= limit ? p : r.project(limit / t0);
-            fovPoints.push(q)
-        }
-    }
-
     let fov;
 
-    if (isNewerVersion("0.8.0", game.data.version)) {
-        fov = new PIXI.Polygon(...fovPoints);
+    if (!game.modules.get("lichtgeschwindigkeit")?.active) {
+        const fovPoints = [];
+
+        if (radius > 0) {
+            const d = canvas.dimensions;
+            const distance = fovCache?.distance ?? Math.max(
+                source.radius,
+                Math.hypot(
+                    Math.max(source.x, d.width - source.x),
+                    Math.max(source.y, d.height - source.y)
+                )
+            );
+
+            if (fovCache)
+                fovCache.distance = distance;
+
+            const limit = Math.clamped(radius / distance, 0, 1);
+            const points = source.los.points;
+
+            for (let i = 0; i < points.length; i += 2) {
+                const p = { x: points[i], y: points[i + 1] };
+                const r = new Ray(source, p);
+                const t0 = Math.clamped(r.distance / distance, 0, 1);
+                const q = t0 <= limit ? p : r.project(limit / t0);
+                fovPoints.push(q)
+            }
+        }
+
+        if (isNewerVersion("0.8.0", game.data.version)) {
+            fov = new PIXI.Polygon(...fovPoints);
+        } else {
+            fov = new SourcePolygon(source.x, source.y, radius, ...fovPoints);
+        }
     } else {
-        fov = new SourcePolygon(source.x, source.y, radius, ...fovPoints);
+        if (isNewerVersion("0.8.2", game.data.version)) {
+            fov = SightLayer.computeSight({ x: source.x, y: source.y }, radius, {
+                type: source.sourceType || "sight",
+                angle: source.angle,
+                rotation: source.rotation,
+                unrestricted: source.type === CONST.SOURCE_TYPES.UNIVERSAL
+            }).fov;
+        } else {
+            fov = canvas.walls.computePolygon({ x: source.x, y: source.y }, radius, {
+                type: source.sourceType || "sight",
+                angle: source.angle,
+                rotation: source.rotation,
+                unrestricted: source.type === CONST.SOURCE_TYPES.UNIVERSAL
+            }).fov;
+        }
     }
 
     if (fovCache)
