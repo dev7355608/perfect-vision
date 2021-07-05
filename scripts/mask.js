@@ -275,9 +275,14 @@ Hooks.on("lightingRefresh", () => {
     }
 
     const displayRoofs = canvas.foreground.displayRoofs;
+    const betterRoofs = game.modules.get("betterroofs")?.active;
 
     for (const roof of canvas.foreground.roofs) {
         if (!displayRoofs || roof.occluded) continue;
+
+        const brMode = betterRoofs ? roof.document.getFlag("betterroofs", "brMode") : 0;
+
+        if (brMode === 2 || brMode === 3) continue;
 
         const si = roof.getRoofSprite();
 
