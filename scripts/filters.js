@@ -57,7 +57,7 @@ class MonoFilter extends BaseFilter {
                 float a = srgba.a;
                 float y = rgb2y(rgb);
                 vec3 tint = srgb2rgb(uTint);
-                gl_FragColor = vec4(rgb2srgb(mix(mix(vec3(y), y2mono(y, tint), mask.a), rgb, max(mask.r, uSaturation))), a);
+                gl_FragColor = vec4(rgb2srgb(mix(mix(vec3(y), y2mono(y, tint), mask.g), rgb, max(mask.r, uSaturation))), a);
             }`,
             ...args
         );
