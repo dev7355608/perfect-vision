@@ -459,6 +459,8 @@ Hooks.once("init", () => {
 
         if (monoVisionColor && this_.fovMono)
             this_.monoVisionColor = monoVisionColor;
+        else if (token._original && token._original.vision)
+            this_.monoVisionColor = extend(token._original.vision).monoVisionColor;
         else
             this_.monoVisionColor = null;
 
