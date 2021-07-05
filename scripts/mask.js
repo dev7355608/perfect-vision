@@ -7,12 +7,14 @@ mask.background = mask.addChild(new PIXI.Graphics());
 mask.layers = [
     new PIXI.Container(),
     new PIXI.Container(),
+    new PIXI.Container(),
     new PIXI.Container()
 ];
 mask.addChild(
     mask.layers[0],
     mask.layers[1],
-    mask.layers[2]
+    mask.layers[2],
+    mask.layers[3]
 );
 
 mask.msk = mask.addChild(new PIXI.Graphics());
@@ -270,6 +272,19 @@ Hooks.on("lightingRefresh", () => {
 
         if (sc_.fovDimToBright)
             mask.layers[2].addChild(sc_.fovDimToBright);
+    }
+
+    const displayRoofs = canvas.foreground.displayRoofs;
+
+    for (const roof of canvas.foreground.roofs) {
+        if (!displayRoofs || roof.occluded) continue;
+
+        const si = roof.getRoofSprite();
+
+        if (!si) continue;
+
+        si.tint = 0x000000;
+        mask.layers[3].addChild(si)
     }
 
     dirty = true;
