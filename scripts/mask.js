@@ -282,7 +282,7 @@ Hooks.on("lightingRefresh", () => {
 
         const brMode = betterRoofs ? roof.document.getFlag("betterroofs", "brMode") : 0;
 
-        if (brMode === 2 || brMode === 3) continue;
+        if (brMode === 3) continue;
 
         const si = roof.getRoofSprite();
 
