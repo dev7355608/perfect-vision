@@ -62,9 +62,13 @@ The amount of desaturation is linked to the scene's *Darkness Level* in a way su
 
 ### Monochrome Token Icons
 
+> Removed in PV 2.0.0.
+
 If enabled, token icons are affected by monochrome vision. Otherwise, they are not.
 
 ### Monochrome Special Effects
+
+> Removed in PV 2.0.0.
 
 If enabled, special effects are affected by monochrome vision. Otherwise, they are not. Special effects attached to tokens are only affected by this setting if *Monochrome Token Icons* is enabled as well.
 
