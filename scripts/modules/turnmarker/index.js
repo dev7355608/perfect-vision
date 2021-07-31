@@ -10,7 +10,7 @@ Hooks.once("init", () => {
     patch("Tile.prototype.draw", "POST", async function (result) {
         await result;
 
-        if (this.data.flags?.startMarker || this.data.flags?.turnMarker) {
+        if (this.data.flags?.startMarker || this.data.flags?.turnMarker || this.data.flags?.deckMarker) {
             Board.unplace(`Tile[${this.id}].tile`);
         }
 
@@ -18,7 +18,7 @@ Hooks.once("init", () => {
     });
 
     patch("Tile.prototype.refresh", "POST", function () {
-        if (this.tile && (this.data.flags?.startMarker || this.data.flags?.turnMarker)) {
+        if (this.tile && (this.data.flags?.startMarker || this.data.flags?.turnMarker || this.data.flags?.deckMarker)) {
             if (!this._original) {
                 this.tile.mask = new PIXI.MaskData(new PIXI.Sprite(Mask.getTexture("background")));
                 this.tile.mask.filter = new MaskFilter();
