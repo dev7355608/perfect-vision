@@ -11,7 +11,7 @@ Hooks.once("init", () => {
     patch("Token.prototype.draw", "POST", async function (result) {
         await result;
 
-        Board.place(`Token[${this.id}].icon`, !this._original ? this.icon : null, "tokens");
+        Board.place(`Token[${this.id}].icon`, this.id && !this._original ? this.icon : null, "tokens");
 
         return this;
     });

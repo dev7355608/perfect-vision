@@ -11,7 +11,7 @@ Hooks.once("init", () => {
     patch("MeasuredTemplate.prototype.draw", "POST", async function (result) {
         await result;
 
-        Board.place(`MeasuredTemplate[${this.id}].template`, !this._original ? this.template : null, "templates");
+        Board.place(`MeasuredTemplate[${this.id}].template`, this.id && !this._original ? this.template : null, "templates");
 
         return this;
     });

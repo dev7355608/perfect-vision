@@ -37,7 +37,7 @@ Hooks.once("init", () => {
         await result;
 
         if (this.tile) {
-            Board.place(`Tile[${this.id}].tile`, !this._original ? this.tile : null, Tiles.isOverhead(this) ? "foreground-1" : "background+1");
+            Board.place(`Tile[${this.id}].tile`, this.id && !this._original ? this.tile : null, Tiles.isOverhead(this) ? "foreground-1" : "background+1");
         }
 
         if (this.occlusionFilter) {
