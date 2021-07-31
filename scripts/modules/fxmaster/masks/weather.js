@@ -21,6 +21,8 @@ Hooks.once("init", () => {
     });
 
     patch("Canvas.layers.fxmaster.prototype.updateMask", "OVERRIDE", function () {
+        this.visible = true;
+
         mask.invalidate();
     });
 });
