@@ -6,7 +6,6 @@ import { patch } from "../../utils/patch.js";
 import { SourcePolygonMesh } from "../../display/source-polygon-mesh.js";
 import { presets } from "../../settings.js";
 import { SpriteMesh } from "../../display/sprite-mesh.js";
-import { srgb2gray } from "../../utils/color.js";
 
 Hooks.once("init", () => {
     let computePolygon;
@@ -665,13 +664,12 @@ class IlluminationBackgroundShader extends PIXI.Shader {
 
         uniform sampler2D uIllumination;
         uniform vec3 uColorLight;
-        uniform vec3 uColorVision;
         uniform vec3 uColorDarkness;
 
         void main()
         {
             vec3 mask = texture2D(uIllumination, vMaskCoord).rgb;
-            gl_FragColor = vec4(mix(mix(uColorDarkness, uColorVision, mask.g), uColorLight, mask.r), 1.0);
+            gl_FragColor = vec4(mix(uColorDarkness, uColorLight, mask.r), 1.0);
         }`;
 
     static get program() {
@@ -687,7 +685,6 @@ class IlluminationBackgroundShader extends PIXI.Shader {
             uMaskSize: Mask.size,
             uIllumination: Mask.getTexture("illumination"),
             uColorLight: new Float32Array(3),
-            uColorVision: new Float32Array(3),
             uColorDarkness: new Float32Array(3),
         };
     }
@@ -714,7 +711,6 @@ class IlluminationBackgroundShader extends PIXI.Shader {
             const channels = canvas.lighting.channels;
 
             this.uniforms.uColorLight = channels.background.rgb;
-            this.uniforms.uColorVision = srgb2gray(channels.background.rgb);
 
             this.improvedGMVision = null;
         }
