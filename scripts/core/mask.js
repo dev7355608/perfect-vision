@@ -396,7 +396,7 @@ export class MaskFilter extends PIXI.Filter {
         this._multisample = value;
     }
 
-    apply(filterManager, input, output, clearMode) {
+    apply(filterManager, input, output, clearMode, currentState) {
         if (this.maskSprite) {
             this.uniforms.uMask = this.maskSprite.texture;
         }

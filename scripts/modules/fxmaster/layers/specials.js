@@ -12,7 +12,7 @@ Hooks.once("setup", () => {
     patch("Canvas.layers.specials.prototype.addChild", "POST", function (result, ...objects) {
         for (const object of objects) {
             if (object instanceof PIXI.Sprite) {
-                const id = `specials.[${counter++}]`;
+                const id = `specials.${counter++}`;
 
                 ids.set(object, id);
 

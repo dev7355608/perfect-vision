@@ -100,7 +100,7 @@ Hooks.once("init", () => {
 
         tile.visible = true;
 
-        Board.place(tile.document?.uuid, !tile._original ? tile.tile : null, "background+1");
+        Board.place(`Tile[${tile.id}].tile`, !tile._original ? tile.tile : null, "background+1");
 
         tile._pv_overhead = false;
 
@@ -116,7 +116,7 @@ Hooks.once("init", () => {
     patch("Levels.prototype.removeTempTile", "OVERRIDE", function (tileIndex) {
         const tile = tileIndex.tile;
 
-        Board.place(tile.document?.uuid, !tile._original ? tile.tile : null, "foreground-1");
+        Board.place(`Tile[${tile.id}].tile`, !tile._original ? tile.tile : null, "foreground-1");
 
         tile._pv_overhead = tile.data.overhead;
 
@@ -126,19 +126,19 @@ Hooks.once("init", () => {
     });
 
     patch("Levels.prototype.getTokenIconSprite", "OVERRIDE", function (token) {
-        Board.place(token.document?.uuid, !token._original ? token.icon : null, "background+1");
+        Board.place(`Token[${token.id}].icon`, !token._original ? token.icon : null, "background+1");
 
         Mask.invalidateAll("tokens");
     });
 
     patch("Levels.prototype.removeTempToken", "OVERRIDE", function (token) {
-        Board.place(token.document?.uuid, !token._original ? token.icon : null, "tokens");
+        Board.place(`Token[${token.id}].icon`, !token._original ? token.icon : null, "tokens");
 
         Mask.invalidateAll("tokens");
     });
 
     patch("Levels.prototype.getTokenIconSpriteOverhead", "OVERRIDE", function (token) {
-        Board.place(token.document?.uuid, !token._original ? token.icon : null, "foreground-1");
+        Board.place(`Token[${token.id}].icon`, !token._original ? token.icon : null, "foreground-1");
 
         token._pv_overhead = true;
 
@@ -146,7 +146,7 @@ Hooks.once("init", () => {
     });
 
     patch("Levels.prototype.removeTempTokenOverhead", "OVERRIDE", function (token) {
-        Board.place(token.document?.uuid, !token._original ? token.icon : null, "tokens");
+        Board.place(`Token[${token.id}].icon`, !token._original ? token.icon : null, "tokens");
 
         token._pv_overhead = false;
 

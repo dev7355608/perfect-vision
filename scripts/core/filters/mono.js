@@ -101,7 +101,7 @@ export class MonoFilter extends MaskFilter {
         this.uniforms.uSaturation = value;
     }
 
-    apply(filterManager, input, output, clearMode) {
+    apply(filterManager, input, output, clearMode, currentState) {
         if (this._colorDirty) {
             this._colorDirty = false;
 
@@ -115,7 +115,7 @@ export class MonoFilter extends MaskFilter {
             srgb2rgb(color, color);
         }
 
-        filterManager.applyFilter(this, input, output, clearMode);
+        super.apply(filterManager, input, output, clearMode, currentState);
     }
 }
 

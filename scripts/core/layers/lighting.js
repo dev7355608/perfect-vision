@@ -457,7 +457,7 @@ Hooks.once("init", () => {
 
         this.activateAnimation();
 
-        Board.place("lighting", this.lighting, "lighting");
+        Board.place("lighting.lighting", this.lighting, "lighting");
 
         return this;
     });
@@ -465,7 +465,7 @@ Hooks.once("init", () => {
     patch("LightingLayer.prototype.tearDown", "WRAPPER", async function (wrapped, ...args) {
         IlluminationBackgroundShader.instance.version = -1;
 
-        Board.unplace("lighting");
+        Board.unplace("lighting.lighting");
 
         return await wrapped(...args);
     });

@@ -98,10 +98,10 @@ class TileOcclusionMaskFilter extends MaskFilter {
 
     set enabled(value) { }
 
-    apply(filterManager, input, output, clearMode) {
+    apply(filterManager, input, output, clearMode, currentState) {
         this.uniforms.uAlpha1 = this.tile.data.alpha;
         this.uniforms.uAlpha2 = this.tile.data.occlusion.alpha;
 
-        super.apply(filterManager, input, output, clearMode);
+        super.apply(filterManager, input, output, clearMode, currentState);
     }
 }

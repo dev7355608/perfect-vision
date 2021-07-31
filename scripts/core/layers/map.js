@@ -37,11 +37,7 @@ Hooks.once("init", () => {
         await result;
 
         if (this.tile) {
-            if (Tiles.isOverhead(this)) {
-                Board.place(this.document?.uuid, !this._original ? this.tile : null, "foreground-1");
-            } else {
-                Board.place(this.document?.uuid, !this._original ? this.tile : null, "background+1");
-            }
+            Board.place(`Tile[${this.id}].tile`, !this._original ? this.tile : null, Tiles.isOverhead(this) ? "foreground-1" : "background+1");
         }
 
         if (this.occlusionFilter) {
@@ -70,7 +66,7 @@ Hooks.once("init", () => {
     });
 
     patch("Tile.prototype.destroy", "PRE", function () {
-        Board.unplace(this.document.uuid);
+        Board.unplace(`Tile[${this.id}].tile`);
 
         return arguments;
     });
