@@ -1,39 +1,44 @@
-import { Mask, MaskFilter } from "./mask.js";
+import { Mask, MaskData, MaskFilter } from "./mask.js";
 
 export class Tiles {
     static isOverhead(tile) {
         return tile.data.overhead;
     }
 
-    static getOcclusionMaskTexture(tile) {
+    static getOcclusionMask(tile) {
         if (tile._original || !this.isOverhead(tile)) {
             return;
         }
 
         if (tile.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.RADIAL) {
-            return Mask.getTexture("occlusionRadial");
+            return "occlusionRadial";
         }
     }
 
-    static getOcclusionMask(tile) {
-        let maskData = null;
+    static getOcclusionMaskTexture(tile) {
+        const name = this.getOcclusionMask(tile);
 
-        const mask = this.getOcclusionMaskTexture(tile);
-
-        if (mask) {
-            maskData = new PIXI.MaskData(new PIXI.Sprite(mask));
-            maskData.filter = new TileOcclusionMaskFilter(tile);
-            maskData.resolution = null;
-            maskData.multisample = PIXI.MSAA_QUALITY.NONE;
+        if (!name) {
+            return;
         }
 
-        return maskData;
+        return Mask.getTexture(name);
+    }
+
+    static getOcclusionMaskData(tile) {
+        const name = this.getOcclusionMask(tile);
+
+        if (!name) {
+            return null;
+        }
+
+        return new TileOcclusionMaskData(name, tile);
     }
 
     static getAlpha(tile, invert = false) {
         let alpha = tile.tile.alpha;
 
-        if (this.getOcclusionMaskTexture(tile)) {
+        if (this.getOcclusionMask(tile)) {
             alpha *= tile.data.alpha;
         }
 
@@ -43,7 +48,7 @@ export class Tiles {
     static getOcclusionAlpha(tile, invert = false) {
         let alpha = tile.tile.alpha;
 
-        if (this.getOcclusionMaskTexture(tile)) {
+        if (this.getOcclusionMask(tile)) {
             alpha *= tile.data.occlusion.alpha;
         }
 
@@ -60,6 +65,18 @@ export class Tiles {
 
         return alpha !== 0 || occlusionAlpha !== 0;
     }
+}
+
+class TileOcclusionMaskData extends MaskData {
+    constructor(name, tile) {
+        super(name, new TileOcclusionMaskFilter(tile));
+    }
+
+    get enabled() {
+        return canvas.tokens.controlled?.length > 0;
+    }
+
+    set enabled(value) { }
 }
 
 class TileOcclusionMaskFilter extends MaskFilter {
@@ -91,12 +108,6 @@ class TileOcclusionMaskFilter extends MaskFilter {
 
         this.tile = tile;
     }
-
-    get enabled() {
-        return canvas.tokens.controlled?.length > 0;
-    }
-
-    set enabled(value) { }
 
     apply(filterManager, input, output, clearMode, currentState) {
         this.uniforms.uAlpha1 = this.tile.data.alpha;

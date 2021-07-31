@@ -15,7 +15,7 @@ Hooks.once("init", () => {
     patch("ForegroundLayer.prototype.refresh", "POST", function () {
         for (const tile of this.tiles) {
             if (tile.tile) {
-                tile.tile.mask = Tiles.getOcclusionMask(tile);
+                tile.tile.mask = Tiles.getOcclusionMaskData(tile);
             }
         }
 
@@ -24,7 +24,7 @@ Hooks.once("init", () => {
 
     patch("Tile.prototype.getRoofSprite", "POST", function (sprite) {
         if (sprite) {
-            sprite.mask = Tiles.getOcclusionMask(this);
+            sprite.mask = Tiles.getOcclusionMaskData(this);
         }
 
         return sprite;

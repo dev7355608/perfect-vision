@@ -59,7 +59,7 @@ Hooks.once("init", () => {
 
     patch("Tile.prototype.refresh", "POST", function () {
         if (this.tile) {
-            this.tile.mask = Tiles.getOcclusionMask(this);
+            this.tile.mask = Tiles.getOcclusionMaskData(this);
         }
 
         return this;

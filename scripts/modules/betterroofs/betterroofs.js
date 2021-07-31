@@ -28,7 +28,7 @@ Hooks.once("init", () => {
             return;
         }
 
-        Tiles.getOcclusionMaskTexture = function (tile) {
+        Tiles.getOcclusionMask = function (tile) {
             if (tile._original || !this.isOverhead(tile)) {
                 return;
             }
@@ -36,9 +36,9 @@ Hooks.once("init", () => {
             let texture;
 
             if (tile.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.RADIAL) {
-                texture = Mask.getTexture("occlusionRadial");
+                texture = "occlusionRadial";
             } else if (!tile.dontMask && _betterRoofs.foregroundSightMaskContainers[tile.id] /* tile.document.getFlag("betterroofs", "brMode") === 3 */) {
-                texture = Mask.getTexture("occlusionSight");
+                texture = "occlusionSight";
             }
 
             return texture;
