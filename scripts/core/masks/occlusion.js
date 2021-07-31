@@ -1,5 +1,6 @@
 import { Mask } from "../mask.js";
 import { patch } from "../../utils/patch.js";
+import { Tokens } from "../tokens.js";
 
 Hooks.once("init", () => {
     const mask = Mask.create("occlusionRadial", {
@@ -18,7 +19,7 @@ Hooks.once("init", () => {
 
         graphics.beginFill();
 
-        const tokens = game.user.isGM ? canvas.tokens.controlled : canvas.tokens.ownedTokens;
+        const tokens = Tokens.getOccluding();
 
         for (const token of tokens) {
             const c = token.center;
@@ -46,7 +47,7 @@ Hooks.once("init", () => {
     });
 
     patch("ForegroundLayer.prototype.updateOcclusion", "OVERRIDE", function () {
-        const tokens = game.user.isGM ? canvas.tokens.controlled : canvas.tokens.ownedTokens;
+        const tokens = Tokens.getOccluding();
 
         this._drawOcclusionShapes(tokens);
 
