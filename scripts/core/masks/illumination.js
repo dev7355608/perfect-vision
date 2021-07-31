@@ -94,18 +94,20 @@ Hooks.once("init", () => {
 
         mask.stage.roofs.removeChildren();
 
-        for (const roof of canvas.foreground.roofs) {
-            if (!Tiles.isOverhead(roof) || !Tiles.isVisible(roof)) {
-                continue;
-            }
+        if (canvas.foreground.displayRoofs) {
+            for (const roof of canvas.foreground.roofs) {
+                if (!Tiles.isOverhead(roof) || !Tiles.isVisible(roof)) {
+                    continue;
+                }
 
-            const alpha = CachedAlphaObject.create(roof.tile, { alpha: [Tiles.getAlpha(roof), Tiles.getOcclusionAlpha(roof)], mask: Tiles.getOcclusionMaskTexture(roof) });
+                const alpha = CachedAlphaObject.create(roof.tile, { alpha: [Tiles.getAlpha(roof), Tiles.getOcclusionAlpha(roof)], mask: Tiles.getOcclusionMaskTexture(roof) });
 
-            alpha.zIndex = roof.zIndex;
-            mask.stage.roofs.addChild(alpha);
+                alpha.zIndex = roof.zIndex;
+                mask.stage.roofs.addChild(alpha);
 
-            if (roof.isVideo) {
-                mask.invalidate();
+                if (roof.isVideo) {
+                    mask.invalidate();
+                }
             }
         }
 

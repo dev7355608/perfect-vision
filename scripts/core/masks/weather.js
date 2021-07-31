@@ -15,18 +15,20 @@ Hooks.once("init", () => {
     mask.stage.roofs.sortableChildren = true;
 
     mask.on("updateStage", (mask) => {
-        for (const roof of canvas.foreground.roofs) {
-            if (!Tiles.isOverhead(roof) || !Tiles.isVisible(roof, true)) {
-                continue;
-            }
+        if (canvas.foreground.displayRoofs) {
+            for (const roof of canvas.foreground.roofs) {
+                if (!Tiles.isOverhead(roof) || !Tiles.isVisible(roof, true)) {
+                    continue;
+                }
 
-            const alpha = CachedAlphaObject.create(roof.tile, { alpha: [Tiles.getAlpha(roof, true), Tiles.getOcclusionAlpha(roof, true)], mask: Tiles.getOcclusionMaskTexture(roof) });
+                const alpha = CachedAlphaObject.create(roof.tile, { alpha: [Tiles.getAlpha(roof, true), Tiles.getOcclusionAlpha(roof, true)], mask: Tiles.getOcclusionMaskTexture(roof) });
 
-            alpha.zIndex = roof.zIndex;
-            mask.stage.roofs.addChild(alpha);
+                alpha.zIndex = roof.zIndex;
+                mask.stage.roofs.addChild(alpha);
 
-            if (roof.isVideo) {
-                mask.invalidate();
+                if (roof.isVideo) {
+                    mask.invalidate();
+                }
             }
         }
     });
