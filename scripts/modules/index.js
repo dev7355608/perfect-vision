@@ -3,5 +3,6 @@ import "./fxmaster/index.js";
 import "./levels/index.js";
 import "./sharedvision/index.js";
 import "./splatter/index.js";
+import "./token-auras/index.js";
 import "./turnmarker/index.js";
 import "./weatherblock/index.js";
