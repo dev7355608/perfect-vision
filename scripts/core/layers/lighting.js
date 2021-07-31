@@ -258,7 +258,7 @@ Hooks.once("init", () => {
             i = Math.max(i, parseInt(match[1], 10) + 1);
         }
 
-        cls.fragmentShader = cls.fragmentShader.replaceAll(/(^|\W)void\s+main\s*\(\s*\)/gm, `$1void main${i}(${uniforms})`);
+        cls.fragmentShader = cls.fragmentShader.replace(/(^|\W)void\s+main\s*\(\s*\)/gm, `$1void main${i}(${uniforms})`);
         cls.fragmentShader += "\n\n// Patched by Perfect Vision\n\n";
         cls.fragmentShader += code.replace(/%main%/gi, `main${i}`);
     }
