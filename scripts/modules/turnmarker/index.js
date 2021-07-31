@@ -1,5 +1,5 @@
 import { Board } from "../../core/board.js";
-import { Mask, MaskFilter } from "../../core/mask.js";
+import { MaskData } from "../../core/mask.js";
 import { patch } from "../../utils/patch.js";
 
 Hooks.once("init", () => {
@@ -20,10 +20,7 @@ Hooks.once("init", () => {
     patch("Tile.prototype.refresh", "POST", function () {
         if (this.tile && (this.data.flags?.startMarker || this.data.flags?.turnMarker || this.data.flags?.deckMarker)) {
             if (!this._original) {
-                this.tile.mask = new PIXI.MaskData(new PIXI.Sprite(Mask.getTexture("background")));
-                this.tile.mask.filter = new MaskFilter();
-                this.tile.mask.resolution = null;
-                this.tile.mask.multisample = PIXI.MSAA_QUALITY.NONE;
+                this.tile.mask = new MaskData("background");
             } else {
                 this.tile.mask = null;
             }

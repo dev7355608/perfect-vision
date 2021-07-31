@@ -1,5 +1,5 @@
 import { Board } from "../../../core/board.js";
-import { Mask, MaskFilter } from "../../../core/mask.js";
+import { MaskData } from "../../../core/mask.js";
 import { patch } from "../../../utils/patch.js";
 
 Hooks.once("setup", () => {
@@ -19,10 +19,7 @@ Hooks.once("setup", () => {
         Board.place("fxmaster.weather", this.weather, "weather");
 
         if (this.weather) {
-            this.weather.mask = new PIXI.MaskData(new PIXI.Sprite(Mask.getTexture("weather")));
-            this.weather.mask.filter = new MaskFilter();
-            this.weather.mask.resolution = null;
-            this.weather.mask.multisample = PIXI.MSAA_QUALITY.NONE;
+            this.weather.mask = new MaskData("weather");
         }
 
         return this;

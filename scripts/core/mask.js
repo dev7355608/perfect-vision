@@ -404,3 +404,13 @@ export class MaskFilter extends PIXI.Filter {
         filterManager.applyFilter(this, input, output, clearMode);
     }
 }
+
+export class MaskData extends PIXI.MaskData {
+    constructor(name, filter) {
+        super(new PIXI.Sprite(Mask.getTexture(name)));
+
+        this.filter = filter ?? new MaskFilter();
+        this.resolution = null;
+        this.multisample = PIXI.MSAA_QUALITY.NONE;
+    }
+}
