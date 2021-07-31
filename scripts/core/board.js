@@ -1,10 +1,33 @@
 import { Logger } from "../utils/logger.js";
 
+export class Layer extends PIXI.Container {
+    constructor(zIndex) {
+        super();
+
+        this.sortableChildren = true;
+        this.zIndex = zIndex;
+    }
+
+    updateTransform() {
+        for (let i = 0, j = this.children.length; i < j; ++i) {
+            const child = this.children[i];
+
+            if (child._zIndex !== child.zIndex) {
+                child._zIndex = child.zIndex;
+                this.sortDirty = true;
+            }
+        }
+
+        super.updateTransform();
+    }
+}
+
 export class Detachment extends PIXI.Container {
     constructor(object) {
         super();
 
         this.object = object;
+        this._zIndex = 0;
     }
 
     get transform() {
@@ -210,9 +233,7 @@ export class Board {
         }
 
         if (!layer) {
-            layer = new PIXI.Container();
-            layer.sortableChildren = true;
-            layer.zIndex = layerIndex;
+            layer = new Layer(layerIndex);
 
             this.stage.addChild(layer);
         }
