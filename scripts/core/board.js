@@ -299,6 +299,16 @@ export class Board extends PIXI.Container {
             return;
         }
 
+        if (id instanceof RegExp) {
+            for (const piece of this.pieces.keys()) {
+                if (id.test(piece)) {
+                    this.unplace(piece);
+                }
+            }
+
+            return;
+        }
+
         if (!this.pieces.has(id)) {
             return;
         }
@@ -333,6 +343,10 @@ export class Board extends PIXI.Container {
     }
 
     clear() {
+        if (Board.debug) {
+            Logger.debug("Clearing %s board", this.name);
+        }
+
         for (const id of this.pieces.keys()) {
             this.unplace(id);
         }
