@@ -184,10 +184,9 @@ export class Placeholder extends PIXI.DisplayObject {
     render(renderer) { }
 }
 
-export class Board {
+export class Board extends PIXI.Container {
     static debug = false;
-    static stage;
-    static pieces = new Map();
+    static boards = new Map();
     static layers = {
         background: 0,
         templates: 50,
@@ -196,9 +195,55 @@ export class Board {
         foreground: 300,
         weather: 400,
         lighting: 500
+    };
+
+    static create(name, options) {
+        console.assert(typeof name === "string" && !this.boards.has(name));
+
+        const board = new Board(options);
+
+        board.name = name;
+
+        this.boards.set(name, board);
+
+        return board;
     }
 
-    static place(id, piece, layer) {
+    static get(name) {
+        return this.boards.get(name);
+    }
+
+    static initialize() {
+        for (const board of this.boards.values()) {
+            board.clear();
+            board.visible = true;
+            board.renderable = true;
+            board.alpha = 1;
+            board.mask = null;
+            board.filters = [];
+            board.filterArea = canvas.app.renderer.screen;
+
+            canvas.stage.addChild(board);
+        }
+    }
+
+    static defaultOptions() {
+        return {
+            zIndex: 0
+        };
+    }
+
+    constructor(options) {
+        options = Object.assign(Board.defaultOptions(), options);
+
+        super();
+
+        this.pieces = new Map();
+        this.zIndex = options.zIndex;
+        this.sortableChildren = true;
+    }
+
+    place(id, piece, layer) {
         if (!id) {
             return;
         }
@@ -214,17 +259,17 @@ export class Board {
         if (typeof layerIndex === "string") {
             const [, name, offset] = layerIndex.match(/^([A-Z]+)([+-]\d+)?$/i);
 
-            layerIndex = this.layers[name] + parseInt(offset ?? 0, 10);
+            layerIndex = Board.layers[name] + parseInt(offset ?? 0, 10);
         }
 
-        if (this.debug) {
-            Logger.debug("Placing %s on the board at %d", id, layerIndex);
+        if (Board.debug) {
+            Logger.debug("Placing %s on the %s board at %d", id, this.name, layerIndex);
         }
 
         layer = null;
 
-        for (let i = 0; i < this.stage.children.length; i++) {
-            const child = this.stage.children[i];
+        for (let i = 0; i < this.children.length; i++) {
+            const child = this.children[i];
 
             if (child.zIndex === layerIndex) {
                 layer = child;
@@ -235,7 +280,7 @@ export class Board {
         if (!layer) {
             layer = new Layer(layerIndex);
 
-            this.stage.addChild(layer);
+            this.addChild(layer);
         }
 
         const owner = piece.parent;
@@ -249,7 +294,7 @@ export class Board {
         this.pieces.set(id, { piece, owner, detachment, layer, placeholder });
     }
 
-    static unplace(id) {
+    unplace(id) {
         if (!id) {
             return;
         }
@@ -258,8 +303,8 @@ export class Board {
             return;
         }
 
-        if (this.debug) {
-            Logger.debug("Unplacing %s from the board", id);
+        if (Board.debug) {
+            Logger.debug("Unplacing %s from the %s board", id, this.name);
         }
 
         const { piece, owner, detachment, layer, placeholder } = this.pieces.get(id);
@@ -286,14 +331,14 @@ export class Board {
             layer.destroy(true);
         }
     }
+
+    clear() {
+        for (const id of this.pieces.keys()) {
+            this.unplace(id);
+        }
+    }
 }
 
 Hooks.on("canvasInit", () => {
-    Board.stage = Board.stage ?? new PIXI.Container();
-    Board.stage.sortableChildren = true;
-    Board.stage.zIndex = -Infinity;
-    Board.stage.filters = [];
-    Board.stage.filterArea = canvas.app.renderer.screen;
-
-    canvas.stage.addChild(Board.stage);
+    Board.initialize();
 });

@@ -120,7 +120,7 @@ export class MonoFilter extends MaskFilter {
 }
 
 Hooks.on("canvasInit", () => {
-    Board.stage.filters.push(MonoFilter.instance);
+    Board.get("primary").filters.push(MonoFilter.instance);
 });
 
 Hooks.on("lightingRefresh", () => {

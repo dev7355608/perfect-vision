@@ -22,13 +22,13 @@ Hooks.once("init", () => {
     patch("MapLayer.prototype.draw", "POST", async function (result) {
         await result;
 
-        Board.place(`${this.options.name}.bg`, this.bg, this.options.name);
+        Board.get("primary").place(`${this.options.name}.bg`, this.bg, this.options.name);
 
         return this;
     });
 
     patch("MapLayer.prototype.tearDown", "WRAPPER", async function (wrapped, ...args) {
-        Board.unplace(`${this.options.name}.bg`);
+        Board.get("primary").unplace(`${this.options.name}.bg`);
 
         return await wrapped(...args);
     });
@@ -37,7 +37,7 @@ Hooks.once("init", () => {
         await result;
 
         if (this.tile) {
-            Board.place(`Tile[${this.id}].tile`, this.id && !this._original ? this.tile : null, Tiles.isOverhead(this) ? "foreground-1" : "background+1");
+            Board.get("primary").place(`Tile[${this.id}].tile`, this.id && !this._original ? this.tile : null, Tiles.isOverhead(this) ? "foreground-1" : "background+1");
         }
 
         if (this.occlusionFilter) {
@@ -66,7 +66,7 @@ Hooks.once("init", () => {
     });
 
     patch("Tile.prototype.destroy", "PRE", function () {
-        Board.unplace(`Tile[${this.id}].tile`);
+        Board.get("primary").unplace(`Tile[${this.id}].tile`);
 
         return arguments;
     });

@@ -12,7 +12,7 @@ Hooks.once("init", () => {
     patch("EffectsLayer.prototype.draw", "POST", async function (result) {
         await result;
 
-        Board.place("effects.weather", this.weather, "weather");
+        Board.get("primary").place("effects.weather", this.weather, "weather");
 
         return this;
     });
@@ -36,7 +36,7 @@ Hooks.once("init", () => {
     });
 
     patch("EffectsLayer.prototype.tearDown", "WRAPPER", async function (wrapped, ...args) {
-        Board.unplace("effects.weather");
+        Board.get("primary").unplace("effects.weather");
 
         return await wrapped(...args);
     });

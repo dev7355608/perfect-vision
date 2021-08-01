@@ -10,13 +10,15 @@ Hooks.once("setup", () => {
     const ids = new WeakMap();
 
     patch("Canvas.layers.specials.prototype.addChild", "POST", function (result, ...objects) {
+        const board = Board.get("primary");
+
         for (const object of objects) {
             if (object instanceof PIXI.Sprite) {
                 const id = `specials.${counter++}`;
 
                 ids.set(object, id);
 
-                Board.place(id, object, "effects");
+                board.place(id, object, "effects");
             }
         }
 
@@ -24,9 +26,11 @@ Hooks.once("setup", () => {
     });
 
     patch("Canvas.layers.specials.prototype.removeChild", "PRE", function (...objects) {
+        const board = Board.get("primary");
+
         for (const object of objects) {
             if (ids.has(object)) {
-                Board.unplace(ids.get(object));
+                board.unplace(ids.get(object));
             }
         }
 

@@ -31,12 +31,14 @@ Hooks.once("setup", () => {
 
         manager.apply_to.drawings = false;
 
-        if (Board.stage.filters?.length !== 0) {
+        const board = Board.get("primary");
+
+        if (board.filters?.length !== 0) {
             for (const filter of filters) {
-                const index = Board.stage.filters.indexOf(filter);
+                const index = board.filters.indexOf(filter);
 
                 if (index >= 0) {
-                    Board.stage.filters.splice(index, 1);
+                    board.filters.splice(index, 1);
                 }
             }
         }
@@ -49,7 +51,7 @@ Hooks.once("setup", () => {
                 filter.multisample = canvas.app.renderer.multisample;
             }
 
-            Board.stage.filters.push(...filters);
+            board.filters.push(...filters);
         } else {
             filters = [];
         }

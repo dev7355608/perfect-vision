@@ -11,7 +11,7 @@ Hooks.once("init", () => {
         await result;
 
         if (this.data.flags?.startMarker || this.data.flags?.turnMarker || this.data.flags?.deckMarker) {
-            Board.unplace(`Tile[${this.id}].tile`);
+            Board.get("primary").unplace(`Tile[${this.id}].tile`);
         }
 
         return this;

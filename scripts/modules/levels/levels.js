@@ -100,7 +100,7 @@ Hooks.once("init", () => {
 
         tile.visible = true;
 
-        Board.place(`Tile[${tile.id}].tile`, tile.id && !tile._original ? tile.tile : null, "background+1");
+        Board.get("primary").place(`Tile[${tile.id}].tile`, tile.id && !tile._original ? tile.tile : null, "background+1");
 
         tile._pv_overhead = false;
 
@@ -116,7 +116,7 @@ Hooks.once("init", () => {
     patch("Levels.prototype.removeTempTile", "OVERRIDE", function (tileIndex) {
         const tile = tileIndex.tile;
 
-        Board.place(`Tile[${tile.id}].tile`, tile.id && !tile._original ? tile.tile : null, "foreground-1");
+        Board.get("primary").place(`Tile[${tile.id}].tile`, tile.id && !tile._original ? tile.tile : null, "foreground-1");
 
         tile._pv_overhead = tile.data.overhead;
 
@@ -128,7 +128,7 @@ Hooks.once("init", () => {
     patch("Levels.prototype.getTokenIconSprite", "OVERRIDE", function (token) {
         token.icon.alpha = token.data.hidden ? Math.min(token.data.alpha, 0.5) : token.data.alpha;
 
-        Board.place(`Token[${token.id}].icon`, token.id && !token._original ? token.icon : null, "background+1");
+        Board.get("primary").place(`Token[${token.id}].icon`, token.id && !token._original ? token.icon : null, "background+1");
 
         token._pv_overhead = false;
 
@@ -139,7 +139,7 @@ Hooks.once("init", () => {
         if (token._pv_overhead === false) {
             token._pv_overhead = undefined;
 
-            Board.place(`Token[${token.id}].icon`, token.id && !token._original ? token.icon : null, "tokens");
+            Board.get("primary").place(`Token[${token.id}].icon`, token.id && !token._original ? token.icon : null, "tokens");
 
             Mask.invalidateAll("tokens");
         }
@@ -148,7 +148,7 @@ Hooks.once("init", () => {
     patch("Levels.prototype.getTokenIconSpriteOverhead", "OVERRIDE", function (token) {
         token.icon.alpha = token.data.hidden ? Math.min(token.data.alpha, 0.5) : token.data.alpha;
 
-        Board.place(`Token[${token.id}].icon`, token.id && !token._original ? token.icon : null, "foreground-1");
+        Board.get("primary").place(`Token[${token.id}].icon`, token.id && !token._original ? token.icon : null, "foreground-1");
 
         token._pv_overhead = true;
 
@@ -159,7 +159,7 @@ Hooks.once("init", () => {
         if (token._pv_overhead === true) {
             token._pv_overhead = undefined;
 
-            Board.place(`Token[${token.id}].icon`, token.id && !token._original ? token.icon : null, "tokens");
+            Board.get("primary").place(`Token[${token.id}].icon`, token.id && !token._original ? token.icon : null, "tokens");
 
             Mask.invalidateAll("tokens");
         }

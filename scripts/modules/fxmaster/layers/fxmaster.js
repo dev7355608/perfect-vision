@@ -16,7 +16,7 @@ Hooks.once("setup", () => {
     patch("Canvas.layers.fxmaster.prototype.drawWeather", "POST", async function (result) {
         await result;
 
-        Board.place("fxmaster.weather", this.weather, "weather");
+        Board.get("primary").place("fxmaster.weather", this.weather, "weather");
 
         if (this.weather) {
             this.weather.mask = new MaskData("weather");
@@ -26,7 +26,7 @@ Hooks.once("setup", () => {
     });
 
     patch("Canvas.layers.fxmaster.prototype.tearDown", "WRAPPER", async function (wrapped, ...args) {
-        Board.unplace("fxmaster.weather");
+        Board.get("primary").unplace("fxmaster.weather");
 
         return await wrapped(...args);
     });

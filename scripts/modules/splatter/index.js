@@ -9,13 +9,13 @@ Hooks.once("init", () => {
     patch("BloodSplatter.prototype.Update", "POST", function () {
         setTimeout(() => {
             if (canvas.background.BloodSplatter === this) {
-                Board.place("splatter.blood", this.blood, "background+2");
+                Board.get("primary").place("splatter.blood", this.blood, "background+2");
             }
         }, 0);
     });
 
     patch("BloodSplatter.prototype.Destroy", "PRE", function () {
-        Board.unplace("splatter.blood");
+        Board.get("primary").unplace("splatter.blood");
 
         return arguments;
     });
