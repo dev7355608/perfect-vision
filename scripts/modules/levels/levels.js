@@ -126,18 +126,28 @@ Hooks.once("init", () => {
     });
 
     patch("Levels.prototype.getTokenIconSprite", "OVERRIDE", function (token) {
+        token.icon.alpha = token.data.hidden ? Math.min(token.data.alpha, 0.5) : token.data.alpha;
+
         Board.place(`Token[${token.id}].icon`, token.id && !token._original ? token.icon : null, "background+1");
+
+        token._pv_overhead = false;
 
         Mask.invalidateAll("tokens");
     });
 
     patch("Levels.prototype.removeTempToken", "OVERRIDE", function (token) {
-        Board.place(`Token[${token.id}].icon`, token.id && !token._original ? token.icon : null, "tokens");
+        if (token._pv_overhead === false) {
+            token._pv_overhead = undefined;
 
-        Mask.invalidateAll("tokens");
+            Board.place(`Token[${token.id}].icon`, token.id && !token._original ? token.icon : null, "tokens");
+
+            Mask.invalidateAll("tokens");
+        }
     });
 
     patch("Levels.prototype.getTokenIconSpriteOverhead", "OVERRIDE", function (token) {
+        token.icon.alpha = token.data.hidden ? Math.min(token.data.alpha, 0.5) : token.data.alpha;
+
         Board.place(`Token[${token.id}].icon`, token.id && !token._original ? token.icon : null, "foreground-1");
 
         token._pv_overhead = true;
@@ -146,10 +156,12 @@ Hooks.once("init", () => {
     });
 
     patch("Levels.prototype.removeTempTokenOverhead", "OVERRIDE", function (token) {
-        Board.place(`Token[${token.id}].icon`, token.id && !token._original ? token.icon : null, "tokens");
+        if (token._pv_overhead === true) {
+            token._pv_overhead = undefined;
 
-        token._pv_overhead = false;
+            Board.place(`Token[${token.id}].icon`, token.id && !token._original ? token.icon : null, "tokens");
 
-        Mask.invalidateAll("tokens");
+            Mask.invalidateAll("tokens");
+        }
     });
 });
