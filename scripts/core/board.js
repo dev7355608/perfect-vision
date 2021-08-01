@@ -239,6 +239,7 @@ export class Board extends PIXI.Container {
         super();
 
         this.pieces = new Map();
+        this.piecesInverse = new WeakMap();
         this.zIndex = options.zIndex;
         this.sortableChildren = true;
     }
@@ -253,6 +254,8 @@ export class Board extends PIXI.Container {
         if (!piece) {
             return;
         }
+
+        this.unplace(piece);
 
         let layerIndex = layer;
 
@@ -292,13 +295,10 @@ export class Board extends PIXI.Container {
         detachment.addChild(piece);
         owner.addChildAt(placeholder, index);
         this.pieces.set(id, { piece, owner, detachment, layer, placeholder });
+        this.piecesInverse.set(piece, id);
     }
 
     unplace(id) {
-        if (!id) {
-            return;
-        }
-
         if (id instanceof RegExp) {
             for (const piece of this.pieces.keys()) {
                 if (id.test(piece)) {
@@ -309,7 +309,11 @@ export class Board extends PIXI.Container {
             return;
         }
 
-        if (!this.pieces.has(id)) {
+        if (id && typeof id !== "string") {
+            id = this.piecesInverse.get(id);
+        }
+
+        if (!id || !this.pieces.has(id)) {
             return;
         }
 
@@ -336,6 +340,7 @@ export class Board extends PIXI.Container {
 
         detachment.destroy(true);
         this.pieces.delete(id);
+        this.piecesInverse.delete(piece);
 
         if (layer.children.length === 0) {
             layer.destroy(true);
