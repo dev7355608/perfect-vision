@@ -2,6 +2,7 @@ import "./betterroofs/index.js";
 import "./fxmaster/index.js";
 import "./levels/index.js";
 import "./next-up/index.js";
+import "./pushtokenback/index.js";
 import "./sharedvision/index.js";
 import "./splatter/index.js";
 import "./token-auras/index.js";
