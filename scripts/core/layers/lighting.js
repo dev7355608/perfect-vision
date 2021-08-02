@@ -406,6 +406,7 @@ Hooks.once("init", () => {
 
     patch("LightingLayer.prototype._drawColorationContainer", "POST", function (c) {
         c.filter.resolution = canvas.app.renderer.resolution;
+        c.filter.blendMode = PIXI.BLEND_MODES.ADD_KEEP_ALPHA;
         return c;
     });
 
@@ -535,9 +536,16 @@ function getLightRadius(token, units) {
 }
 
 Hooks.once("canvasInit", () => {
-    PIXI.BLEND_MODES.MULTIPLY_KEEP_ALPHA = canvas.app.renderer.state.blendModes.push([
+    PIXI.BLEND_MODES.ADD_KEEP_ALPHA = canvas.app.renderer.state.blendModes.push([
+        WebGL2RenderingContext.ONE,
+        WebGL2RenderingContext.ONE,
         WebGL2RenderingContext.ZERO,
-        WebGL2RenderingContext.SRC_COLOR,
+        WebGL2RenderingContext.ONE
+    ]) - 1;
+
+    PIXI.BLEND_MODES.MULTIPLY_KEEP_ALPHA = canvas.app.renderer.state.blendModes.push([
+        WebGL2RenderingContext.DST_COLOR,
+        WebGL2RenderingContext.ZERO,
         WebGL2RenderingContext.ZERO,
         WebGL2RenderingContext.ONE
     ]) - 1;
