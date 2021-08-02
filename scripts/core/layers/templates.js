@@ -11,13 +11,13 @@ Hooks.once("init", () => {
     patch("MeasuredTemplate.prototype.draw", "POST", async function (result) {
         await result;
 
-        Board.get("primary").place(`MeasuredTemplate[${this.id}].template`, this.id && !this._original ? this.template : null, "templates");
+        Board.get("primary").place(`MeasuredTemplate#${this.id}.template`, this.id && !this._original ? this.template : null, "templates");
 
         return this;
     });
 
     patch("MeasuredTemplate.prototype.destroy", "PRE", function () {
-        Board.get("primary").unplace(`MeasuredTemplate[${this.id}].template`);
+        Board.get("primary").unplace(`MeasuredTemplate#${this.id}.template`);
 
         return arguments;
     });
