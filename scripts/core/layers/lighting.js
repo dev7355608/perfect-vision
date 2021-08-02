@@ -465,7 +465,7 @@ Hooks.once("init", () => {
     patch("LightingLayer.prototype.tearDown", "WRAPPER", async function (wrapped, ...args) {
         IlluminationBackgroundShader.instance.version = -1;
 
-        Board.get("primary").unplace("lighting.lighting");
+        Board.unplace("lighting.lighting");
 
         return await wrapped(...args);
     });

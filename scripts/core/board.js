@@ -1,5 +1,15 @@
 import { Logger } from "../utils/logger.js";
 
+export const UNDEFINED = Symbol("undefined");
+
+function sortChildren(a, b) {
+    if (a.render._zIndex === b.render._zIndex) {
+        return a._lastSortedIndex - b._lastSortedIndex;
+    }
+
+    return a.render._zIndex - b.render._zIndex;
+}
+
 export class Layer extends PIXI.Container {
     constructor(zIndex) {
         super();
@@ -8,185 +18,316 @@ export class Layer extends PIXI.Container {
         this.zIndex = zIndex;
     }
 
-    updateTransform() {
+    addChild(...children) {
+        if (children.length > 1) {
+            for (let i = 0; i < children.length; i++) {
+                this.addChild(children[i]);
+            }
+        } else {
+            const child = children[0];
+
+            if (child.render.parent instanceof Layer) {
+                child.render.parent.removeChild(child);
+            }
+
+            const render = function (renderer) { };
+
+            render.parent = this;
+            render.render = child.hasOwnProperty("render") ? child.render : UNDEFINED;
+
+            child.render = render;
+            child.render.onRemove = () => child.render.parent.removeChild(child);
+            child.on("removed", child.render.onRemove);
+
+            this.sortDirty = true;
+
+            this.children.push(child);
+
+            this._boundsID++;
+
+            this.onChildrenChange(this.children.length - 1);
+            this.emit("childAdded", child, this, this.children.length - 1);
+        }
+
+        return children[0];
+    }
+
+    addChildAt(child, index) {
+        if (index < 0 || index > this.children.length) {
+            throw new Error(`${child}addChildAt: The index ${index} supplied is out of bounds ${this.children.length}`);
+        }
+
+        if (child.render.parent instanceof Layer) {
+            child.render.parent.removeChild(child);
+        }
+
+        const render = function (renderer) { };
+
+        render.parent = this;
+        render.render = child.hasOwnProperty("render") ? child.render : UNDEFINED;
+
+        child.render = render;
+        child.render.onRemove = () => child.render.parent.removeChild(child);
+        child.on("removed", child.render.onRemove);
+
+        this.sortDirty = true;
+
+        this.children.splice(index, 0, child);
+
+        this.onChildrenChange(index);
+        this.emit("childAdded", child, this, index);
+
+        return child;
+    }
+
+    removeChild(...children) {
+        if (children.length > 1) {
+            for (let i = 0; i < children.length; i++) {
+                this.removeChild(children[i]);
+            }
+        } else {
+            const child = children[0];
+            const index = this.children.indexOf(child);
+
+            if (index === -1) return null;
+
+            child.off("removed", child.render.onRemove);
+
+            if (child.render.render !== UNDEFINED) {
+                child.render = child.render.render;
+            } else {
+                delete child.render;
+            }
+
+            PIXI.utils.removeItems(this.children, index, 1);
+
+            this._boundsID++;
+
+            this.onChildrenChange(index);
+            this.emit("childRemoved", child, this, index);
+        }
+
+        return children[0];
+    }
+
+    removeChildAt(index) {
+        const child = this.getChildAt(index);
+
+        child.off("removed", child.render.onRemove);
+
+        if (child.render.render !== UNDEFINED) {
+            child.render = child.render.render;
+        } else {
+            delete child.render;
+        }
+
+        PIXI.utils.removeItems(this.children, index, 1);
+
+        this._boundsID++;
+
+        this.onChildrenChange(index);
+        this.emit("childRemoved", child, this, index);
+
+        return child;
+    }
+
+    removeChildren(beginIndex = 0, endIndex = this.children.length) {
+        const begin = beginIndex;
+        const end = endIndex;
+        const range = end - begin;
+        let removed;
+
+        if (range > 0 && range <= end) {
+            removed = this.children.splice(begin, range);
+
+            for (let i = 0; i < removed.length; ++i) {
+                const child = removed[i];
+
+                child.off("removed", child.render.onRemove);
+
+                if (child.render.render !== UNDEFINED) {
+                    child.render = child.render.render;
+                } else {
+                    delete child.render;
+                }
+            }
+
+            this._boundsID++;
+
+            this.onChildrenChange(beginIndex);
+
+            for (let i = 0; i < removed.length; ++i) {
+                this.emit("childRemoved", removed[i], this, i);
+            }
+
+            return removed;
+        } else if (range === 0 && this.children.length === 0) {
+            return [];
+        }
+
+        throw new RangeError("removeChildren: numeric values are outside the acceptable range.");
+    }
+
+    sortChildren() {
+        let sortRequired = false;
+
         for (let i = 0, j = this.children.length; i < j; ++i) {
             const child = this.children[i];
 
-            if (child._zIndex !== child.zIndex) {
-                child._zIndex = child.zIndex;
-                this.sortDirty = true;
+            child._lastSortedIndex = i;
+
+            if (!sortRequired && child.render._zIndex !== 0) {
+                sortRequired = true;
             }
         }
 
-        super.updateTransform();
+        if (sortRequired && this.children.length > 1) {
+            this.children.sort(sortChildren);
+        }
+
+        this.sortDirty = false;
     }
-}
-
-export class Detachment extends PIXI.Container {
-    constructor(object) {
-        super();
-
-        this.object = object;
-        this._zIndex = 0;
-    }
-
-    get transform() {
-        return this.object.transform;
-    }
-
-    set transform(value) { }
-
-    get visible() {
-        return this.object.visible;
-    }
-
-    set visible(value) { }
-
-    get renderable() {
-        return this.object.renderable;
-    }
-
-    set renderable(value) { }
-
-    get zIndex() {
-        return this.object.zIndex;
-    }
-
-    set zIndex(value) { }
-
-    get alpha() {
-        return this.object.alpha;
-    }
-
-    set alpha(value) { }
-
-    get worldAlpha() {
-        return this.object.worldAlpha;
-    }
-
-    set worldAlpha(value) { }
-
-    get sortableChildren() {
-        return this.object.sortableChildren;
-    }
-
-    set sortableChildren(value) { }
 
     updateTransform() {
-        this.object._recursivePostUpdateTransform();
+        if (this.sortableChildren) {
+            for (let i = 0, j = this.children.length; i < j; ++i) {
+                const child = this.children[i];
+                const zIndex = child.render.zIndex ? child.render.zIndex.call(child) : child.zIndex;
 
-        if (this.sortableChildren && this.sortDirty) {
-            this.sortChildren();
+                if (child.render._zIndex !== zIndex) {
+                    child.render._zIndex = zIndex;
+                    this.sortDirty = true;
+                }
+            }
+
+            if (this.sortDirty) {
+                this.sortChildren();
+            }
         }
 
         this._boundsID++;
 
-        for (let i = 0, j = this.children.length; i < j; ++i) {
-            const child = this.children[i];
+        this.transform.updateTransform(this.parent.transform);
 
-            if (child.visible) {
-                child.updateTransform();
+        this.worldAlpha = this.alpha * this.parent.worldAlpha;
+    }
+
+    render(renderer) {
+        if (!this.visible || this.worldAlpha <= 0 || !this.renderable) {
+            return;
+        }
+
+        if (this._mask || (this.filters && this.filters.length)) {
+            this.renderAdvanced(renderer);
+        } else {
+            this._render(renderer);
+
+            for (let i = 0, j = this.children.length; i < j; ++i) {
+                const child = this.children[i];
+                let item = child;
+                let renderable = true;
+
+                do {
+                    if (!item.visible || !item.renderable) {
+                        renderable = false;
+                        break;
+                    }
+
+                    item = item.parent;
+                } while (item);
+
+                if (renderable) {
+                    let render = child.render.render;
+
+                    if (render === UNDEFINED) {
+                        render = Object.getPrototypeOf(child).render;
+                    }
+
+                    render.call(child, renderer);
+                }
             }
         }
     }
 
-    _recursivePostUpdateTransform() {
-        this.object._recursivePostUpdateTransform();
-    }
-}
+    renderAdvanced(renderer) {
+        renderer.batch.flush();
 
-export class Placeholder extends PIXI.DisplayObject {
-    constructor(object) {
-        super();
+        const filters = this.filters;
+        const mask = this._mask;
 
-        this.object = object;
-    }
+        if (filters) {
+            if (!this._enabledFilters) {
+                this._enabledFilters = [];
+            }
 
-    get transform() {
-        return this.object.transform;
-    }
+            this._enabledFilters.length = 0;
 
-    set transform(value) { }
+            for (let i = 0; i < filters.length; i++) {
+                if (filters[i].enabled) {
+                    this._enabledFilters.push(filters[i]);
+                }
+            }
 
-    get visible() {
-        return this.object.visible;
-    }
+            if (this._enabledFilters.length) {
+                renderer.filter.push(this, this._enabledFilters);
+            }
+        }
 
-    set visible(value) { }
+        if (mask) {
+            renderer.mask.push(this, this._mask);
+        }
 
-    get renderable() {
-        return this.object.renderable;
-    }
+        this._render(renderer);
 
-    set renderable(value) { }
+        for (let i = 0, j = this.children.length; i < j; ++i) {
+            const child = this.children[i];
+            let item = child;
+            let renderable = true;
 
-    get zIndex() {
-        return this.object.zIndex;
-    }
+            do {
+                if (!item.visible || !item.renderable) {
+                    renderable = false;
+                    break;
+                }
 
-    set zIndex(value) { }
+                item = item.parent;
+            } while (item);
 
-    get _bounds() {
-        return this.object._bounds;
-    }
+            if (renderable) {
+                let render = child.render.render;
 
-    set _bounds(value) { }
+                if (render === UNDEFINED) {
+                    render = Object.getPrototypeOf(child).render;
+                }
 
-    get _localBounds() {
-        return this.object._localBounds;
-    }
+                render.call(child, renderer);
+            }
+        }
 
-    set _localBounds(value) { }
+        renderer.batch.flush();
 
-    get _boundsRect() {
-        return this.object._boundsRect;
-    }
+        if (mask) {
+            renderer.mask.pop(this);
+        }
 
-    set _boundsRect(value) { }
-
-    get _localBoundsRect() {
-        return this.object._localBoundsRect;
-    }
-
-    set _localBoundsRect(value) { }
-
-    calculateBounds() { }
-
-    getBounds(skipUpdate, rect) {
-        return this.object.getBounds(skipUpdate, rect);
-    }
-
-    getLocalBounds(rect) {
-        return this.object.getLocalBounds(rect);
+        if (filters && this._enabledFilters && this._enabledFilters.length) {
+            renderer.filter.pop();
+        }
     }
 
-    getGlobalPosition(point, skipUpdate) {
-        return this.object.getGlobalPosition(point, skipUpdate);
-    }
+    destroy(options) {
+        super.destroy();
 
-    toGlobal(position, point, skipUpdate) {
-        return this.object.toGlobal(position, point, skipUpdate);
-    }
+        this.sortDirty = false;
 
-    toLocal(position, from, point, skipUpdate) {
-        return this.object.toLocal(position, from, point, skipUpdate);
+        this.removeChildren(0, this.children.length);
     }
-
-    updateTransform() {
-        this.object._recursivePostUpdateTransform();
-        this.object.updateTransform();
-    }
-
-    _recursivePostUpdateTransform() {
-        this.object._recursivePostUpdateTransform();
-    }
-
-    render(renderer) { }
 }
 
 export class Board extends PIXI.Container {
     static debug = false;
     static boards = new Map();
+    static pieces = new Map();
     static layers = {
         background: 0,
         templates: 50,
@@ -213,6 +354,14 @@ export class Board extends PIXI.Container {
         return this.boards.get(name);
     }
 
+    static has(name) {
+        if (typeof name !== "string") {
+            name = piece._pv_name;
+        }
+
+        return this.pieces.has(name);
+    }
+
     static initialize() {
         for (const board of this.boards.values()) {
             board.clear();
@@ -227,6 +376,28 @@ export class Board extends PIXI.Container {
         }
     }
 
+    static _onChildAdded(piece, layer) {
+        const name = piece._pv_name ?? Symbol();
+        const board = layer.parent;
+
+        if (this.debug) {
+            Logger.debug("Placing %s on the %s board at %d", name, board.name, layer.zIndex);
+        }
+
+        this.pieces.set(name, piece);
+    }
+
+    static _onChildRemoved(piece, layer) {
+        const name = piece._pv_name ?? Symbol();
+        const board = layer.parent;
+
+        if (this.debug) {
+            Logger.warn("Unplacing %s from the %s board", name, board.name);
+        }
+
+        this.pieces.delete(name);
+    }
+
     static defaultOptions() {
         return {
             zIndex: 0
@@ -238,24 +409,32 @@ export class Board extends PIXI.Container {
 
         super();
 
-        this.pieces = new Map();
-        this.piecesInverse = new WeakMap();
         this.zIndex = options.zIndex;
         this.sortableChildren = true;
     }
 
-    place(id, piece, layer) {
-        if (!id) {
-            return;
+    has(name) {
+        let piece;
+
+        if (typeof name !== "string") {
+            piece = name;
+        } else {
+            piece = Board.pieces.get(name);
         }
 
-        this.unplace(id);
+        return piece?.render.parent === this;
+    }
+
+    place(name, piece, layer, zIndex) {
+        Board.unplace(name);
 
         if (!piece) {
             return;
         }
 
-        this.unplace(piece);
+        Board.unplace(piece);
+
+        piece._pv_name = name;
 
         let layerIndex = layer;
 
@@ -263,10 +442,6 @@ export class Board extends PIXI.Container {
             const [, name, offset] = layerIndex.match(/^([A-Z]+)([+-]\d+)?$/i);
 
             layerIndex = Board.layers[name] + parseInt(offset ?? 0, 10);
-        }
-
-        if (Board.debug) {
-            Logger.debug("Placing %s on the %s board at %d", id, this.name, layerIndex);
         }
 
         layer = null;
@@ -282,26 +457,31 @@ export class Board extends PIXI.Container {
 
         if (!layer) {
             layer = new Layer(layerIndex);
+            layer.on("childAdded", Board._onChildAdded, Board);
+            layer.on("childRemoved", Board._onChildRemoved, Board);
 
             this.addChild(layer);
         }
 
-        const owner = piece.parent;
-        const detachment = new Detachment(owner);
-        const placeholder = new Placeholder(piece);
-        const index = owner.getChildIndex(piece);
+        layer.addChild(piece);
 
-        layer.addChild(detachment);
-        detachment.addChild(piece);
-        owner.addChildAt(placeholder, index);
-        this.pieces.set(id, { piece, owner, detachment, layer, placeholder });
-        this.piecesInverse.set(piece, id);
+        if (zIndex !== undefined) {
+            if (typeof zIndex === "function") {
+                piece.render.zIndex = zIndex;
+            } else {
+                piece.render.zIndex = () => zIndex;
+            }
+        }
     }
 
-    unplace(id) {
-        if (id instanceof RegExp) {
+    static unplace(name) {
+        if (!name) {
+            return;
+        }
+
+        if (name instanceof RegExp) {
             for (const piece of this.pieces.keys()) {
-                if (id.test(piece)) {
+                if (name.test(piece)) {
                     this.unplace(piece);
                 }
             }
@@ -309,41 +489,21 @@ export class Board extends PIXI.Container {
             return;
         }
 
-        if (id && typeof id !== "string") {
-            id = this.piecesInverse.get(id);
+        let piece;
+
+        if (typeof name !== "string") {
+            piece = name;
+            name = piece._pv_name;
+        } else {
+            piece = this.pieces.get(name);
         }
 
-        if (!id || !this.pieces.has(id)) {
+        if (!piece) {
             return;
         }
 
-        if (Board.debug) {
-            Logger.debug("Unplacing %s from the %s board", id, this.name);
-        }
-
-        const { piece, owner, detachment, layer, placeholder } = this.pieces.get(id);
-
-        if (placeholder.parent === owner) {
-            const index = owner.getChildIndex(placeholder);
-
-            placeholder.destroy(true);
-            owner.addChildAt(piece, index);
-        } else {
-            if (!placeholder.destroyed) {
-                placeholder.destroy(true);
-            }
-
-            if (!piece.destroyed) {
-                piece.destroy();
-            }
-        }
-
-        detachment.destroy(true);
-        this.pieces.delete(id);
-        this.piecesInverse.delete(piece);
-
-        if (layer.children.length === 0) {
-            layer.destroy(true);
+        if (piece.render.parent instanceof Layer) {
+            piece.render.parent.removeChild(piece);
         }
     }
 
@@ -352,8 +512,8 @@ export class Board extends PIXI.Container {
             Logger.debug("Clearing %s board", this.name);
         }
 
-        for (const id of this.pieces.keys()) {
-            this.unplace(id);
+        for (let i = 0; i < this.children.length; i++) {
+            this.children[i].removeChildren();
         }
     }
 }

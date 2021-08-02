@@ -11,13 +11,13 @@ Hooks.once("init", () => {
     patch("Token.prototype.draw", "POST", async function (result) {
         await result;
 
-        Board.get("primary").place(`Token#${this.id}.icon`, this.id && !this._original ? this.icon : null, "tokens");
+        Board.get("primary").place(`Token#${this.id}.icon`, this.id && !this._original ? this.icon : null, "tokens", () => this.zIndex);
 
         return this;
     });
 
     patch("Token.prototype.destroy", "PRE", function () {
-        Board.get("primary").unplace(`Token#${this.id}.icon`);
+        Board.unplace(`Token#${this.id}.icon`);
 
         return arguments;
     });

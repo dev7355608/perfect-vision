@@ -178,6 +178,8 @@ Hooks.once("init", () => {
                 c._pv_fov.destroy(true);
                 c._pv_fov = null;
             }
+
+            mask.invalidate();
         } else if (this.sourceType === "sight") {
             if (this._pv_fovMono) {
                 if (!c._pv_fovMono) {
@@ -223,9 +225,9 @@ Hooks.once("init", () => {
                 c._pv_fovBrighten.destroy(true);
                 c._pv_fovBrighten = null;
             }
-        }
 
-        mask.invalidate();
+            mask.invalidate();
+        }
 
         return c;
     });

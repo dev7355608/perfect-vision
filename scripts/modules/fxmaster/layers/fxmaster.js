@@ -26,7 +26,7 @@ Hooks.once("setup", () => {
     });
 
     patch("Canvas.layers.fxmaster.prototype.tearDown", "WRAPPER", async function (wrapped, ...args) {
-        Board.get("primary").unplace("fxmaster.weather");
+        Board.unplace("fxmaster.weather");
 
         return await wrapped(...args);
     });

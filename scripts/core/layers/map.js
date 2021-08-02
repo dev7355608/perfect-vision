@@ -28,7 +28,7 @@ Hooks.once("init", () => {
     });
 
     patch("MapLayer.prototype.tearDown", "WRAPPER", async function (wrapped, ...args) {
-        Board.get("primary").unplace(`${this.options.name}.bg`);
+        Board.unplace(`${this.options.name}.bg`);
 
         return await wrapped(...args);
     });
@@ -37,7 +37,7 @@ Hooks.once("init", () => {
         await result;
 
         if (this.tile) {
-            Board.get("primary").place(`Tile#${this.id}.tile`, this.id && !this._original ? this.tile : null, Tiles.isOverhead(this) ? "foreground-1" : "background+1");
+            Board.get("primary").place(`Tile#${this.id}.tile`, this.id && !this._original ? this.tile : null, Tiles.isOverhead(this) ? "foreground-1" : "background+1", () => this.zIndex);
         }
 
         if (this.occlusionFilter) {
@@ -66,7 +66,7 @@ Hooks.once("init", () => {
     });
 
     patch("Tile.prototype.destroy", "PRE", function () {
-        Board.get("primary").unplace(`Tile#${this.id}.tile`);
+        Board.unplace(`Tile#${this.id}.tile`);
 
         return arguments;
     });

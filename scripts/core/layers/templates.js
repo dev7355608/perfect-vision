@@ -17,7 +17,7 @@ Hooks.once("init", () => {
     });
 
     patch("MeasuredTemplate.prototype.destroy", "PRE", function () {
-        Board.get("primary").unplace(`MeasuredTemplate#${this.id}.template`);
+        Board.unplace(`MeasuredTemplate#${this.id}.template`);
 
         return arguments;
     });

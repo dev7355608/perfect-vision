@@ -1,5 +1,4 @@
 import { Board } from "../../core/board.js";
-import { MaskData } from "../../core/mask.js";
 import { patch } from "../../utils/patch.js";
 
 Hooks.once("init", () => {
@@ -11,7 +10,7 @@ Hooks.once("init", () => {
         await result;
 
         if (this.data.flags?.startMarker || this.data.flags?.turnMarker || this.data.flags?.deckMarker) {
-            Board.get("primary").unplace(`Tile[${this.id}].tile`);
+            Board.get("highlight").place(`Tile#${this.id}.tile`, this.id && !this._original ? this.tile : null, "background+2");
         }
 
         return this;
@@ -19,11 +18,7 @@ Hooks.once("init", () => {
 
     patch("Tile.prototype.refresh", "POST", function () {
         if (this.tile && (this.data.flags?.startMarker || this.data.flags?.turnMarker || this.data.flags?.deckMarker)) {
-            if (!this._original) {
-                this.tile.mask = new MaskData("background");
-            } else {
-                this.tile.mask = null;
-            }
+            this.tile.mask = null;
         }
 
         return this;

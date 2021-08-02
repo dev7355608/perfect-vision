@@ -1,4 +1,4 @@
-import { MaskData } from "../../core/mask.js";
+import { Board } from "../../core/board.js";
 import { patch } from "../../utils/patch.js";
 
 Hooks.once("init", () => {
@@ -7,11 +7,14 @@ Hooks.once("init", () => {
     }
 
     patch("Token.prototype.drawAuras", "POST", function () {
-        if (!this._original) {
-            this.auras.mask = new MaskData("background");
-            this.auras.mask.multisample = null;
-        }
+        Board.get("highlight").place(`Token#${this.id}.auras`, this.id && !this._original ? this.auras : null, "tokens-2");
 
         return this;
+    });
+
+    patch("Token.prototype.destroy", "PRE", function () {
+        Board.unplace(`Token#${this.id}.auras`);
+
+        return arguments;
     });
 });

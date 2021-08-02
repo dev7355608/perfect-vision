@@ -36,7 +36,7 @@ Hooks.once("init", () => {
     });
 
     patch("EffectsLayer.prototype.tearDown", "WRAPPER", async function (wrapped, ...args) {
-        Board.get("primary").unplace("effects.weather");
+        Board.unplace("effects.weather");
 
         return await wrapped(...args);
     });

@@ -15,7 +15,7 @@ Hooks.once("init", () => {
     });
 
     patch("BloodSplatter.prototype.Destroy", "PRE", function () {
-        Board.get("primary").unplace("splatter.blood");
+        Board.unplace("splatter.blood");
 
         return arguments;
     });
