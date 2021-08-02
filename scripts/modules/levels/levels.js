@@ -178,4 +178,10 @@ Hooks.once("init", () => {
             Mask.invalidateAll("tokens");
         }
     });
+
+    patch("Token.prototype.refresh", "POST", function () {
+        this.icon.alpha = this.data.hidden ? Math.min(this.data.alpha, 0.5) : this.data.alpha;
+
+        return this;
+    });
 });
