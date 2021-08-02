@@ -1,6 +1,7 @@
 import "./betterroofs/index.js";
 import "./fxmaster/index.js";
 import "./levels/index.js";
+import "./monks-little-details/index.js";
 import "./next-up/index.js";
 import "./pushtokenback/index.js";
 import "./sharedvision/index.js";
