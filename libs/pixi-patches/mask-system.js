@@ -102,8 +102,6 @@ PIXI.MaskSystem.prototype.pushSpriteMask = function (maskData) {
         if (!alphaMaskFilter) {
             alphaMaskFilter = this.alphaMaskPool[this.alphaMaskIndex] = [new PIXI.SpriteMaskFilter(maskObject)];
         }
-    } else if (!alphaMaskFilter[0].enabled) {
-        return;
     }
 
     const renderer = this.renderer;
@@ -140,13 +138,11 @@ PIXI.MaskSystem.prototype.pushSpriteMask = function (maskData) {
 Logger.debug("Patching PIXI.MaskSystem.prototype.popSpriteMask (OVERRIDE)");
 
 PIXI.MaskSystem.prototype.popSpriteMask = function (maskData) {
+    this.renderer.filter.pop();
+
     if (maskData._filters) {
-        if (maskData._filters[0].enabled) {
-            this.renderer.filter.pop();
-            maskData._filters[0].maskSprite = null;
-        }
+        maskData._filters[0].maskSprite = null;
     } else {
-        this.renderer.filter.pop();
         this.alphaMaskIndex--;
         this.alphaMaskPool[this.alphaMaskIndex][0].maskSprite = null;
     }
