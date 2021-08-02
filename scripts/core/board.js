@@ -425,6 +425,35 @@ export class Board extends PIXI.Container {
         return piece?.render.parent === this;
     }
 
+    getLayer(index) {
+        if (typeof index === "string") {
+            const [, name, offset] = index.match(/^([A-Z]+)([+-]\d+)?$/i);
+
+            index = Board.layers[name] + parseInt(offset ?? 0, 10);
+        }
+
+        let layer = null;
+
+        for (let i = 0; i < this.children.length; i++) {
+            const child = this.children[i];
+
+            if (child.zIndex === index) {
+                layer = child;
+                break;
+            }
+        }
+
+        if (!layer) {
+            layer = new Layer(index);
+            layer.on("childAdded", Board._onChildAdded, Board);
+            layer.on("childRemoved", Board._onChildRemoved, Board);
+
+            this.addChild(layer);
+        }
+
+        return layer;
+    }
+
     place(name, piece, layer, zIndex) {
         Board.unplace(name);
 
@@ -436,32 +465,7 @@ export class Board extends PIXI.Container {
 
         piece._pv_name = name;
 
-        let layerIndex = layer;
-
-        if (typeof layerIndex === "string") {
-            const [, name, offset] = layerIndex.match(/^([A-Z]+)([+-]\d+)?$/i);
-
-            layerIndex = Board.layers[name] + parseInt(offset ?? 0, 10);
-        }
-
-        layer = null;
-
-        for (let i = 0; i < this.children.length; i++) {
-            const child = this.children[i];
-
-            if (child.zIndex === layerIndex) {
-                layer = child;
-                break;
-            }
-        }
-
-        if (!layer) {
-            layer = new Layer(layerIndex);
-            layer.on("childAdded", Board._onChildAdded, Board);
-            layer.on("childRemoved", Board._onChildRemoved, Board);
-
-            this.addChild(layer);
-        }
+        layer = this.getLayer(layer);
 
         layer.addChild(piece);
 
