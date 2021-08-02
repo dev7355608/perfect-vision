@@ -422,7 +422,7 @@ export class Board extends PIXI.Container {
             piece = Board.pieces.get(name);
         }
 
-        return piece?.render.parent === this;
+        return piece?.render.parent.parent === this;
     }
 
     getLayer(index) {

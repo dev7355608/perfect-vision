@@ -113,7 +113,9 @@ Hooks.once("init", () => {
 
         Mask.invalidateAll("tiles");
 
-        canvas.perception.schedule({ foreground: { refresh: true } });
+        if (tile.tile) {
+            tile.tile.mask = null;
+        }
 
         if (hideFog && this.fogHiding) {
             this.obscureFogForTile(tileIndex);
@@ -136,7 +138,9 @@ Hooks.once("init", () => {
 
         Mask.invalidateAll("tiles");
 
-        canvas.perception.schedule({ foreground: { refresh: true } });
+        if (tile.tile) {
+            tile.tile.mask = Tiles.getOcclusionMaskData(tile);
+        }
     });
 
     patch("Levels.prototype.getTokenIconSprite", "OVERRIDE", function (token) {
