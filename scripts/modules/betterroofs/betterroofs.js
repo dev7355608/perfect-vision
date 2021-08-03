@@ -23,6 +23,14 @@ Hooks.once("init", () => {
 
     patch("betterRoofsHelpers.prototype.computeMask", "OVERRIDE", function (tile, controlledToken) { });
 
+    patch("betterRoofsHelpers.prototype.computeHide", "MIXED", function (wrapped, controlledToken, tile, overrideHide) {
+        if (!Tiles.isOverhead(tile)) {
+            return overrideHide;
+        }
+
+        return wrapped(controlledToken, tile, overrideHide);
+    });
+
     Hooks.once("betterRoofsReady", () => {
         if (game.settings.get("betterroofs", "forceFallback")) {
             return;

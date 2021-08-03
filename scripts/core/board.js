@@ -1,7 +1,5 @@
 import { Logger } from "../utils/logger.js";
 
-export const UNDEFINED = Symbol("undefined");
-
 function sortChildren(a, b) {
     if (a.render._zIndex === b.render._zIndex) {
         return a._lastSortedIndex - b._lastSortedIndex;
@@ -33,11 +31,14 @@ export class Layer extends PIXI.Container {
             const render = function (renderer) { };
 
             render.parent = this;
-            render.render = child.hasOwnProperty("render") ? child.render : UNDEFINED;
+
+            if (child.hasOwnProperty("render")) {
+                render.render = child.render;
+            }
 
             child.render = render;
-            child.render.onRemove = () => child.render.parent.removeChild(child);
-            child.on("removed", child.render.onRemove);
+            child.render.remove = () => this.removeChild(child);
+            child.on("removed", child.render.remove);
 
             this.sortDirty = true;
 
@@ -64,11 +65,14 @@ export class Layer extends PIXI.Container {
         const render = function (renderer) { };
 
         render.parent = this;
-        render.render = child.hasOwnProperty("render") ? child.render : UNDEFINED;
+
+        if (child.hasOwnProperty("render")) {
+            render.render = child.render;
+        }
 
         child.render = render;
-        child.render.onRemove = () => child.render.parent.removeChild(child);
-        child.on("removed", child.render.onRemove);
+        child.render.remove = () => this.removeChild(child);
+        child.on("removed", child.render.remove);
 
         this.sortDirty = true;
 
@@ -91,9 +95,9 @@ export class Layer extends PIXI.Container {
 
             if (index === -1) return null;
 
-            child.off("removed", child.render.onRemove);
+            child.off("removed", child.render.remove);
 
-            if (child.render.render !== UNDEFINED) {
+            if (Object.hasOwnProperty(child.render, "render")) {
                 child.render = child.render.render;
             } else {
                 delete child.render;
@@ -113,9 +117,9 @@ export class Layer extends PIXI.Container {
     removeChildAt(index) {
         const child = this.getChildAt(index);
 
-        child.off("removed", child.render.onRemove);
+        child.off("removed", child.render.remove);
 
-        if (child.render.render !== UNDEFINED) {
+        if (Object.hasOwnProperty(child.render, "render")) {
             child.render = child.render.render;
         } else {
             delete child.render;
@@ -143,9 +147,9 @@ export class Layer extends PIXI.Container {
             for (let i = 0; i < removed.length; ++i) {
                 const child = removed[i];
 
-                child.off("removed", child.render.onRemove);
+                child.off("removed", child.render.remove);
 
-                if (child.render.render !== UNDEFINED) {
+                if (Object.hasOwnProperty(child.render, "render")) {
                     child.render = child.render.render;
                 } else {
                     delete child.render;
@@ -237,13 +241,11 @@ export class Layer extends PIXI.Container {
                 } while (item);
 
                 if (renderable) {
-                    let render = child.render.render;
+                    const render = child.render;
 
-                    if (render === UNDEFINED) {
-                        render = Object.getPrototypeOf(child).render;
-                    }
-
-                    render.call(child, renderer);
+                    child.render = Object.hasOwnProperty(render, "render") ? render.render : Object.getPrototypeOf(child).render;
+                    child.render(renderer);
+                    child.render = render;
                 }
             }
         }
@@ -294,13 +296,11 @@ export class Layer extends PIXI.Container {
             } while (item);
 
             if (renderable) {
-                let render = child.render.render;
+                const render = child.render;
 
-                if (render === UNDEFINED) {
-                    render = Object.getPrototypeOf(child).render;
-                }
-
-                render.call(child, renderer);
+                child.render = Object.hasOwnProperty(render, "render") ? render.render : Object.getPrototypeOf(child).render;
+                child.render(renderer);
+                child.render = render;
             }
         }
 
