@@ -98,7 +98,9 @@ Hooks.once("init", () => {
     patch("Levels.prototype.mirrorTileInBackground", "OVERRIDE", function (tileIndex, hideFog = false) {
         const tile = tileIndex.tile;
 
-        tile.visible = true;
+        if (!tile.tile || !tile.tile.texture.baseTexture) {
+            return;
+        }
 
         const board = Board.get("primary");
         const name = `Tile#${tile.id}.tile`;
@@ -107,15 +109,17 @@ Hooks.once("init", () => {
             return;
         }
 
+        tile.visible = true;
+
         board.place(name, tile.id && !tile._original ? tile.tile : null, "background+1", () => tile.zIndex);
 
         tile._pv_overhead = false;
 
+        canvas.perception.schedule({ foreground: { refresh: true } });
+
         Mask.invalidateAll("tiles");
 
-        if (tile.tile) {
-            tile.tile.mask = null;
-        }
+        this.floorContainer.spriteIndex[tile.id] = true;
 
         if (hideFog && this.fogHiding) {
             this.obscureFogForTile(tileIndex);
@@ -136,14 +140,20 @@ Hooks.once("init", () => {
 
         tile._pv_overhead = tile.data.overhead;
 
+        canvas.perception.schedule({ foreground: { refresh: true } });
+
         Mask.invalidateAll("tiles");
 
-        if (tile.tile) {
-            tile.tile.mask = Tiles.getOcclusionMaskData(tile);
-        }
+        delete this.floorContainer.spriteIndex[tile.id];
+
+        this.clearFogForTile(tileIndex);
     });
 
     patch("Levels.prototype.getTokenIconSprite", "OVERRIDE", function (token) {
+        if (token._controlled || !token.icon || !token.icon.texture.baseTexture) {
+            return;
+        }
+
         token.icon.alpha = token.data.hidden ? Math.min(token.data.alpha, 0.5) : token.data.alpha;
 
         Board.get("primary").place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, "background+1", () => token.zIndex);
@@ -151,9 +161,15 @@ Hooks.once("init", () => {
         token._pv_overhead = false;
 
         Mask.invalidateAll("tokens");
+
+        this.floorContainer.spriteIndex[token.id] = true;
     });
 
     patch("Levels.prototype.removeTempToken", "OVERRIDE", function (token) {
+        if (!this.floorContainer.spriteIndex[token.id]) {
+            return;
+        }
+
         if (token._pv_overhead === false) {
             token._pv_overhead = undefined;
 
@@ -161,9 +177,15 @@ Hooks.once("init", () => {
 
             Mask.invalidateAll("tokens");
         }
+
+        delete this.floorContainer.spriteIndex[token.id];
     });
 
     patch("Levels.prototype.getTokenIconSpriteOverhead", "OVERRIDE", function (token) {
+        if (token._controlled || !token.icon || !token.icon.texture.baseTexture) {
+            return;
+        }
+
         token.icon.alpha = token.data.hidden ? Math.min(token.data.alpha, 0.5) : token.data.alpha;
 
         Board.get("primary").place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, "foreground-1", () => token.zIndex);
@@ -171,9 +193,15 @@ Hooks.once("init", () => {
         token._pv_overhead = true;
 
         Mask.invalidateAll("tokens");
+
+        this.overContainer.spriteIndex[token.id] = true;
     });
 
     patch("Levels.prototype.removeTempTokenOverhead", "OVERRIDE", function (token) {
+        if (!this.overContainer.spriteIndex[token.id]) {
+            return;
+        }
+
         if (token._pv_overhead === true) {
             token._pv_overhead = undefined;
 
@@ -181,6 +209,8 @@ Hooks.once("init", () => {
 
             Mask.invalidateAll("tokens");
         }
+
+        delete this.overContainer.spriteIndex[token.id];
     });
 
     patch("Token.prototype.refresh", "POST", function () {

@@ -29,7 +29,7 @@ Hooks.once("init", () => {
         }
 
         Tiles.getOcclusionMask = function (tile) {
-            if (tile._original || !this.isOverhead(tile)) {
+            if (tile._original || tile.dontMask || !this.isOverhead(tile)) {
                 return;
             }
 
@@ -37,7 +37,7 @@ Hooks.once("init", () => {
 
             if (tile.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.RADIAL) {
                 texture = "occlusionRadial";
-            } else if (!tile.dontMask && _betterRoofs.foregroundSightMaskContainers[tile.id] /* tile.document.getFlag("betterroofs", "brMode") === 3 */) {
+            } else if (_betterRoofs.foregroundSightMaskContainers[tile.id] /* tile.document.getFlag("betterroofs", "brMode") === 3 */) {
                 texture = "occlusionSight";
             }
 
