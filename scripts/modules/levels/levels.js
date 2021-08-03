@@ -109,9 +109,13 @@ Hooks.once("init", () => {
             return;
         }
 
+        tile.alpha = 1;
         tile.visible = true;
+        tile.tile.visible = true;
 
-        board.place(name, tile.id && !tile._original ? tile.tile : null, "background+1", () => tile.zIndex);
+        const zIndex = tileIndex.levelsOverhead ? tileIndex.range[0] + 2 : tileIndex.range[0];
+
+        board.place(name, tile.id && !tile._original ? tile.tile : null, "background+1", zIndex);
 
         tile._pv_overhead = false;
 
@@ -156,7 +160,9 @@ Hooks.once("init", () => {
 
         token.icon.alpha = token.data.hidden ? Math.min(token.data.alpha, 0.5) : token.data.alpha;
 
-        Board.get("primary").place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, "background+1", () => token.zIndex);
+        const zIndex = token.data.elevation + 1;
+
+        Board.get("primary").place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, "background+1", zIndex);
 
         token._pv_overhead = false;
 
@@ -188,7 +194,9 @@ Hooks.once("init", () => {
 
         token.icon.alpha = token.data.hidden ? Math.min(token.data.alpha, 0.5) : token.data.alpha;
 
-        Board.get("primary").place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, "foreground-1", () => token.zIndex);
+        const zIndex = token.data.elevation + 1;
+
+        Board.get("primary").place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, "foreground-1", zIndex);
 
         token._pv_overhead = true;
 

@@ -1,4 +1,3 @@
-import { Mask } from "../../core/mask.js";
 import { Tiles } from "../../core/tiles.js";
 import { patch } from "../../utils/patch.js";
 
@@ -25,6 +24,8 @@ Hooks.once("init", () => {
 
     patch("betterRoofsHelpers.prototype.computeHide", "MIXED", function (wrapped, controlledToken, tile, overrideHide) {
         if (!Tiles.isOverhead(tile)) {
+            this.alpha = 1;
+
             return overrideHide;
         }
 
