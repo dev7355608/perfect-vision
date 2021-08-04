@@ -1,6 +1,5 @@
 import { Mask } from "../mask.js";
 import { patch } from "../../utils/patch.js";
-import { Tokens } from "../tokens.js";
 
 Hooks.once("init", () => {
     const mask = Mask.create("occlusionRadial", {
@@ -10,16 +9,23 @@ Hooks.once("init", () => {
         groups: ["blur"]
     });
 
+    let occludingTokens = null;
+    let updatingOcclusion = false;
+
     mask.on("updateStage", (mask) => {
         if (canvas.foreground.tiles.length === 0) {
+            return;
+        }
+
+        const tokens = occludingTokens;
+
+        if (!tokens) {
             return;
         }
 
         const graphics = new PIXI.Graphics();
 
         graphics.beginFill();
-
-        const tokens = Tokens.getOccluding();
 
         for (const token of tokens) {
             const c = token.center;
@@ -44,19 +50,30 @@ Hooks.once("init", () => {
         mask.stage.filter.resolution = mask.texture.resolution;
         mask.stage.filter.multisample = PIXI.MSAA_QUALITY.NONE;
         mask.stage.filters = [mask.stage.filter];
+
+        occludingTokens = null;
+        updatingOcclusion = false;
     });
 
-    patch("ForegroundLayer.prototype.updateOcclusion", "OVERRIDE", function () {
-        const tokens = Tokens.getOccluding();
-
-        this._drawOcclusionShapes(tokens);
-
-        for (const tile of this.tiles) {
-            tile.updateOcclusion(tokens);
+    patch("Tile.prototype.getRoofSprite", "MIXED", function (wrapped, ...args) {
+        if (updatingOcclusion) {
+            return undefined;
         }
+
+        return wrapped(...args);
     });
 
-    patch("ForegroundLayer.prototype._drawOcclusionShapes", "OVERRIDE", function () {
+    patch("ForegroundLayer.prototype.updateOcclusion", "WRAPPER", function (wrapped, ...args) {
+        updatingOcclusion = true;
+
+        wrapped(...args);
+
+        updatingOcclusion = false;
+    });
+
+    patch("ForegroundLayer.prototype._drawOcclusionShapes", "OVERRIDE", function (tokens) {
+        occludingTokens = tokens;
+
         if (this.tiles.length !== 0) {
             mask.invalidate();
         }
@@ -66,6 +83,8 @@ Hooks.once("init", () => {
         const placeholder = new PIXI.Container();
 
         placeholder.renderable = false;
+        placeholder.tokens = placeholder.addChild(new PIXI.Container());
+        placeholder.roofs = placeholder.addChild(new PIXI.Container());
 
         return placeholder;
     });
