@@ -5,6 +5,24 @@ import { Tiles } from "../../core/tiles.js";
 import { Tokens } from "../../core/tokens.js";
 import { Mask } from "../../core/mask.js";
 
+let _levelsTokenRefreshPatched = false;
+
+if (self._levelsTokenRefresh) {
+    const old_levelsTokenRefresh = self._levelsTokenRefresh;
+
+    self._levelsTokenRefresh = function _levelsTokenRefresh() {
+        old_levelsTokenRefresh.apply(this, arguments);
+
+        if (this._pv_overhead !== undefined) {
+            this.icon.visible = true;
+        }
+
+        return this;
+    };
+
+    _levelsTokenRefreshPatched = true;
+}
+
 Hooks.once("init", () => {
     if (!game.modules.get("levels")?.active) {
         return;
@@ -168,6 +186,10 @@ Hooks.once("init", () => {
 
         Mask.invalidateAll("tokens");
 
+        if (!this.floorContainer.spriteIndex[token.id]) {
+            token.refresh();
+        }
+
         this.floorContainer.spriteIndex[token.id] = true;
     });
 
@@ -182,6 +204,8 @@ Hooks.once("init", () => {
             Board.get("primary").place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, "tokens", () => token.zIndex);
 
             Mask.invalidateAll("tokens");
+
+            token.refresh();
         }
 
         delete this.floorContainer.spriteIndex[token.id];
@@ -202,6 +226,10 @@ Hooks.once("init", () => {
 
         Mask.invalidateAll("tokens");
 
+        if (!this.overContainer.spriteIndex[token.id]) {
+            token.refresh();
+        }
+
         this.overContainer.spriteIndex[token.id] = true;
     });
 
@@ -216,14 +244,28 @@ Hooks.once("init", () => {
             Board.get("primary").place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, "tokens", () => token.zIndex);
 
             Mask.invalidateAll("tokens");
+
+            token.refresh();
         }
 
         delete this.overContainer.spriteIndex[token.id];
     });
 
-    patch("Token.prototype.refresh", "POST", function () {
-        this.icon.alpha = this.data.hidden ? Math.min(this.data.alpha, 0.5) : this.data.alpha;
+    if (!_levelsTokenRefreshPatched) {
+        patch("Token.prototype.refresh", "POST", function () {
+            if (!this._pv_debounce_refresh_levels) {
+                this._pv_debounce_refresh_levels = foundry.utils.debounce(() => {
+                    if (this._pv_overhead !== undefined) {
+                        this.icon.visible = true;
+                    }
 
-        return this;
-    });
+                    this.icon.alpha = this.data.hidden ? Math.min(this.data.alpha, 0.5) : this.data.alpha;
+                }, 0);
+            }
+
+            this._pv_debounce_refresh_levels();
+
+            return this;
+        });
+    }
 });
