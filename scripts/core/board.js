@@ -326,6 +326,7 @@ export class Layer extends PIXI.Container {
 
 export class Board extends PIXI.Container {
     static debug = false;
+    static container = new PIXI.Container();
     static boards = new Map();
     static pieces = new Map();
     static layers = {
@@ -363,6 +364,17 @@ export class Board extends PIXI.Container {
     }
 
     static initialize() {
+        this.container.visible = true;
+        this.container.renderable = true;
+        this.container.alpha = 1;
+        this.container.mask = null;
+        this.container.filters = [];
+        this.container.filterArea = canvas.app.renderer.screen;
+        this.container.sortChildren = true;
+        this.container.zIndex = -Infinity;
+
+        canvas.stage.addChild(this.container);
+
         for (const board of this.boards.values()) {
             board.clear();
             board.visible = true;
@@ -372,7 +384,7 @@ export class Board extends PIXI.Container {
             board.filters = [];
             board.filterArea = canvas.app.renderer.screen;
 
-            canvas.stage.addChild(board);
+            this.container.addChild(board);
         }
     }
 

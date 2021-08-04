@@ -2,7 +2,7 @@ import { Board } from "../board.js";
 import { MaskData } from "../mask.js";
 
 Hooks.once("init", () => {
-    Board.create("highlight", { zIndex: Number.MIN_SAFE_INTEGER + 1 });
+    Board.create("highlight", { zIndex: 1 });
 });
 
 Hooks.on("canvasInit", () => {
