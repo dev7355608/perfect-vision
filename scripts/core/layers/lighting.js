@@ -41,7 +41,7 @@ Hooks.once("init", () => {
                     const t0 = Math.clamped(r.distance / distance, 0, 1);
                     const q = t0 <= limit ? p : r.project(limit / t0);
 
-                    polygon.points.push(q)
+                    polygon.points.push(q.x, q.y);
                 }
             }
 
