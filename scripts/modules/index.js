@@ -4,6 +4,7 @@ import "./levels/index.js";
 import "./monks-little-details/index.js";
 import "./next-up/index.js";
 import "./pushtokenback/index.js";
+import "./sequencer/index.js";
 import "./splatter/index.js";
 import "./token-auras/index.js";
 import "./turnmarker/index.js";

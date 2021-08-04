@@ -21,6 +21,6 @@ class PerfectVision {
     }
 }
 
-PerfectVision.debug = false;
+PerfectVision.debug = true;
 
 self.PerfectVision = PerfectVision;

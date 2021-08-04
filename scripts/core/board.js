@@ -404,7 +404,7 @@ export class Board extends PIXI.Container {
         const board = layer.parent;
 
         if (this.debug) {
-            Logger.warn("Unplacing %s from the %s board", name, board.name);
+            Logger.debug("Unplacing %s from the %s board", name, board.name);
         }
 
         this.pieces.delete(name);
