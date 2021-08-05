@@ -63,7 +63,7 @@ export class Tiles {
         const alpha = this.getAlpha(tile, invertAlpha);
         const occlusionAlpha = this.getOcclusionAlpha(tile, invertAlpha);
 
-        return alpha !== 0 || occlusionAlpha !== 0;
+        return alpha > 0 || occlusionAlpha > 0;
     }
 }
 

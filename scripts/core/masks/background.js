@@ -18,7 +18,7 @@ Hooks.once("init", () => {
 
     mask.on("updateStage", (mask) => {
         for (const token of canvas.tokens.placeables) {
-            if (!token.visible || !token.renderable || !token.icon || !token.icon.visible || !token.renderable || token.icon.alpha === 0) {
+            if (!token.visible || !token.renderable || !token.icon || !token.icon.visible || !token.renderable || token.icon.alpha <= 0) {
                 continue;
             }
 

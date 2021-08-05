@@ -109,6 +109,12 @@ Hooks.once("init", () => {
         Mask.invalidateAll("tokens");
     });
 
+    patch("Levels.prototype.computeLightsForTile", "OVERRIDE", function () { });
+
+    patch("Levels.prototype.lightComputeOcclusion", "OVERRIDE", function () { });
+
+    patch("Levels.prototype.lightClearOcclusions", "OVERRIDE", function () { });
+
     patch("Levels.prototype.occludeLights", "OVERRIDE", function () { });
 
     patch("Levels.prototype.unoccludeLights", "OVERRIDE", function () { });
@@ -192,10 +198,6 @@ Hooks.once("init", () => {
     });
 
     patch("Levels.prototype.removeTempToken", "OVERRIDE", function (token) {
-        if (!this.floorContainer.spriteIndex[token.id]) {
-            return;
-        }
-
         if (token._pv_overhead === false) {
             token._pv_overhead = undefined;
 
@@ -216,7 +218,7 @@ Hooks.once("init", () => {
 
         const zIndex = token.data.elevation + 1;
 
-        Board.get("primary").place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, "foreground-1", zIndex);
+        Board.get("primary").place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, "foreground", zIndex);
 
         token._pv_overhead = true;
 
@@ -230,10 +232,6 @@ Hooks.once("init", () => {
     });
 
     patch("Levels.prototype.removeTempTokenOverhead", "OVERRIDE", function (token) {
-        if (!this.overContainer.spriteIndex[token.id]) {
-            return;
-        }
-
         if (token._pv_overhead === true) {
             token._pv_overhead = undefined;
 
