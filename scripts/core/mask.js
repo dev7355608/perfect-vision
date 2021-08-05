@@ -1,6 +1,17 @@
 import { Logger } from "../utils/logger.js";
 import { SpriteMesh } from "../display/sprite-mesh.js";
 
+export class MaskSprite extends SpriteMesh {
+    constructor(shader) {
+        super(shader);
+    }
+
+    updateTransform() {
+        this.transform.updateTransform(PIXI.Transform.IDENTITY);
+        this.worldAlpha = this.alpha;
+    }
+}
+
 export class Mask extends PIXI.utils.EventEmitter {
     static debug = false;
 
@@ -156,7 +167,8 @@ export class Mask extends PIXI.utils.EventEmitter {
             alphaMode: PIXI.ALPHA_MODES.NPM,
             multisample: PIXI.MSAA_QUALITY.NONE,
             clear: true,
-            clearColor: [0, 0, 0, 0]
+            clearColor: [0, 0, 0, 0],
+            shader: PIXI.MeshMaterial,
         };
     }
 
@@ -172,74 +184,13 @@ export class Mask extends PIXI.utils.EventEmitter {
 
         this.texture = PIXI.RenderTexture.create(options);
         this.texture.baseTexture.clearColor = [...options.clearColor];
+        this.sprite = new MaskSprite(new (options.shader)());
+        this.sprite.texture = this.texture;
+        this.sprite.width = this.texture.width;
+        this.sprite.height = this.texture.height;
         this.stage = new PIXI.Container();
         this.clear = options.clear;
         this.dirty = true;
-
-        let program;
-        let uniforms;
-
-        if (options.format === PIXI.FORMATS.RED && (options.type === PIXI.TYPES.FLOAT || options.type === PIXI.TYPES.HALF_FLOAT)) {
-            program = PIXI.Program.from(`\
-                attribute vec2 aVertexPosition;
-                attribute vec2 aTextureCoord;
-
-                uniform mat3 projectionMatrix;
-                uniform mat3 translationMatrix;
-                uniform mat3 uTextureMatrix;
-
-                varying vec2 vTextureCoord;
-
-                void main()
-                {
-                    gl_Position = vec4((projectionMatrix * translationMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
-                    vTextureCoord = (uTextureMatrix * vec3(aTextureCoord, 1.0)).xy;
-                }`, `\
-                varying vec2 vTextureCoord;
-
-                uniform sampler2D uSampler;
-                uniform float uMin;
-                uniform float uMax;
-
-                void main()
-                {
-                    float r = texture2D(uSampler, vTextureCoord).r;
-
-                    if (r < uMin) {
-                        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
-                    } else if (r > uMax) {
-                        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
-                    } else {
-                        float s = clamp((r - uMin) / (uMax - uMin), 0.0, 1.0) * 4.0;
-
-                        if (0.0 <= s && s < 1.0) {
-                            gl_FragColor = mix(vec4(0.0, 0.0, 1.0, 1.0), vec4(0.0, 1.0, 1.0, 1.0), s);
-                        } else if (1.0 <= s && s < 2.0) {
-                            gl_FragColor = mix(vec4(0.0, 1.0, 1.0, 1.0), vec4(0.0, 1.0, 0.0, 1.0), s - 1.0);
-                        } else if (2.0 <= s && s < 3.0) {
-                            gl_FragColor = mix(vec4(0.0, 1.0, 0.0, 1.0), vec4(1.0, 1.0, 0.0, 1.0), s - 2.0);
-                        } else if (3.0 <= s && s <= 4.0) {
-                            gl_FragColor = mix(vec4(1.0, 1.0, 0.0, 1.0), vec4(1.0, 0.0, 0.0, 1.0), s - 3.0);
-                        }
-                    }
-                }`
-            );
-
-            uniforms = {
-                uMin: 0.0,
-                uMax: 1.0
-            }
-        }
-
-        this.sprite = new SpriteMesh(new PIXI.MeshMaterial(this.texture, { program, uniforms }));
-        this.sprite.width = this.texture.width;
-        this.sprite.height = this.texture.height;
-        this.sprite.zIndex = Infinity;
-        this.sprite.blendMode = PIXI.BLEND_MODES.NORMAL_NPM;
-        this.sprite.updateTransform = function () {
-            this.transform.updateTransform(PIXI.Transform.IDENTITY);
-            this.worldAlpha = this.alpha;
-        };
     }
 
     invalidate() {
@@ -281,19 +232,83 @@ export class Mask extends PIXI.utils.EventEmitter {
     }
 
     show(alpha = 1.0, min = 0.0, max = 1.0) {
-        if (alpha !== 0) {
-            this.sprite.alpha = alpha;
-            this.sprite.shader.uniforms.uMin = min;
-            this.sprite.shader.uniforms.uMax = max;
+        if (alpha > 0) {
+            const container = new PIXI.Container();
 
-            canvas.stage.addChild(this.sprite);
+            container.addChild(this.sprite);
+            container.zIndex = Infinity;
+
+            if (this.texture.baseTexture.format === PIXI.FORMATS.RED && (
+                this.texture.baseTexture.type === PIXI.TYPES.FLOAT ||
+                this.texture.baseTexture.type === PIXI.TYPES.HALF_FLOAT)) {
+                const filter = new PIXI.Filter(`\
+                    attribute vec2 aVertexPosition;
+                    attribute vec2 aTextureCoord;
+
+                    uniform mat3 projectionMatrix;
+
+                    varying vec2 vTextureCoord;
+
+                    void main(void)
+                    {
+                        gl_Position = vec4((projectionMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
+                        vTextureCoord = aTextureCoord;
+                    }`, `\
+                    varying vec2 vTextureCoord;
+
+                    uniform sampler2D uSampler;
+                    uniform float uMin;
+                    uniform float uMax;
+                    uniform float uAlpha;
+
+                    void main()
+                    {
+                        float r = texture2D(uSampler, vTextureCoord).r;
+                        vec4 color;
+
+                        if (r < uMin) {
+                            color = vec4(0.0, 0.0, 0.0, 1.0);
+                        } else if (r > uMax) {
+                            color = vec4(1.0, 1.0, 1.0, 1.0);
+                        } else {
+                            float s = clamp((r - uMin) / (uMax - uMin), 0.0, 1.0) * 4.0;
+
+                            if (0.0 <= s && s < 1.0) {
+                                color = mix(vec4(0.0, 0.0, 1.0, 1.0), vec4(0.0, 1.0, 1.0, 1.0), s);
+                            } else if (1.0 <= s && s < 2.0) {
+                                color = mix(vec4(0.0, 1.0, 1.0, 1.0), vec4(0.0, 1.0, 0.0, 1.0), s - 1.0);
+                            } else if (2.0 <= s && s < 3.0) {
+                                color = mix(vec4(0.0, 1.0, 0.0, 1.0), vec4(1.0, 1.0, 0.0, 1.0), s - 2.0);
+                            } else if (3.0 <= s && s <= 4.0) {
+                                color = mix(vec4(1.0, 1.0, 0.0, 1.0), vec4(1.0, 0.0, 0.0, 1.0), s - 3.0);
+                            }
+                        }
+
+                        gl_FragColor = color * uAlpha;
+                    }`, {
+                    uMin: min,
+                    uMax: max,
+                    uAlpha: alpha
+                });
+
+                container.filters = [filter];
+            } else {
+                container.filters = [new PIXI.filters.AlphaFilter(alpha)];
+            }
+
+            canvas.stage.addChild(container);
         } else {
             this.hide();
         }
     }
 
     hide() {
-        canvas.stage.removeChild(this.sprite);
+        const container = this.sprite.parent;
+
+        if (container) {
+            container.removeChild(this.sprite);
+            container.destroy(true);
+        }
     }
 }
 
