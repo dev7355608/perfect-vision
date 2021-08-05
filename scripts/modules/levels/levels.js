@@ -176,8 +176,6 @@ Hooks.once("init", () => {
             return;
         }
 
-        token.icon.alpha = token.data.hidden ? Math.min(token.data.alpha, 0.5) : token.data.alpha;
-
         const zIndex = token.data.elevation + 1;
 
         Board.get("primary").place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, "background+1", zIndex);
@@ -215,8 +213,6 @@ Hooks.once("init", () => {
         if (token._controlled || !token.icon || !token.icon.texture.baseTexture) {
             return;
         }
-
-        token.icon.alpha = token.data.hidden ? Math.min(token.data.alpha, 0.5) : token.data.alpha;
 
         const zIndex = token.data.elevation + 1;
 
@@ -258,8 +254,6 @@ Hooks.once("init", () => {
                     if (this._pv_overhead !== undefined) {
                         this.icon.visible = true;
                     }
-
-                    this.icon.alpha = this.data.hidden ? Math.min(this.data.alpha, 0.5) : this.data.alpha;
                 }, 0);
             }
 
