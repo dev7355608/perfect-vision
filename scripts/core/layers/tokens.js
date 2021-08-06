@@ -16,6 +16,16 @@ Hooks.once("init", () => {
         return this;
     });
 
+    patch("Token.prototype.refresh", "PRE", function () {
+        if (this._hover) {
+            Board.unplace(`Token#${this.id}.border`);
+        } else {
+            Board.get("highlight").place(`Token#${this.id}.border`, this.id && !this._original ? this.border : null, "tokens-1", () => this.zIndex);
+        }
+
+        return arguments;
+    });
+
     patch("Token.prototype.destroy", "PRE", function () {
         Board.unplace(`Token#${this.id}.icon`);
 

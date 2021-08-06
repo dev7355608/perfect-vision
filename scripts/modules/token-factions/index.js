@@ -13,8 +13,8 @@ Hooks.once("init", () => {
             const drawFrameOverride = flags ? flags["draw-frame"] : undefined;
             const drawFrame = drawFrameOverride === undefined ? drawFramesByDefault : drawFrameOverride;
 
-            Board.get("highlight").place(`Token#${token.id}.factionBase`, token.id && !token._original ? token.factionBase : null, "tokens-3");
-            Board.get("highlight").place(`Token#${token.id}.factionFrame`, token.id && !token._original ? token.factionFrame : null, drawFrame ? "tokens+1" : "tokens-4");
+            Board.get("highlight").place(`Token#${token.id}.factionBase`, token.id && !token._original ? token.factionBase : null, "tokens-4");
+            Board.get("highlight").place(`Token#${token.id}.factionFrame`, token.id && !token._original ? token.factionFrame : null, drawFrame ? "tokens+1" : "tokens-5");
         }
     });
 

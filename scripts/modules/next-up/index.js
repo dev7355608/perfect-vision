@@ -34,7 +34,7 @@ Hooks.once("init", () => {
 
             for (const object of objects) {
                 if (object.parent === this && object.NUMaker) {
-                    board.place(`Token#${this.id}.next-up#${counter++}`, object, "tokens-1");
+                    board.place(`Token#${this.id}.next-up#${counter++}`, object, "tokens-2");
                 }
             }
         }, 0);

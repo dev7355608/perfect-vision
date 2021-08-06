@@ -14,7 +14,7 @@ Hooks.once("init", () => {
         set(value) {
             this._monks_little_details_turnmarker = value;
 
-            Board.get("highlight").place(`Token#${this.id}.monks-little-details.turnmarker`, value, "tokens-1");
+            Board.get("highlight").place(`Token#${this.id}.monks-little-details.turnmarker`, value, "tokens-2");
         }
     })
 });
