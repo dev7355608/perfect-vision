@@ -6,15 +6,13 @@ Hooks.once("init", () => {
         const d = canvas.dimensions;
         const gl = canvas.app.renderer.gl;
 
-        let format = PIXI.FORMATS.RED;
+        let format = PIXI.FORMATS.RGBA;
         let maxSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
 
+        const singleChannel = false;
         const exploredColor = hexToRGB(CONFIG.Canvas.exploredColor);
-        const unexploredColor = hexToRGB(CONFIG.Canvas.unexploredColor);
 
-        // Disable for now
-        if (false && exploredColor[0] === exploredColor[1] && exploredColor[1] === exploredColor[2] &&
-            unexploredColor[0] === unexploredColor[1] && unexploredColor[1] === unexploredColor[2]) {
+        if (singleChannel && exploredColor[0] === exploredColor[1] && exploredColor[1] === exploredColor[2]) {
             format = PIXI.FORMATS.RED;
             maxSize = Math.min(maxSize, 8192);
         } else {
@@ -28,12 +26,22 @@ Hooks.once("init", () => {
 
         if (d.sceneWidth <= d.sceneHeight) {
             resolution = Math.min(maxSize / d.sceneHeight, 1.0);
-            width = PIXI.utils.nextPow2(Math.ceil(d.sceneWidth * resolution)) / resolution;
-            height = PIXI.utils.nextPow2(Math.round(d.sceneHeight * resolution)) / resolution;
+            width = Math.ceil(d.sceneWidth * resolution);
+            height = Math.round(d.sceneHeight * resolution);
         } else {
             resolution = Math.min(maxSize / d.sceneWidth, 1.0);
-            width = PIXI.utils.nextPow2(Math.round(d.sceneWidth * resolution)) / resolution;
-            height = PIXI.utils.nextPow2(Math.ceil(d.sceneHeight * resolution)) / resolution;
+            width = Math.round(d.sceneWidth * resolution);
+            height = Math.ceil(d.sceneHeight * resolution);
+        }
+
+        const nextPow2 = false;
+
+        if (nextPow2) {
+            width = PIXI.utils.nextPow2(width) / resolution;
+            height = PIXI.utils.nextPow2(height) / resolution;
+        } else {
+            width = width / resolution;
+            height = height / resolution;
         }
 
         return {
@@ -47,7 +55,7 @@ Hooks.once("init", () => {
             format,
             type: PIXI.TYPES.UNSIGNED_BYTE,
             target: PIXI.TARGETS.TEXTURE_2D,
-            alphaMode: PIXI.ALPHA_MODES.NPM,
+            alphaMode: PIXI.ALPHA_MODES.PMA,
             multisample: PIXI.MSAA_QUALITY.NONE,
         };
     });
@@ -77,7 +85,7 @@ Hooks.once("init", () => {
             void main()
             {
                 float r = texture2D(uSampler, vTextureCoord).r;
-                gl_FragColor = mix(vec4(0.0), vec4(uExploredColor, 1.0), r * SCALE);
+                gl_FragColor = vec4(uExploredColor, 1.0) * (r * SCALE);
             }`
         )
     });
@@ -273,9 +281,25 @@ Hooks.once("init", () => {
             format: PIXI.FORMATS.RGBA,
             type: PIXI.TYPES.UNSIGNED_BYTE,
             target: PIXI.TARGETS.TEXTURE_2D,
-            alphaMode: PIXI.ALPHA_MODES.NPM,
+            alphaMode: PIXI.ALPHA_MODES.PMA,
             multisample: PIXI.MSAA_QUALITY.NONE,
         });
+
+        function blobToBase64(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        };
+
+        function canvasToDataURL(canvas, mimeType, qualityArgument) {
+            return new Promise((resolve, reject) => {
+                canvas.toBlob(blob => blobToBase64(blob).then(resolve).catch(reject), mimeType, qualityArgument);
+            });
+        }
 
         patch("SightLayer.prototype.saveFog", "OVERRIDE", async function () {
             if (!this.tokenVision || !this.fogExploration || !this.exploration) {
@@ -315,18 +339,22 @@ Hooks.once("init", () => {
                     sprite = new PIXI.Sprite(this.saved.texture);
                 }
 
-                sprite.width *= scale;
-                sprite.height *= scale;
+                sprite.width = this.saved.texture.width * scale;
+                sprite.height = this.saved.texture.height * scale;
 
                 texture = renderTexture;
-                width = Math.ceil(d.sceneWidth * scale);
-                height = Math.ceil(d.sceneHeight * scale);
+                width = Math.min(Math.round(d.sceneWidth * scale), MAX_SIZE);
+                height = Math.min(Math.round(d.sceneHeight * scale), MAX_SIZE);
 
-                fogShader.uniforms.uExploredColor = hexToRGB(0x7F7F7F);
+                if (this.saved.texture.baseTexture.format === PIXI.FORMATS.RED) {
+                    fogShader.uniforms.uExploredColor = hexToRGB(0x7F7F7F);
+                }
 
                 canvas.app.renderer.render(sprite, { renderTexture: texture, clear: false });
 
-                fogShader.uniforms.uExploredColor = hexToRGB(CONFIG.Canvas.exploredColor);
+                if (this.saved.texture.baseTexture.format === PIXI.FORMATS.RED) {
+                    fogShader.uniforms.uExploredColor = hexToRGB(CONFIG.Canvas.exploredColor);
+                }
             } else {
                 // Downsizing is not necessary
                 texture = this.saved.texture;
@@ -355,18 +383,31 @@ Hooks.once("init", () => {
                 const out = imageData.data;
 
                 for (let i = 0; i < pixels.length; i += 4) {
-                    out[i] = out[i + 1] = out[i + 2] = out[i + 3] = pixels[i];
+                    const value = pixels[i];
+
+                    out[i] = out[i + 1] = out[i + 2] = value !== 0 ? 127 : 0;
+                    out[i + 3] = Math.round(Math.min(pixels[i] * 255 / 127), 255);
                 }
             } else {
+                PIXI.Extract.arrayPostDivide(pixels, pixels);
+
                 imageData.data.set(pixels);
             }
 
             // Put image data into canvas
             renderTarget.context.putImageData(imageData, 0, 0);
 
+            let dataURL = await canvasToDataURL(renderTarget.canvas, "image/webp", 0.8);
+
+            // The backend doesn't allow webp base64 image strings, but we can trick it and change the mime type.
+            // The image is still decoded as webp on load, even though the mime type is wrong.
+            if (dataURL.startsWith("data:image/webp;")) {
+                dataURL = "data:image/png;" + dataURL.substring(16);
+            }
+
             // Create or update fog exploration
             const updateData = {
-                explored: renderTarget.canvas.toDataURL(),
+                explored: dataURL,
                 timestamp: Date.now()
             };
 
