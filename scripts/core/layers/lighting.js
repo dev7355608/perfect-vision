@@ -458,7 +458,7 @@ Hooks.once("init", () => {
 
         this.activateAnimation();
 
-        Board.get("primary").place("lighting.lighting", this.lighting, "lighting");
+        Board.place("lighting.lighting", this.lighting, Board.LAYERS.LIGHTING, 0);
 
         return this;
     });
@@ -569,7 +569,7 @@ Hooks.on("updateToken", (document, change, options, userId, arg) => {
         return;
     }
 
-    const token = canvas.tokens.get(document.id);
+    const token = document.object;
 
     if (token) {
         token.updateSource({ defer: true });
@@ -588,7 +588,7 @@ Hooks.on("updateAmbientLight", (document, change, options, userId, arg) => {
         return;
     }
 
-    const light = canvas.lighting.get(document.id);
+    const light = document.object;
 
     if (light) {
         light.updateSource({ defer: true });

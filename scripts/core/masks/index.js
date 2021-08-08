@@ -1,4 +1,4 @@
-import "./background.js";
+import "./foreground.js";
 import "./illumination.js";
 import "./occlusion.js";
 import "./weather.js";

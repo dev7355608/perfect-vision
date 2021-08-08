@@ -7,11 +7,9 @@ Hooks.once("init", () => {
     }
 
     patch("BackgroundLayer.prototype.addChild", "POST", function (result, ...objects) {
-        const board = Board.get("primary");
-
         for (const object of objects) {
             if (object.parentName === "sequencer") {
-                board.place("sequencer.background", object, "background+10");
+                Board.place("sequencer.background", object, Board.LAYERS.BACKGROUND + 10, 1);
             }
         }
 

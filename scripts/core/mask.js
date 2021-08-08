@@ -100,6 +100,10 @@ export class Mask extends PIXI.utils.EventEmitter {
         return this.get(name)?.texture ?? PIXI.Texture.EMPTY;
     }
 
+    static getSprite(name) {
+        return this.get(name)?.sprite;
+    }
+
     static invalidateAll(...groups) {
         for (const mask of this.masks.values()) {
             if (!mask.dirty && (groups.length === 0 || groups.some(group => mask.groups.has(group)))) {
@@ -141,7 +145,7 @@ export class Mask extends PIXI.utils.EventEmitter {
             const end = performance.now();
             const elapsed = Math.round((end - start) * 100) / 100;
 
-            Logger.debug("Updated masks | %fms | %s", elapsed, updated.join(" "));
+            Logger.debug("Mask | Updated | %fms | %s", elapsed, updated.join(" "));
         }
     }
 

@@ -10,50 +10,65 @@ Hooks.once("setup", () => {
     let filters = [];
 
     function updateFilters(manager) {
-        canvas.background.filters = null;
-        canvas.drawings.filters = null;
-        canvas.tokens.filters = null;
-        canvas.foreground.filters = null;
+        canvas.background.filters = [];
+        canvas.drawings.filters = [];
+        canvas.tokens.filters = [];
+        canvas.foreground.filters = [];
 
-        if (manager.apply_to.background || manager.apply_to.foreground || manager.apply_to.tokens) {
-            if (!manager.apply_to.background || !manager.apply_to.foreground || !manager.apply_to.tokens) {
-                Logger.warn("FXMaster filters cannot be applied to the background, foreground, and tokens layer separately (WIP)");
+        if (manager.apply_to.background || manager.apply_to.foreground || manager.apply_to.tokens || manager.apply_to.drawings) {
+            if (!manager.apply_to.background || !manager.apply_to.foreground || !manager.apply_to.tokens || !manager.apply_to.drawings) {
+                Logger.warn("FXMaster filters cannot be applied to the layers separately");
             }
 
             manager.apply_to.background = true;
             manager.apply_to.foreground = true;
             manager.apply_to.tokens = true;
+            manager.apply_to.drawings = true;
         }
 
-        if (manager.apply_to.drawings) {
-            Logger.warn("FXMaster filters cannot be applied to the drawings layer (WIP)");
-        }
-
-        manager.apply_to.drawings = false;
-
-        const board = Board.get("primary");
-
-        if (board.filters?.length !== 0) {
+        for (const segment of Object.values(Board.segments)) {
             for (const filter of filters) {
-                const index = board.filters.indexOf(filter);
+                const index = segment.filters.indexOf(filter);
 
                 if (index >= 0) {
-                    board.filters.splice(index, 1);
+                    segment.filters.splice(index, 1);
                 }
             }
         }
 
+        filters = [];
+
         if (manager.apply_to.background) {
-            filters = [...Object.values(manager.filters)];
+            for (const [key, filter] of Object.entries(manager.filters)) {
+                filters.push(filter);
 
-            for (const filter of filters) {
-                filter.resolution = canvas.app.renderer.resolution;
-                filter.multisample = canvas.app.renderer.multisample;
+                if (key === "core_underwater") {
+                    const segment = Board.stage;
+
+                    segment.filters.push(filter);
+                } else if (key === "core_predator" || key === "core_oldfilm") {
+                    const segment = Board.getSegment(Board.SEGMENTS.LIGHTING);
+
+                    segment.filters.push(filter);
+
+                    if (manager.apply_to.drawings) {
+                        Logger.warn("Perfect Vision does not apply FXMaster's %s filter to the drawings layer", key);
+                    }
+                } else {
+                    const segment = Board.getSegment(Board.SEGMENTS.LIGHTING);
+
+                    segment.filters.unshift(filter);
+
+                    if (manager.apply_to.drawings) {
+                        Logger.warn("Perfect Vision does not apply FXMaster's %s filter to the drawings layer", key);
+                    }
+                }
             }
+        }
 
-            board.filters.push(...filters);
-        } else {
-            filters = [];
+        for (const filter of filters) {
+            filter.resolution = canvas.app.renderer.resolution;
+            filter.multisample = PIXI.MSAA_QUALITY.NONE;
         }
     }
 

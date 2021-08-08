@@ -126,7 +126,7 @@ PIXI.MaskSystem.prototype.pushSpriteMask = function (maskData) {
 
     const stashFilterArea = target.filterArea;
 
-    target.filterArea = maskObject.getBounds(true);
+    target.filterArea = maskData.filterArea || maskObject.getBounds(true);
     renderer.filter.push(target, alphaMaskFilter);
     target.filterArea = stashFilterArea;
 

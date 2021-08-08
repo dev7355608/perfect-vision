@@ -6,34 +6,15 @@ Hooks.once("setup", () => {
         return;
     }
 
-    let counter = 0;
-    const ids = new WeakMap();
+    let counter = 1;
 
     patch("Canvas.layers.specials.prototype.addChild", "POST", function (result, ...objects) {
-        const board = Board.get("primary");
-
         for (const object of objects) {
             if (object instanceof PIXI.Sprite) {
-                const id = `specials.${counter++}`;
-
-                ids.set(object, id);
-
-                board.place(id, object, "effects");
+                Board.place(`specials.sprite#${counter++}`, object, Board.LAYERS.OVERHEAD_EFFECTS);
             }
         }
 
         return result;
-    });
-
-    patch("Canvas.layers.specials.prototype.removeChild", "PRE", function (...objects) {
-        const board = Board.get("primary");
-
-        for (const object of objects) {
-            if (ids.has(object)) {
-                board.unplace(ids.get(object));
-            }
-        }
-
-        return objects;
     });
 });

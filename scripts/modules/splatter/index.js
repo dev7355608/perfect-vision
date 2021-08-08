@@ -9,7 +9,7 @@ Hooks.once("init", () => {
     patch("BloodSplatter.prototype.Update", "POST", function () {
         setTimeout(() => {
             if (canvas.background.BloodSplatter === this) {
-                Board.get("primary").place("splatter.blood", this.blood, "background+2");
+                Board.place("splatter.blood", this.blood, Board.LAYERS.UNDERFOOT_EFFECTS, -1);
             }
         }, 0);
     });

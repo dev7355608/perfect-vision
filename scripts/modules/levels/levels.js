@@ -120,16 +120,17 @@ Hooks.once("init", () => {
     patch("Levels.prototype.unoccludeLights", "OVERRIDE", function () { });
 
     patch("Levels.prototype.mirrorTileInBackground", "OVERRIDE", function (tileIndex, hideFog = false) {
-        const tile = tileIndex.tile;
+        let tile = tileIndex instanceof TileDocument ? tileIndex.object : tileIndex.tile;
+
+        if (tile instanceof TileDocument) {
+            tile = tile.object;
+        }
 
         if (!tile.tile || !tile.tile.texture.baseTexture) {
             return;
         }
 
-        const board = Board.get("primary");
-        const name = `Tile#${tile.id}.tile`;
-
-        if (!board.has(name)) {
+        if (tile._pv_highlight) {
             return;
         }
 
@@ -139,7 +140,7 @@ Hooks.once("init", () => {
 
         const zIndex = tileIndex.levelsOverhead ? tileIndex.range[0] + 2 : tileIndex.range[0];
 
-        board.place(name, tile.id && !tile._original ? tile.tile : null, "background+1", zIndex);
+        Board.place(`Tile#${tile.id}.tile`, tile.id && !tile._original ? tile.tile : null, Board.LAYERS.UNDERFOOT_TILES + 1, zIndex);
 
         tile._pv_overhead = false;
 
@@ -155,16 +156,17 @@ Hooks.once("init", () => {
     });
 
     patch("Levels.prototype.removeTempTile", "OVERRIDE", function (tileIndex) {
-        const tile = tileIndex.tile;
+        let tile = tileIndex instanceof TileDocument ? tileIndex.object : tileIndex.tile;
 
-        const board = Board.get("primary");
-        const name = `Tile#${tile.id}.tile`;
+        if (tile instanceof TileDocument) {
+            tile = tile.object;
+        }
 
-        if (!board.has(name)) {
+        if (tile._pv_highlight) {
             return;
         }
 
-        board.place(name, tile.id && !tile._original ? tile.tile : null, "foreground-1", () => tile.zIndex);
+        Board.place(`Tile#${tile.id}.tile`, tile.id && !tile._original ? tile.tile : null, Board.LAYERS.OVERHEAD_TILES, function () { return this.parent.zIndex; });
 
         tile._pv_overhead = tile.data.overhead;
 
@@ -184,7 +186,7 @@ Hooks.once("init", () => {
 
         const zIndex = token.data.elevation + 1;
 
-        Board.get("primary").place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, "background+1", zIndex);
+        Board.place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, Board.LAYERS.TOKENS - 1, zIndex);
 
         token._pv_overhead = false;
 
@@ -201,7 +203,7 @@ Hooks.once("init", () => {
         if (token._pv_overhead === false) {
             token._pv_overhead = undefined;
 
-            Board.get("primary").place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, "tokens", () => token.zIndex);
+            Board.place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, Board.LAYERS.TOKENS, function () { return this.parent.zIndex; });
 
             Mask.invalidateAll("tokens");
 
@@ -218,7 +220,7 @@ Hooks.once("init", () => {
 
         const zIndex = token.data.elevation + 1;
 
-        Board.get("primary").place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, "foreground", zIndex);
+        Board.place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, Board.LAYERS.OVERHEAD_TILES + 1, zIndex);
 
         token._pv_overhead = true;
 
@@ -235,7 +237,7 @@ Hooks.once("init", () => {
         if (token._pv_overhead === true) {
             token._pv_overhead = undefined;
 
-            Board.get("primary").place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, "tokens", () => token.zIndex);
+            Board.place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, Board.LAYERS.TOKENS, function () { return this.parent.zIndex; });
 
             Mask.invalidateAll("tokens");
 

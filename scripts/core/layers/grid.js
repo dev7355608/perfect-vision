@@ -5,7 +5,7 @@ Hooks.once("init", () => {
     patch("GridLayer.prototype.draw", "POST", async function (result) {
         await result;
 
-        Board.get("highlight").place("grid", this, "background");
+        Board.place("grid", this, Board.LAYERS.GRID, 0);
 
         return this;
     });

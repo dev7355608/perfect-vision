@@ -11,7 +11,7 @@ Hooks.once("init", () => {
     patch("Token.prototype.draw", "POST", async function (result) {
         await result;
 
-        Board.get("primary").place(`Token#${this.id}.icon`, this.id && !this._original ? this.icon : null, "tokens", () => this.zIndex);
+        Board.place(`Token#${this.id}.icon`, this.id && !this._original ? this.icon : null, Board.LAYERS.TOKENS, function () { return this.parent.zIndex; });
 
         return this;
     });
@@ -20,7 +20,7 @@ Hooks.once("init", () => {
         if (this._hover) {
             Board.unplace(`Token#${this.id}.border`);
         } else {
-            Board.get("highlight").place(`Token#${this.id}.border`, this.id && !this._original ? this.border : null, "tokens-1", () => this.zIndex);
+            Board.place(`Token#${this.id}.border`, this.id && !this._original ? this.border : null, Board.LAYERS.TOKEN_BORDERS, function () { return this.parent.zIndex; });
         }
 
         return arguments;

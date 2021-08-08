@@ -15,9 +15,9 @@ Hooks.once("setup", () => {
         await result;
 
         if (this instanceof BelowTokensEffectsLayer) {
-            Board.get("primary").place("sequencer.below-tokens", this, "tokens-10");
+            Board.place("sequencer.below-tokens", this, Board.LAYERS.UNDERFOOT_EFFECTS, 1);
         } else {
-            Board.get("primary").place("sequencer.above-tokens", this, "effects");
+            Board.place("sequencer.above-tokens", this, Board.LAYERS.OVERHEAD_EFFECTS, 1);
         }
 
         return this;

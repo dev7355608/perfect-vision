@@ -11,7 +11,7 @@ Hooks.once("init", () => {
         oldPushToBack();
 
         if (pushTokenBack?.hoverToken?.hoveredTarget instanceof Token) {
-            const layer = Board.get("primary").getLayer("tokens");
+            const layer = Board.getLayer(Board.LAYERS.TOKENS);
             const icon = pushTokenBack.hoverToken.hoveredTarget.icon;
 
             let position = 0;

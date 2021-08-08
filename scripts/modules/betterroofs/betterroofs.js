@@ -13,7 +13,7 @@ Hooks.once("init", () => {
             return;
         }
 
-        const tile = canvas.foreground.get(document.id);
+        const tile = document.object;
 
         if (tile) {
             tile.refresh();

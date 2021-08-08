@@ -105,7 +105,7 @@ Hooks.once("init", () => {
                 alpha.zIndex = roof.zIndex;
                 mask.stage.roofs.addChild(alpha);
 
-                if (roof.isVideo) {
+                if (roof.isVideo && !roof.sourceElement.paused) {
                     mask.invalidate();
                 }
             }

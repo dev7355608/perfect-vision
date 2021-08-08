@@ -22,7 +22,7 @@ Hooks.once("init", () => {
     patch("MapLayer.prototype.draw", "POST", async function (result) {
         await result;
 
-        Board.get("primary").place(`${this.options.name}.bg`, this.bg, this.options.name);
+        Board.place(`${this.options.name}.bg`, this.bg, this.options.name === "foreground" ? Board.LAYERS.FOREGROUND : Board.LAYERS.BACKGROUND, 0);
 
         return this;
     });
@@ -37,7 +37,7 @@ Hooks.once("init", () => {
         await result;
 
         if (this.tile) {
-            Board.get("primary").place(`Tile#${this.id}.tile`, this.id && !this._original ? this.tile : null, Tiles.isOverhead(this) ? "foreground-1" : "background+1", () => this.zIndex);
+            Board.place(`Tile#${this.id}.tile`, this.id && !this._original ? this.tile : null, Tiles.isOverhead(this) ? Board.LAYERS.OVERHEAD_TILES : Board.LAYERS.UNDERFOOT_TILES, function () { return this.parent.zIndex; });
         }
 
         if (this.occlusionFilter) {

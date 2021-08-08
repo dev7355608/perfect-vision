@@ -21,6 +21,10 @@ Hooks.once("init", () => {
     mask.on("updateStage", (mask) => {
         if (canvas.background.bg) {
             mask.stage.addChild(CachedAlphaObject.create(canvas.background.bg, { threshold: 1.0 }));
+
+            if (canvas.background.isVideo && !canvas.background.bgSource.paused) {
+                mask.invalidate();
+            }
         }
 
         for (const token of canvas.tokens.placeables) {
@@ -34,7 +38,9 @@ Hooks.once("init", () => {
             alpha.zIndex = elevation;
             mask.stage.addChild(alpha);
 
-            if (token.isVideo) {
+            const source = token.texture?.baseTexture.resource.source;
+
+            if (source?.tagName === "VIDEO" && !source.paused) {
                 mask.invalidate();
             }
         }
@@ -50,7 +56,7 @@ Hooks.once("init", () => {
             alpha.zIndex = elevation;
             mask.stage.addChild(alpha);
 
-            if (tile.isVideo) {
+            if (tile.isVideo && !tile.sourceElement.paused) {
                 mask.invalidate();
             }
         }

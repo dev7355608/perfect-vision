@@ -12,7 +12,7 @@ Hooks.once("init", () => {
     patch("EffectsLayer.prototype.draw", "POST", async function (result) {
         await result;
 
-        Board.get("primary").place("effects.weather", this.weather, "weather");
+        Board.place("effects.weather", this.weather, Board.LAYERS.WEATHER, 0);
 
         return this;
     });

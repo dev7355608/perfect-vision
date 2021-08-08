@@ -10,11 +10,9 @@ Hooks.once("init", () => {
 
     patch("BackgroundLayer.prototype.addChild", "POST", function (result, ...objects) {
         setTimeout(() => {
-            const board = Board.get("highlight");
-
             for (const object of objects) {
                 if (object.parent === this && object.isShadow) {
-                    board.place(`background.next-up#${counter++}`, object, "background+2");
+                    Board.place(`background.next-up#${counter++}`, object, Board.LAYERS.UNDERFOOT_EFFECTS, -1);
                 }
             }
         }, 0);
@@ -30,11 +28,9 @@ Hooks.once("init", () => {
 
     patch("Token.prototype.addChild", "POST", function (result, ...objects) {
         setTimeout(() => {
-            const board = Board.get("highlight");
-
             for (const object of objects) {
-                if (object.parent === this && object.NUMaker) {
-                    board.place(`Token#${this.id}.next-up#${counter++}`, object, "tokens-2");
+                if (object.parent === this && object.NUMaker && game.settings.get("Next-Up", "iconLevel") === false) {
+                    Board.place(`Token#${this.id}.next-up#${counter++}`, object, Board.LAYERS.TOKEN_MARKERS, 2);
                 }
             }
         }, 0);

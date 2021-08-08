@@ -63,6 +63,7 @@ export class MonoFilter extends MaskFilter {
     static get instance() {
         if (!this._instance) {
             this._instance = new MonoFilter();
+            this._instance.multisample = PIXI.MSAA_QUALITY.NONE;
         }
 
         return this._instance;
@@ -120,7 +121,9 @@ export class MonoFilter extends MaskFilter {
 }
 
 Hooks.on("canvasInit", () => {
-    Board.get("primary").filters.push(MonoFilter.instance);
+    const segment = Board.getSegment(Board.SEGMENTS.LIGHTING);
+
+    segment.filters.push(MonoFilter.instance);
 });
 
 Hooks.on("lightingRefresh", () => {
