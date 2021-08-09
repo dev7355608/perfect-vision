@@ -1,3 +1,4 @@
+import { Board } from "../board.js";
 import { Mask } from "../mask.js";
 
 Hooks.once("init", () => {
@@ -9,6 +10,12 @@ Hooks.once("init", () => {
 
     mask.on("updateTexture", (mask) => {
         mask.resize();
+    });
+
+    Hooks.on("canvasInit", () => {
+        const segment = Board.getSegment(Board.SEGMENTS.FOREGROUND);
+
+        segment.renderTexture = Mask.getTexture("foreground");
     });
 });
 

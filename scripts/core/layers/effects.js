@@ -1,5 +1,4 @@
 import { Board } from "../board.js";
-import { MaskData } from "../mask.js";
 import { patch } from "../../utils/patch.js";
 
 Hooks.once("init", () => {
@@ -25,11 +24,7 @@ Hooks.once("init", () => {
                 this.weather.filters.splice(index, 1);
             }
 
-            if (this.weatherOcclusionFilter.enabled) {
-                this.weather.mask = new MaskData("weather");
-            } else {
-                this.weather.mask = null;
-            }
+            this.weather.mask = null;
         }
 
         return result;

@@ -2,6 +2,50 @@ import { Board } from "../board.js";
 import { Mask, MaskFilter } from "../mask.js";
 import { srgb2rgb } from "../../utils/color.js";
 
+Hooks.on("canvasInit", () => {
+    MonoFilter.instance.resolution = canvas.app.renderer.resolution;
+    MonoFilter.instance.multisample = PIXI.MSAA_QUALITY.NONE;
+
+    const segment = Board.getSegment(Board.SEGMENTS.LIGHTING);
+
+    segment.filters.push(MonoFilter.instance);
+    segment.filterArea = canvas.app.renderer.screen;
+});
+
+Hooks.on("lightingRefresh", () => {
+    if (canvas.sight.sources.size === 0 && game.user.isGM && game.settings.get("perfect-vision", "improvedGMVision")) {
+        MonoFilter.instance.saturation = 1;
+    } else {
+        MonoFilter.instance.saturation = canvas.lighting._pv_saturationLevel;
+    }
+});
+
+Hooks.on("sightRefresh", () => {
+    let tint;
+
+    if (canvas.sight.tokenVision && canvas.sight.sources.size > 0) {
+        for (const source of canvas.sight.sources) {
+            if (!source.active) {
+                continue;
+            }
+
+            if (source._pv_tintMono !== undefined) {
+                if (tint !== undefined && tint !== source._pv_tintMono) {
+                    tint = 0xFFFFFF;
+                } else {
+                    tint = source._pv_tintMono;
+                }
+            }
+
+            if (tint === 0xFFFFFF) {
+                break;
+            }
+        }
+    }
+
+    MonoFilter.instance.tint = tint ?? 0xFFFFFF;
+});
+
 export class MonoFilter extends MaskFilter {
     static defaultFragmentSource = `\
         varying vec2 vTextureCoord;
@@ -63,7 +107,6 @@ export class MonoFilter extends MaskFilter {
     static get instance() {
         if (!this._instance) {
             this._instance = new MonoFilter();
-            this._instance.multisample = PIXI.MSAA_QUALITY.NONE;
         }
 
         return this._instance;
@@ -119,43 +162,3 @@ export class MonoFilter extends MaskFilter {
         super.apply(filterManager, input, output, clearMode, currentState);
     }
 }
-
-Hooks.on("canvasInit", () => {
-    const segment = Board.getSegment(Board.SEGMENTS.LIGHTING);
-
-    segment.filters.push(MonoFilter.instance);
-});
-
-Hooks.on("lightingRefresh", () => {
-    if (canvas.sight.sources.size === 0 && game.user.isGM && game.settings.get("perfect-vision", "improvedGMVision")) {
-        MonoFilter.instance.saturation = 1;
-    } else {
-        MonoFilter.instance.saturation = canvas.lighting._pv_saturationLevel;
-    }
-});
-
-Hooks.on("sightRefresh", () => {
-    let tint;
-
-    if (canvas.sight.tokenVision && canvas.sight.sources.size > 0) {
-        for (const source of canvas.sight.sources) {
-            if (!source.active) {
-                continue;
-            }
-
-            if (source._pv_tintMono !== undefined) {
-                if (tint !== undefined && tint !== source._pv_tintMono) {
-                    tint = 0xFFFFFF;
-                } else {
-                    tint = source._pv_tintMono;
-                }
-            }
-
-            if (tint === 0xFFFFFF) {
-                break;
-            }
-        }
-    }
-
-    MonoFilter.instance.tint = tint ?? 0xFFFFFF;
-});

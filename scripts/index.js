@@ -4,7 +4,7 @@ import "./modules/index.js";
 
 import { Board } from "./core/board.js";
 import { Mask } from "./core/mask.js";
-import { MonoFilter } from "./core/filters/mono.js";
+import { MonoFilter } from "./core/filters/lighting.js";
 
 class PerfectVision {
     static Board = Board;

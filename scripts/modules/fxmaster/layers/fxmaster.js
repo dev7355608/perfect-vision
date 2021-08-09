@@ -1,5 +1,4 @@
 import { Board } from "../../../core/board.js";
-import { MaskData } from "../../../core/mask.js";
 import { patch } from "../../../utils/patch.js";
 
 Hooks.once("setup", () => {
@@ -18,9 +17,7 @@ Hooks.once("setup", () => {
 
         Board.place("fxmaster.weather", this.weather, Board.LAYERS.WEATHER, 1);
 
-        if (this.weather) {
-            this.weather.mask = new MaskData("weather");
-        }
+        this.weather.mask = null;
 
         return this;
     });

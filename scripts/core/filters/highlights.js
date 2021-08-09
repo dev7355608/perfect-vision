@@ -1,21 +1,14 @@
 import { Board } from "../board.js";
-import { MaskData, MaskFilter } from "../mask.js";
-
+import { Mask, MaskFilter } from "../mask.js";
 
 Hooks.on("canvasInit", () => {
     const segment = Board.getSegment(Board.SEGMENTS.HIGHLIGHTS);
 
-    segment.mask = new BackgroundMaskData();
-    segment.mask.resolution = null;
-    segment.mask.multisample = PIXI.MSAA_QUALITY.HIGH;
-    segment.mask.filterArea = canvas.app.renderer.screen;
+    segment.filters.unshift(new BackgroundMaskFilter());
+    segment.filters[0].resolution = canvas.app.renderer.resolution;
+    segment.filters[0].multisample = PIXI.MSAA_QUALITY.HIGH;
+    segment.filterArea = canvas.app.renderer.screen;
 });
-
-class BackgroundMaskData extends MaskData {
-    constructor() {
-        super("foreground", new BackgroundMaskFilter());
-    }
-}
 
 class BackgroundMaskFilter extends MaskFilter {
     static fragmentSource = `\
@@ -34,5 +27,7 @@ class BackgroundMaskFilter extends MaskFilter {
 
     constructor() {
         super(undefined, BackgroundMaskFilter.fragmentSource);
+
+        this.uniforms.uMask = Mask.getTexture("foreground");
     }
 }
