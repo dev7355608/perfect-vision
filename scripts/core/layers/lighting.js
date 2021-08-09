@@ -400,13 +400,11 @@ Hooks.once("init", () => {
 
     patch("LightingLayer.prototype._drawIlluminationContainer", "POST", function (c) {
         c.filter.resolution = canvas.app.renderer.resolution;
-        c.filter.blendMode = PIXI.BLEND_MODES.MULTIPLY_KEEP_ALPHA;
         return c;
     });
 
     patch("LightingLayer.prototype._drawColorationContainer", "POST", function (c) {
         c.filter.resolution = canvas.app.renderer.resolution;
-        c.filter.blendMode = PIXI.BLEND_MODES.ADD_KEEP_ALPHA;
         return c;
     });
 
@@ -534,22 +532,6 @@ function getLightRadius(token, units) {
 
     return (u / canvas.dimensions.distance * canvas.dimensions.size + hw) * Math.sign(units);
 }
-
-Hooks.once("canvasInit", () => {
-    PIXI.BLEND_MODES.ADD_KEEP_ALPHA = canvas.app.renderer.state.blendModes.push([
-        WebGL2RenderingContext.ONE,
-        WebGL2RenderingContext.ONE,
-        WebGL2RenderingContext.ZERO,
-        WebGL2RenderingContext.ONE
-    ]) - 1;
-
-    PIXI.BLEND_MODES.MULTIPLY_KEEP_ALPHA = canvas.app.renderer.state.blendModes.push([
-        WebGL2RenderingContext.DST_COLOR,
-        WebGL2RenderingContext.ZERO,
-        WebGL2RenderingContext.ZERO,
-        WebGL2RenderingContext.ONE
-    ]) - 1;
-});
 
 Hooks.on("updateScene", (scene, change, options, userId) => {
     if (!scene.isView || !hasProperty(change, "flags.perfect-vision")) {
