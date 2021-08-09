@@ -691,6 +691,7 @@ export class Board extends PIXI.Container {
                     this.zIndex = zIndex.call(this.object);
                 };
             } else {
+                render.update = null;
                 render.zIndex = zIndex;
             }
         } else {
