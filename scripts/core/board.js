@@ -453,7 +453,7 @@ export class Segment extends PIXI.Container {
     }
 
     get renderTexture() {
-        return this.sprite?.texture;
+        return this.sprite?.texture ?? null;
     }
 
     set renderTexture(value) {
@@ -587,6 +587,7 @@ export class Board extends PIXI.Container {
 
     static SEGMENTS = {
         LIGHTING: [1000, 3999],
+        BACKGROUND: [1000, 1999],
         FOREGROUND: [2000, 2999],
         HIGHLIGHTS: [4000, 4999],
     };

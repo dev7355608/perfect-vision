@@ -15,7 +15,7 @@ Hooks.once("init", () => {
     Hooks.on("canvasInit", () => {
         const segment = Board.getSegment(Board.SEGMENTS.FOREGROUND);
 
-        segment.renderTexture = Mask.getTexture("foreground");
+        segment.renderTexture = mask.texture;
     });
 });
 

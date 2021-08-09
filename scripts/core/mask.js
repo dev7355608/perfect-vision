@@ -73,7 +73,7 @@ export class Mask extends PIXI.utils.EventEmitter {
             visited[mask.name] = true;
 
             for (const dependency of mask.dependencies) {
-                visit(this.masks.get(dependency), mask);
+                visit(this.get(dependency), mask);
             }
 
             sorted.push(mask);
@@ -93,7 +93,14 @@ export class Mask extends PIXI.utils.EventEmitter {
     }
 
     static get(name) {
-        return this.masks.get(name);
+        const mask = this.masks.get(name);
+
+        if (mask?.lazy) {
+            mask.lazy(mask);
+            mask.lazy = null;
+        }
+
+        return mask;
     }
 
     static getTexture(name) {
@@ -173,6 +180,7 @@ export class Mask extends PIXI.utils.EventEmitter {
             clear: true,
             clearColor: [0, 0, 0, 0],
             shader: PIXI.MeshMaterial,
+            lazy: null,
         };
     }
 
@@ -195,6 +203,7 @@ export class Mask extends PIXI.utils.EventEmitter {
         this.stage = new PIXI.Container();
         this.clear = options.clear;
         this.dirty = true;
+        this.lazy = options.lazy;
     }
 
     invalidate() {
