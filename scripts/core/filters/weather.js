@@ -30,4 +30,18 @@ class WeatherMaskFilter extends MaskFilter {
 
         this.uniforms.uMask = Mask.getTexture("weather");
     }
+
+    get enabled() {
+        const layer = Board.getLayer(Board.LAYERS.WEATHER);
+
+        for (const child of layer.children) {
+            if (child.children.length !== 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    set enabled(value) { }
 }
