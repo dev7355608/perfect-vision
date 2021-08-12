@@ -109,8 +109,6 @@ Hooks.once("init", () => {
         Mask.invalidateAll("tokens");
     });
 
-    patch("Levels.prototype.computeLightsForTile", "OVERRIDE", function () { });
-
     patch("Levels.prototype.lightComputeOcclusion", "OVERRIDE", function () { });
 
     patch("Levels.prototype.lightClearOcclusions", "OVERRIDE", function () { });
@@ -120,11 +118,7 @@ Hooks.once("init", () => {
     patch("Levels.prototype.unoccludeLights", "OVERRIDE", function () { });
 
     patch("Levels.prototype.mirrorTileInBackground", "OVERRIDE", function (tileIndex, hideFog = false) {
-        let tile = tileIndex instanceof TileDocument ? tileIndex.object : tileIndex.tile;
-
-        if (tile instanceof TileDocument) {
-            tile = tile.object;
-        }
+        const tile = tileIndex.tile;
 
         if (!tile.tile || !tile.tile.texture.baseTexture) {
             return;
@@ -156,11 +150,7 @@ Hooks.once("init", () => {
     });
 
     patch("Levels.prototype.removeTempTile", "OVERRIDE", function (tileIndex) {
-        let tile = tileIndex instanceof TileDocument ? tileIndex.object : tileIndex.tile;
-
-        if (tile instanceof TileDocument) {
-            tile = tile.object;
-        }
+        const tile = tileIndex.tile;
 
         if (tile._pv_highlight) {
             return;
