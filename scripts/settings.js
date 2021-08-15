@@ -60,7 +60,7 @@ Hooks.once("init", () => {
             if (game.user.isGM) {
                 canvas.lighting.version++;
 
-                refresh({ sight: false, initialize: false });
+                refresh({ initialize: false });
             }
         }
     });

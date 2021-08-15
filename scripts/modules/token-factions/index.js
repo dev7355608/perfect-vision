@@ -6,6 +6,8 @@ Hooks.once("init", () => {
         return;
     }
 
+    Token._pv_defeatedInBackground = false;
+
     let bevelTexture;
 
     async function loadBevelTexture() {
@@ -42,7 +44,7 @@ Hooks.once("init", () => {
                     new PIXI.Container(), token.getChildIndex(token.icon) - 1,
                 );
 
-                Board.place(`Token#${token.id}.factionBase`, token.factionBase, Board.LAYERS.TOKEN_BASES, function () { return this.parent.zIndex; });
+                Board.place(`Token#${token.id}.factionBase`, token.factionBase, Board.LAYERS.TOKEN_BASES, function () { return this.parent?.zIndex ?? 0; });
             } else {
                 token.factionBase.removeChildren().forEach(c => c.destroy());
             }

@@ -1,5 +1,7 @@
 import { Board } from "../board.js";
+import { Drawings } from "../drawings.js";
 import { Elevation } from "../elevation.js";
+import { Lighting } from "../lighting.js";
 import { Logger } from "../../utils/logger.js";
 import { Mask } from "../mask.js";
 import { patch } from "../../utils/patch.js";
@@ -277,35 +279,60 @@ Hooks.once("init", () => {
 
         cls.defaultUniforms.pv_UvsMatrix = [0, 0, 0, 0, 0, 0, 0, 0, 0];
         cls.defaultUniforms.pv_MaskSize = [0, 0, 0, 0];
-        cls.defaultUniforms.pv_ElevationRange = [0, 0];
         cls.defaultUniforms.pv_IsSight = false;
         cls.defaultUniforms.pv_IsDarkness = false;
+        cls.defaultUniforms.pv_LightLevelDim = CONFIG.Canvas.lightLevels.dim;
+        cls.defaultUniforms.pv_LightLevelBright = CONFIG.Canvas.lightLevels.bright;
+        cls.defaultUniforms.pv_DarknessLightPenalty = CONFIG.Canvas.darknessLightPenalty;
+        cls.defaultUniforms.pv_ElevationRange = [0, 1];
 
         Logger.debug("Patching %s.fragmentShader (WRAPPER)", cls.name);
 
         if (isIlluminationShader) {
-            patchFragmentShader(cls, "float alpha, float ratio", `\
+            patchFragmentShader(cls, "float alpha, float ratio, vec3 colorBright, vec3 colorDim", `\
                 varying vec2 pv_MaskCoord;
 
+                uniform sampler2D pv_Illumination;
+                uniform sampler2D pv_Lighting;
+                uniform sampler2D pv_Vision;
                 uniform bool pv_IsSight;
                 uniform bool pv_IsDarkness;
-                uniform sampler2D pv_Illumination;
+                uniform float pv_LightLevelDim;
+                uniform float pv_LightLevelBright;
+                uniform float pv_DarknessLightPenalty;
 
                 void main()
                 {
-                    float a = alpha;
-                    float r = ratio;
+                    float pAlpha;
+                    float pRatio;
+                    vec3 pColorBright;
+                    vec3 pColorDim;
 
-                    if (pv_IsSight) {
-                        float s = texture2D(pv_Illumination, pv_MaskCoord).r;
-                        a *= mix(1.0, 0.8125, s);
-                        r *= (1.0 - step(1.0, s));
-                    } else if (!pv_IsDarkness) {
-                        float s = texture2D(pv_Illumination, pv_MaskCoord).b;
-                        r = max(r, s);
+                    if (!pv_IsDarkness) {
+                        if (!pv_IsSight) {
+                            pAlpha = alpha;
+                            pRatio = max(ratio, texture2D(pv_Vision, pv_MaskCoord).b);
+                        } else {
+                            float s = texture2D(pv_Vision, pv_MaskCoord).r;
+
+                            pAlpha = alpha * mix(1.0, 0.8125, s);
+                            pRatio = ratio * (1.0 - step(1.0, s));
+                        }
+
+                        vec3 colorBackground = texture2D(pv_Illumination, pv_MaskCoord).rgb;
+                        float darkness = texture2D(pv_Lighting, pv_MaskCoord).r;
+                        float penalty = 1.0 - pv_DarknessLightPenalty * darkness;
+
+                        pColorBright = vec3(pv_LightLevelBright * penalty);
+                        pColorDim = mix(colorBackground, pColorBright, pv_LightLevelDim);
+                    } else {
+                        pAlpha = alpha;
+                        pRatio = ratio;
+                        pColorBright = colorBright;
+                        pColorDim = colorDim;
                     }
 
-                    %main%(a, r);
+                    %main%(pAlpha, pRatio, pColorBright, pColorDim);
                 }`
             );
         }
@@ -330,7 +357,7 @@ Hooks.once("init", () => {
                 {
                     float elevation = texture2D(pv_Elevation, pv_MaskCoord).r;
 
-                    if (pv_ElevationRange.x <= elevation && elevation < pv_ElevationRange.y) {
+                    if (elevation < 0.0 || pv_ElevationRange.x <= elevation && elevation < pv_ElevationRange.y) {
                         %main%();
                     } else {
                         gl_FragColor = vec4(0.0);
@@ -400,22 +427,22 @@ Hooks.once("init", () => {
 
     patch("LightingLayer.prototype._drawIlluminationContainer", "POST", function (c) {
         c.filter.resolution = canvas.app.renderer.resolution;
+        c.filterArea = canvas.app.renderer.screen;
         return c;
     });
 
     patch("LightingLayer.prototype._drawColorationContainer", "POST", function (c) {
         c.filter.resolution = canvas.app.renderer.resolution;
+        c.filterArea = canvas.app.renderer.screen;
         return c;
     });
 
     patch("LightingLayer.prototype._configureChannels", "WRAPPER", function (wrapped, ...args) {
-        const ilm = this.illumination;
-
         const daylightColor = CONFIG.Canvas.daylightColor;
         const darknessColor = CONFIG.Canvas.darknessColor;
 
-        CONFIG.Canvas.daylightColor = ilm._pv_daylightColor;
-        CONFIG.Canvas.darknessColor = ilm._pv_darknessColor;
+        CONFIG.Canvas.daylightColor = this._pv_daylightColor;
+        CONFIG.Canvas.darknessColor = this._pv_darknessColor;
 
         const channels = wrapped(...args);
 
@@ -426,6 +453,9 @@ Hooks.once("init", () => {
 
         CONFIG.Canvas.daylightColor = daylightColor;
         CONFIG.Canvas.darknessColor = darknessColor;
+
+        this._pv_version = this.version;
+        this._pv_channels = this.channels;
 
         return channels;
     });
@@ -442,6 +472,34 @@ Hooks.once("init", () => {
 
         this.globalLight = canvas.scene.data.globalLight;
         this.darknessLevel = canvas.scene.data.darkness;
+
+        this._pv_active = true;
+        this._pv_parent = null;
+        this._pv_shape = canvas.dimensions.rect.clone();
+        this._pv_globalLight = this.globalLight;
+
+        let daylightColor = canvas.scene.getFlag("perfect-vision", "daylightColor") ?? "";
+
+        if (daylightColor === "") {
+            daylightColor = CONFIG.Canvas.daylightColor;
+        }
+
+        let darknessColor = canvas.scene.getFlag("perfect-vision", "darknessColor") ?? "";
+
+        if (darknessColor === "") {
+            darknessColor = CONFIG.Canvas.darknessColor;
+        }
+
+        this._pv_daylightColor = sanitizeLightColor(daylightColor);
+        this._pv_darknessColor = sanitizeLightColor(darknessColor);
+        this._pv_darknessLevel = this.darknessLevel;
+        this._pv_saturationLevel = Math.clamped(canvas.scene.getFlag("perfect-vision", "saturation") ?? (1 - this.darknessLevel), 0, 1);
+        this._pv_channels = this.channels;
+        this._pv_version = this.version;
+        this._pv_zIndex = -Infinity;
+        this._pv_data_globalLight = canvas.scene.data.globalLight;
+        this._pv_data_globalLightThreshold = canvas.scene.data.globalLightThreshold;
+        this._pv_areas = [];
 
         this.lighting = this.addChildAt(new PIXI.Container(), 0);
         this.illumination = this.lighting.addChild(this._drawIlluminationContainer());
@@ -466,59 +524,221 @@ Hooks.once("init", () => {
 
         Board.unplace("lighting.lighting");
 
+        this._pv_active = false;
+        this._pv_parent = null;
+        this._pv_shape = null;
+        this._pv_globalLight = false;
+        this._pv_daylightColor = 0;
+        this._pv_darknessColor = 0;
+        this._pv_darknessLevel = 0;
+        this._pv_saturationLevel = 0;
+        this._pv_channels = null;
+        this._pv_version = 0;
+        this._pv_zIndex = -Infinity;
+        this._pv_data_globalLight = false;
+        this._pv_data_globalLightThreshold = null;
+        this._pv_areas = null;
+
         return await wrapped(...args);
     });
 
-    patch("LightingLayer.prototype.refresh", "WRAPPER", function (wrapped, darkness) {
-        let saturation = this._pv_saturation;
+    patch("AmbientLight.prototype.isVisible", "OVERRIDE", function () {
+        return !this.data.hidden && getDarknessLevel(this.source).between(this.data.darkness.min ?? 0, this.data.darkness.max ?? 1);
+    });
 
-        if (saturation === undefined) {
-            if (canvas.scene.getFlag("perfect-vision", "forceSaturation")) {
-                saturation = canvas.scene.getFlag("perfect-vision", "saturation") ?? 0;
-            } else {
-                const darknessLevel = Math.clamped(darkness ?? this.darknessLevel, 0, 1);
+    patch("PointSource.prototype.drawLight", "OVERRIDE", function () {
+        // Protect against cases where the canvas is being deactivated
+        const shader = this.illumination.shader;
+        if (!shader) return null;
 
-                saturation = 1 - darknessLevel;
+        // Update shader uniforms
+        const iu = shader.uniforms;
+        const version = this._pv_area?._pv_version ?? canvas.lighting.version;
+        const updateChannels = this._lightingVersion < version;
+        if (this._resetIlluminationUniforms || updateChannels) {
+            const channels = this._pv_area?._pv_channels ?? canvas.lighting.channels;
+            iu.colorDim = this.isDarkness ? channels.dark.rgb : channels.dim.rgb;
+            iu.colorBright = this.isDarkness ? channels.black.rgb : channels.bright.rgb;
+            this._lightingVersion = version;
+
+            iu.pv_IsSight = this.sourceType === "sight";
+            iu.pv_IsDarkness = this.isDarkness;
+            iu.pv_LightLevelDim = CONFIG.Canvas.lightLevels.dim;
+            iu.pv_LightLevelBright = CONFIG.Canvas.lightLevels.bright;
+            iu.pv_DarknessLightPenalty = CONFIG.Canvas.darknessLightPenalty;
+        }
+        if (this._resetIlluminationUniforms) {
+            iu.ratio = this.ratio;
+            this._resetIlluminationUniforms = false;
+        }
+
+        // Draw the container
+        return this._drawContainer(this.illumination);
+    });
+
+    patch("LightingLayer.prototype.refresh", "OVERRIDE", function (darkness) {
+        this._pv_data_globalLight = canvas.scene.data.globalLight;
+        this._pv_data_globalLightThreshold = canvas.scene.data.globalLightThreshold;
+
+        const priorLevel = this.darknessLevel;
+        const darknessChanged = (darkness !== undefined) && (darkness !== priorLevel)
+        this.darknessLevel = darkness = Math.clamped(darkness ?? this.darknessLevel, 0, 1);
+
+        this._pv_darknessLevel = darkness;
+
+        // Update lighting channels
+        if (darknessChanged || !this.channels) this.channels = this._configureChannels(darkness);
+
+        // Track global illumination
+        let refreshVision = false;
+        const globalLight = this.hasGlobalIllumination();
+        if (globalLight !== this.globalLight) {
+            this.globalLight = globalLight;
+            canvas.perception.schedule({ sight: { initialize: true, refresh: true } });
+        }
+
+        this._pv_globalLight = globalLight;
+
+        refreshAreas(this);
+
+        // Clear currently rendered sources
+        const ilm = this.illumination;
+        ilm.lights.removeChildren();
+        const col = this.coloration;
+        col.removeChildren();
+        this._animatedSources = [];
+
+        // Tint the background color
+        canvas.app.renderer.backgroundColor = this.channels.canvas.hex;
+        ilm.background.tint = this.channels.background.hex;
+
+        // Render light sources
+        for (let sources of [this.sources, canvas.sight.sources]) {
+            for (let source of sources) {
+                const area = Lighting.findArea(source.x, source.y);
+
+                if (source._pv_area !== area) {
+                    source._pv_area = area;
+                    source._lightingVersion = 0;
+                    source._resetIlluminationUniforms = true;
+                }
+
+                // Check the active state of the light source
+                const isActive = !source.skipRender && source._pv_area._pv_darknessLevel.between(source.darkness.min, source.darkness.max);
+                if (source.active !== isActive) refreshVision = true;
+                source.active = isActive;
+                if (!source.active) continue;
+
+                // Draw the light update
+                const light = source.drawLight();
+                if (light) ilm.lights.addChild(light);
+                const color = source.drawColor();
+                if (color) col.addChild(color);
+                if (source.animation?.type) this._animatedSources.push(source);
             }
+        }
+
+        // Draw non-occluded roofs that block light
+        const displayRoofs = canvas.foreground.displayRoofs;
+        for (let roof of canvas.foreground.roofs) {
+            if (!displayRoofs || roof.occluded) continue;
+            const si = roof.getRoofSprite();
+            if (!si) continue;
+
+            // Block illumination
+            si.tint = this.channels.background.hex;
+            this.illumination.lights.addChild(si)
+
+            // Block coloration
+            const sc = roof.getRoofSprite();
+            sc.tint = 0x000000;
+            this.coloration.addChild(sc);
+        }
+
+        // Refresh vision if necessary
+        if (refreshVision) canvas.perception.schedule({ sight: { refresh: true } });
+
+        // Refresh audio if darkness changed
+        if (darknessChanged) {
+            this._onDarknessChange(darkness, priorLevel);
+            canvas.sounds._onDarknessChange(darkness, priorLevel);
+        }
+
+        // Dispatch a hook that modules can use
+        Hooks.callAll("lightingRefresh", this);
+    });
+
+    patch("LightingLayer.prototype.refresh", "WRAPPER", function (wrapped, darkness) {
+        const darknessLevel = darkness ?? this.darknessLevel;
+
+        let daylightColor;
+
+        if (this.hasOwnProperty("_pv_preview_daylightColor")) {
+            daylightColor = this._pv_preview_daylightColor ?? "";
+        } else {
+            daylightColor = canvas.scene.getFlag("perfect-vision", "daylightColor") ?? "";
+        }
+
+        if (daylightColor === null || daylightColor === "") {
+            daylightColor = CONFIG.Canvas.daylightColor;
+        }
+
+        daylightColor = sanitizeLightColor(daylightColor);
+
+        let darknessColor;
+
+        if (this.hasOwnProperty("_pv_preview_darknessColor")) {
+            darknessColor = this._pv_preview_darknessColor ?? "";
+        } else {
+            darknessColor = canvas.scene.getFlag("perfect-vision", "darknessColor") ?? "";
+        }
+
+        if (darknessColor === null || darknessColor === "") {
+            darknessColor = CONFIG.Canvas.darknessColor;
+        }
+
+        darknessColor = sanitizeLightColor(darknessColor);
+
+        if (daylightColor !== this._pv_daylightColor || darknessColor !== this._pv_darknessColor) {
+            this.channels = null;
+        }
+
+        this._pv_daylightColor = daylightColor;
+        this._pv_darknessColor = darknessColor;
+
+        let saturation;
+
+        if (this.hasOwnProperty("_pv_preview_saturation")) {
+            saturation = this._pv_preview_saturation ?? null;
+        } else {
+            saturation = canvas.scene.getFlag("perfect-vision", "saturation") ?? null;
+
+            const forceSaturation = canvas.scene.getFlag("perfect-vision", "forceSaturation");
+
+            if (forceSaturation !== undefined) {
+                if (!forceSaturation) {
+                    saturation = null;
+                    canvas.scene.setFlag("perfect-vision", "saturation", null);
+                }
+
+                canvas.scene.unsetFlag("perfect-vision", "forceSaturation");
+            }
+        }
+
+        if (saturation === null) {
+            saturation = 1 - darknessLevel;
         }
 
         this._pv_saturationLevel = saturation = Math.clamped(saturation, 0, 1);
 
-        const ilm = this.illumination;
-
-        let daylightColor = canvas.scene.getFlag("perfect-vision", "daylightColor");
-        let darknessColor = canvas.scene.getFlag("perfect-vision", "darknessColor");
-
-        if (daylightColor) {
-            daylightColor = colorStringToHex(daylightColor);
-        } else {
-            daylightColor = CONFIG.Canvas.daylightColor;
-        }
-
-        if (darknessColor) {
-            darknessColor = colorStringToHex(darknessColor);
-        } else {
-            darknessColor = CONFIG.Canvas.darknessColor;
-        }
-
-        const sanitize = hex => {
-            const x = [(hex >> 16) & 0xFF, (hex >> 8) & 0xFF, hex & 0xFF].map(x => Math.max(x, 0xF));
-            return (x[0] << 16) + (x[1] << 8) + x[2];
-        }
-
-        daylightColor = sanitize(daylightColor);
-        darknessColor = sanitize(darknessColor);
-
-        if (daylightColor !== ilm._pv_daylightColor || darknessColor !== ilm._pv_darknessColor) {
-            this.channels = null;
-        }
-
-        ilm._pv_daylightColor = daylightColor;
-        ilm._pv_darknessColor = darknessColor;
-
         wrapped(darkness);
 
         return this;
+    });
+
+    patch("LightingLayer.prototype.hasGlobalIllumination", "OVERRIDE", function () {
+        const sd = canvas.scene.data;
+        return sd.globalLight && (sd.globalLightThreshold === null || this.darknessLevel <= sd.globalLightThreshold);
     });
 });
 
@@ -531,6 +751,279 @@ function getLightRadius(token, units) {
     const hw = token.w / 2;
 
     return (u / canvas.dimensions.distance * canvas.dimensions.size + hw) * Math.sign(units);
+}
+
+function sanitizeLightColor(color) {
+    if (typeof color === "string") {
+        color = colorStringToHex(color);
+    }
+
+    const x = [(color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF].map(x => Math.max(x, 0xF));
+    return (x[0] << 16) + (x[1] << 8) + x[2];
+}
+
+function getDarknessLevel(source) {
+    return Lighting.findArea(source.x, source.y)._pv_darknessLevel ?? 0;
+}
+
+function refreshAreas(layer) {
+    const sorted = [];
+    const visited = {};
+
+    const visit = area => {
+        if (area === layer) {
+            return;
+        }
+
+        if (visited[area.id]) {
+            return;
+        }
+
+        visited[area.id] = true;
+
+        if (area._pv_active === undefined) {
+            area._pv_active = false;
+            area._pv_shape = null;
+            area._pv_parent = null;
+            area._pv_globalLight = false;
+            area._pv_daylightColor = 0;
+            area._pv_darknessColor = 0;
+            area._pv_darknessLevel = 0;
+            area._pv_saturationLevel = 0;
+            area._pv_channels = null;
+            area._pv_version = 0;
+            area._pv_zIndex = 0;
+            area._pv_data_globalLight = false;
+            area._pv_data_globalLightThreshold = null;
+        }
+
+        let parent;
+
+        if (area.hasOwnProperty("_pv_preview_parent")) {
+            parent = area._pv_preview_parent ?? "";
+        } else {
+            parent = area.document.getFlag("perfect-vision", "parent") ?? "";
+        }
+
+        if (parent) {
+            parent = canvas.drawings.get(parent) ?? null;
+        } else {
+            parent = layer;
+        }
+
+        area._pv_parent = parent;
+
+        if (parent) {
+            visit(parent);
+        }
+
+        sorted.push(area);
+    }
+
+    for (const drawing of canvas.drawings.placeables) {
+        visit(drawing);
+    }
+
+    const { lightLevels, darknessLightPenalty } = CONFIG.Canvas;
+    const { dark, dim, bright } = lightLevels;
+
+    layer._pv_areas.length = 0;
+
+    for (const area of sorted) {
+        const document = area.document;
+
+        let active;
+
+        if (area.hasOwnProperty("_pv_preview_active")) {
+            active = !!area._pv_preview_active;
+        } else {
+            active = !!document.getFlag("perfect-vision", "active");
+        }
+
+        active = active && !area.skipRender && area._pv_parent?._pv_active;
+
+        if (area._pv_active !== active) {
+            area._pv_active = active;
+            canvas.perception.schedule({ sight: { initialize: true, refresh: true } });
+        }
+
+        if (!active) {
+            area._pv_shape = null;
+            area._pv_parent = null;
+            area._pv_globalLight = false;
+            area._pv_daylightColor = 0;
+            area._pv_darknessColor = 0;
+            area._pv_darknessLevel = 0;
+            area._pv_saturationLevel = 0;
+            area._pv_channels = null;
+            area._pv_version = 0;
+            area._pv_zIndex = 0;
+            area._pv_data_globalLight = false;
+            area._pv_data_globalLightThreshold = null;
+            continue;
+        }
+
+        layer._pv_areas.push(area);
+
+        area._pv_shape = Drawings.extractShape(area);
+
+        let globalLight;
+
+        if (area.hasOwnProperty("_pv_preview_globalLight")) {
+            globalLight = area._pv_preview_globalLight;
+        } else {
+            globalLight = document.getFlag("perfect-vision", "globalLight");
+        }
+
+        if (globalLight === undefined) {
+            globalLight = area._pv_parent._pv_data_globalLight;
+        }
+
+        area._pv_data_globalLight = globalLight = !!globalLight;
+
+        let daylightColor;
+
+        if (area.hasOwnProperty("_pv_preview_daylightColor")) {
+            daylightColor = area._pv_preview_daylightColor;
+        } else {
+            daylightColor = document.getFlag("perfect-vision", "daylightColor");
+        }
+
+        if (daylightColor !== undefined) {
+            daylightColor = daylightColor ?? "";
+
+            if (daylightColor === "") {
+                daylightColor = CONFIG.Canvas.daylightColor;
+            }
+        } else {
+            daylightColor = area._pv_parent._pv_daylightColor;
+        }
+
+        daylightColor = sanitizeLightColor(daylightColor);
+
+        let darknessColor;
+
+        if (area.hasOwnProperty("_pv_preview_darknessColor")) {
+            darknessColor = area._pv_preview_darknessColor;
+        } else {
+            darknessColor = document.getFlag("perfect-vision", "darknessColor");
+        }
+
+        if (darknessColor !== undefined) {
+            darknessColor = darknessColor ?? "";
+
+            if (darknessColor === "") {
+                darknessColor = CONFIG.Canvas.darknessColor;
+            }
+        } else {
+            darknessColor = area._pv_parent._pv_darknessColor;
+        }
+
+        darknessColor = sanitizeLightColor(darknessColor);
+
+        if (area._pv_daylightColor !== daylightColor || area._pv_darknessColor !== darknessColor) {
+            area._pv_channels = null;
+        }
+
+        area._pv_daylightColor = daylightColor;
+        area._pv_darknessColor = darknessColor;
+
+        let darkness;
+
+        if (area.hasOwnProperty("_pv_preview_darkness")) {
+            darkness = area._pv_preview_darkness;
+        } else {
+            darkness = document.getFlag("perfect-vision", "darkness");
+        }
+
+        if (darkness !== undefined) {
+            darkness = darkness ?? 0;
+        } else {
+            darkness = area._pv_parent._pv_darknessLevel;
+        }
+
+        darkness = Math.clamped(darkness, 0, 1);
+
+        if (area._pv_darknessLevel !== darkness) {
+            area._pv_channels = null;
+        }
+
+        area._pv_darknessLevel = darkness;
+
+        let saturation;
+
+        if (area.hasOwnProperty("_pv_preview_saturation")) {
+            saturation = area._pv_preview_saturation
+        } else {
+            saturation = document.getFlag("perfect-vision", "saturation");
+        }
+
+        if (saturation !== undefined) {
+            if (saturation === null) {
+                saturation = 1 - area._pv_darknessLevel;
+            }
+        } else {
+            saturation = area._pv_parent._pv_saturationLevel;
+        }
+
+        area._pv_saturationLevel = saturation = Math.clamped(saturation, 0, 1);
+
+        let globalLightThreshold;
+
+        if (area.hasOwnProperty("_pv_preview_globalLightThreshold")) {
+            globalLightThreshold = area._pv_preview_globalLightThreshold;
+        } else {
+            globalLightThreshold = document.getFlag("perfect-vision", "globalLightThreshold");
+        }
+
+        if (globalLightThreshold === undefined) {
+            globalLightThreshold = area._pv_parent._pv_data_globalLightThreshold;
+        }
+
+        area._pv_data_globalLightThreshold = globalLightThreshold;
+
+        globalLight = globalLight && (globalLightThreshold === null || area._pv_darknessLevel <= globalLightThreshold);
+
+        if (area._pv_globalLight !== globalLight) {
+            area._pv_globalLight = globalLight;
+            canvas.perception.schedule({ sight: { initialize: true, refresh: true } });
+        }
+
+        if (area._pv_channels === null) {
+            area._pv_version++;
+
+            const channels = { canvas: layer.channels.canvas, background: {}, black: {}, bright: {}, dark: {}, dim: {} };
+
+            // The canvas background is a blend between the Scene background color and the darkness level
+            const darknessRGB = foundry.utils.hexToRGB(darknessColor);
+
+            // The background is based on the darkness color and the darkness level
+            const daylightRGB = canvas.scene.data.tokenVision ? foundry.utils.hexToRGB(daylightColor) : [1.0, 1.0, 1.0];
+            channels.background.rgb = darknessRGB.map((c, i) => (darkness * c) + ((1 - darkness) * daylightRGB[i]));
+            channels.background.hex = foundry.utils.rgbToHex(channels.background.rgb);
+
+            // Magical darkness and blackness is based on the true darkness color
+            channels.dark.rgb = darknessRGB.map(c => (1 + dark) * c);
+            channels.dark.hex = foundry.utils.rgbToHex(channels.dark.rgb);
+            channels.black.rgb = channels.dark.rgb.map(c => 0.5 * c);
+            channels.black.hex = foundry.utils.rgbToHex(channels.black.rgb);
+
+            // Bright light is penalized by the darkness level
+            const penalty = 1 - (darknessLightPenalty * darkness);
+            channels.bright.rgb = [1, 1, 1].map(c => bright * c * penalty);
+            channels.bright.hex = foundry.utils.rgbToHex(channels.bright.rgb);
+
+            // Dim light is halfway between background and bright
+            channels.dim.rgb = channels.bright.rgb.map((c, i) => (dim * c) + ((1 - dim) * channels.background.rgb[i]));
+            channels.dim.hex = foundry.utils.rgbToHex(channels.dim.rgb);
+
+            area._pv_channels = channels;
+        }
+
+        area._pv_zIndex = area.data.z;
+    }
+
+    layer._pv_areas.sort((a, b) => a._pv_zIndex - b._pv_zIndex);
 }
 
 Hooks.on("updateScene", (scene, change, options, userId) => {
@@ -608,28 +1101,27 @@ AbstractBaseShader.vertexShader = `\
 Logger.debug("Patching AbstractBaseShader.prototype.update (OVERRIDE)");
 
 AbstractBaseShader.prototype.update = function () {
-    this.uniforms.pv_IsSight = this.source.sourceType === "sight";
-    this.uniforms.pv_IsDarkness = this.source.isDarkness;
+    const uniforms = this.uniforms;
 
-    if (this.uniforms.pv_MaskSize !== Mask.size) {
-        this.uniforms.pv_MaskSize = Mask.size;
+    if (uniforms.pv_MaskSize !== Mask.size) {
+        uniforms.pv_MaskSize = Mask.size;
     }
 
-    const illumination = Mask.getTexture("illumination");
+    if (!this._pv_init) {
+        this._pv_init = true;
 
-    if (this.uniforms.pv_Illumination !== illumination) {
-        this.uniforms.pv_Illumination = illumination;
-    }
+        uniforms.pv_Illumination = Mask.getTexture("illumination");
+        uniforms.pv_Lighting = Mask.getTexture("lighting");
+        uniforms.pv_Vision = Mask.getTexture("vision");
 
-    const elevation = Mask.get("elevation");
+        const elevation = Mask.get("elevation");
 
-    if (elevation) {
-        if (this.uniforms.pv_Elevation !== elevation.texture) {
-            this.uniforms.pv_Elevation = elevation.texture;
+        if (elevation) {
+            uniforms.pv_Elevation = elevation.texture;
         }
-
-        Elevation.getSourceElevationRange(this.source, this.uniforms.pv_ElevationRange);
     }
+
+    Elevation.getElevationRange(this.source.object, uniforms.pv_ElevationRange);
 };
 
 class IlluminationBackgroundShader extends PIXI.Shader {
@@ -653,13 +1145,19 @@ class IlluminationBackgroundShader extends PIXI.Shader {
         varying vec2 vMaskCoord;
 
         uniform sampler2D uIllumination;
-        uniform vec3 uColorLight;
-        uniform vec3 uColorDarkness;
+        uniform sampler2D uVision;
+        uniform bool uImprovedGMVision;
 
         void main()
         {
-            vec3 mask = texture2D(uIllumination, vMaskCoord).rgb;
-            gl_FragColor = vec4(mix(uColorDarkness, uColorLight, mask.r), 1.0);
+            vec3 mask = texture2D(uVision, vMaskCoord).rgb;
+            vec3 background = texture2D(uIllumination, vMaskCoord).rgb;
+
+            if (!uImprovedGMVision) {
+                gl_FragColor = vec4(background, 1.0);
+            } else {
+                gl_FragColor = vec4(mix(vec3(1.0), background, mask.r), 1.0);
+            }
         }`;
 
     static get program() {
@@ -674,8 +1172,8 @@ class IlluminationBackgroundShader extends PIXI.Shader {
         return {
             uMaskSize: Mask.size,
             uIllumination: Mask.getTexture("illumination"),
-            uColorLight: new Float32Array(3),
-            uColorDarkness: new Float32Array(3),
+            uVision: Mask.getTexture("vision"),
+            uImprovedGMVision: false
         };
     }
 
@@ -689,36 +1187,13 @@ class IlluminationBackgroundShader extends PIXI.Shader {
 
     constructor() {
         super(IlluminationBackgroundShader.program, IlluminationBackgroundShader.defaultUniforms());
-
-        this.version = -1;
-        this.improvedGMVision = null;
     }
 
     update() {
-        if (this.version !== canvas.lighting.version) {
-            this.version = canvas.lighting.version;
-
-            const channels = canvas.lighting.channels;
-
-            this.uniforms.uColorLight = channels.background.rgb;
-
-            this.improvedGMVision = null;
-        }
-
         const improvedGMVision = canvas.sight.sources.size === 0 && game.user.isGM && game.settings.get("perfect-vision", "improvedGMVision");
 
-        if (this.improvedGMVision !== improvedGMVision) {
-            this.improvedGMVision = improvedGMVision;
-
-            const channels = canvas.lighting.channels;
-
-            if (improvedGMVision) {
-                const s = 1 / Math.max(...channels.background.rgb);
-
-                this.uniforms.uColorDarkness = channels.background.rgb.map(c => c * s);
-            } else {
-                this.uniforms.uColorDarkness = channels.background.rgb;
-            }
+        if (this.uniforms.uImprovedGMVision !== improvedGMVision) {
+            this.uniforms.uImprovedGMVision = improvedGMVision;
         }
     }
 }

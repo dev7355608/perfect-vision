@@ -4,6 +4,7 @@ import "./base-image-resource.js";
 import "./base-render-texture.js";
 import "./base-texture.js";
 import "./canvas-render-target.js";
+import "./display-object.js";
 import "./filter-system.js";
 import "./framebuffer-system.js";
 import "./framebuffer.js";

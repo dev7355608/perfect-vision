@@ -91,7 +91,6 @@ function renderConfig(sheet, html, data) {
         });
 
         html.find(`input[name="vision"]`).parent().after(config);
-        $(config).on("change", "input,select,textarea", sheet._onChangeInput.bind(sheet));
 
         const config2 = renderConfigTemplate2({
             settings: [{
@@ -107,7 +106,6 @@ function renderConfig(sheet, html, data) {
         });
 
         html.find(`input[name="sightAngle"]`).parent().before(config2);
-        $(config2).on("change", "input,select,textarea", sheet._onChangeInput.bind(sheet));
     } else {
         console.assert(sheet instanceof SettingsConfig);
     }
@@ -118,7 +116,6 @@ function renderConfig(sheet, html, data) {
     colorInput.setAttribute("data-edit", `${prefix}.monoVisionColor`);
 
     html.find(`input[name="${prefix}.monoVisionColor"]`).after(colorInput)
-    $(colorInput).on("change", sheet._onChangeInput.bind(sheet));
 
     const defaultVisionRules = settings.find(s => s.key === "visionRules").choices[game.settings.get("perfect-vision", "visionRules")];
 
@@ -127,10 +124,11 @@ function renderConfig(sheet, html, data) {
     const inputMonochromeVisionColor = html.find(`input[name="${prefix}.monoVisionColor"]`);
     inputMonochromeVisionColor.attr("class", "color");
 
-    if (sheet instanceof TokenConfig)
+    if (sheet instanceof TokenConfig) {
         inputMonochromeVisionColor.attr("placeholder", `Default (${game.settings.get("perfect-vision", "monoVisionColor") || "#ffffff"})`);
-    else
+    } else {
         inputMonochromeVisionColor.attr("placeholder", `#ffffff`);
+    }
 
     if (sheet instanceof TokenConfig) {
         const scene = document.parent
@@ -189,8 +187,9 @@ function renderConfig(sheet, html, data) {
         const inputMonochromeVisionColor = html.find(`input[name="${prefix}.monoVisionColor"]`);
         inputMonochromeVisionColor.next().val(inputMonochromeVisionColor.val() || game.settings.get("perfect-vision", "monoVisionColor") || "#ffffff");
 
-        if (!sheet._minimized)
+        if (!sheet._minimized) {
             sheet.setPosition(sheet.position);
+        }
     };
 
     update();
@@ -207,50 +206,33 @@ Hooks.on("renderSceneConfig", (sheet, html, data) => {
     const document = sheet.object;
 
     html.find(`input[name="globalLight"]`).parent().after(`\
-    <div class="form-group">
-        <label>Sight Limit <span class="units">(Distance)</span></label>
-        <div class="form-fields">
-            <input type="number" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
-        </div>
-        <p class="notes">Limit the sight of all controlled Tokens. This limit is in effect even if Unrestricted Vision Range is enabled. The limit can be set for each token individually in the token configuration under the Vision tab.</p>
-    </div>`);
-
+        <div class="form-group">
+            <label>Sight Limit <span class="units">(Distance)</span></label>
+            <div class="form-fields">
+                <input type="number" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
+            </div>
+            <p class="notes">Limit the sight of all controlled Tokens. This limit is in effect even if Unrestricted Vision Range is enabled. The limit can be set for each token individually in the token configuration under the Vision tab.</p>
+        </div>`);
     html.find(`input[name="flags.perfect-vision.sightLimit"]`)
-        .attr("value", document.getFlag("perfect-vision", "sightLimit"))
-        .on("change", sheet._onChangeInput.bind(sheet));
-
+        .attr("value", document.getFlag("perfect-vision", "sightLimit"));
     html.find(`input[name="darkness"]`).parent().parent().after(`\
         <div class="form-group">
             <label>Saturation Level</label>
             <div class="form-fields">
                 <label class="checkbox">
-                    <input type="checkbox" name="flags.perfect-vision.forceSaturation">
+                    <input type="checkbox" id="perfect-vision.hasSaturation">
                 </label>
                 <input type="range" name="flags.perfect-vision.saturation" value="0" min="0" max="1" step="0.05">
                 <span class="range-value">0</span>
             </div>
             <p class="notes">Desaturate unilluminated areas and monochrome vision. If disabled, the saturation is linked to the Darkness Level.</p>
         </div>`);
-
-    html.find(`input[name="flags.perfect-vision.forceSaturation"]`)
-        .attr("checked", document.getFlag("perfect-vision", "forceSaturation"))
-        .on("change", (event) => {
-            if (event.target.checked) {
-                canvas.lighting._pv_saturation = Number(sheet.form.elements["flags.perfect-vision.saturation"].value);
-            } else {
-                canvas.lighting._pv_saturation = 1 - Number(sheet.form.elements["darkness"].value);
-            }
-
-            canvas.lighting.refresh(Number(sheet.form.elements["darkness"].value));
-
-            canvas.lighting._pv_saturation = undefined;
-        });
-
-    html.find(`input[name="flags.perfect-vision.saturation"]`).next()
-        .html(document.getFlag("perfect-vision", "saturation"))
+    html.find(`input[id="perfect-vision.hasSaturation"]`)
+        .attr("checked", Number.isFinite(document.getFlag("perfect-vision", "saturation")));
     html.find(`input[name="flags.perfect-vision.saturation"]`)
-        .attr("value", document.getFlag("perfect-vision", "saturation"))
-        .on("change", sheet._onChangeInput.bind(sheet));
+        .attr("value", document.getFlag("perfect-vision", "saturation") ?? 0);
+    html.find(`input[name="flags.perfect-vision.saturation"]`).next()
+        .html(document.getFlag("perfect-vision", "saturation") ?? 0);
 
     const addColorSetting = (name, label) => {
         const defaultColor = "#" + ("000000" + CONFIG.Canvas[name].toString(16)).slice(-6);
@@ -263,56 +245,510 @@ Hooks.on("renderSceneConfig", (sheet, html, data) => {
                     <input type="color" data-edit="flags.perfect-vision.${name}">
                 </div>
             </div>`);
-
+        html.find(`input[name="flags.perfect-vision.${name}"]`)
+            .attr("value", document.getFlag("perfect-vision", name));
         html.find(`input[name="flags.perfect-vision.${name}"]`).next()
             .attr("value", document.getFlag("perfect-vision", name) || defaultColor);
-        html.find(`input[name="flags.perfect-vision.${name}"]`)
-            .attr("value", document.getFlag("perfect-vision", name))
-            .on("change", sheet._onChangeInput.bind(sheet));
     };
 
     addColorSetting("daylightColor", "Daylight Color");
     addColorSetting("darknessColor", "Darkness Color");
 
-    if (!sheet._minimized)
+    if (!sheet._minimized) {
         sheet.setPosition(sheet.position);
+    }
+});
+
+Hooks.on("renderDrawingConfig", (sheet, html, data) => {
+    if (!game.user.isGM) {
+        return;
+    }
+
+    const document = sheet.object;
+
+    if (!document) {
+        return;
+    }
+
+    const scene = document.parent;
+
+    if (!scene) {
+        return;
+    }
+
+    const drawing = document.object;
+
+    if (!drawing) {
+        return;
+    }
+
+    function resetDefaults(event) {
+        event.preventDefault();
+
+        this.object.update({ "flags.-=perfect-vision": null });
+        this.object.data.update({ "flags.-=perfect-vision": null });
+
+        canvas.lighting.refresh();
+
+        this._pv_reset = true;
+        this.render();
+    }
+
+    const nav = html.find("nav.sheet-tabs.tabs");
+
+    nav.append(`<a class="item" data-tab="perfect-vision.vision-and-lighting"><i class="fas fa-lightbulb"></i> Vision/Lighting</a>`);
+    nav.parent().find("footer").before(`\
+        <div class="tab" data-tab="perfect-vision.vision-and-lighting">
+            <p class="notes">Adjust vision and lighting of the area below the Drawing overriding the scene settings. Drawings with higher Z-Index override the vision and lighting settings of overlapping Drawings with lower Z-Index.</p>
+            <div class="form-group">
+                <label>Active</label>
+                <div class="form-fields">
+                    <label id="perfect-vision.id" style="flex: 1; font-family: monospace;">${drawing.id}</label>
+                    <button type="button" style="flex: 1;" id="perfect-vision.resetDefaults"><i class="fas fa-undo"></i> Reset Defaults</button>
+                    &nbsp;&nbsp;&nbsp;
+                    <label class="checkbox" style="visibility: hidden;">Override&nbsp;</label>
+                    <input type="checkbox" name="flags.perfect-vision.active">
+                </div>
+                <p class="notes">If enabled, vision and lighting of the area below is controlled by the following settings.</p>
+            </div>
+            <div class="form-group">
+                <label>Parent Drawing</label>
+                <div class="form-fields">
+                    <select name="flags.perfect-vision.parent" style="font-family: monospace;" data-dtype="String">
+                        <option value=""></option>
+                    </select>
+                    &nbsp;&nbsp;&nbsp;
+                    <label class="checkbox" style="visibility: hidden;">Override <input type="checkbox"></label>
+                    </div>
+                <p class="notes">If left blank, the scene is the parent. The settings below default to the parent's setting if <i>Override</i> is unchecked.</p>
+            </div>
+            <div class="form-group">
+                <label>Unrestricted Vision Range</label>
+                <div class="form-fields">
+                    <input type="checkbox" name="flags.perfect-vision.globalLight" />
+                    &nbsp;&nbsp;&nbsp;
+                    <label class="checkbox">Override <input type="checkbox" id="perfect-vision.overrideGlobalLight"></label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Darkness Level</label>
+                <div class="form-fields">
+                    <input type="range" name="flags.perfect-vision.darkness" value="0" min="0" max="1" step="0.05">
+                    <span class="range-value">0</span>
+                    &nbsp;&nbsp;&nbsp;
+                    <label class="checkbox">Override <input type="checkbox" id="perfect-vision.overrideDarkness"></label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Saturation Level</label>
+                <div class="form-fields">
+                    <label class="checkbox">
+                        <input type="checkbox" id="perfect-vision.hasSaturation">
+                    </label>
+                    <input type="range" name="flags.perfect-vision.saturation" value="0" min="0" max="1" step="0.05">
+                    <span class="range-value">0</span>
+                    &nbsp;&nbsp;&nbsp;
+                    <label class="checkbox">Override <input type="checkbox" id="perfect-vision.overrideSaturation"></label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Vision Limitation Threshold</label>
+                <div class="form-fields">
+                    <label class="checkbox">
+                        <input type="checkbox" id="perfect-vision.hasGlobalThreshold">
+                    </label>
+                    <input type="range" name="flags.perfect-vision.globalLightThreshold" value="0" min="0" max="1" step="0.05">
+                    <span class="range-value">0</span>
+                    &nbsp;&nbsp;&nbsp;
+                    <label class="checkbox">Override <input type="checkbox" id="perfect-vision.overrideGlobalThreshold"></label>
+                </div>
+            </div>
+        </div>`);
+
+    const select = html.find(`select[name="flags.perfect-vision.parent"]`);
+    const black = select.css("color") || "black";
+
+    for (const area of canvas.drawings.placeables.filter(a => a !== drawing).sort((a, b) => a.id.localeCompare(b.id))) {
+        let current = area.id;
+        let disabled = false;
+
+        while (current) {
+            if (current === drawing.id) {
+                disabled = true;
+                break;
+            }
+
+            current = canvas.drawings.get(current)?.document.getFlag("perfect-vision", "parent");
+        }
+
+        if (disabled) {
+            select.append(`<option value="${area.id}" disabled>${area.id}</id>`);
+        } else {
+            select.append(`<option value="${area.id}" style="color: ${!area._pv_active ? "red" : black};">${area.id}</id>`);
+        }
+    }
+
+    html.find(`label[id="perfect-vision.id"]`).css("color", drawing._pv_active ? "unset" : "red");
+    html.find(`button[id="perfect-vision.resetDefaults"]`)
+        .on("click", resetDefaults.bind(sheet));
+    html.find(`input[name="flags.perfect-vision.active"]`)
+        .attr("checked", document.getFlag("perfect-vision", "active"));
+    html.find(`select[name="flags.perfect-vision.parent"]`)
+        .val(document.getFlag("perfect-vision", "parent") ?? "");
+    html.find(`select[name="flags.perfect-vision.parent"]`)
+        .css("color", canvas.drawings.get(document.getFlag("perfect-vision", "parent") ?? "")?._pv_active !== false ? "unset" : "red");
+    html.find(`input[id="perfect-vision.overrideGlobalLight"]`)
+        .attr("checked", document.getFlag("perfect-vision", "globalLight") !== undefined);
+    html.find(`input[name="flags.perfect-vision.globalLight"]`)
+        .attr("checked", document.getFlag("perfect-vision", "globalLight"));
+    html.find(`input[id="perfect-vision.overrideDarkness"]`)
+        .attr("checked", document.getFlag("perfect-vision", "darkness") !== undefined);
+    html.find(`input[name="flags.perfect-vision.darkness"]`).next()
+        .html(document.getFlag("perfect-vision", "darkness") ?? 0)
+    html.find(`input[name="flags.perfect-vision.darkness"]`)
+        .attr("value", document.getFlag("perfect-vision", "darkness") ?? 0);
+    html.find(`input[id="perfect-vision.overrideSaturation"]`)
+        .attr("checked", document.getFlag("perfect-vision", "saturation") !== undefined);
+    html.find(`input[id="perfect-vision.hasSaturation"]`)
+        .attr("checked", Number.isFinite(document.getFlag("perfect-vision", "saturation")));
+    html.find(`input[name="flags.perfect-vision.saturation"]`).next()
+        .html(document.getFlag("perfect-vision", "saturation") ?? 0)
+    html.find(`input[name="flags.perfect-vision.saturation"]`)
+        .attr("value", document.getFlag("perfect-vision", "saturation") ?? 0);
+    html.find(`input[id="perfect-vision.overrideGlobalThreshold"]`)
+        .attr("checked", document.getFlag("perfect-vision", "globalLightThreshold") !== undefined);
+    html.find(`input[id="perfect-vision.hasGlobalThreshold"]`)
+        .attr("checked", Number.isFinite(document.getFlag("perfect-vision", "globalLightThreshold")));
+    html.find(`input[name="flags.perfect-vision.globalLightThreshold"]`).next()
+        .html(document.getFlag("perfect-vision", "globalLightThreshold") ?? 0)
+    html.find(`input[name="flags.perfect-vision.globalLightThreshold"]`)
+        .attr("value", document.getFlag("perfect-vision", "globalLightThreshold") ?? 0);
+
+    const addColorSetting = (name, label) => {
+        const defaultColor = "#" + ("000000" + CONFIG.Canvas[name].toString(16)).slice(-6);
+
+        html.find(`input[name="flags.perfect-vision.darkness"]`).parent().parent().before(`\
+            <div class="form-group">
+                <label>${label}</label>
+                <div class="form-fields">
+                    <input type="text" name="flags.perfect-vision.${name}" placeholder="Default (${defaultColor})" data-dtype="String">
+                    <input type="color" data-edit="flags.perfect-vision.${name}">
+                    &nbsp;&nbsp;&nbsp;
+                    <label class="checkbox">Override <input type="checkbox" id="perfect-vision.override${name.capitalize()}"></label>
+                </div>
+            </div>`);
+        html.find(`input[id="perfect-vision.override${name.capitalize()}"]`)
+            .attr("checked", document.getFlag("perfect-vision", name) !== undefined);
+        html.find(`input[name="flags.perfect-vision.${name}"]`)
+            .attr("value", document.getFlag("perfect-vision", name) ?? "");
+        html.find(`input[name="flags.perfect-vision.${name}"]`).next()
+            .attr("value", document.getFlag("perfect-vision", name) || defaultColor)
+    };
+
+    addColorSetting("daylightColor", "Daylight Color");
+    addColorSetting("darknessColor", "Darkness Color");
+
+    if (sheet._pv_reset) {
+        sheet._pv_reset = false;
+        sheet._tabs[0].activate("perfect-vision.vision-and-lighting");
+    }
+
+    if (!sheet._minimized) {
+        sheet.position.width = Math.max(sheet.position.width, 680);
+        sheet.position.height = Math.max(sheet.position.height, 440);
+        sheet.setPosition(sheet.position);
+    }
 });
 
 Hooks.on("renderLightConfig", (sheet, html, data) => {
     const document = sheet.object;
 
     html.find(`select[name="t"] > option[value="${CONST.SOURCE_TYPES.LOCAL}"]`).after(
-        `<option value="${CONST.SOURCE_TYPES.LOCAL}_unrestricted">${game.i18n.localize("LIGHT.TypeLocal")} (Unrestricted)</option>`
+        `<option value="perfect-vision.${CONST.SOURCE_TYPES.LOCAL}_unrestricted">${game.i18n.localize("LIGHT.TypeLocal")} (Unrestricted)</option>`
     );
 
     if (document.data.t === CONST.SOURCE_TYPES.LOCAL && document.getFlag("perfect-vision", "unrestricted")) {
-        html.find(`select[name="t"] > option[value="${CONST.SOURCE_TYPES.LOCAL}_unrestricted"]`).prop("selected", true);
+        html.find(`select[name="t"] > option[value="perfect-vision.${CONST.SOURCE_TYPES.LOCAL}_unrestricted"]`).prop("selected", true);
     }
 });
 
+Hooks.on("renderDrawingHUD", (hud, html, data) => {
+    const toggle = document.createElement("div");
+
+    toggle.classList.add("control-icon");
+
+    if (data?.flags?.["perfect-vision"]?.active) {
+        toggle.classList.add("active");
+    }
+
+    toggle.setAttribute("title", "Toggle Vision & Lighting");
+    toggle.dataset.action = "perfect-vision.toggle";
+    toggle.innerHTML = `<i class="far fa-lightbulb"></i>`;
+
+    html.find(".col.left").append(toggle);
+    html.find(`.control-icon[data-action="perfect-vision.toggle"]`).click(async event => {
+        await hud.object.document.setFlag("perfect-vision", "active", !data?.flags?.["perfect-vision"]?.active);
+        hud.render(true);
+    })
+});
+
 Hooks.once("init", () => {
-    patch("SceneConfig.prototype._onChangeRange", "WRAPPER", function (wrapped, event) {
-        if (this.form.elements["flags.perfect-vision.forceSaturation"].checked) {
-            canvas.lighting._pv_saturation = Number(this.form.elements["flags.perfect-vision.saturation"].value);
-        } else {
-            canvas.lighting._pv_saturation = 1 - Number(this.form.elements["darkness"].value);
+    patch("SceneConfig.prototype._onChangeInput", "WRAPPER", async function (wrapped, event) {
+        const target = event.target;
+        let name = target.name || target.id;
+
+        if (target.type === "color" && target.dataset.edit?.startsWith("flags.perfect-vision.")) {
+            name = target.dataset.edit;
+            target.form.elements[name].value = target.value;
         }
 
-        wrapped(event);
+        canvas.lighting._pv_preview_daylightColor = this.form.elements["flags.perfect-vision.daylightColor"].value;
+        canvas.lighting._pv_preview_darknessColor = this.form.elements["flags.perfect-vision.darknessColor"].value;
 
-        const rng = event.target;
+        if (this.form.elements["perfect-vision.hasSaturation"].checked) {
+            canvas.lighting._pv_preview_saturation = Number(this.form.elements["flags.perfect-vision.saturation"].value);
+        } else {
+            canvas.lighting._pv_preview_saturation = null;
+        }
 
-        if (rng.name === "flags.perfect-vision.saturation" && this.object.isView) {
-            if (this.form.elements["flags.perfect-vision.forceSaturation"].checked) {
+        const result = await wrapped(event);
+
+        if (this.object.isView) {
+            if (name === "flags.perfect-vision.daylightColor" ||
+                name === "flags.perfect-vision.darknessColor" ||
+                name === "perfect-vision.hasSaturation" ||
+                name === "flags.perfect-vision.saturation" && this.form.elements["perfect-vision.hasSaturation"].checked) {
                 canvas.lighting.refresh(Number(this.form.elements["darkness"].value));
             }
         }
 
-        canvas.lighting._pv_saturation = undefined;
+        delete canvas.lighting._pv_preview_daylightColor;
+        delete canvas.lighting._pv_preview_darknessColor;
+        delete canvas.lighting._pv_preview_saturation;
+
+        return result;
+    });
+
+    patch("SceneConfig.prototype._getSubmitData", "POST", function (data) {
+        if (!this.form.elements["perfect-vision.hasSaturation"].checked) {
+            data["flags.perfect-vision.saturation"] = null;
+        }
+
+        return data;
+    });
+
+    patch("SceneConfig.prototype.close", "POST", async function (result) {
+        await result;
+
+        canvas.perception.schedule({
+            lighting: { refresh: true },
+            sight: { refresh: true }
+        });
+    });
+
+    patch("DrawingConfig.prototype._onChangeInput", "WRAPPER", async function (wrapped, event) {
+        const document = this.object;
+
+        if (!document) {
+            return await wrapped(event);
+        }
+
+        const scene = document.parent;
+
+        if (!scene) {
+            return await wrapped(event);
+        }
+
+        const drawing = document.object;
+
+        if (!drawing) {
+            return await wrapped(event);
+        }
+
+        const target = event.target;
+        let name = target.name || target.id;
+
+        if (target.type === "color" && target.dataset.edit?.startsWith("flags.perfect-vision.")) {
+            name = target.dataset.edit;
+            target.form.elements[name].value = target.value;
+        }
+
+        drawing._pv_preview_active = this.form.elements["flags.perfect-vision.active"].checked;
+
+        if (drawing._pv_preview_active) {
+            drawing._pv_preview_parent = this.form.elements["flags.perfect-vision.parent"].value;
+
+            if (this.form.elements["perfect-vision.overrideGlobalLight"].checked) {
+                drawing._pv_globalLight = this.form.elements["flags.perfect-vision.globalLight"].checked;
+            } else {
+                drawing._pv_globalLight = undefined;
+            }
+
+            if (this.form.elements["perfect-vision.overrideDaylightColor"].checked) {
+                drawing._pv_preview_daylightColor = this.form.elements["flags.perfect-vision.daylightColor"].value;
+            } else {
+                drawing._pv_preview_daylightColor = undefined;
+            }
+
+            if (this.form.elements["perfect-vision.overrideDarknessColor"].checked) {
+                drawing._pv_preview_darknessColor = this.form.elements["flags.perfect-vision.darknessColor"].value;
+            } else {
+                drawing._pv_preview_darknessColor = undefined;
+            }
+
+            if (this.form.elements["perfect-vision.overrideDarkness"].checked) {
+                drawing._pv_preview_darkness = Number(this.form.elements["flags.perfect-vision.darkness"].value);
+            }
+
+            if (this.form.elements["perfect-vision.overrideSaturation"].checked) {
+                if (this.form.elements["perfect-vision.hasSaturation"].checked) {
+                    drawing._pv_preview_saturation = Number(this.form.elements["flags.perfect-vision.saturation"].value);
+                } else {
+                    drawing._pv_preview_saturation = null;
+                }
+            } else {
+                drawing._pv_preview_saturation = undefined;
+            }
+
+            if (this.form.elements["perfect-vision.overrideGlobalThreshold"].checked) {
+                if (this.form.elements["perfect-vision.hasGlobalThreshold"].checked) {
+                    drawing._pv_globalLightThreshold = Number(this.form.elements["flags.perfect-vision.globalLightThreshold"].value);
+                } else {
+                    drawing._pv_globalLightThreshold = null;
+                }
+            } else {
+                drawing._pv_globalLightThreshold = undefined;
+            }
+        }
+
+        const result = await wrapped(event);
+
+        if (scene.isView) {
+            if (!name || name === "flags.perfect-vision.active" ||
+                this.form.elements["flags.perfect-vision.active"].checked && (
+                    name === "flags.perfect-vision.parent" ||
+                    name === "perfect-vision.overrideGlobalLight" ||
+                    name === "flags.perfect-vision.globalLight" && this.form.elements["perfect-vision.overrideGlobalLight"].checked ||
+                    name === "perfect-vision.overrideDaylightColor" ||
+                    name === "flags.perfect-vision.daylightColor" && this.form.elements["perfect-vision.overrideDaylightColor"].checked ||
+                    name === "perfect-vision.overrideDarknessColor" ||
+                    name === "flags.perfect-vision.darknessColor" && this.form.elements["perfect-vision.overrideDarknessColor"].checked ||
+                    name === "perfect-vision.overrideDarkness" ||
+                    name === "flags.perfect-vision.darkness" && this.form.elements["perfect-vision.overrideDarkness"].checked ||
+                    name === "perfect-vision.overrideSaturation" ||
+                    name === "perfect-vision.hasSaturation" && this.form.elements["perfect-vision.overrideSaturation"].checked ||
+                    name === "flags.perfect-vision.saturation" && this.form.elements["perfect-vision.overrideSaturation"].checked && this.form.elements["perfect-vision.hasSaturation"].checked ||
+                    name === "perfect-vision.overrideGlobalThreshold" ||
+                    name === "perfect-vision.hasGlobalThreshold" && this.form.elements["perfect-vision.overrideGlobalThreshold"].checked ||
+                    name === "flags.perfect-vision.globalLightThreshold" && this.form.elements["perfect-vision.hasGlobalThreshold"].checked && this.form.elements["perfect-vision.overrideGlobalThreshold"].checked)) {
+                canvas.lighting.refresh();
+            }
+        }
+
+        $(this.form).find(`label[id="perfect-vision.id"]`).css("color", drawing._pv_active ? "unset" : "red");
+        $(this.form).find(`select[name="flags.perfect-vision.parent"]`)
+            .css("color", drawing._pv_parent?._pv_active !== false ? "unset" : "red");
+
+        delete drawing._pv_preview_active;
+        delete drawing._pv_preview_parent;
+        delete drawing._pv_globalLight;
+        delete drawing._pv_preview_daylightColor;
+        delete drawing._pv_preview_darknessColor;
+        delete drawing._pv_preview_darkness;
+        delete drawing._pv_preview_saturation;
+        delete drawing._pv_globalLightThreshold;
+
+        return result;
+    });
+
+    patch("DrawingConfig.prototype._getSubmitData", "POST", function (data) {
+        const document = this.object;
+
+        if (!document) {
+            return data;
+        }
+
+        const scene = document.parent;
+
+        if (!scene) {
+            return data;
+        }
+
+        const drawing = document.object;
+
+        if (!drawing) {
+            return data;
+        }
+
+        const parent = data["flags.perfect-vision.parent"];
+
+        if (!parent) {
+            data["flags.perfect-vision.parent"] = "";
+        } else {
+            let current = parent;
+
+            while (current) {
+                if (current === this.object.id) {
+                    data["flags.perfect-vision.parent"] = "";
+                    break;
+                }
+
+                current = canvas.drawings.get(current)?.document.getFlag("perfect-vision", "parent");
+            }
+        }
+
+        if (!this.form.elements["perfect-vision.overrideGlobalLight"].checked) {
+            delete data["flags.perfect-vision.globalLight"];
+            data["flags.perfect-vision.-=globalLight"] = null;
+        }
+
+        if (!this.form.elements["perfect-vision.overrideDaylightColor"].checked) {
+            delete data["flags.perfect-vision.daylightColor"];
+            data["flags.perfect-vision.-=daylightColor"] = null;
+        } else if (!data["flags.perfect-vision.daylightColor"]) {
+            data["flags.perfect-vision.daylightColor"] = "";
+        }
+
+        if (!this.form.elements["perfect-vision.overrideDarknessColor"].checked) {
+            delete data["flags.perfect-vision.darknessColor"];
+            data["flags.perfect-vision.-=darknessColor"] = null;
+        } else if (!data["flags.perfect-vision.darknessColor"]) {
+            data["flags.perfect-vision.darknessColor"] = "";
+        }
+
+        if (!this.form.elements["perfect-vision.overrideDarkness"].checked) {
+            delete data["flags.perfect-vision.darkness"];
+            data["flags.perfect-vision.-=darkness"] = null;
+        }
+
+        if (!this.form.elements["perfect-vision.overrideSaturation"].checked) {
+            delete data["flags.perfect-vision.saturation"];
+            data["flags.perfect-vision.-=saturation"] = null;
+        } else if (!this.form.elements["perfect-vision.hasSaturation"].checked) {
+            data["flags.perfect-vision.saturation"] = null;
+        }
+
+        if (!this.form.elements["perfect-vision.overrideGlobalThreshold"].checked) {
+            delete data["flags.perfect-vision.globalLightThreshold"];
+            data["flags.perfect-vision.-=globalLightThreshold"] = null;
+        } else if (!this.form.elements["perfect-vision.hasGlobalThreshold"].checked) {
+            data["flags.perfect-vision.globalLightThreshold"] = null;
+        }
+
+        return data;
+    });
+
+    patch("DrawingConfig.prototype.close", "POST", async function (result) {
+        await result;
+
+        canvas.perception.schedule({
+            lighting: { refresh: true },
+            sight: { refresh: true }
+        });
     });
 
     patch("LightConfig.prototype._getSubmitData", "POST", function (data) {
-        if (data.t === `${CONST.SOURCE_TYPES.LOCAL}_unrestricted`) {
+        if (data.t === `perfect-vision.${CONST.SOURCE_TYPES.LOCAL}_unrestricted`) {
             data.t = CONST.SOURCE_TYPES.LOCAL;
             data["flags.perfect-vision.unrestricted"] = true;
         } else {

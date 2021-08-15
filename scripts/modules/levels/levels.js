@@ -29,7 +29,7 @@ Hooks.once("init", () => {
     }
 
     Elevation.getTileElevation = function (tile) {
-        let elevation = +Infinity;
+        let elevation;
 
         if (tile.data.overhead) {
             elevation = tile.document.getFlag("levels", "rangeBottom") ?? -Infinity;
@@ -41,22 +41,20 @@ Hooks.once("init", () => {
             elevation = -Infinity;
         }
 
-        return this._clamped(elevation);
+        return this._normalize(elevation);
     };
 
     Elevation.getTemplateElevation = function (template) {
-        return this._clamped(template.document.getFlag("levels", "elevation") ?? 0);
+        return this._normalize(template.document.getFlag("levels", "elevation") ?? 0);
     };
 
-    Elevation.getSourceElevationRange = function (source, out = undefined) {
+    Elevation.getElevationRange = function (object, out = undefined) {
         if (!out) {
             out = [0, 0];
         }
 
-        const object = source.object;
-
-        out[0] = this._clamped(object.document.getFlag("levels", "rangeBottom") ?? -Infinity);
-        out[1] = this._clamped(object.document.getFlag("levels", "rangeTop") ?? +Infinity);
+        out[0] = this._normalize(object.document.getFlag("levels", "rangeBottom") ?? -Infinity);
+        out[1] = this._normalize(object.document.getFlag("levels", "rangeTop") ?? +Infinity);
 
         return out;
     };
@@ -68,6 +66,8 @@ Hooks.once("init", () => {
     Tokens.isOverhead = function (token) {
         return token._pv_overhead;
     };
+
+    Token._pv_defeatedInBackground = false;
 
     patch("ForegroundLayer.prototype.refresh", "POST", function () {
         for (const tile of this.tiles) {
@@ -85,7 +85,7 @@ Hooks.once("init", () => {
     });
 
     patch("Token.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
-        this._pv_overhead = false;
+        this._pv_overhead = undefined;
 
         return await wrapped(...args);
     });
@@ -156,7 +156,7 @@ Hooks.once("init", () => {
             return;
         }
 
-        Board.place(`Tile#${tile.id}.tile`, tile.id && !tile._original ? tile.tile : null, Board.LAYERS.OVERHEAD_TILES, function () { return this.parent.zIndex; });
+        Board.place(`Tile#${tile.id}.tile`, tile.id && !tile._original ? tile.tile : null, Board.LAYERS.OVERHEAD_TILES, function () { return this.parent?.zIndex ?? 0; });
 
         tile._pv_overhead = tile.data.overhead;
 
@@ -176,7 +176,7 @@ Hooks.once("init", () => {
 
         const zIndex = token.data.elevation + 1;
 
-        Board.place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, Board.LAYERS.TOKENS - 1, zIndex);
+        Board.place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, Board.LAYERS.UNDERFOOT_TILES + 1, zIndex);
 
         token._pv_overhead = false;
 
@@ -193,7 +193,7 @@ Hooks.once("init", () => {
         if (token._pv_overhead === false) {
             token._pv_overhead = undefined;
 
-            Board.place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, Board.LAYERS.TOKENS, function () { return this.parent.zIndex; });
+            Board.place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, Board.LAYERS.TOKENS, function () { return this.parent?.zIndex ?? 0; });
 
             Mask.invalidateAll("tokens");
 
@@ -227,7 +227,7 @@ Hooks.once("init", () => {
         if (token._pv_overhead === true) {
             token._pv_overhead = undefined;
 
-            Board.place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, Board.LAYERS.TOKENS, function () { return this.parent.zIndex; });
+            Board.place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, Board.LAYERS.TOKENS, function () { return this.parent?.zIndex ?? 0; });
 
             Mask.invalidateAll("tokens");
 
@@ -235,6 +235,29 @@ Hooks.once("init", () => {
         }
 
         delete this.overContainer.spriteIndex[token.id];
+    });
+
+    patch("Levels.prototype.computeDrawings", "POST", function (result, cToken) {
+        if (!cToken) {
+            return;
+        }
+
+        const tElev = cToken.data.elevation;
+
+        for (const drawing of canvas.drawings.placeables) {
+            const { rangeBottom, rangeTop } = this.getFlagsForObject(drawing);
+
+            if (!rangeBottom && rangeBottom != 0) {
+                continue;
+            }
+
+            const skipRender = !(rangeBottom <= tElev && tElev <= rangeTop);
+
+            if (drawing.skipRender !== skipRender) {
+                drawing.skipRender = skipRender;
+                canvas.perception.schedule({ lighting: { refresh: true } });
+            }
+        }
     });
 
     if (!_levelsTokenRefreshPatched) {

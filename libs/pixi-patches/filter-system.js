@@ -2,6 +2,8 @@ import { Logger } from "../../scripts/utils/logger.js";
 
 Logger.debug("Patching PIXI.FilterSystem.prototype.push (OVERRIDE)");
 
+const tempMatrix = new PIXI.Matrix();
+
 PIXI.FilterSystem.prototype.push = function (target, filters) {
     const renderer = this.renderer;
     const filterStack = this.defaultFilterStack;

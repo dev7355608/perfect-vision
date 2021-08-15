@@ -53,8 +53,10 @@ Hooks.once("init", () => {
 
         Board.unplace("backgroundColor");
 
-        this._pv_background.destroy(true);
-        this._pv_background = null;
+        if (this._pv_background) {
+            this._pv_background.destroy(true);
+            this._pv_background = null;
+        }
 
         return await wrapped(...args);
     });

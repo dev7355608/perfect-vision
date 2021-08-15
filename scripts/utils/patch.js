@@ -11,23 +11,23 @@ export function patch(target, type, func) {
         wrapper = function (wrapped, ...args) {
             return wrapped(...func.apply(this, args));
         };
-        wrapper.type = "WRAPPER";
+        wrapper._pv_type = "WRAPPER";
     } else if (type === "POST") {
         wrapper = function (wrapped, ...args) {
             return func.call(this, wrapped(...args), ...args);
         };
-        wrapper.type = "WRAPPER";
+        wrapper._pv_type = "WRAPPER";
     } else {
         wrapper = func;
-        wrapper.type = type;
+        wrapper._pv_type = type;
     }
 
-    if (wrapper.type === "OVERRIDE") {
-        wrapper.priority = 0;
-    } else if (wrapper.type === "MIXED") {
-        wrapper.priority = 1;
-    } else if (wrapper.type === "WRAPPER") {
-        wrapper.priority = 2;
+    if (wrapper._pv_type === "OVERRIDE") {
+        wrapper._pv_priority = 0;
+    } else if (wrapper._pv_type === "MIXED") {
+        wrapper._pv_priority = 1;
+    } else if (wrapper._pv_type === "WRAPPER") {
+        wrapper._pv_priority = 2;
     }
 
     let list = wrappers[target];
@@ -39,7 +39,7 @@ export function patch(target, type, func) {
     }
 
     list.push(wrapper);
-    list.sort((a, b) => a.priority - b.priority);
+    list.sort((a, b) => a._pv_priority - b._pv_priority);
 
     wrapper = list[0];
 
@@ -47,20 +47,20 @@ export function patch(target, type, func) {
         const last = wrapper;
         const next = list[i];
 
-        if (last.type !== "OVERRIDE") {
+        if (last._pv_type !== "OVERRIDE") {
             wrapper = function (wrapped, ...args) {
                 return next.call(this, (...args) => last.call(this, wrapped, ...args), ...args);
             };
         } else {
-            console.assert(next.type !== "OVERRIDE", "OVERRIDE cannot be registered more than once!");
+            console.assert(next._pv_type !== "OVERRIDE", "OVERRIDE cannot be registered more than once!");
 
             wrapper = function (...args) {
                 return next.call(this, last.bind(this), ...args);
             };
         }
 
-        wrapper.type = last.type;
+        wrapper._pv_type = last._pv_type;
     }
 
-    libWrapper.register("perfect-vision", target, wrapper, wrapper.type);
+    libWrapper.register("perfect-vision", target, wrapper, wrapper._pv_type);
 }

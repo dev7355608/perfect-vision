@@ -3,6 +3,7 @@ import { Elevation } from "../../../core/elevation.js";
 import { Mask } from "../../../core/mask.js";
 import { patch } from "../../../utils/patch.js";
 import { Tiles } from "../../../core/tiles.js";
+import { Tokens } from "../../../core/tokens.js";
 
 Hooks.once("init", () => {
     if (!game.modules.get("levels")?.active) {
@@ -12,6 +13,7 @@ Hooks.once("init", () => {
     const mask = Mask.create("elevation", {
         format: PIXI.FORMATS.RED,
         type: PIXI.TYPES.FLOAT,
+        clearColor: new Float32Array([-1, 0, 0, 0]),
         dependencies: ["occlusionRadial", "occlusionSight"],
         groups: ["tiles", "tokens"]
     });
@@ -19,16 +21,8 @@ Hooks.once("init", () => {
     mask.stage.sortableChildren = true;
 
     mask.on("updateStage", (mask) => {
-        if (canvas.background.bg) {
-            mask.stage.addChild(CachedAlphaObject.create(canvas.background.bg, { threshold: 1.0 }));
-
-            if (canvas.background.isVideo && !canvas.background.bgSource.paused) {
-                mask.invalidate();
-            }
-        }
-
         for (const token of canvas.tokens.placeables) {
-            if (!token.visible || !token.renderable || !token.icon || !token.icon.visible || !token.renderable || token.icon.alpha < 1) {
+            if (Tokens.isOverhead(token) === false || !token.visible || !token.renderable || !token.icon || !token.icon.visible || !token.renderable || token.icon.alpha < 1) {
                 continue;
             }
 
@@ -46,7 +40,7 @@ Hooks.once("init", () => {
         }
 
         for (const tile of canvas.foreground.tiles) {
-            if (!tile.visible || !tile.renderable || !tile.tile || !tile.tile.visible || !tile.tile.renderable || Tiles.getAlpha(tile) < 1 && Tiles.getOcclusionAlpha(tile) < 1) {
+            if (!Tiles.isOverhead(tile) || !tile.visible || !tile.renderable || !tile.tile || !tile.tile.visible || !tile.tile.renderable || Tiles.getAlpha(tile) < 1 && Tiles.getOcclusionAlpha(tile) < 1) {
                 continue;
             }
 
@@ -68,7 +62,17 @@ Hooks.once("init", () => {
         mask.stage.removeChildren();
     });
 
+    Hooks.on("sightRefresh", () => {
+        mask.invalidate();
+    });
+
     patch("Levels.prototype._onElevationChangeUpdate", "POST", function (result) {
+        mask.invalidate();
+
+        return result;
+    });
+
+    patch("Levels.prototype.compute3DCollisionsForToken", "POST", function (result) {
         mask.invalidate();
 
         return result;

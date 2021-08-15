@@ -12,14 +12,6 @@ Hooks.on("canvasInit", () => {
     segment.filterArea = canvas.app.renderer.screen;
 });
 
-Hooks.on("lightingRefresh", () => {
-    if (canvas.sight.sources.size === 0 && game.user.isGM && game.settings.get("perfect-vision", "improvedGMVision")) {
-        MonoFilter.instance.saturation = 1;
-    } else {
-        MonoFilter.instance.saturation = canvas.lighting._pv_saturationLevel;
-    }
-});
-
 Hooks.on("sightRefresh", () => {
     let tint;
 
@@ -41,6 +33,10 @@ Hooks.on("sightRefresh", () => {
                 break;
             }
         }
+
+        MonoFilter.instance.enabled = true;
+    } else {
+        MonoFilter.instance.enabled = !game.user.isGM || !game.settings.get("perfect-vision", "improvedGMVision");
     }
 
     MonoFilter.instance.tint = tint ?? 0xFFFFFF;
@@ -52,7 +48,8 @@ export class MonoFilter extends MaskFilter {
         varying vec2 vMaskCoord;
 
         uniform sampler2D uSampler;
-        uniform sampler2D uIllumination;
+        uniform sampler2D uLighting;
+        uniform sampler2D uVision;
         uniform vec3 uColor;
         uniform float uSaturation;
 
@@ -91,14 +88,15 @@ export class MonoFilter extends MaskFilter {
         void main()
         {
             vec4 color = texture2D(uSampler, vTextureCoord);
-            vec4 mask = texture2D(uIllumination, vMaskCoord);
             float a = color.a;
 
             if (a != 0.0) {
+                vec4 vision = texture2D(uVision, vMaskCoord);
+                float saturation = texture2D(uLighting, vMaskCoord).g;
                 vec3 srgb = color.rgb / a;
                 vec3 rgb = srgb2rgb(srgb);
                 float y = rgb2y(rgb);
-                gl_FragColor = vec4(rgb2srgb(mix(mix(vec3(y), y2mono(y, uColor), mask.g), rgb, max(mask.r, uSaturation))), 1.0) * a;
+                gl_FragColor = vec4(rgb2srgb(mix(mix(vec3(y), y2mono(y, uColor), vision.g), rgb, max(vision.r, saturation))), 1.0) * a;
             } else {
                 gl_FragColor = vec4(0.0);
             }
@@ -114,9 +112,9 @@ export class MonoFilter extends MaskFilter {
 
     constructor() {
         super(undefined, MonoFilter.defaultFragmentSource, {
-            uIllumination: Mask.getTexture("illumination"),
-            uColor: new Float32Array(3),
-            uSaturation: 1.0
+            uLighting: Mask.getTexture("lighting"),
+            uVision: Mask.getTexture("vision"),
+            uColor: new Float32Array(3)
         });
 
         this._colorDirty = false;
@@ -135,14 +133,6 @@ export class MonoFilter extends MaskFilter {
 
         this._tint = value;
         this._colorDirty = true;
-    }
-
-    get saturation() {
-        return this.uniforms.uSaturation;
-    }
-
-    set saturation(value) {
-        this.uniforms.uSaturation = value;
     }
 
     apply(filterManager, input, output, clearMode, currentState) {

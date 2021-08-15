@@ -13,7 +13,7 @@ Hooks.once("init", () => {
     let updatingOcclusion = false;
 
     mask.on("updateStage", (mask) => {
-        if (canvas.foreground.tiles.length === 0) {
+        if (canvas.foreground.tiles.length === 0 || canvas.tokens.controlled.length === 0) {
             return;
         }
 

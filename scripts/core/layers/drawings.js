@@ -16,3 +16,23 @@ Hooks.once("init", () => {
         return await wrapped(...args);
     });
 });
+
+Hooks.on("updateDrawing", (document, change, options, userId, arg) => {
+    const scene = document.parent;
+
+    if (!scene?.isView || !document.object._pv_active && !hasProperty(change, "flags.perfect-vision")) {
+        return;
+    }
+
+    canvas.perception.schedule({ lighting: { refresh: true } });
+});
+
+Hooks.on("preDeleteDrawing", (document, options, userId) => {
+    const scene = document.parent;
+
+    if (!scene?.isView || !document.object._pv_active) {
+        return;
+    }
+
+    canvas.perception.schedule({ lighting: { refresh: true } });
+});

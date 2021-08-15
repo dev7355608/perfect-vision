@@ -1,7 +1,9 @@
-import "./background.js";
+// import "./background.js";
 import "./foreground.js";
 import "./illumination.js";
+import "./lighting.js";
 import "./occlusion.js";
+import "./vision.js";
 import "./weather.js";
 
 import { Mask } from "../mask.js";
@@ -35,6 +37,14 @@ Hooks.once("init", () => {
 
         if (!this._original) {
             Mask.invalidateAll("tokens");
+        }
+
+        return this;
+    });
+
+    patch("Drawing.prototype.refresh", "POST", function () {
+        if (this._pv_active) {
+            Mask.invalidateAll("areas");
         }
 
         return this;

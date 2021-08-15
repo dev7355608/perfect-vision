@@ -37,7 +37,7 @@ Hooks.once("init", () => {
         await result;
 
         if (this.tile) {
-            Board.place(`Tile#${this.id}.tile`, this.id && !this._original ? this.tile : null, Tiles.isOverhead(this) ? Board.LAYERS.OVERHEAD_TILES : Board.LAYERS.UNDERFOOT_TILES, function () { return this.parent.zIndex; });
+            Board.place(`Tile#${this.id}.tile`, this.id && !this._original ? this.tile : null, Tiles.isOverhead(this) ? Board.LAYERS.OVERHEAD_TILES : Board.LAYERS.UNDERFOOT_TILES, function () { return this.parent?.zIndex ?? 0; });
         }
 
         if (this.occlusionFilter) {

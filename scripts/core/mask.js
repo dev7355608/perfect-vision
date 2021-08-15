@@ -73,7 +73,7 @@ export class Mask extends PIXI.utils.EventEmitter {
             visited[mask.name] = true;
 
             for (const dependency of mask.dependencies) {
-                visit(this.get(dependency), mask);
+                visit(this.get(dependency), mask.name);
             }
 
             sorted.push(mask);
@@ -187,23 +187,76 @@ export class Mask extends PIXI.utils.EventEmitter {
     constructor(options) {
         super();
 
-        options = Object.assign(Mask.defaultOptions(), options);
-        options = Object.assign(options, {
+        this.options = Object.assign(Mask.defaultOptions(), options);
+
+        this.reset();
+    }
+
+    reset() {
+        if (this.texture) {
+            this.texture.destroy(true);
+        }
+
+        this.texture = PIXI.RenderTexture.create({
+            ...this.options,
             width: Mask.width,
             height: Mask.height,
             resolution: Mask.resolution
         });
 
-        this.texture = PIXI.RenderTexture.create(options);
-        this.texture.baseTexture.clearColor = [...options.clearColor];
-        this.sprite = new MaskSprite(new (options.shader)());
+        if (this.options.clearColor) {
+            if (this.options.clearColor instanceof Array) {
+                this.texture.baseTexture.clearColor = [0, 0, 0, 0];
+            } else if (this.options.clearColor instanceof Float32Array) {
+                this.texture.baseTexture.clearColor = new Float32Array(4);
+            } else if (this.options.clearColor instanceof Int32Array) {
+                this.texture.baseTexture.clearColor = new Int32Array(4);
+            } else if (this.options.clearColor instanceof Uint32Array) {
+                this.texture.baseTexture.clearColor = new Uint32Array(4);
+            }
+
+            this.clearColor = this.options.clearColor;
+        }
+
+        if (this.sprite) {
+            this.sprite.texture = null;
+            this.sprite.destroy(true);
+        }
+
+        this.sprite = new MaskSprite(new (this.options.shader)());
         this.sprite.texture = this.texture;
         this.sprite.width = this.texture.width;
         this.sprite.height = this.texture.height;
-        this.stage = new PIXI.Container();
-        this.clear = options.clear;
+
+        if (this.stage) {
+            this.stage.destroy({ children: true });
+        }
+
+        this.stage = new MaskStage();
+        this.clear = this.options.clear;
         this.dirty = true;
-        this.lazy = options.lazy;
+        this.lazy = this.options.lazy;
+    }
+
+    get clear() {
+        return this.stage.clear;
+    }
+
+    set clear(value) {
+        this.stage.clear = value;
+    }
+
+    get clearColor() {
+        return this.texture.baseTexture.clearColor;
+    }
+
+    set clearColor([r, g, b, a]) {
+        const clearColor = this.texture.baseTexture.clearColor;
+
+        clearColor[0] = r ?? clearColor[0];
+        clearColor[1] = g ?? clearColor[1];
+        clearColor[2] = b ?? clearColor[2];
+        clearColor[3] = a ?? clearColor[3];
     }
 
     invalidate() {
@@ -214,6 +267,23 @@ export class Mask extends PIXI.utils.EventEmitter {
                 Mask.get(dependent)?.invalidate();
             }
         }
+    }
+
+    refresh() {
+        for (const dependency of this.dependencies) {
+            Mask.get(dependency)?.refresh();
+        }
+
+        if (this.dirty) {
+            this.dirty = false;
+
+            this.emit("updateStage", this);
+            this.emit("updateTexture", this);
+
+            return true;
+        }
+
+        return false;
     }
 
     resize() {
@@ -240,7 +310,7 @@ export class Mask extends PIXI.utils.EventEmitter {
 
         this.resize();
 
-        canvas.app.renderer.render(stage, { renderTexture: this.texture, clear: this.clear });
+        canvas.app.renderer.render(stage, { renderTexture: this.texture, clear: false });
         canvas.app.renderer.framebuffer.blit();
     }
 
@@ -342,6 +412,34 @@ Hooks.on("canvasReady", () => {
 Hooks.on("canvasPan", () => {
     Mask.resize();
 });
+
+class MaskStage extends PIXI.Container {
+    constructor() {
+        super();
+
+        this.clear = undefined;
+    }
+
+    render(renderer) {
+        if (this.clear !== undefined ? this.clear : renderer.clearBeforeRender) {
+            const gl = renderer.gl;
+            const rt = renderer.renderTexture;
+            const clearColor = rt.current.baseTexture.clearColor;
+
+            if (clearColor instanceof Array) {
+                rt.clear(clearColor, PIXI.BUFFER_BITS.COLOR);
+            } else if (clearColor instanceof Float32Array) {
+                gl.clearBufferfv(gl.COLOR, 0, clearColor);
+            } else if (clearColor instanceof Int32Array) {
+                gl.clearBufferiv(gl.COLOR, 0, clearColor);
+            } else if (clearColor instanceof Uint32Array) {
+                gl.clearBufferuiv(gl.COLOR, 0, clearColor);
+            }
+        }
+
+        super.render(renderer);
+    }
+}
 
 export class MaskFilter extends PIXI.Filter {
     static defaultVertexSource = `\

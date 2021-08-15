@@ -73,7 +73,7 @@ class TileOcclusionMaskData extends MaskData {
     }
 
     get enabled() {
-        return canvas.tokens.controlled?.length > 0;
+        return canvas.tokens.controlled.length !== 0;
     }
 
     set enabled(value) { }

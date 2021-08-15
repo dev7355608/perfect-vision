@@ -6,7 +6,7 @@ export class RenderFunction {
     static create() {
         function render(renderer, skip = true) {
             if (!skip) {
-                this.render = Object.hasOwnProperty(render, "function") ? render.function : Object.getPrototypeOf(this).render;
+                this.render = render.hasOwnProperty("function") ? render.function : Object.getPrototypeOf(this).render;
                 this.render(renderer);
                 this.render = render;
             }
@@ -77,7 +77,7 @@ export class RenderFunction {
 
                 this._object.off("removed", this.destroy, this);
 
-                if (Object.hasOwnProperty(this, "function")) {
+                if (this.hasOwnProperty("function")) {
                     Object.defineProperty(this._object, "render", {
                         value: this.function,
                         configurable: true,
@@ -419,10 +419,6 @@ export class Layer extends PIXI.Container {
 
     destroy(options) {
         super.destroy();
-
-        this.sortDirty = false;
-
-        this.removeChildren(0, this.children.length);
     }
 
     _clear() {
@@ -612,6 +608,7 @@ export class Board extends PIXI.Container {
         TOKEN_BASES: 4400,
         TOKEN_MARKERS: 4500,
         TOKEN_BORDERS: 4600,
+        TOKEN_EFFECTS: 4700,
     };
 
     static getSegment([bottomIndex = -Infinity, topIndex = +Infinity] = []) {
