@@ -1,4 +1,5 @@
 import { Board } from "../../core/board.js";
+import { Tokens } from "../../core/tokens.js";
 import { patch } from "../../utils/patch.js";
 
 Hooks.once("init", () => {
@@ -6,7 +7,9 @@ Hooks.once("init", () => {
         return;
     }
 
-    Token._pv_defeatedInBackground = false;
+    Tokens.isDefeated = function (token) {
+        return false;
+    };
 
     let bevelTexture;
 
@@ -44,7 +47,7 @@ Hooks.once("init", () => {
                     new PIXI.Container(), token.getChildIndex(token.icon) - 1,
                 );
 
-                Board.place(`Token#${token.id}.factionBase`, token.factionBase, Board.LAYERS.TOKEN_BASES, function () { return this.parent?.zIndex ?? 0; });
+                Board.place(`Token#${token.id}.factionBase`, token.factionBase, Board.LAYERS.TOKEN_BASES, Board.Z_INDICES.PARENT);
             } else {
                 token.factionBase.removeChildren().forEach(c => c.destroy());
             }

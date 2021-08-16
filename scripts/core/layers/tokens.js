@@ -1,9 +1,8 @@
 import { Board } from "../board.js";
 import { patch } from "../../utils/patch.js";
+import { Tokens } from "../tokens.js";
 
 Hooks.once("init", () => {
-    Token._pv_defeatedInBackground = true;
-
     patch("TokenLayer.layerOptions", "POST", function (options) {
         return mergeObject(options, {
             zIndex: SightLayer.layerOptions.zIndex + 100
@@ -13,15 +12,7 @@ Hooks.once("init", () => {
     patch("Token.prototype.draw", "POST", async function (result) {
         await result;
 
-        if (this.id && !this._original) {
-            if (Token._pv_defeatedInBackground && isDefeated(this)) {
-                Board.place(`Token#${this.id}.icon`, this.icon, Board.LAYERS.UNDERFOOT_TILES + 1, function () { return this.parent?.zIndex ?? 0; });
-                Board.place(`Token#${this.id}.effects`, this.effects, Board.LAYERS.TOKEN_EFFECTS, function () { return this.parent?.zIndex ?? 0; });
-            } else {
-                Board.place(`Token#${this.id}.icon`, this.icon, Board.LAYERS.TOKENS, function () { return this.parent?.zIndex ?? 0; });
-                Board.unplace(`Token#${this.id}.effects`);
-            }
-        }
+        this._pv_refresh();
 
         return this;
     });
@@ -31,7 +22,7 @@ Hooks.once("init", () => {
             if (this._hover) {
                 Board.unplace(`Token#${this.id}.border`);
             } else {
-                Board.place(`Token#${this.id}.border`, this.border, Board.LAYERS.TOKEN_BORDERS, function () { return this.parent?.zIndex ?? 0; });
+                Board.place(`Token#${this.id}.border`, this.border, Board.LAYERS.TOKEN_BORDERS, Board.Z_INDICES.PARENT);
             }
         }
 
@@ -41,15 +32,7 @@ Hooks.once("init", () => {
     patch("Token.prototype.toggleEffect", "POST", async function (result) {
         const active = await result;
 
-        if (Token._pv_defeatedInBackground && this.id && !this._original) {
-            if (isDefeated(this)) {
-                Board.place(`Token#${this.id}.icon`, this.icon, Board.LAYERS.UNDERFOOT_TILES + 1, function () { return this.parent?.zIndex ?? 0; });
-                Board.place(`Token#${this.id}.effects`, this.effects, Board.LAYERS.TOKEN_EFFECTS, function () { return this.parent?.zIndex ?? 0; });
-            } else {
-                Board.place(`Token#${this.id}.icon`, this.icon, Board.LAYERS.TOKENS, function () { return this.parent?.zIndex ?? 0; });
-                Board.unplace(`Token#${this.id}.effects`);
-            }
-        }
+        this._pv_refresh();
 
         return active;
     });
@@ -63,22 +46,33 @@ Hooks.once("init", () => {
     });
 });
 
-function isDefeated(token) {
-    if (token.actor) {
-        const defeatedStatusId = CONFIG.Combat.defeatedStatusId;
+Token.prototype._pv_refresh = function () {
+    if (this.id && !this._original) {
+        const overhead = Tokens.isOverhead(this);
 
-        for (const effect of token.actor.data.effects.values()) {
-            if (!effect.data?.flags?.core) {
-                continue;
+        if (overhead === undefined) {
+            if (Tokens.isDefeated(this)) {
+                Board.place(`Token#${this.id}.icon`, this.icon, Board.LAYERS.TOKENS_DEFEATED, Board.Z_INDICES.PARENT);
+                Board.place(`Token#${this.id}.effects`, this.effects, Board.LAYERS.TOKEN_EFFECTS, Board.Z_INDICES.PARENT);
+            } else {
+                Board.place(`Token#${this.id}.icon`, this.icon, Board.LAYERS.TOKENS, Board.Z_INDICES.PARENT);
+                Board.unplace(`Token#${this.id}.effects`);
             }
+        } else {
+            const zIndex = this.data.elevation + 1;
 
-            const { statusId, overlay } = effect.data.flags.core;
+            if (overhead) {
+                Board.place(`Token#${this.id}.icon`, this.icon, Board.LAYERS.OVERHEAD_TILES + 1, zIndex);
+                Board.unplace(`Token#${this.id}.effects`);
+            } else {
+                Board.place(`Token#${this.id}.icon`, this.icon, Board.LAYERS.UNDERFOOT_TILES + 1, zIndex);
 
-            if (statusId === defeatedStatusId && overlay) {
-                return true;
+                if (Tokens.isDefeated(this)) {
+                    Board.place(`Token#${this.id}.effects`, this.effects, Board.LAYERS.TOKEN_EFFECTS, Board.Z_INDICES.PARENT);
+                } else {
+                    Board.unplace(`Token#${this.id}.effects`);
+                }
             }
         }
     }
-
-    return token.data.overlayEffect === CONFIG.controlIcons.defeated;
-}
+};

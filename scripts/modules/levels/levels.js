@@ -67,8 +67,6 @@ Hooks.once("init", () => {
         return token._pv_overhead;
     };
 
-    Token._pv_defeatedInBackground = false;
-
     patch("ForegroundLayer.prototype.refresh", "POST", function () {
         for (const tile of this.tiles) {
             if (!tile.tile) {
@@ -132,21 +130,21 @@ Hooks.once("init", () => {
         tile.visible = true;
         tile.tile.visible = true;
 
+        tile._pv_overhead = false;
+
         const zIndex = tileIndex.levelsOverhead ? tileIndex.range[0] + 2 : tileIndex.range[0];
 
         Board.place(`Tile#${tile.id}.tile`, tile.id && !tile._original ? tile.tile : null, Board.LAYERS.UNDERFOOT_TILES + 1, zIndex);
 
-        tile._pv_overhead = false;
-
         canvas.perception.schedule({ foreground: { refresh: true } });
-
-        Mask.invalidateAll("tiles");
 
         this.floorContainer.spriteIndex[tile.id] = true;
 
         if (hideFog && this.fogHiding) {
             this.obscureFogForTile(tileIndex);
         }
+
+        Mask.invalidateAll("tiles");
     });
 
     patch("Levels.prototype.removeTempTile", "OVERRIDE", function (tileIndex) {
@@ -156,17 +154,17 @@ Hooks.once("init", () => {
             return;
         }
 
-        Board.place(`Tile#${tile.id}.tile`, tile.id && !tile._original ? tile.tile : null, Board.LAYERS.OVERHEAD_TILES, function () { return this.parent?.zIndex ?? 0; });
-
         tile._pv_overhead = tile.data.overhead;
 
-        canvas.perception.schedule({ foreground: { refresh: true } });
+        Board.place(`Tile#${tile.id}.tile`, tile.id && !tile._original ? tile.tile : null, Board.LAYERS.OVERHEAD_TILES, Board.Z_INDICES.PARENT);
 
-        Mask.invalidateAll("tiles");
+        canvas.perception.schedule({ foreground: { refresh: true } });
 
         delete this.floorContainer.spriteIndex[tile.id];
 
         this.clearFogForTile(tileIndex);
+
+        Mask.invalidateAll("tiles");
     });
 
     patch("Levels.prototype.getTokenIconSprite", "OVERRIDE", function (token) {
@@ -174,30 +172,26 @@ Hooks.once("init", () => {
             return;
         }
 
-        const zIndex = token.data.elevation + 1;
-
-        Board.place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, Board.LAYERS.UNDERFOOT_TILES + 1, zIndex);
-
         token._pv_overhead = false;
-
-        Mask.invalidateAll("tokens");
+        token._pv_refresh();
 
         if (!this.floorContainer.spriteIndex[token.id]) {
             token.refresh();
         }
 
         this.floorContainer.spriteIndex[token.id] = true;
+
+        Mask.invalidateAll("tokens");
     });
 
     patch("Levels.prototype.removeTempToken", "OVERRIDE", function (token) {
         if (token._pv_overhead === false) {
             token._pv_overhead = undefined;
-
-            Board.place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, Board.LAYERS.TOKENS, function () { return this.parent?.zIndex ?? 0; });
-
-            Mask.invalidateAll("tokens");
+            token._pv_refresh();
 
             token.refresh();
+
+            Mask.invalidateAll("tokens");
         }
 
         delete this.floorContainer.spriteIndex[token.id];
@@ -208,30 +202,26 @@ Hooks.once("init", () => {
             return;
         }
 
-        const zIndex = token.data.elevation + 1;
-
-        Board.place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, Board.LAYERS.OVERHEAD_TILES + 1, zIndex);
-
         token._pv_overhead = true;
-
-        Mask.invalidateAll("tokens");
+        token._pv_refresh();
 
         if (!this.overContainer.spriteIndex[token.id]) {
             token.refresh();
         }
 
         this.overContainer.spriteIndex[token.id] = true;
+
+        Mask.invalidateAll("tokens");
     });
 
     patch("Levels.prototype.removeTempTokenOverhead", "OVERRIDE", function (token) {
         if (token._pv_overhead === true) {
             token._pv_overhead = undefined;
-
-            Board.place(`Token#${token.id}.icon`, token.id && !token._original ? token.icon : null, Board.LAYERS.TOKENS, function () { return this.parent?.zIndex ?? 0; });
-
-            Mask.invalidateAll("tokens");
+            token._pv_refresh();
 
             token.refresh();
+
+            Mask.invalidateAll("tokens");
         }
 
         delete this.overContainer.spriteIndex[token.id];

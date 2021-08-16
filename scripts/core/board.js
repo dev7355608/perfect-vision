@@ -578,6 +578,18 @@ export class Segment extends PIXI.Container {
     }
 }
 
+function updateZIndexObject() {
+    this.zIndex = this.object.zIndex;
+}
+
+function updateZIndexParent() {
+    const parent = this.object.parent;
+
+    if (parent) {
+        this.zIndex = parent.zIndex;
+    }
+}
+
 export class Board extends PIXI.Container {
     static debug = false;
     static stage = new Segment(-Infinity, +Infinity);
@@ -596,6 +608,7 @@ export class Board extends PIXI.Container {
         UNDERFOOT_TILES: 1200,
         TEMPLATES: 1300,
         UNDERFOOT_EFFECTS: 1400,
+        TOKENS_DEFEATED: 1500,
         TOKENS: 2100,
         OVERHEAD_EFFECTS: 2200,
         FOREGROUND: 2300,
@@ -610,6 +623,10 @@ export class Board extends PIXI.Container {
         TOKEN_BORDERS: 4600,
         TOKEN_EFFECTS: 4700,
     };
+    static Z_INDICES = {
+        THIS: Symbol(),
+        PARENT: Symbol()
+    }
 
     static getSegment([bottomIndex = -Infinity, topIndex = +Infinity] = []) {
         const key = `${Number.isFinite(bottomIndex) ? bottomIndex : ""}:${Number.isFinite(topIndex) ? topIndex : ""}`;
@@ -687,19 +704,17 @@ export class Board extends PIXI.Container {
         render.object = object;
         render.layer = layer;
 
-        if (zIndex !== undefined) {
-            if (typeof zIndex === "function") {
-                render.update = function () {
-                    this.zIndex = zIndex.call(this.object);
-                };
-            } else {
-                render.update = null;
-                render.zIndex = zIndex;
-            }
-        } else {
+        if (zIndex === this.Z_INDICES.THIS) {
+            render.update = updateZIndexObject;
+        } else if (zIndex === this.Z_INDICES.PARENT) {
+            render.update = updateZIndexParent;
+        } else if (typeof zIndex === "function") {
             render.update = function () {
-                this.zIndex = this.object.zIndex;
+                this.zIndex = zIndex.call(this.object);
             };
+        } else {
+            render.update = null;
+            render.zIndex = zIndex;
         }
     }
 

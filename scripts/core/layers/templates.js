@@ -11,7 +11,7 @@ Hooks.once("init", () => {
     patch("MeasuredTemplate.prototype.draw", "POST", async function (result) {
         await result;
 
-        Board.place(`MeasuredTemplate#${this.id}.template`, this.id && !this._original && this.parent !== canvas.templates.preview ? this.template : null, Board.LAYERS.TEMPLATES, function () { return this.parent?.zIndex ?? 0; });
+        Board.place(`MeasuredTemplate#${this.id}.template`, this.id && !this._original && this.parent !== canvas.templates.preview ? this.template : null, Board.LAYERS.TEMPLATES, Board.Z_INDICES.PARENT);
 
         return this;
     });

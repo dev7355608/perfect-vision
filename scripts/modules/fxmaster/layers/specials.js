@@ -11,7 +11,7 @@ Hooks.once("setup", () => {
     patch("Canvas.layers.specials.prototype.addChild", "POST", function (result, ...objects) {
         for (const object of objects) {
             if (object instanceof PIXI.Sprite) {
-                Board.place(`specials.sprite#${counter++}`, object, Board.LAYERS.OVERHEAD_EFFECTS);
+                Board.place(`specials.sprite#${counter++}`, object, Board.LAYERS.OVERHEAD_EFFECTS, Board.Z_INDICES.THIS);
             }
         }
 
