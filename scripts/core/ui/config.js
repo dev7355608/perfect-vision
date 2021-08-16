@@ -296,7 +296,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
 
     const nav = html.find("nav.sheet-tabs.tabs");
 
-    nav.append(`<a class="item" data-tab="perfect-vision.vision-and-lighting"><i class="fas fa-lightbulb"></i> Vision/Lighting</a>`);
+    nav.append(`<a class="item" data-tab="perfect-vision.vision-and-lighting" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 10px; padding-right: 10px; margin-left: -10px; margin-right: -10px;"><i class="fas fa-lightbulb"></i> Vision/Lighting</a>`);
     nav.parent().find("footer").before(`\
         <div class="tab" data-tab="perfect-vision.vision-and-lighting">
             <p class="notes">Adjust vision and lighting of the area below the Drawing overriding the scene settings. Drawings with higher Z-Index override the vision and lighting settings of overlapping Drawings with lower Z-Index.</p>
