@@ -713,15 +713,21 @@ Hooks.once("init", () => {
         } else {
             saturation = canvas.scene.getFlag("perfect-vision", "saturation") ?? null;
 
-            const forceSaturation = canvas.scene.getFlag("perfect-vision", "forceSaturation");
+            if (!canvas.scene._pv_migration_forceSaturation) {
+                canvas.scene._pv_migration_forceSaturation = true;
 
-            if (forceSaturation !== undefined) {
-                if (!forceSaturation) {
-                    saturation = null;
-                    canvas.scene.setFlag("perfect-vision", "saturation", null);
+                const forceSaturation = canvas.scene.getFlag("perfect-vision", "forceSaturation");
+
+                if (forceSaturation !== undefined) {
+                    if (!forceSaturation) {
+                        saturation = null;
+                    }
+
+                    canvas.scene.update({
+                        "flags.perfect-vision.-=forceSaturation": null,
+                        "flags.perfect-vision.saturation": saturation
+                    });
                 }
-
-                canvas.scene.unsetFlag("perfect-vision", "forceSaturation");
             }
         }
 
