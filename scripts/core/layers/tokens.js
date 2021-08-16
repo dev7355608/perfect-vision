@@ -38,7 +38,7 @@ Hooks.once("init", () => {
         return arguments;
     });
 
-    patch("Token.prototype.toggleEffect", "POST", async function (result, effect, { overlay }) {
+    patch("Token.prototype.toggleEffect", "POST", async function (result) {
         const active = await result;
 
         if (Token._pv_defeatedInBackground && this.id && !this._original) {
