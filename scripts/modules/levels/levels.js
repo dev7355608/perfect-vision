@@ -252,7 +252,7 @@ Hooks.once("init", () => {
             return;
         }
 
-        const tElev = cToken.data.elevation;
+        const tElev = cToken.losHeight;
 
         for (const drawing of canvas.drawings.placeables) {
             const { rangeBottom, rangeTop } = this.getFlagsForObject(drawing);
