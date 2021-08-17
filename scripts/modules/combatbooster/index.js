@@ -7,10 +7,12 @@ Hooks.once("init", () => {
     }
 
     patch("Token.prototype.addChild", "POST", function (result, ...objects) {
-        for (const object of objects) {
-            if (object.name === "CBTurnMarker" && !game.settings.get("combatbooster", "markerAbove")) {
-                Board.place(`Token#${this.id}.combatbooster`, object, Board.LAYERS.TOKEN_MARKERS, 2);
-                break;
+        if (this.id && !this._original) {
+            for (const object of objects) {
+                if (object.name === "CBTurnMarker" && !game.settings.get("combatbooster", "markerAbove")) {
+                    Board.place(`Token#${this.id}.combatbooster`, object, Board.LAYERS.TOKEN_MARKERS, 2);
+                    break;
+                }
             }
         }
 

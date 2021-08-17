@@ -36,21 +36,21 @@ Hooks.once("init", () => {
     patch("Tile.prototype.draw", "POST", async function (result) {
         await result;
 
-        if (this.tile) {
-            Board.place(`Tile#${this.id}.tile`, this.id && !this._original ? this.tile : null, Tiles.isOverhead(this) ? Board.LAYERS.OVERHEAD_TILES : Board.LAYERS.UNDERFOOT_TILES, Board.Z_INDICES.PARENT);
-        }
+        if (this.id && !this._original) {
+            Board.place(`Tile#${this.id}.tile`, this.tile, Tiles.isOverhead(this) ? Board.LAYERS.OVERHEAD_TILES : Board.LAYERS.UNDERFOOT_TILES, Board.Z_INDICES.PARENT);
 
-        if (this.occlusionFilter) {
-            this.occlusionFilter.enabled = false;
+            if (this.occlusionFilter) {
+                this.occlusionFilter.enabled = false;
 
-            const index = this.tile.filters.indexOf(this.occlusionFilter);
+                const index = this.tile.filters.indexOf(this.occlusionFilter);
 
-            if (index >= 0) {
-                this.tile.filters.splice(index, 1);
-            }
+                if (index >= 0) {
+                    this.tile.filters.splice(index, 1);
+                }
 
-            if (this.tile.filters.length === 0) {
-                this.tile.filters = null;
+                if (this.tile.filters.length === 0) {
+                    this.tile.filters = null;
+                }
             }
         }
 

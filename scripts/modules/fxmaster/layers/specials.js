@@ -17,4 +17,10 @@ Hooks.once("setup", () => {
 
         return result;
     });
+
+    patch("Canvas.layers.specials.prototype.tearDown", "POST", function (result, ...objects) {
+        Board.unplace(/^specials\.sprite#\d+$/);
+
+        return result;
+    });
 });

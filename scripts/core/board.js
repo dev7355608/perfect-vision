@@ -683,7 +683,7 @@ export class Board extends PIXI.Container {
     static place(id, object, layerIndex, zIndex) {
         const layer = this.getLayer(layerIndex, true);
 
-        if (!object) {
+        if (!object || !object.parent || object.destroyed) {
             this.unplace(id);
 
             return false;

@@ -9,10 +9,12 @@ Hooks.once("init", () => {
     patch("Tile.prototype.draw", "POST", async function (result) {
         await result;
 
-        if (this.data.flags?.startMarker || this.data.flags?.turnMarker || this.data.flags?.deckMarker) {
-            this._pv_highlight = true;
+        if (this.id && !this._original) {
+            if (this.data.flags?.startMarker || this.data.flags?.turnMarker || this.data.flags?.deckMarker) {
+                this._pv_highlight = true;
 
-            Board.place(`Tile#${this.id}.tile`, this.id && !this._original ? this.tile : null, Board.LAYERS.TOKEN_MARKERS, this.data.flags.turnMarker ? 2 : (this.data.flags.deckMarker ? 1 : 0));
+                Board.place(`Tile#${this.id}.tile`, this.tile, Board.LAYERS.TOKEN_MARKERS, this.data.flags.turnMarker ? 2 : (this.data.flags.deckMarker ? 1 : 0));
+            }
         }
 
         return this;

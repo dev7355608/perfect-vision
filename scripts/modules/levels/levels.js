@@ -118,7 +118,7 @@ Hooks.once("init", () => {
     patch("Levels.prototype.mirrorTileInBackground", "OVERRIDE", function (tileIndex, hideFog = false) {
         const tile = tileIndex.tile;
 
-        if (!tile.tile || !tile.tile.texture.baseTexture) {
+        if (!tile.id || tile._original || !tile.tile || !tile.tile.texture.baseTexture) {
             return;
         }
 
@@ -134,7 +134,7 @@ Hooks.once("init", () => {
 
         const zIndex = tileIndex.levelsOverhead ? tileIndex.range[0] + 2 : tileIndex.range[0];
 
-        Board.place(`Tile#${tile.id}.tile`, tile.id && !tile._original ? tile.tile : null, Board.LAYERS.UNDERFOOT_TILES + 1, zIndex);
+        Board.place(`Tile#${tile.id}.tile`, tile.tile, Board.LAYERS.UNDERFOOT_TILES + 1, zIndex);
 
         canvas.perception.schedule({ foreground: { refresh: true } });
 
@@ -150,13 +150,17 @@ Hooks.once("init", () => {
     patch("Levels.prototype.removeTempTile", "OVERRIDE", function (tileIndex) {
         const tile = tileIndex.tile;
 
+        if (!tile.id || tile._original || !tile.tile || !tile.tile.texture.baseTexture) {
+            return;
+        }
+
         if (tile._pv_highlight) {
             return;
         }
 
         tile._pv_overhead = tile.data.overhead;
 
-        Board.place(`Tile#${tile.id}.tile`, tile.id && !tile._original ? tile.tile : null, Board.LAYERS.OVERHEAD_TILES, Board.Z_INDICES.PARENT);
+        Board.place(`Tile#${tile.id}.tile`, tile.tile, Board.LAYERS.OVERHEAD_TILES, Board.Z_INDICES.PARENT);
 
         canvas.perception.schedule({ foreground: { refresh: true } });
 
@@ -168,6 +172,10 @@ Hooks.once("init", () => {
     });
 
     patch("Levels.prototype.getTokenIconSprite", "OVERRIDE", function (token) {
+        if (!token.id || token._original) {
+            return;
+        }
+
         if (token._controlled || !token.icon || !token.icon.texture.baseTexture) {
             return;
         }
@@ -185,6 +193,10 @@ Hooks.once("init", () => {
     });
 
     patch("Levels.prototype.removeTempToken", "OVERRIDE", function (token) {
+        if (!token.id || token._original) {
+            return;
+        }
+
         if (token._pv_overhead === false) {
             token._pv_overhead = undefined;
             token._pv_refresh();
@@ -198,6 +210,10 @@ Hooks.once("init", () => {
     });
 
     patch("Levels.prototype.getTokenIconSpriteOverhead", "OVERRIDE", function (token) {
+        if (!token.id || token._original) {
+            return;
+        }
+
         if (token._controlled || !token.icon || !token.icon.texture.baseTexture) {
             return;
         }
@@ -215,6 +231,10 @@ Hooks.once("init", () => {
     });
 
     patch("Levels.prototype.removeTempTokenOverhead", "OVERRIDE", function (token) {
+        if (!token.id || token._original) {
+            return;
+        }
+
         if (token._pv_overhead === true) {
             token._pv_overhead = undefined;
             token._pv_refresh();

@@ -7,7 +7,9 @@ Hooks.once("init", () => {
     }
 
     patch("Token.prototype.drawAuras", "POST", function () {
-        Board.place(`Token#${this.id}.auras`, this.id && !this._original ? this.auras : null, Board.LAYERS.TOKEN_AURAS, Board.Z_INDICES.PARENT);
+        if (this.id && !this._original) {
+            Board.place(`Token#${this.id}.auras`, this.auras, Board.LAYERS.TOKEN_AURAS, Board.Z_INDICES.PARENT);
+        }
 
         return this;
     });

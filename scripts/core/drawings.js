@@ -65,6 +65,22 @@ function graphicsDataToPolygon(data, matrix) {
                 shape.width = Math.abs(height * c);
                 shape.height = Math.abs(width * b);
             }
+        } else if (Math.abs(a * b + c * d) < 1e-4) {
+            if (data.shape.type === PIXI.SHAPES.CIRC) {
+                shape = new PIXI.Ellipse(data.shape.x, data.shape.y, data.shape.radius, data.shape.radius);
+            } else if (data.shape.type === PIXI.SHAPES.ELIP && data.shape.width === data.shape.height) {
+                shape = data.shape.clone();
+            }
+
+            if (shape) {
+                const { x, y } = shape;
+                const radius = shape.width;
+
+                shape.x = x * a + y * c + tx;
+                shape.y = x * b + y * d + ty;
+                shape.width = Math.abs(radius * Math.sqrt(a * a + c * c));
+                shape.height = Math.abs(radius * Math.sqrt(b * b + d * d));
+            }
         }
     }
 
@@ -81,6 +97,10 @@ function graphicsDataToPolygon(data, matrix) {
         transformPoints(points, matrix);
 
         shape = new PIXI.Polygon(points);
+    }
+
+    if (shape.type === PIXI.SHAPES.ELIP && shape.width === shape.height) {
+        shape = new PIXI.Circle(shape.x, shape.y, shape.width);
     }
 
     return shape;

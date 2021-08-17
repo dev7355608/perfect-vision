@@ -34,6 +34,10 @@ Hooks.once("init", () => {
     patch("Canvas.prototype.draw", "POST", async function (result) {
         await result;
 
+        if (this.scene === null) {
+            return this;
+        }
+
         this._pv_background = this.stage.addChildAt(new SpriteMesh(new BackgroundColorShader()), 0);
 
         const bgRect = this.dimensions.rect.clone().pad(CONFIG.Canvas.blurStrength * 2);
