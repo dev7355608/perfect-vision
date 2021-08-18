@@ -546,6 +546,11 @@ Hooks.once("init", () => {
         return !this.data.hidden && getDarknessLevel(this.source).between(this.data.darkness.min ?? 0, this.data.darkness.max ?? 1);
     });
 
+    patch("AmbientSound.prototype.isAudible", "OVERRIDE", function () {
+        if (this.levelsInaudible) return false;
+        return !this.data.hidden && getDarknessLevel(this.center).between(this.data.darkness.min ?? 0, this.data.darkness.max ?? 1);
+    });
+
     patch("PointSource.prototype.drawLight", "OVERRIDE", function () {
         // Protect against cases where the canvas is being deactivated
         const shader = this.illumination.shader;
@@ -581,7 +586,7 @@ Hooks.once("init", () => {
         this._pv_data_globalLightThreshold = canvas.scene.data.globalLightThreshold;
 
         const priorLevel = this.darknessLevel;
-        const darknessChanged = (darkness !== undefined) && (darkness !== priorLevel)
+        let darknessChanged = (darkness !== undefined) && (darkness !== priorLevel)
         this.darknessLevel = darkness = Math.clamped(darkness ?? this.darknessLevel, 0, 1);
 
         this._pv_darknessLevel = darkness;
@@ -599,7 +604,8 @@ Hooks.once("init", () => {
 
         this._pv_globalLight = globalLight;
 
-        refreshAreas(this);
+        refreshAreas(this)
+        // darknessChanged = refreshAreas(this) || darknessChanged;
 
         // Clear currently rendered sources
         const ilm = this.illumination;
@@ -768,8 +774,8 @@ function sanitizeLightColor(color) {
     return (x[0] << 16) + (x[1] << 8) + x[2];
 }
 
-function getDarknessLevel(source) {
-    return Lighting.findArea(source.x, source.y)._pv_darknessLevel ?? 0;
+function getDarknessLevel(point) {
+    return Lighting.findArea(point.x, point.y)._pv_darknessLevel ?? 0;
 }
 
 function refreshAreas(layer) {
@@ -832,6 +838,8 @@ function refreshAreas(layer) {
 
     const { lightLevels, darknessLightPenalty } = CONFIG.Canvas;
     const { dark, dim, bright } = lightLevels;
+
+    let darknessChanged = false;
 
     layer._pv_areas.length = 0;
 
@@ -952,6 +960,8 @@ function refreshAreas(layer) {
 
         if (area._pv_darknessLevel !== darkness) {
             area._pv_channels = null;
+
+            darknessChanged = true;
         }
 
         area._pv_darknessLevel = darkness;
@@ -1030,6 +1040,8 @@ function refreshAreas(layer) {
     }
 
     layer._pv_areas.sort((a, b) => a._pv_zIndex - b._pv_zIndex);
+
+    return darknessChanged;
 }
 
 Hooks.on("updateScene", (scene, change, options, userId) => {
@@ -1159,11 +1171,11 @@ class IlluminationBackgroundShader extends PIXI.Shader {
             vec3 mask = texture2D(uVision, vMaskCoord).rgb;
             vec3 background = texture2D(uIllumination, vMaskCoord).rgb;
 
-            if (!uImprovedGMVision) {
-                gl_FragColor = vec4(background, 1.0);
-            } else {
-                gl_FragColor = vec4(mix(vec3(1.0), background, mask.r), 1.0);
+            if (uImprovedGMVision) {
+                background /= mix(max(max(background.r, background.g), background.b), 1.0, mask.r);
             }
+
+            gl_FragColor = vec4(background, 1.0);
         }`;
 
     static get program() {
