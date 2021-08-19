@@ -719,9 +719,7 @@ Hooks.once("init", () => {
         } else {
             saturation = canvas.scene.getFlag("perfect-vision", "saturation") ?? null;
 
-            if (!canvas.scene._pv_migration_forceSaturation) {
-                canvas.scene._pv_migration_forceSaturation = true;
-
+            if (canvas.scene._pv_migration_forceSaturation !== 2) {
                 const forceSaturation = canvas.scene.getFlag("perfect-vision", "forceSaturation");
 
                 if (forceSaturation !== undefined) {
@@ -729,10 +727,16 @@ Hooks.once("init", () => {
                         saturation = null;
                     }
 
-                    canvas.scene.update({
-                        "flags.perfect-vision.-=forceSaturation": null,
-                        "flags.perfect-vision.saturation": saturation
-                    });
+                    if (game.user.isGM && canvas.scene._pv_migration_forceSaturation !== 1) {
+                        canvas.scene.update({
+                            "flags.perfect-vision.-=forceSaturation": null,
+                            "flags.perfect-vision.saturation": saturation
+                        });
+
+                        canvas.scene._pv_migration_forceSaturation = 1;
+                    }
+                } else {
+                    canvas.scene._pv_migration_forceSaturation = 2;
                 }
             }
         }
