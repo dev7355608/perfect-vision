@@ -78,6 +78,7 @@ Hooks.once("init", () => {
     }
 
     patch("PointSource.prototype.initialize", "WRAPPER", function (wrapped, data) {
+        this._pv_version = this._pv_version ?? 0;
         this._pv_version++;
 
         if (this.sourceType === "light") {
@@ -140,7 +141,6 @@ Hooks.once("init", () => {
             brightVisionInDimLight = brightVisionInDimLight || game.settings.get("perfect-vision", "brightVisionInDimLight");
 
             const d = canvas.dimensions;
-            const maxR = d.maxR ?? Math.hypot(d.sceneWidth, d.sceneHeight);
 
             let dim = getLightRadius(token, token.data.dimSight);
             let bright = getLightRadius(token, token.data.brightSight);
@@ -150,8 +150,8 @@ Hooks.once("init", () => {
             dim = Math.abs(dim);
             bright = Math.abs(bright);
 
-            dim = Math.min(dim, maxR);
-            bright = Math.min(bright, maxR);
+            dim = Math.min(dim, d.maxR);
+            bright = Math.min(bright, d.maxR);
 
             let sightLimit = parseFloat(document.getFlag("perfect-vision", "sightLimit"));
 
@@ -166,15 +166,24 @@ Hooks.once("init", () => {
             }
 
             data = data ?? {};
-
-            data.dim = sign * Math.max(
-                dimVisionInDarkness === "dim" || dimVisionInDarkness === "dim_mono" ? dim : 0,
-                brightVisionInDarkness === "dim" || brightVisionInDarkness === "dim_mono" ? bright : 0
-            );
-            data.bright = sign * Math.max(
+            data.bright = Math.max(
                 dimVisionInDarkness === "bright" || dimVisionInDarkness === "bright_mono" ? dim : 0,
                 brightVisionInDarkness === "bright" || brightVisionInDarkness === "bright_mono" ? bright : 0
             );
+            data.dim = Math.max(
+                data.bright,
+                dimVisionInDarkness === "dim" || dimVisionInDarkness === "dim_mono" ? dim : 0,
+                brightVisionInDarkness === "dim" || brightVisionInDarkness === "dim_mono" ? bright : 0
+            );
+
+            this._pv_radius = Math.max(data.dim, data.bright);
+
+            if (data.dim === 0 && data.bright === 0) {
+                data.dim = minR;
+            } else {
+                data.dim *= sign;
+                data.bright *= sign;
+            }
 
             const visionRadius = Math.max(
                 dimVisionInDarkness === "scene" || dimVisionInDarkness === "scene_mono" ? dim : 0,
@@ -199,10 +208,6 @@ Hooks.once("init", () => {
             const monoVisionColor = colorStringToHex(
                 document.getFlag("perfect-vision", "monoVisionColor") || game.settings.get("perfect-vision", "monoVisionColor") || "#ffffff"
             );
-
-            this._pv_radius = Math.max(Math.abs(data.dim), Math.abs(data.bright));
-
-            data.dim = data.dim === 0 && data.bright === 0 ? minR : data.dim;
 
             wrapped(data);
 
@@ -313,10 +318,10 @@ Hooks.once("init", () => {
                             pAlpha = alpha;
                             pRatio = max(ratio, texture2D(pv_Vision, pv_MaskCoord).b);
                         } else {
-                            float s = texture2D(pv_Vision, pv_MaskCoord).r;
+                            float s = texture2D(pv_Vision, pv_MaskCoord).g;
 
-                            pAlpha = alpha * mix(1.0, 0.8125, s);
-                            pRatio = ratio * (1.0 - step(1.0, s));
+                            pAlpha = alpha * mix(0.8125, 1.0, s);
+                            pRatio = ratio * floor(s + 0.5);
                         }
 
                         vec3 colorBackground = texture2D(pv_Illumination, pv_MaskCoord).rgb;

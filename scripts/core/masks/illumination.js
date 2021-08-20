@@ -37,25 +37,21 @@ Hooks.once("init", () => {
             const elevation = Mask.get("elevation");
 
             for (const area of areas) {
-                if (area._pv_illumination && !area._pv_illumination.destroyed) {
-                    area._pv_illumination.destroy(true);
+                if (!area._pv_active) {
+                    continue;
                 }
 
-                if (area._pv_active) {
-                    area._pv_illumination = new PIXI.Graphics();
-                    area._pv_illumination.beginFill(area._pv_channels.background.hex);
-                    area._pv_illumination.drawShape(area._pv_shape);
-                    area._pv_illumination.endFill();
+                const shape = new PIXI.Graphics()
+                    .beginFill(area._pv_channels.background.hex)
+                    .drawShape(area._pv_shape)
+                    .endFill();
 
-                    if (elevation) {
-                        area._pv_illumination.filter = new ElevationFilter(Elevation.getElevationRange(area));
-                        area._pv_illumination.filters = [area._pv_illumination.filter];
-                    }
-
-                    mask.stage.addChild(area._pv_illumination);
-                } else {
-                    area._pv_illumination = null;
+                if (elevation) {
+                    shape.filter = new ElevationFilter(Elevation.getElevationRange(area));
+                    shape.filters = [shape.filter];
                 }
+
+                mask.stage.addChild(shape);
             }
         }
 

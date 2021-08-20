@@ -37,29 +37,25 @@ Hooks.once("init", () => {
             const elevation = Mask.get("elevation");
 
             for (const area of areas) {
-                if (area._pv_lighting && !area._pv_lighting.destroyed) {
-                    area._pv_lighting.destroy(true);
+                if (!area._pv_active) {
+                    continue;
                 }
 
-                if (area._pv_active) {
-                    const darkness = area._pv_darknessLevel;
-                    const saturation = area._pv_saturationLevel;
-                    const color = (Math.clamped(Math.round(darkness * 255), 0, 255) << 16) | (Math.clamped(Math.round(saturation * 255), 0, 255) << 8);
+                const darkness = area._pv_darknessLevel;
+                const saturation = area._pv_saturationLevel;
+                const color = (Math.clamped(Math.round(darkness * 255), 0, 255) << 16) | (Math.clamped(Math.round(saturation * 255), 0, 255) << 8);
 
-                    area._pv_lighting = new PIXI.Graphics();
-                    area._pv_lighting.beginFill(color);
-                    area._pv_lighting.drawShape(area._pv_shape);
-                    area._pv_lighting.endFill();
+                const shape = new PIXI.Graphics()
+                    .beginFill(color)
+                    .drawShape(area._pv_shape)
+                    .endFill();
 
-                    if (elevation) {
-                        area._pv_lighting.filter = new ElevationFilter(Elevation.getElevationRange(area));
-                        area._pv_lighting.filters = [area._pv_lighting.filter];
-                    }
-
-                    mask.stage.addChild(area._pv_lighting);
-                } else {
-                    area._pv_lighting = null;
+                if (elevation) {
+                    shape.filter = new ElevationFilter(Elevation.getElevationRange(area));
+                    shape.filters = [shape.filter];
                 }
+
+                mask.stage.addChild(shape);
             }
         }
 
