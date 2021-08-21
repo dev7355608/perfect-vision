@@ -126,7 +126,7 @@ Hooks.once("init", () => {
 
         const fov = new PIXI.Graphics()
             .beginFill(canvas.lighting._pv_globalLight ? 0xFFFFFF : 0x000000)
-            .drawShape(canvas.lighting._pv_shape)
+            .drawShape(canvas.lighting._pv_fov)
             .endFill();
 
         vision._pv_fov.addChild(fov);
@@ -141,8 +141,19 @@ Hooks.once("init", () => {
 
                 const fov = new PIXI.Graphics()
                     .beginFill(area._pv_globalLight ? 0xFFFFFF : 0x000000)
-                    .drawShape(area._pv_shape)
+                    .drawShape(area._pv_fov)
                     .endFill();
+
+                if (area._pv_los) {
+                    const los = new PIXI.Graphics()
+                        .beginFill()
+                        .drawShape(area._pv_los)
+                        .endFill();
+
+                    vision._pv_fov.addChild(los);
+
+                    fov.mask = los;
+                }
 
                 if (elevation) {
                     fov.filters = [new ElevationFilter(Elevation.getElevationRange(area))];
@@ -167,9 +178,9 @@ Hooks.once("init", () => {
 
         //     for (const area of canvas.lighting._pv_areas) {
         //         if (area._pv_globalLight) {
-        //             vision.fov.beginFill(0xFFFFFF, 1.0).drawShape(area._pv_shape).endFill();
+        //             vision.fov.beginFill(0xFFFFFF, 1.0).drawShape(area._pv_fov).endFill();
         //         } else {
-        //             vision.fov.beginFill(0x000000, 1.0).drawShape(area._pv_shape).endFill();
+        //             vision.fov.beginFill(0x000000, 1.0).drawShape(area._pv_fov).endFill();
         //         }
         //     }
         // } else {

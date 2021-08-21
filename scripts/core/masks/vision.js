@@ -1,5 +1,5 @@
 import { CachedAlphaObject } from "./utils/alpha.js";
-import { Elevation } from "../elevation.js";
+import { Elevation, ElevationFilter } from "../elevation.js";
 import { Mask } from "../mask.js";
 import { patch } from "../../utils/patch.js";
 import { SourcePolygonMesh, SourcePolygonMeshShader } from "../../display/source-polygon-mesh.js";
@@ -13,7 +13,7 @@ Hooks.once("init", () => {
         dependencies: ["elevation"]
     });
 
-    mask.stage.background = mask.stage.addChild(new PIXI.Graphics());
+    mask.stage.background = mask.stage.addChild(new PIXI.Container());
     mask.stage.layers = [
         new PIXI.Container(),
         new PIXI.Container(),
@@ -39,7 +39,7 @@ Hooks.once("init", () => {
             mask.texture.multisample = PIXI.MSAA_QUALITY.NONE;
         }
 
-        mask.stage.background.clear();
+        mask.stage.background.removeChildren().forEach(c => c.destroy(true));
 
         for (const layer of mask.stage.layers) {
             layer.removeChildren();
@@ -50,21 +50,46 @@ Hooks.once("init", () => {
     });
 
     Hooks.on("lightingRefresh", () => {
-        mask.stage.background.clear();
+        mask.stage.background.removeChildren().forEach(c => c.destroy(true));
 
-        if (canvas.lighting._pv_globalLight) {
-            mask.stage.background.beginFill(0x00FF00).drawShape(canvas.lighting._pv_shape).endFill();
-        }
+        const elevation = !canvas.sight.fogExploration && Mask.get("elevation");
 
-        for (const area of canvas.lighting._pv_areas) {
-            if (area.skipRender) {
-                continue;
-            }
+        const fov = new PIXI.Graphics()
+            .beginFill(canvas.lighting._pv_globalLight ? 0x00FF00 : 0x000000)
+            .drawShape(canvas.lighting._pv_fov)
+            .endFill();
 
-            if (area._pv_globalLight) {
-                mask.stage.background.beginFill(0x00FF00).drawShape(area._pv_shape).endFill();
-            } else {
-                mask.stage.background.beginFill(0x000000).drawShape(area._pv_shape).endFill();
+        mask.stage.background.addChild(fov);
+
+        const areas = canvas.lighting._pv_areas;
+
+        if (areas?.length !== 0) {
+            for (const area of areas) {
+                if (area.skipRender) {
+                    continue;
+                }
+
+                const fov = new PIXI.Graphics()
+                    .beginFill(area._pv_globalLight ? 0x00FF00 : 0x000000)
+                    .drawShape(area._pv_fov)
+                    .endFill();
+
+                if (area._pv_los) {
+                    const los = new PIXI.Graphics()
+                        .beginFill()
+                        .drawShape(area._pv_los)
+                        .endFill();
+
+                    mask.stage.background.addChild(los);
+
+                    fov.mask = los;
+                }
+
+                if (elevation) {
+                    fov.filters = [new ElevationFilter(Elevation.getElevationRange(area))];
+                }
+
+                mask.stage.background.addChild(fov);
             }
         }
 

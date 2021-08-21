@@ -8,7 +8,7 @@ export class Lighting {
                     continue;
                 }
 
-                if (area._pv_shape.contains(x, y)) {
+                if ((!area._pv_los || area._pv_los.contains(x, y)) && area._pv_fov.contains(x, y)) {
                     result = area;
                 }
             }

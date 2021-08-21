@@ -1,20 +1,45 @@
 export class Drawings {
-    static extractShape(drawing) {
-        const graphicsData = drawing.shape?.geometry?.graphicsData;
+    static extractShapeAndOrigin(drawing, origin = { x: 0.5, y: 0.5 }) {
+        const { x, y, width, height, rotation } = drawing.data;
 
-        if (graphicsData?.length > 0) {
-            const matrix = tempMatrix1.copyFrom(PIXI.Matrix.IDENTITY);
-
-            matrix.translate(-drawing.data.width / 2, -drawing.data.height / 2);
-            matrix.rotate(Math.toRadians(drawing.data.rotation || 0));
-            matrix.translate(drawing.data.x + drawing.data.width / 2, drawing.data.y + drawing.data.height / 2);
-
-            return graphicsDataToPolygon(graphicsData[0], matrix);
+        if (width <= 0 || height <= 0) {
+            return { shape: new PIXI.Polygon(), origin: new PIXI.Point() };
         }
 
-        return new PIXI.Polygon();
+        const graphicsData = drawing.shape?.geometry?.graphicsData;
+
+        if (!graphicsData?.length) {
+            return { shape: new PIXI.Polygon(), origin: new PIXI.Point() };
+        }
+
+        const data = graphicsData[0];
+
+        if (!data.shape || data.shape.width <= 0 || data.shape.height <= 0 || data.shape.radius <= 0 || data.shape.points?.length <= 2) {
+            return { shape: new PIXI.Polygon(), origin: new PIXI.Point() };
+        }
+
+        const matrix = tempMatrix.identity();
+
+        matrix.translate(-width / 2, -height / 2);
+        matrix.rotate(Math.toRadians(rotation || 0));
+        matrix.translate(x + width / 2, y + height / 2);
+
+        if (data.matrix) {
+            matrix.append(data.matrix);
+        }
+
+        origin = new PIXI.Point(origin.x * width, origin.y * height);
+
+        matrix.apply(origin, origin);
+
+        const shape = transformShape(data.shape, matrix);
+
+        return { shape, origin };
     }
 }
+
+const tempMatrix = new PIXI.Matrix();
+const tempGraphicsData = new PIXI.GraphicsData(new PIXI.Polygon());
 
 function transformPoints(points, matrix) {
     const { a, b, c, d, tx, ty } = matrix;
@@ -28,80 +53,91 @@ function transformPoints(points, matrix) {
     }
 }
 
-const tempMatrix1 = new PIXI.Matrix();
-const tempMatrix2 = new PIXI.Matrix();
-const tempData = new PIXI.GraphicsData(new PIXI.Polygon());
+function transformShape(shape, matrix) {
+    let result;
 
-function graphicsDataToPolygon(data, matrix) {
-    if (data.matrix) {
-        matrix = tempMatrix2.copyFrom(matrix);
-        matrix.append(data.matrix);
-    }
-
-    let shape;
-
-    if (data.shape.type !== PIXI.SHAPES.POLY) {
+    if (shape.type !== PIXI.SHAPES.POLY) {
         const { a, b, c, d, tx, ty } = matrix;
 
         const bc0 = Math.abs(b) < 1e-4 && Math.abs(c) < 1e-4;
 
         if (bc0 || Math.abs(a) < 1e-4 && Math.abs(d) < 1e-4) {
-            if (data.shape.type !== PIXI.SHAPES.CIRC) {
-                shape = data.shape.clone();
+            if (shape.type !== PIXI.SHAPES.CIRC) {
+                result = shape.clone();
             } else {
-                shape = new PIXI.Ellipse(data.shape.x, data.shape.y, data.shape.radius, data.shape.radius);
+                result = new PIXI.Ellipse(shape.x, shape.y, shape.radius, shape.radius);
             }
 
-            const { x, y, width, height } = shape;
+            const { x, y, width, height } = result;
 
             if (bc0) {
-                shape.x = x * a + tx;
-                shape.y = y * d + ty;
-                shape.width = Math.abs(width * a);
-                shape.height = Math.abs(height * d);
+                result.x = x * a + tx;
+                result.y = y * d + ty;
+                result.width = width * a;
+                result.height = height * d;
             } else {
-                shape.x = y * c + tx;
-                shape.y = x * b + ty;
-                shape.width = Math.abs(height * c);
-                shape.height = Math.abs(width * b);
+                result.x = y * c + tx;
+                result.y = x * b + ty;
+                result.width = height * c;
+                result.height = width * b;
             }
         } else if (Math.abs(a * b + c * d) < 1e-4) {
-            if (data.shape.type === PIXI.SHAPES.CIRC) {
-                shape = new PIXI.Ellipse(data.shape.x, data.shape.y, data.shape.radius, data.shape.radius);
-            } else if (data.shape.type === PIXI.SHAPES.ELIP && data.shape.width === data.shape.height) {
-                shape = data.shape.clone();
+            if (shape.type === PIXI.SHAPES.CIRC) {
+                result = new PIXI.Ellipse(shape.x, shape.y, shape.radius, shape.radius);
+            } else if (shape.type === PIXI.SHAPES.ELIP && shape.width === shape.height) {
+                result = shape.clone();
             }
 
-            if (shape) {
-                const { x, y } = shape;
-                const radius = shape.width;
+            if (result) {
+                const { x, y } = result;
+                const radius = result.width;
 
-                shape.x = x * a + y * c + tx;
-                shape.y = x * b + y * d + ty;
-                shape.width = Math.abs(radius * Math.sqrt(a * a + c * c));
-                shape.height = Math.abs(radius * Math.sqrt(b * b + d * d));
+                result.x = x * a + y * c + tx;
+                result.y = x * b + y * d + ty;
+                result.width = radius * Math.sqrt(a * a + c * c);
+                result.height = radius * Math.sqrt(b * b + d * d);
             }
         }
     }
 
-    if (!shape) {
-        tempData.shape = data.shape;
-        tempData.type = data.type;
+    if (!result) {
+        result = buildPolygon(shape);
 
-        const command = PIXI.graphicsUtils.FILL_COMMANDS[data.type];
+        transformPoints(result.points, matrix);
+    } else if (result.type === PIXI.SHAPES.RECT) {
+        const x = result.width >= 0 ? result.x : result.x + result.width;
+        const y = result.height >= 0 ? result.y : result.y + result.height;
 
-        command.build(tempData);
+        result.x = x;
+        result.y = y;
+        result.width = Math.abs(result.width);
+        result.height = Math.abs(result.height);
+    } else if (result.type === PIXI.SHAPES.ELIP) {
+        result.width = Math.abs(result.width);
+        result.height = Math.abs(result.height);
 
-        const points = tempData.points;
-
-        transformPoints(points, matrix);
-
-        shape = new PIXI.Polygon(points);
+        if (result.width === result.height) {
+            result = new PIXI.Circle(result.x, result.y, result.width);
+        }
+    } else if (result.type === PIXI.SHAPES.CIRC) {
+        result.radius = Math.abs(result.radius);
     }
 
-    if (shape.type === PIXI.SHAPES.ELIP && shape.width === shape.height) {
-        shape = new PIXI.Circle(shape.x, shape.y, shape.width);
-    }
+    return result;
+}
 
-    return shape;
+function buildPolygon(shape) {
+    const data = tempGraphicsData;
+
+    data.shape = shape;
+    data.type = shape.type;
+    data.points = [];
+
+    const command = PIXI.graphicsUtils.FILL_COMMANDS[data.type];
+
+    command.build(data);
+
+    const points = data.points;
+
+    return new PIXI.Polygon(points);
 }

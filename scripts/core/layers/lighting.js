@@ -226,7 +226,7 @@ Hooks.once("init", () => {
                 this.los = computePolygon(this, sightLimit, cache);
             }
 
-            if (!token._original) {
+            if (visionRadius > 0 && !token._original) {
                 this._pv_fovMono = this.fov;
             } else {
                 this._pv_fovMono = null;
@@ -480,7 +480,8 @@ Hooks.once("init", () => {
 
         this._pv_active = true;
         this._pv_parent = null;
-        this._pv_shape = canvas.dimensions.rect.clone();
+        this._pv_fov = canvas.dimensions.rect.clone();
+        this._pv_los = null;
         this._pv_globalLight = this.globalLight;
 
         let daylightColor = canvas.scene.getFlag("perfect-vision", "daylightColor") ?? "";
@@ -531,7 +532,8 @@ Hooks.once("init", () => {
 
         this._pv_active = false;
         this._pv_parent = null;
-        this._pv_shape = null;
+        this._pv_fov = null;
+        this._pv_los = null;
         this._pv_globalLight = false;
         this._pv_daylightColor = 0;
         this._pv_darknessColor = 0;
@@ -804,7 +806,8 @@ function refreshAreas(layer) {
 
         if (area._pv_active === undefined) {
             area._pv_active = false;
-            area._pv_shape = null;
+            area._pv_fov = null;
+            area._pv_los = null;
             area._pv_parent = null;
             area._pv_globalLight = false;
             area._pv_daylightColor = 0;
@@ -871,7 +874,8 @@ function refreshAreas(layer) {
         }
 
         if (!active) {
-            area._pv_shape = null;
+            area._pv_fov = null;
+            area._pv_los = null;
             area._pv_parent = null;
             area._pv_globalLight = false;
             area._pv_daylightColor = 0;
@@ -888,7 +892,14 @@ function refreshAreas(layer) {
 
         layer._pv_areas.push(area);
 
-        area._pv_shape = Drawings.extractShape(area);
+        area._pv_data_origin = { x: 0.5, y: 0.5 };
+
+        const { shape, origin } = Drawings.extractShapeAndOrigin(area, area._pv_data_origin);
+
+        area._pv_origin = origin;
+        area._pv_fov = shape;
+        area._pv_los = null;
+        // area._pv_los = canvas.walls.computePolygon(origin, canvas.dimensions.maxR, { type: "light" }).los;
 
         let globalLight;
 

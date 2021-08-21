@@ -41,17 +41,28 @@ Hooks.once("init", () => {
                     continue;
                 }
 
-                const shape = new PIXI.Graphics()
+                const fov = new PIXI.Graphics()
                     .beginFill(area._pv_channels.background.hex)
-                    .drawShape(area._pv_shape)
+                    .drawShape(area._pv_fov)
                     .endFill();
 
-                if (elevation) {
-                    shape.filter = new ElevationFilter(Elevation.getElevationRange(area));
-                    shape.filters = [shape.filter];
+                if (area._pv_los) {
+                    const los = new PIXI.Graphics()
+                        .beginFill()
+                        .drawShape(area._pv_los)
+                        .endFill();
+
+                    mask.stage.addChild(los);
+
+                    fov.mask = los;
                 }
 
-                mask.stage.addChild(shape);
+                if (elevation) {
+                    fov.filter = new ElevationFilter(Elevation.getElevationRange(area));
+                    fov.filters = [fov.filter];
+                }
+
+                mask.stage.addChild(fov);
             }
         }
 
