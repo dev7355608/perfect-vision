@@ -57,6 +57,10 @@ Hooks.once("init", () => {
         }
 
         for (const area of canvas.lighting._pv_areas) {
+            if (area.skipRender) {
+                continue;
+            }
+
             if (area._pv_globalLight) {
                 mask.stage.background.beginFill(0x00FF00).drawShape(area._pv_shape).endFill();
             } else {

@@ -66,7 +66,7 @@ function renderConfig(sheet, html, data) {
                 "brightVisionInDimLight",
                 "monoVisionColor"
             ].includes(s.key)).map(setting => {
-                const s = duplicate(setting);
+                const s = foundry.utils.duplicate(setting);
                 s.name = game.i18n.localize(s.name);
                 s.hint = game.i18n.localize(s.hint);
                 s.value = game.settings.get(s.module, s.key);
@@ -76,7 +76,7 @@ function renderConfig(sheet, html, data) {
                 s.isRange = (setting.type === Number) && s.range;
 
                 if (s.key === "visionRules") {
-                    s.choices = mergeObject({ "default": "Default" }, s.choices);
+                    s.choices = foundry.utils.mergeObject({ "default": "Default" }, s.choices);
                     s.default = "default";
                     s.value = document.getFlag(s.module, s.key) ?? "default";
                 } else {
@@ -285,13 +285,11 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
     function resetDefaults(event) {
         event.preventDefault();
 
-        this.object.update({ "flags.-=perfect-vision": null });
-        this.object.data.update({ "flags.-=perfect-vision": null });
+        if (!this._pv_resetDefaults) {
+            this._pv_resetDefaults = true;
 
-        canvas.lighting.refresh();
-
-        this._pv_reset = true;
-        this.render();
+            this.object.update({ "flags.-=perfect-vision": null }).then(() => this.render());
+        }
     }
 
     const nav = html.find("nav.sheet-tabs.tabs");
@@ -448,8 +446,8 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
     addColorSetting("daylightColor", "Daylight Color");
     addColorSetting("darknessColor", "Darkness Color");
 
-    if (sheet._pv_reset) {
-        sheet._pv_reset = false;
+    if (sheet._pv_resetDefaults) {
+        sheet._pv_resetDefaults = false;
         sheet._tabs[0].activate("perfect-vision.vision-and-lighting");
     }
 

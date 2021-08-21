@@ -3,7 +3,7 @@ import { patch } from "../../utils/patch.js";
 
 Hooks.once("init", () => {
     patch("TemplateLayer.layerOptions", "POST", function (options) {
-        return mergeObject(options, {
+        return foundry.utils.mergeObject(options, {
             zIndex: SightLayer.layerOptions.zIndex + 50
         });
     });

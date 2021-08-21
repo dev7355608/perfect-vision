@@ -20,7 +20,7 @@ Hooks.once("init", () => {
 Hooks.on("updateDrawing", (document, change, options, userId, arg) => {
     const scene = document.parent;
 
-    if (!scene?.isView || !document.object._pv_active && !hasProperty(change, "flags.perfect-vision")) {
+    if (!scene?.isView || !document.object._pv_active && !("flags" in change && ("perfect-vision" in change.flags || "-=perfect-vision" in change.flags) || "-=flags" in change)) {
         return;
     }
 

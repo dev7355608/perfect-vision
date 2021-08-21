@@ -7,7 +7,7 @@ Hooks.once("setup", () => {
     }
 
     patch("Canvas.layers.fxmaster.layerOptions", "POST", function (options) {
-        return mergeObject(options, {
+        return foundry.utils.mergeObject(options, {
             zIndex: LightingLayer.layerOptions.zIndex - 10
         });
     });

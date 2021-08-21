@@ -37,7 +37,7 @@ Hooks.once("init", () => {
             const elevation = Mask.get("elevation");
 
             for (const area of areas) {
-                if (!area._pv_active) {
+                if (area.skipRender) {
                     continue;
                 }
 

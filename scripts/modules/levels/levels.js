@@ -269,7 +269,10 @@ Hooks.once("init", () => {
 
                 if (!scheduled) {
                     scheduled = true;
-                    canvas.perception.schedule({ lighting: { refresh: true } });
+                    canvas.perception.schedule({
+                        lighting: { refresh: true },
+                        sight: { initialize: true, refresh: true }
+                    });
                 }
             }
         }

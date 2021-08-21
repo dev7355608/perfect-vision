@@ -4,7 +4,7 @@ import { Tiles } from "../tiles.js";
 
 Hooks.once("init", () => {
     patch("MapLayer.layerOptions", "POST", function (options) {
-        return mergeObject(options, {
+        return foundry.utils.mergeObject(options, {
             zIndex: SightLayer.layerOptions.zIndex - 50
         });
     });

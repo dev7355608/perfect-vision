@@ -3,7 +3,7 @@ import { patch } from "../../utils/patch.js";
 
 Hooks.once("init", () => {
     patch("EffectsLayer.layerOptions", "POST", function (options) {
-        return mergeObject(options, {
+        return foundry.utils.mergeObject(options, {
             zIndex: LightingLayer.layerOptions.zIndex - 10
         });
     });

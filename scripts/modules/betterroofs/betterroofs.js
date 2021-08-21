@@ -9,7 +9,7 @@ Hooks.once("init", () => {
     Hooks.on("updateTile", (document, change, options, userId, arg) => {
         const scene = document.parent;
 
-        if (!scene?.isView || !hasProperty(change, "flags.betterroofs")) {
+        if (!scene?.isView || !("flags" in change && ("betterroofs" in change.flags || "-=betterroofs" in change.flags) || "-=flags" in change)) {
             return;
         }
 

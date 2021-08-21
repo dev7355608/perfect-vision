@@ -205,7 +205,7 @@ Hooks.once("init", () => {
                 dimVisionInDimLight === "bright" ? dim : 0,
                 brightVisionInDimLight === "bright" ? bright : 0
             );
-            const monoVisionColor = colorStringToHex(
+            const monoVisionColor = foundry.utils.colorStringToHex(
                 document.getFlag("perfect-vision", "monoVisionColor") || game.settings.get("perfect-vision", "monoVisionColor") || "#ffffff"
             );
 
@@ -454,7 +454,7 @@ Hooks.once("init", () => {
         const dim = CONFIG.Canvas.lightLevels.dim;
 
         channels.dim.rgb = channels.bright.rgb.map((c, i) => (dim * c) + ((1 - dim) * channels.background.rgb[i]));
-        channels.dim.hex = rgbToHex(channels.dim.rgb);
+        channels.dim.hex = foundry.utils.rgbToHex(channels.dim.rgb);
 
         CONFIG.Canvas.daylightColor = daylightColor;
         CONFIG.Canvas.darknessColor = darknessColor;
@@ -776,7 +776,7 @@ function getLightRadius(token, units) {
 
 function sanitizeLightColor(color) {
     if (typeof color === "string") {
-        color = colorStringToHex(color);
+        color = foundry.utils.colorStringToHex(color);
     }
 
     const x = [(color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF].map(x => Math.max(x, 0xF));
@@ -863,7 +863,7 @@ function refreshAreas(layer) {
             active = !!document.getFlag("perfect-vision", "active");
         }
 
-        active = active && !area.skipRender && area._pv_parent?._pv_active;
+        active = active && area._pv_parent?._pv_active;
 
         if (area._pv_active !== active) {
             area._pv_active = active;
@@ -1054,20 +1054,21 @@ function refreshAreas(layer) {
 }
 
 Hooks.on("updateScene", (scene, change, options, userId) => {
-    if (!scene.isView || !hasProperty(change, "flags.perfect-vision")) {
+    if (!scene.isView || !("flags" in change && ("perfect-vision" in change.flags || "-=perfect-vision" in change.flags) || "-=flags" in change)) {
         return;
     }
 
     canvas.perception.schedule({
         lighting: { initialize: true, refresh: true },
-        sight: { initialize: true, refresh: true }
+        sight: { initialize: true, refresh: true },
+        foreground: { refresh: true },
     });
 });
 
 Hooks.on("updateToken", (document, change, options, userId, arg) => {
     const scene = document.parent;
 
-    if (!scene?.isView || !hasProperty(change, "flags.perfect-vision")) {
+    if (!scene?.isView || !("flags" in change && ("perfect-vision" in change.flags || "-=perfect-vision" in change.flags) || "-=flags" in change)) {
         return;
     }
 
@@ -1086,7 +1087,7 @@ Hooks.on("updateToken", (document, change, options, userId, arg) => {
 Hooks.on("updateAmbientLight", (document, change, options, userId, arg) => {
     const scene = document.parent;
 
-    if (!scene?.isView || !hasProperty(change, "flags.perfect-vision")) {
+    if (!scene?.isView || !("flags" in change && ("perfect-vision" in change.flags || "-=perfect-vision" in change.flags) || "-=flags" in change)) {
         return;
     }
 
@@ -1097,7 +1098,7 @@ Hooks.on("updateAmbientLight", (document, change, options, userId, arg) => {
 
         canvas.perception.schedule({
             lighting: { refresh: true },
-            sight: { refresh: true }
+            sight: { refresh: true, forceUpdateFog: true }
         });
     }
 });

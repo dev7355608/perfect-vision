@@ -4,7 +4,7 @@ import { Tokens } from "../tokens.js";
 
 Hooks.once("init", () => {
     patch("TokenLayer.layerOptions", "POST", function (options) {
-        return mergeObject(options, {
+        return foundry.utils.mergeObject(options, {
             zIndex: SightLayer.layerOptions.zIndex + 100
         });
     });

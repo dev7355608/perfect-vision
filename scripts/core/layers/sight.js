@@ -10,6 +10,10 @@ Hooks.once("init", () => {
 
         if (!globalLight) {
             for (const area of canvas.lighting._pv_areas) {
+                if (area.skipRender) {
+                    continue;
+                }
+
                 if (area._pv_globalLight) {
                     globalLight = true;
                     break;
@@ -131,18 +135,20 @@ Hooks.once("init", () => {
 
         if (areas?.length !== 0) {
             for (const area of areas) {
-                if (area._pv_active) {
-                    const fov = new PIXI.Graphics()
-                        .beginFill(area._pv_globalLight ? 0xFFFFFF : 0x000000)
-                        .drawShape(area._pv_shape)
-                        .endFill();
-
-                    if (elevation) {
-                        fov.filters = [new ElevationFilter(Elevation.getElevationRange(area))];
-                    }
-
-                    vision._pv_fov.addChild(fov);
+                if (area.skipRender) {
+                    continue;
                 }
+
+                const fov = new PIXI.Graphics()
+                    .beginFill(area._pv_globalLight ? 0xFFFFFF : 0x000000)
+                    .drawShape(area._pv_shape)
+                    .endFill();
+
+                if (elevation) {
+                    fov.filters = [new ElevationFilter(Elevation.getElevationRange(area))];
+                }
+
+                vision._pv_fov.addChild(fov);
             }
         }
 
@@ -271,7 +277,7 @@ Hooks.once("init", () => {
         let maxSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
 
         const singleChannel = false;
-        const exploredColor = hexToRGB(CONFIG.Canvas.exploredColor);
+        const exploredColor = foundry.utils.hexToRGB(CONFIG.Canvas.exploredColor);
 
         if (singleChannel && exploredColor[0] === exploredColor[1] && exploredColor[1] === exploredColor[2]) {
             format = PIXI.FORMATS.RED;
@@ -356,14 +362,14 @@ Hooks.once("init", () => {
         let renderTextureOptions = {};
 
         Hooks.on("sightRefresh", () => {
-            fogShader.uniforms.uExploredColor = hexToRGB(CONFIG.Canvas.exploredColor);
+            fogShader.uniforms.uExploredColor = foundry.utils.hexToRGB(CONFIG.Canvas.exploredColor);
         });
 
         patch("SightLayer.prototype.draw", "POST", async function (result) {
             await result;
 
             fogShader.texture = PIXI.Texture.EMPTY;
-            fogShader.uniforms.uExploredColor = hexToRGB(CONFIG.Canvas.exploredColor);
+            fogShader.uniforms.uExploredColor = foundry.utils.hexToRGB(CONFIG.Canvas.exploredColor);
 
             if (this._fogResolution.format === PIXI.FORMATS.RED) {
                 const d = canvas.dimensions;
@@ -435,7 +441,7 @@ Hooks.once("init", () => {
 
             if (this._fogResolution.format === PIXI.FORMATS.RED) {
                 // Set explored color to standard gray
-                fogShader.uniforms.uExploredColor = hexToRGB(0x7F7F7F);
+                fogShader.uniforms.uExploredColor = foundry.utils.hexToRGB(0x7F7F7F);
 
                 for (const c of this.pending.children) {
                     c.fov.tint = 0x7F7F7F;
@@ -452,7 +458,7 @@ Hooks.once("init", () => {
 
             if (this._fogResolution.format === PIXI.FORMATS.RED) {
                 // Restore explored color
-                fogShader.uniforms.uExploredColor = hexToRGB(CONFIG.Canvas.exploredColor);
+                fogShader.uniforms.uExploredColor = foundry.utils.hexToRGB(CONFIG.Canvas.exploredColor);
             }
 
             // Swap the staging texture to the rendered Sprite
@@ -608,13 +614,13 @@ Hooks.once("init", () => {
                 height = Math.min(Math.round(d.sceneHeight * scale), MAX_SIZE);
 
                 if (this.saved.texture.baseTexture.format === PIXI.FORMATS.RED) {
-                    fogShader.uniforms.uExploredColor = hexToRGB(0x7F7F7F);
+                    fogShader.uniforms.uExploredColor = foundry.utils.hexToRGB(0x7F7F7F);
                 }
 
                 canvas.app.renderer.render(sprite, { renderTexture: texture, clear: false });
 
                 if (this.saved.texture.baseTexture.format === PIXI.FORMATS.RED) {
-                    fogShader.uniforms.uExploredColor = hexToRGB(CONFIG.Canvas.exploredColor);
+                    fogShader.uniforms.uExploredColor = foundry.utils.hexToRGB(CONFIG.Canvas.exploredColor);
                 }
             } else {
                 // Downsizing is not necessary
