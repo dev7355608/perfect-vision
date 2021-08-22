@@ -9,7 +9,7 @@ Hooks.once("init", () => {
     patch("Token.prototype.addChild", "POST", function (result, ...objects) {
         if (this.id && !this._original) {
             for (const object of objects) {
-                if (object === this.turnmarker) {
+                if (object === this.ldmarker) {
                     Board.place(`Token#${this.id}.monks-little-details.turnmarker`, object, Board.LAYERS.TOKEN_MARKERS, 2);
                 } else if (object === this.bloodsplat) {
                     Board.place(`Token#${this.id}.monks-little-details.bloodsplat`, object, Board.LAYERS.OVERHEAD_EFFECTS, 0);
@@ -22,7 +22,7 @@ Hooks.once("init", () => {
 
     patch("Token.prototype.addChildAt", "POST", function (result, object, index) {
         if (this.id && !this._original) {
-            if (object === this.turnmarker) {
+            if (object === this.ldmarker) {
                 Board.place(`Token#${this.id}.monks-little-details.turnmarker`, object, Board.LAYERS.TOKEN_MARKERS, 2);
             } else if (object === this.bloodsplat) {
                 Board.place(`Token#${this.id}.monks-little-details.bloodsplat`, object, Board.LAYERS.OVERHEAD_EFFECTS, 0);
