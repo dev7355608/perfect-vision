@@ -7,7 +7,7 @@ Hooks.once("init", () => {
         return;
     }
 
-    Tokens.isDefeated = function (token) {
+    Tokens.hasOverlayEffect = function (token) {
         return false;
     };
 

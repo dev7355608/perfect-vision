@@ -51,7 +51,7 @@ Token.prototype._pv_refresh = function () {
         const overhead = Tokens.isOverhead(this);
 
         if (overhead === undefined) {
-            if (Tokens.isDefeated(this)) {
+            if (Tokens.hasOverlayEffect(this)) {
                 Board.place(`Token#${this.id}.icon`, this.icon, Board.LAYERS.TOKENS_DEFEATED, Board.Z_INDICES.PARENT);
                 Board.place(`Token#${this.id}.effects`, this.effects, Board.LAYERS.TOKEN_EFFECTS, Board.Z_INDICES.PARENT);
             } else {
@@ -67,7 +67,7 @@ Token.prototype._pv_refresh = function () {
             } else {
                 Board.place(`Token#${this.id}.icon`, this.icon, Board.LAYERS.UNDERFOOT_TILES + 1, zIndex);
 
-                if (Tokens.isDefeated(this)) {
+                if (Tokens.hasOverlayEffect(this)) {
                     Board.place(`Token#${this.id}.effects`, this.effects, Board.LAYERS.TOKEN_EFFECTS, Board.Z_INDICES.PARENT);
                 } else {
                     Board.unplace(`Token#${this.id}.effects`);
