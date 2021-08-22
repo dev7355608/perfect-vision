@@ -545,6 +545,10 @@ Hooks.once("init", () => {
     });
 
     patch("DrawingConfig.prototype._onChangeInput", "WRAPPER", async function (wrapped, event) {
+        if (!game.user.isGM) {
+            return await wrapped(event);
+        }
+
         const document = this.object;
 
         if (!document) {
@@ -660,6 +664,10 @@ Hooks.once("init", () => {
     });
 
     patch("DrawingConfig.prototype._getSubmitData", "POST", function (data) {
+        if (!game.user.isGM) {
+            return data;
+        }
+
         const document = this.object;
 
         if (!document) {
@@ -738,6 +746,10 @@ Hooks.once("init", () => {
 
     patch("DrawingConfig.prototype.close", "POST", async function (result) {
         await result;
+
+        if (!game.user.isGM) {
+            return;
+        }
 
         canvas.perception.schedule({
             lighting: { refresh: true },
