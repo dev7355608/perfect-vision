@@ -1,5 +1,6 @@
 import { patch } from "../../utils/patch.js";
 import { presets } from "../../settings.js";
+import { Drawings } from "../drawings.js";
 
 const renderConfigTemplate = Handlebars.compile(`\
     {{#*inline "settingPartial"}}
@@ -292,6 +293,45 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
         }
     }
 
+    function pickOrigin(event) {
+        event.preventDefault();
+
+        canvas.stage.addChild(pickerOverlay);
+
+        pickerOverlay.once("pick", position => {
+            const { width, height } = drawing.data;
+            const origin = Drawings.getLocalPosition(drawing, position);
+            const x = origin.x / width;
+            const y = origin.y / height;
+
+            if (Number.isFinite(x) && Number.isFinite(y)) {
+                const p = new PIXI.Point();
+
+                for (let n = 1; ; n *= 10) {
+                    origin.x = Math.round(x * n) / n;
+                    origin.y = Math.round(y * n) / n;
+
+                    p.x = origin.x * width;
+                    p.y = origin.y * height;
+
+                    Drawings.getGlobalPosition(drawing, p, p);
+
+                    if (Math.max(Math.abs(position.x - p.x) * canvas.stage.scale.x, Math.abs(position.y - p.y) * canvas.stage.scale.y) < 0.1) {
+                        break;
+                    }
+                }
+
+                this.form.elements["flags.perfect-vision.origin.x"].value = origin.x;
+                this.form.elements["flags.perfect-vision.origin.y"].value = origin.y;
+            } else {
+                this.form.elements["flags.perfect-vision.origin.x"].value = null;
+                this.form.elements["flags.perfect-vision.origin.y"].value = null;
+            }
+
+            $(this.form.elements["flags.perfect-vision.origin.x"]).trigger("change");
+        });
+    }
+
     const nav = html.find("nav.sheet-tabs.tabs");
 
     nav.append(`<a class="item" data-tab="perfect-vision.vision-and-lighting" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 10px; padding-right: 10px; margin-left: -10px; margin-right: -10px;"><i class="fas fa-lightbulb"></i> Vision/Lighting</a>`);
@@ -310,15 +350,34 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
                 <p class="notes">If enabled, vision and lighting of the area below is controlled by the following settings.</p>
             </div>
             <div class="form-group">
-                <label>Parent Drawing</label>
+                <label>Parent</label>
                 <div class="form-fields">
                     <select name="flags.perfect-vision.parent" style="font-family: monospace;" data-dtype="String">
                         <option value=""></option>
                     </select>
                     &nbsp;&nbsp;&nbsp;
                     <label class="checkbox" style="visibility: hidden;">Override <input type="checkbox"></label>
-                    </div>
+                </div>
                 <p class="notes">If left blank, the scene is the parent. The settings below default to the parent's setting if <i>Override</i> is unchecked.</p>
+            </div>
+            <div class="form-group">
+                <label>Origin</label>
+                <div class="form-fields">
+                    <label class="checkbox">
+                        <input type="checkbox" id="perfect-vision.hasOrigin">
+                    </label>
+                    <label class="grid-label">x</label>
+                    <input type="number" name="flags.perfect-vision.origin.x" placeholder="0.5" step="any">
+                    <label class="grid-label">y</label>
+                    <input type="number" name="flags.perfect-vision.origin.y" placeholder="0.5" step="any">
+                    &nbsp;
+                    <button class="capture-position" type="button" title="Pick Origin" id="perfect-vision.pickOrigin">
+                        <i class="fas fa-crosshairs"></i>
+                    </button>
+                    &nbsp;&nbsp;&nbsp;
+                    <label class="checkbox" style="visibility: hidden;">Override <input type="checkbox"></label>
+                </div>
+                <p class="notes">If set, this area is blocked by walls with respect to specified point of origin.</p>
             </div>
             <div class="form-group">
                 <label>Unrestricted Vision Range</label>
@@ -331,7 +390,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
             <div class="form-group">
                 <label>Darkness Level</label>
                 <div class="form-fields">
-                    <input type="range" name="flags.perfect-vision.darkness" value="0" min="0" max="1" step="0.05">
+                    <input type="range" name="flags.perfect-vision.darkness" min="0" max="1" step="0.05">
                     <span class="range-value">0</span>
                     &nbsp;&nbsp;&nbsp;
                     <label class="checkbox">Override <input type="checkbox" id="perfect-vision.overrideDarkness"></label>
@@ -343,7 +402,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
                     <label class="checkbox">
                         <input type="checkbox" id="perfect-vision.hasSaturation">
                     </label>
-                    <input type="range" name="flags.perfect-vision.saturation" value="0" min="0" max="1" step="0.05">
+                    <input type="range" name="flags.perfect-vision.saturation" min="0" max="1" step="0.05">
                     <span class="range-value">0</span>
                     &nbsp;&nbsp;&nbsp;
                     <label class="checkbox">Override <input type="checkbox" id="perfect-vision.overrideSaturation"></label>
@@ -355,7 +414,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
                     <label class="checkbox">
                         <input type="checkbox" id="perfect-vision.hasGlobalThreshold">
                     </label>
-                    <input type="range" name="flags.perfect-vision.globalLightThreshold" value="0" min="0" max="1" step="0.05">
+                    <input type="range" name="flags.perfect-vision.globalLightThreshold" min="0" max="1" step="0.05">
                     <span class="range-value">0</span>
                     &nbsp;&nbsp;&nbsp;
                     <label class="checkbox">Override <input type="checkbox" id="perfect-vision.overrideGlobalThreshold"></label>
@@ -395,6 +454,16 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
         .val(document.getFlag("perfect-vision", "parent") ?? "");
     html.find(`select[name="flags.perfect-vision.parent"]`)
         .css("color", canvas.drawings.get(document.getFlag("perfect-vision", "parent") ?? "")?._pv_active !== false ? "unset" : "red");
+    html.find(`input[id="perfect-vision.hasOrigin"]`)
+        .attr("checked", document.getFlag("perfect-vision", "origin") != null);
+    html.find(`input[name="flags.perfect-vision.origin.x"]`)
+        .attr("value", document.getFlag("perfect-vision", "origin.x"));
+    html.find(`input[name="flags.perfect-vision.origin.y"]`)
+        .attr("value", document.getFlag("perfect-vision", "origin.y"));
+    html.find(`button[id="perfect-vision.pickOrigin"]`)
+        .on("click", pickOrigin.bind(sheet));
+    html.find(`select[name="flags.perfect-vision.type"]`)
+        .val(document.getFlag("perfect-vision", "type") ?? "");
     html.find(`input[id="perfect-vision.overrideGlobalLight"]`)
         .attr("checked", document.getFlag("perfect-vision", "globalLight") !== undefined);
     html.find(`input[name="flags.perfect-vision.globalLight"]`)
@@ -453,7 +522,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
 
     if (!sheet._minimized) {
         sheet.position.width = Math.max(sheet.position.width, 680);
-        sheet.position.height = Math.max(sheet.position.height, 440);
+        sheet.position.height = Math.max(sheet.position.height, 490);
         sheet.setPosition(sheet.position);
     }
 });
@@ -490,6 +559,25 @@ Hooks.on("renderDrawingHUD", (hud, html, data) => {
     })
 });
 
+let pickerOverlay;
+
+Hooks.on("canvasInit", () => {
+    if (pickerOverlay) {
+        pickerOverlay.destroy(true);
+    }
+
+    pickerOverlay = new PIXI.Container();
+    pickerOverlay.hitArea = canvas.dimensions.rect;
+    pickerOverlay.cursor = "crosshair";
+    pickerOverlay.interactive = true;
+    pickerOverlay.zIndex = Infinity;
+    pickerOverlay.on("remove", () => pickerOverlay.off("pick"));
+    pickerOverlay.on("click", event => {
+        pickerOverlay.emit("pick", event.data.getLocalPosition(pickerOverlay));
+        pickerOverlay.parent.removeChild(pickerOverlay);
+    })
+});
+
 Hooks.once("init", () => {
     patch("SceneConfig.prototype._onChangeInput", "WRAPPER", async function (wrapped, event) {
         const target = event.target;
@@ -500,14 +588,20 @@ Hooks.once("init", () => {
             target.form.elements[name].value = target.value;
         }
 
-        canvas.lighting._pv_preview_daylightColor = this.form.elements["flags.perfect-vision.daylightColor"].value;
-        canvas.lighting._pv_preview_darknessColor = this.form.elements["flags.perfect-vision.darknessColor"].value;
+        canvas.lighting._pv_preview = {};
+        // canvas.lighting._pv_preview.globalLight
+        canvas.lighting._pv_preview.daylightColor = this.form.elements["flags.perfect-vision.daylightColor"].value;
+        canvas.lighting._pv_preview.darknessColor = this.form.elements["flags.perfect-vision.darknessColor"].value;
+        canvas.lighting._pv_preview.darkness = Number(this.form.elements["darkness"].value);
 
         if (this.form.elements["perfect-vision.hasSaturation"].checked) {
-            canvas.lighting._pv_preview_saturation = Number(this.form.elements["flags.perfect-vision.saturation"].value);
+            canvas.lighting._pv_preview.saturation = Number(this.form.elements["flags.perfect-vision.saturation"].value);
         } else {
-            canvas.lighting._pv_preview_saturation = null;
+            canvas.lighting._pv_preview.saturation = null;
         }
+
+        // canvas.lighting._pv_preview.globalLightThreshold
+        // sightLimit
 
         const result = await wrapped(event);
 
@@ -516,13 +610,11 @@ Hooks.once("init", () => {
                 name === "flags.perfect-vision.darknessColor" ||
                 name === "perfect-vision.hasSaturation" ||
                 name === "flags.perfect-vision.saturation" && this.form.elements["perfect-vision.hasSaturation"].checked) {
-                canvas.lighting.refresh(Number(this.form.elements["darkness"].value));
+                canvas.lighting.refresh(canvas.lighting._pv_preview.darkness);
             }
         }
 
-        delete canvas.lighting._pv_preview_daylightColor;
-        delete canvas.lighting._pv_preview_darknessColor;
-        delete canvas.lighting._pv_preview_saturation;
+        canvas.lighting._pv_preview = null;
 
         return result;
     });
@@ -539,8 +631,8 @@ Hooks.once("init", () => {
         await result;
 
         canvas.perception.schedule({
-            lighting: { refresh: true },
-            sight: { refresh: true }
+            lighting: { initialize: true, refresh: true },
+            sight: { initialize: true, refresh: true }
         });
     });
 
@@ -575,10 +667,23 @@ Hooks.once("init", () => {
             target.form.elements[name].value = target.value;
         }
 
-        drawing._pv_preview_active = this.form.elements["flags.perfect-vision.active"].checked;
+        drawing._pv_preview = {};
+        drawing._pv_preview.active = this.form.elements["flags.perfect-vision.active"].checked;
 
-        if (drawing._pv_preview_active) {
-            drawing._pv_preview_parent = this.form.elements["flags.perfect-vision.parent"].value;
+        if (drawing._pv_preview.active) {
+            drawing._pv_preview.parent = this.form.elements["flags.perfect-vision.parent"].value;
+
+            if (this.form.elements["perfect-vision.hasOrigin"].checked) {
+                const x = this.form.elements["flags.perfect-vision.origin.x"].value ?? "";
+                const y = this.form.elements["flags.perfect-vision.origin.y"].value ?? "";
+
+                drawing._pv_preview.origin = {
+                    x: x !== "" ? Number(x) : 0.5,
+                    y: y !== "" ? Number(y) : 0.5,
+                };
+            } else {
+                drawing._pv_preview.origin = null;
+            }
 
             if (this.form.elements["perfect-vision.overrideGlobalLight"].checked) {
                 drawing._pv_globalLight = this.form.elements["flags.perfect-vision.globalLight"].checked;
@@ -587,29 +692,29 @@ Hooks.once("init", () => {
             }
 
             if (this.form.elements["perfect-vision.overrideDaylightColor"].checked) {
-                drawing._pv_preview_daylightColor = this.form.elements["flags.perfect-vision.daylightColor"].value;
+                drawing._pv_preview.daylightColor = this.form.elements["flags.perfect-vision.daylightColor"].value;
             } else {
-                drawing._pv_preview_daylightColor = undefined;
+                drawing._pv_preview.daylightColor = undefined;
             }
 
             if (this.form.elements["perfect-vision.overrideDarknessColor"].checked) {
-                drawing._pv_preview_darknessColor = this.form.elements["flags.perfect-vision.darknessColor"].value;
+                drawing._pv_preview.darknessColor = this.form.elements["flags.perfect-vision.darknessColor"].value;
             } else {
-                drawing._pv_preview_darknessColor = undefined;
+                drawing._pv_preview.darknessColor = undefined;
             }
 
             if (this.form.elements["perfect-vision.overrideDarkness"].checked) {
-                drawing._pv_preview_darkness = Number(this.form.elements["flags.perfect-vision.darkness"].value);
+                drawing._pv_preview.darkness = Number(this.form.elements["flags.perfect-vision.darkness"].value);
             }
 
             if (this.form.elements["perfect-vision.overrideSaturation"].checked) {
                 if (this.form.elements["perfect-vision.hasSaturation"].checked) {
-                    drawing._pv_preview_saturation = Number(this.form.elements["flags.perfect-vision.saturation"].value);
+                    drawing._pv_preview.saturation = Number(this.form.elements["flags.perfect-vision.saturation"].value);
                 } else {
-                    drawing._pv_preview_saturation = null;
+                    drawing._pv_preview.saturation = null;
                 }
             } else {
-                drawing._pv_preview_saturation = undefined;
+                drawing._pv_preview.saturation = undefined;
             }
 
             if (this.form.elements["perfect-vision.overrideGlobalThreshold"].checked) {
@@ -629,6 +734,9 @@ Hooks.once("init", () => {
             if (!name || name === "flags.perfect-vision.active" ||
                 this.form.elements["flags.perfect-vision.active"].checked && (
                     name === "flags.perfect-vision.parent" ||
+                    name === "perfect-vision.hasOrigin" ||
+                    name === "flags.perfect-vision.origin.x" && this.form.elements["perfect-vision.hasOrigin"].checked ||
+                    name === "flags.perfect-vision.origin.y" && this.form.elements["perfect-vision.hasOrigin"].checked ||
                     name === "perfect-vision.overrideGlobalLight" ||
                     name === "flags.perfect-vision.globalLight" && this.form.elements["perfect-vision.overrideGlobalLight"].checked ||
                     name === "perfect-vision.overrideDaylightColor" ||
@@ -651,14 +759,7 @@ Hooks.once("init", () => {
         $(this.form).find(`select[name="flags.perfect-vision.parent"]`)
             .css("color", drawing._pv_parent?._pv_active !== false ? "unset" : "red");
 
-        delete drawing._pv_preview_active;
-        delete drawing._pv_preview_parent;
-        delete drawing._pv_globalLight;
-        delete drawing._pv_preview_daylightColor;
-        delete drawing._pv_preview_darknessColor;
-        delete drawing._pv_preview_darkness;
-        delete drawing._pv_preview_saturation;
-        delete drawing._pv_globalLightThreshold;
+        drawing._pv_preview = null;
 
         return result;
     });
@@ -700,6 +801,20 @@ Hooks.once("init", () => {
                 }
 
                 current = canvas.drawings.get(current)?.document.getFlag("perfect-vision", "parent");
+            }
+        }
+
+        if (!this.form.elements["perfect-vision.hasOrigin"].checked) {
+            delete data["flags.perfect-vision.origin.x"];
+            delete data["flags.perfect-vision.origin.y"];
+            data["flags.perfect-vision.origin"] = null;
+        } else {
+            if (data["flags.perfect-vision.origin.x"] == null) {
+                data["flags.perfect-vision.origin.x"] = 0.5;
+            }
+
+            if (data["flags.perfect-vision.origin.y"] == null) {
+                data["flags.perfect-vision.origin.y"] = 0.5;
             }
         }
 
@@ -751,9 +866,13 @@ Hooks.once("init", () => {
             return;
         }
 
+        if (pickerOverlay.parent) {
+            pickerOverlay.parent.removeChild(pickerOverlay);
+        }
+
         canvas.perception.schedule({
-            lighting: { refresh: true },
-            sight: { refresh: true }
+            lighting: { initialize: true, refresh: true },
+            sight: { initialize: true, refresh: true }
         });
     });
 

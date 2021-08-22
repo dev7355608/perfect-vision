@@ -1,21 +1,46 @@
 export class Drawings {
-    static extractShapeAndOrigin(drawing, origin = { x: 0.5, y: 0.5 }) {
+    static getTransform(drawing, out) {
+        const matrix = out ? out.identity() : new PIXI.Matrix();
+        const { x, y, width, height, rotation } = drawing.data;
+
+        matrix.translate(-width / 2, -height / 2);
+        matrix.rotate(Math.toRadians(rotation || 0));
+        matrix.translate(x + width / 2, y + height / 2);
+
+        const graphicsData = drawing.shape?.geometry?.graphicsData;
+
+        if (graphicsData?.length && graphicsData.matrix) {
+            matrix.append(graphicsData[0].matrix);
+        }
+
+        return matrix;
+    }
+
+    static getLocalPosition(drawing, globalPosition, out) {
+        return this.getTransform(drawing, tempMatrix).applyInverse(globalPosition, out);
+    }
+
+    static getGlobalPosition(drawing, localPosition, out) {
+        return this.getTransform(drawing, tempMatrix).apply(localPosition, out);
+    }
+
+    static extractShapeAndOrigin(drawing, origin) {
         const { x, y, width, height, rotation } = drawing.data;
 
         if (width <= 0 || height <= 0) {
-            return { shape: new PIXI.Polygon(), origin: new PIXI.Point() };
+            return { shape: new PIXI.Polygon(), origin: null };
         }
 
         const graphicsData = drawing.shape?.geometry?.graphicsData;
 
         if (!graphicsData?.length) {
-            return { shape: new PIXI.Polygon(), origin: new PIXI.Point() };
+            return { shape: new PIXI.Polygon(), origin: null };
         }
 
         const data = graphicsData[0];
 
         if (!data.shape || data.shape.width <= 0 || data.shape.height <= 0 || data.shape.radius <= 0 || data.shape.points?.length <= 2) {
-            return { shape: new PIXI.Polygon(), origin: new PIXI.Point() };
+            return { shape: new PIXI.Polygon(), origin: null };
         }
 
         const matrix = tempMatrix.identity();
@@ -28,9 +53,13 @@ export class Drawings {
             matrix.append(data.matrix);
         }
 
-        origin = new PIXI.Point(origin.x * width, origin.y * height);
+        if (origin) {
+            origin = new PIXI.Point(origin.x * width, origin.y * height);
 
-        matrix.apply(origin, origin);
+            matrix.apply(origin, origin);
+        } else {
+            origin = null;
+        }
 
         const shape = transformShape(data.shape, matrix);
 

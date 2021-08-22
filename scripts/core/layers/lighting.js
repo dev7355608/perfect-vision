@@ -480,6 +480,7 @@ Hooks.once("init", () => {
 
         this._pv_active = true;
         this._pv_parent = null;
+        this._pv_origin = null;
         this._pv_fov = canvas.dimensions.rect.clone();
         this._pv_los = null;
         this._pv_globalLight = this.globalLight;
@@ -505,6 +506,7 @@ Hooks.once("init", () => {
         this._pv_zIndex = -Infinity;
         this._pv_data_globalLight = canvas.scene.data.globalLight;
         this._pv_data_globalLightThreshold = canvas.scene.data.globalLightThreshold;
+        this._pv_preview = null;
         this._pv_areas = [];
 
         this.lighting = this.addChildAt(new PIXI.Container(), 0);
@@ -532,6 +534,7 @@ Hooks.once("init", () => {
 
         this._pv_active = false;
         this._pv_parent = null;
+        this._pv_origin = null;
         this._pv_fov = null;
         this._pv_los = null;
         this._pv_globalLight = false;
@@ -544,6 +547,7 @@ Hooks.once("init", () => {
         this._pv_zIndex = -Infinity;
         this._pv_data_globalLight = false;
         this._pv_data_globalLightThreshold = null;
+        this._pv_preview = null;
         this._pv_areas = null;
 
         return await wrapped(...args);
@@ -686,8 +690,8 @@ Hooks.once("init", () => {
 
         let daylightColor;
 
-        if (this.hasOwnProperty("_pv_preview_daylightColor")) {
-            daylightColor = this._pv_preview_daylightColor ?? "";
+        if (this._pv_preview?.hasOwnProperty("daylightColor")) {
+            daylightColor = this._pv_preview.daylightColor ?? "";
         } else {
             daylightColor = canvas.scene.getFlag("perfect-vision", "daylightColor") ?? "";
         }
@@ -700,8 +704,8 @@ Hooks.once("init", () => {
 
         let darknessColor;
 
-        if (this.hasOwnProperty("_pv_preview_darknessColor")) {
-            darknessColor = this._pv_preview_darknessColor ?? "";
+        if (this._pv_preview?.hasOwnProperty("darknessColor")) {
+            darknessColor = this._pv_preview.darknessColor ?? "";
         } else {
             darknessColor = canvas.scene.getFlag("perfect-vision", "darknessColor") ?? "";
         }
@@ -721,8 +725,8 @@ Hooks.once("init", () => {
 
         let saturation;
 
-        if (this.hasOwnProperty("_pv_preview_saturation")) {
-            saturation = this._pv_preview_saturation ?? null;
+        if (this._pv_preview?.hasOwnProperty("saturation")) {
+            saturation = this._pv_preview.saturation ?? null;
         } else {
             saturation = canvas.scene.getFlag("perfect-vision", "saturation") ?? null;
 
@@ -806,9 +810,10 @@ function refreshAreas(layer) {
 
         if (area._pv_active === undefined) {
             area._pv_active = false;
+            area._pv_parent = null;
+            area._pv_origin = null;
             area._pv_fov = null;
             area._pv_los = null;
-            area._pv_parent = null;
             area._pv_globalLight = false;
             area._pv_daylightColor = 0;
             area._pv_darknessColor = 0;
@@ -823,8 +828,8 @@ function refreshAreas(layer) {
 
         let parent;
 
-        if (area.hasOwnProperty("_pv_preview_parent")) {
-            parent = area._pv_preview_parent ?? "";
+        if (area._pv_preview?.hasOwnProperty("parent")) {
+            parent = area._pv_preview.parent ?? "";
         } else {
             parent = area.document.getFlag("perfect-vision", "parent") ?? "";
         }
@@ -860,8 +865,8 @@ function refreshAreas(layer) {
 
         let active;
 
-        if (area.hasOwnProperty("_pv_preview_active")) {
-            active = !!area._pv_preview_active;
+        if (area._pv_preview?.hasOwnProperty("active")) {
+            active = !!area._pv_preview.active;
         } else {
             active = !!document.getFlag("perfect-vision", "active");
         }
@@ -874,9 +879,10 @@ function refreshAreas(layer) {
         }
 
         if (!active) {
+            area._pv_parent = null;
+            area._pv_origin = null;
             area._pv_fov = null;
             area._pv_los = null;
-            area._pv_parent = null;
             area._pv_globalLight = false;
             area._pv_daylightColor = 0;
             area._pv_darknessColor = 0;
@@ -892,19 +898,36 @@ function refreshAreas(layer) {
 
         layer._pv_areas.push(area);
 
-        area._pv_data_origin = { x: 0.5, y: 0.5 };
+        let origin;
 
-        const { shape, origin } = Drawings.extractShapeAndOrigin(area, area._pv_data_origin);
+        if (area._pv_preview?.hasOwnProperty("origin")) {
+            origin = area._pv_preview.origin ?? null;
+        } else {
+            origin = document.getFlag("perfect-vision", "origin") ?? null;
+        }
 
-        area._pv_origin = origin;
-        area._pv_fov = shape;
-        area._pv_los = null;
-        // area._pv_los = canvas.walls.computePolygon(origin, canvas.dimensions.maxR, { type: "light" }).los;
+        const result = Drawings.extractShapeAndOrigin(area, origin);
+
+        area._pv_origin = result.origin;
+        area._pv_fov = result.shape;
+
+        let los;
+
+        if (area._pv_origin) {
+            los = canvas.walls.computePolygon(area._pv_origin, canvas.dimensions.maxR, { type: "light" }).los;
+        } else {
+            los = null;
+        }
+
+        if (area._pv_los !== los) {
+            area._pv_los = los;
+            canvas.perception.schedule({ sight: { initialize: true, refresh: true } });
+        }
 
         let globalLight;
 
-        if (area.hasOwnProperty("_pv_preview_globalLight")) {
-            globalLight = area._pv_preview_globalLight;
+        if (area._pv_preview?.hasOwnProperty("globalLight")) {
+            globalLight = area._pv_preview.globalLight;
         } else {
             globalLight = document.getFlag("perfect-vision", "globalLight");
         }
@@ -917,8 +940,8 @@ function refreshAreas(layer) {
 
         let daylightColor;
 
-        if (area.hasOwnProperty("_pv_preview_daylightColor")) {
-            daylightColor = area._pv_preview_daylightColor;
+        if (area._pv_preview?.hasOwnProperty("daylightColor")) {
+            daylightColor = area._pv_preview.daylightColor;
         } else {
             daylightColor = document.getFlag("perfect-vision", "daylightColor");
         }
@@ -937,8 +960,8 @@ function refreshAreas(layer) {
 
         let darknessColor;
 
-        if (area.hasOwnProperty("_pv_preview_darknessColor")) {
-            darknessColor = area._pv_preview_darknessColor;
+        if (area._pv_preview?.hasOwnProperty("darknessColor")) {
+            darknessColor = area._pv_preview.darknessColor;
         } else {
             darknessColor = document.getFlag("perfect-vision", "darknessColor");
         }
@@ -964,8 +987,8 @@ function refreshAreas(layer) {
 
         let darkness;
 
-        if (area.hasOwnProperty("_pv_preview_darkness")) {
-            darkness = area._pv_preview_darkness;
+        if (area._pv_preview?.hasOwnProperty("darkness")) {
+            darkness = area._pv_preview.darkness;
         } else {
             darkness = document.getFlag("perfect-vision", "darkness");
         }
@@ -988,8 +1011,8 @@ function refreshAreas(layer) {
 
         let saturation;
 
-        if (area.hasOwnProperty("_pv_preview_saturation")) {
-            saturation = area._pv_preview_saturation
+        if (area._pv_preview?.hasOwnProperty("saturation")) {
+            saturation = area._pv_preview.saturation
         } else {
             saturation = document.getFlag("perfect-vision", "saturation");
         }
@@ -1006,8 +1029,8 @@ function refreshAreas(layer) {
 
         let globalLightThreshold;
 
-        if (area.hasOwnProperty("_pv_preview_globalLightThreshold")) {
-            globalLightThreshold = area._pv_preview_globalLightThreshold;
+        if (area._pv_preview?.hasOwnProperty("globalLightThreshold")) {
+            globalLightThreshold = area._pv_preview.globalLightThreshold;
         } else {
             globalLightThreshold = document.getFlag("perfect-vision", "globalLightThreshold");
         }
@@ -1028,29 +1051,31 @@ function refreshAreas(layer) {
         if (area._pv_channels === null) {
             area._pv_version++;
 
-            const channels = { canvas: layer.channels.canvas, background: {}, black: {}, bright: {}, dark: {}, dim: {} };
+            const channels = {
+                canvas: layer.channels.canvas,
+                daylight: {},
+                darkness: {},
+                background: {},
+                dark: {},
+                black: {},
+                bright: {},
+                dim: {}
+            };
 
-            // The canvas background is a blend between the Scene background color and the darkness level
-            const darknessRGB = foundry.utils.hexToRGB(darknessColor);
-
-            // The background is based on the darkness color and the darkness level
-            const daylightRGB = canvas.scene.data.tokenVision ? foundry.utils.hexToRGB(daylightColor) : [1.0, 1.0, 1.0];
-            channels.background.rgb = darknessRGB.map((c, i) => (darkness * c) + ((1 - darkness) * daylightRGB[i]));
+            channels.daylight.rgb = canvas.scene.data.tokenVision ? foundry.utils.hexToRGB(daylightColor) : [1.0, 1.0, 1.0];
+            channels.daylight.hex = foundry.utils.rgbToHex(channels.daylight.rgb);
+            channels.darkness.level = darkness;
+            channels.darkness.rgb = foundry.utils.hexToRGB(darknessColor);
+            channels.darkness.hex = foundry.utils.rgbToHex(channels.darkness.rgb);
+            channels.background.rgb = channels.darkness.rgb.map((c, i) => darkness * c + (1 - darkness) * channels.daylight.rgb[i]);
             channels.background.hex = foundry.utils.rgbToHex(channels.background.rgb);
-
-            // Magical darkness and blackness is based on the true darkness color
-            channels.dark.rgb = darknessRGB.map(c => (1 + dark) * c);
+            channels.dark.rgb = channels.darkness.rgb.map(c => (1 + dark) * c);
             channels.dark.hex = foundry.utils.rgbToHex(channels.dark.rgb);
             channels.black.rgb = channels.dark.rgb.map(c => 0.5 * c);
             channels.black.hex = foundry.utils.rgbToHex(channels.black.rgb);
-
-            // Bright light is penalized by the darkness level
-            const penalty = 1 - (darknessLightPenalty * darkness);
-            channels.bright.rgb = [1, 1, 1].map(c => bright * c * penalty);
+            channels.bright.rgb = [1, 1, 1].map(c => bright * (1 - darknessLightPenalty * darkness) * c);
             channels.bright.hex = foundry.utils.rgbToHex(channels.bright.rgb);
-
-            // Dim light is halfway between background and bright
-            channels.dim.rgb = channels.bright.rgb.map((c, i) => (dim * c) + ((1 - dim) * channels.background.rgb[i]));
+            channels.dim.rgb = channels.bright.rgb.map((c, i) => dim * c + (1 - dim) * channels.background.rgb[i]);
             channels.dim.hex = foundry.utils.rgbToHex(channels.dim.rgb);
 
             area._pv_channels = channels;
