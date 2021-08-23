@@ -443,25 +443,13 @@ Hooks.once("init", () => {
         return c;
     });
 
-    patch("LightingLayer.prototype._configureChannels", "WRAPPER", function (wrapped, ...args) {
-        const daylightColor = CONFIG.Canvas.daylightColor;
-        const darknessColor = CONFIG.Canvas.darknessColor;
+    patch("LightingLayer.prototype._configureChannels", "OVERRIDE", function (darkness = null) {
+        this._pv_version = ++this.version;
 
-        CONFIG.Canvas.daylightColor = this._pv_daylightColor;
-        CONFIG.Canvas.darknessColor = this._pv_darknessColor;
-
-        const channels = wrapped(...args);
-
-        const dim = CONFIG.Canvas.lightLevels.dim;
-
-        channels.dim.rgb = channels.bright.rgb.map((c, i) => (dim * c) + ((1 - dim) * channels.background.rgb[i]));
-        channels.dim.hex = foundry.utils.rgbToHex(channels.dim.rgb);
-
-        CONFIG.Canvas.daylightColor = daylightColor;
-        CONFIG.Canvas.darknessColor = darknessColor;
-
-        this._pv_version = this.version;
-        this._pv_channels = channels;
+        const channels = configureChannels(darkness, {
+            daylightColor: this._pv_daylightColor,
+            darknessColor: this._pv_darknessColor
+        });
 
         return channels;
     });
@@ -606,132 +594,11 @@ Hooks.once("init", () => {
         this._pv_data_globalLight = canvas.scene.data.globalLight;
         this._pv_data_globalLightThreshold = canvas.scene.data.globalLightThreshold;
 
-        const priorLevel = this.darknessLevel;
-        let darknessChanged = (darkness !== undefined) && (darkness !== priorLevel)
+        const priorDarknessLevel = this.darknessLevel;
+        let darknessChanged = darkness !== undefined && darkness !== priorDarknessLevel;
+
         this.darknessLevel = darkness = Math.clamped(darkness ?? this.darknessLevel, 0, 1);
-
         this._pv_darknessLevel = darkness;
-
-        // Update lighting channels
-        if (darknessChanged || !this.channels) this.channels = this._configureChannels(darkness);
-
-        // Track global illumination
-        let refreshVision = false;
-        const globalLight = this.hasGlobalIllumination();
-        if (globalLight !== this.globalLight) {
-            this.globalLight = globalLight;
-            canvas.perception.schedule({ sight: { initialize: true, refresh: true } });
-        }
-
-        this._pv_globalLight = globalLight;
-
-        refreshAreas(this)
-        // darknessChanged = refreshAreas(this) || darknessChanged;
-
-        // Clear currently rendered sources
-        const ilm = this.illumination;
-        ilm.lights.removeChildren();
-        const col = this.coloration;
-        col.removeChildren();
-        this._animatedSources = [];
-
-        // Tint the background color
-        canvas.app.renderer.backgroundColor = this.channels.canvas.hex;
-        ilm.background.tint = this.channels.background.hex;
-
-        // Render light sources
-        for (let sources of [this.sources, canvas.sight.sources]) {
-            for (let source of sources) {
-                const area = Lighting.findArea(source);
-
-                if (source._pv_area !== area) {
-                    source._pv_area = area;
-                    source._lightingVersion = 0;
-                    source._resetIlluminationUniforms = true;
-                }
-
-                // Check the active state of the light source
-                const isActive = !source.skipRender && source._pv_area._pv_darknessLevel.between(source.darkness.min, source.darkness.max);
-                if (source.active !== isActive) refreshVision = true;
-                source.active = isActive;
-                if (!source.active) continue;
-
-                // Draw the light update
-                const light = source.drawLight();
-                if (light) ilm.lights.addChild(light);
-                const color = source.drawColor();
-                if (color) col.addChild(color);
-                if (source.animation?.type) this._animatedSources.push(source);
-            }
-        }
-
-        // Draw non-occluded roofs that block light
-        const displayRoofs = canvas.foreground.displayRoofs;
-        for (let roof of canvas.foreground.roofs) {
-            if (!displayRoofs || roof.occluded) continue;
-            const si = roof.getRoofSprite();
-            if (!si) continue;
-
-            // Block illumination
-            si.tint = this.channels.background.hex;
-            this.illumination.lights.addChild(si)
-
-            // Block coloration
-            const sc = roof.getRoofSprite();
-            sc.tint = 0x000000;
-            this.coloration.addChild(sc);
-        }
-
-        // Refresh vision if necessary
-        if (refreshVision) canvas.perception.schedule({ sight: { refresh: true } });
-
-        // Refresh audio if darkness changed
-        if (darknessChanged) {
-            this._onDarknessChange(darkness, priorLevel);
-            canvas.sounds._onDarknessChange(darkness, priorLevel);
-        }
-
-        // Dispatch a hook that modules can use
-        Hooks.callAll("lightingRefresh", this);
-    });
-
-    patch("LightingLayer.prototype.refresh", "WRAPPER", function (wrapped, darkness) {
-        const darknessLevel = darkness ?? this.darknessLevel;
-
-        let daylightColor;
-
-        if (this._pv_preview?.hasOwnProperty("daylightColor")) {
-            daylightColor = this._pv_preview.daylightColor ?? "";
-        } else {
-            daylightColor = canvas.scene.getFlag("perfect-vision", "daylightColor") ?? "";
-        }
-
-        if (daylightColor === null || daylightColor === "") {
-            daylightColor = CONFIG.Canvas.daylightColor;
-        }
-
-        daylightColor = sanitizeLightColor(daylightColor);
-
-        let darknessColor;
-
-        if (this._pv_preview?.hasOwnProperty("darknessColor")) {
-            darknessColor = this._pv_preview.darknessColor ?? "";
-        } else {
-            darknessColor = canvas.scene.getFlag("perfect-vision", "darknessColor") ?? "";
-        }
-
-        if (darknessColor === null || darknessColor === "") {
-            darknessColor = CONFIG.Canvas.darknessColor;
-        }
-
-        darknessColor = sanitizeLightColor(darknessColor);
-
-        if (daylightColor !== this._pv_daylightColor || darknessColor !== this._pv_darknessColor) {
-            this.channels = null;
-        }
-
-        this._pv_daylightColor = daylightColor;
-        this._pv_darknessColor = darknessColor;
 
         let saturation;
 
@@ -763,14 +630,139 @@ Hooks.once("init", () => {
         }
 
         if (saturation === null) {
-            saturation = 1 - darknessLevel;
+            saturation = 1 - darkness;
         }
 
         this._pv_saturationLevel = saturation = Math.clamped(saturation, 0, 1);
 
-        wrapped(darkness);
+        let daylightColor;
 
-        return this;
+        if (this._pv_preview?.hasOwnProperty("daylightColor")) {
+            daylightColor = this._pv_preview.daylightColor ?? "";
+        } else {
+            daylightColor = canvas.scene.getFlag("perfect-vision", "daylightColor") ?? "";
+        }
+
+        if (daylightColor === "") {
+            daylightColor = CONFIG.Canvas.daylightColor;
+        }
+
+        daylightColor = sanitizeLightColor(daylightColor);
+
+        let darknessColor;
+
+        if (this._pv_preview?.hasOwnProperty("darknessColor")) {
+            darknessColor = this._pv_preview.darknessColor ?? "";
+        } else {
+            darknessColor = canvas.scene.getFlag("perfect-vision", "darknessColor") ?? "";
+        }
+
+        if (darknessColor === "") {
+            darknessColor = CONFIG.Canvas.darknessColor;
+        }
+
+        darknessColor = sanitizeLightColor(darknessColor);
+
+        if (daylightColor !== this._pv_daylightColor || darknessColor !== this._pv_darknessColor) {
+            this.channels = null;
+        }
+
+        this._pv_daylightColor = daylightColor;
+        this._pv_darknessColor = darknessColor;
+
+        // Update lighting channels
+        if (darknessChanged || !this.channels) {
+            this.channels = this._configureChannels(darkness);
+            this._pv_channels = this.channels;
+        }
+
+        // Track global illumination
+        const globalLight = this.hasGlobalIllumination();
+
+        if (this.globalLight !== globalLight) {
+            this.globalLight = globalLight;
+            this._pv_globalLight = globalLight;
+
+            canvas.perception.schedule({ sight: { initialize: true, refresh: true } });
+        }
+
+        let refreshVision = false;
+
+        darknessChanged = refreshAreas(this) || darknessChanged;
+
+        // Clear currently rendered sources
+        const ilm = this.illumination;
+        ilm.lights.removeChildren();
+        const col = this.coloration;
+        col.removeChildren();
+        this._animatedSources = [];
+
+        // Tint the background color
+        canvas.app.renderer.backgroundColor = this.channels.canvas.hex;
+        ilm.background.tint = this.channels.background.hex;
+
+        // Render light sources
+        for (const sources of [this.sources, canvas.sight.sources]) {
+            for (const source of sources) {
+                const area = Lighting.findArea(source);
+
+                if (source._pv_area !== area) {
+                    source._pv_area = area;
+                    source._lightingVersion = 0;
+                    source._resetIlluminationUniforms = true;
+                }
+
+                // Check the active state of the light source
+                const active = !source.skipRender && area._pv_darknessLevel.between(source.darkness.min, source.darkness.max);
+
+                if (source.active !== active) {
+                    source.active = active;
+                    refreshVision = true;
+                }
+
+                if (!source.active) {
+                    continue;
+                }
+
+                // Draw the light update
+                const light = source.drawLight();
+                if (light) ilm.lights.addChild(light);
+                const color = source.drawColor();
+                if (color) col.addChild(color);
+                if (source.animation?.type) this._animatedSources.push(source);
+            }
+        }
+
+        // Draw non-occluded roofs that block light
+        const displayRoofs = canvas.foreground.displayRoofs;
+        for (let roof of canvas.foreground.roofs) {
+            if (!displayRoofs || roof.occluded) continue;
+            const si = roof.getRoofSprite();
+            if (!si) continue;
+
+            // Block illumination
+            si.tint = this.channels.background.hex;
+            this.illumination.lights.addChild(si)
+
+            // Block coloration
+            const sc = roof.getRoofSprite();
+            sc.tint = 0x000000;
+            this.coloration.addChild(sc);
+        }
+
+        // Refresh vision if necessary
+        if (refreshVision) {
+            canvas.perception.schedule({ sight: { refresh: true } });
+        }
+
+        // Refresh audio if darkness changed
+        if (darknessChanged) {
+            this._onDarknessChange(darkness, priorDarknessLevel);
+            canvas.sounds._onDarknessChange(darkness, priorDarknessLevel);
+        }
+
+        // Dispatch a hook that modules can use
+        Hooks.callAll("lightingRefresh", this);
     });
 
     patch("LightingLayer.prototype.hasGlobalIllumination", "OVERRIDE", function () {
@@ -863,9 +855,6 @@ function refreshAreas(layer) {
         visit(drawing);
     }
 
-    const { lightLevels, darknessLightPenalty } = CONFIG.Canvas;
-    const { dark, dim, bright } = lightLevels;
-
     let darknessChanged = false;
 
     layer._pv_areas.length = 0;
@@ -885,6 +874,7 @@ function refreshAreas(layer) {
 
         if (area._pv_active !== active) {
             area._pv_active = active;
+
             canvas.perception.schedule({ sight: { initialize: true, refresh: true } });
         }
 
@@ -943,6 +933,7 @@ function refreshAreas(layer) {
             }
 
             area._pv_fov = fov;
+
             canvas.perception.schedule({ sight: { initialize: true, refresh: true } });
         }
 
@@ -960,6 +951,7 @@ function refreshAreas(layer) {
             }
 
             area._pv_los = los;
+
             canvas.perception.schedule({ sight: { initialize: true, refresh: true } });
         }
 
@@ -1084,40 +1076,13 @@ function refreshAreas(layer) {
 
         if (area._pv_globalLight !== globalLight) {
             area._pv_globalLight = globalLight;
+
             canvas.perception.schedule({ sight: { initialize: true, refresh: true } });
         }
 
         if (area._pv_channels === null) {
             area._pv_version++;
-
-            const channels = {
-                canvas: layer.channels.canvas,
-                daylight: {},
-                darkness: {},
-                background: {},
-                dark: {},
-                black: {},
-                bright: {},
-                dim: {}
-            };
-
-            channels.daylight.rgb = canvas.scene.data.tokenVision ? foundry.utils.hexToRGB(daylightColor) : [1.0, 1.0, 1.0];
-            channels.daylight.hex = foundry.utils.rgbToHex(channels.daylight.rgb);
-            channels.darkness.level = darkness;
-            channels.darkness.rgb = foundry.utils.hexToRGB(darknessColor);
-            channels.darkness.hex = foundry.utils.rgbToHex(channels.darkness.rgb);
-            channels.background.rgb = channels.darkness.rgb.map((c, i) => darkness * c + (1 - darkness) * channels.daylight.rgb[i]);
-            channels.background.hex = foundry.utils.rgbToHex(channels.background.rgb);
-            channels.dark.rgb = channels.darkness.rgb.map(c => (1 + dark) * c);
-            channels.dark.hex = foundry.utils.rgbToHex(channels.dark.rgb);
-            channels.black.rgb = channels.dark.rgb.map(c => 0.5 * c);
-            channels.black.hex = foundry.utils.rgbToHex(channels.black.rgb);
-            channels.bright.rgb = [1, 1, 1].map(c => bright * (1 - darknessLightPenalty * darkness) * c);
-            channels.bright.hex = foundry.utils.rgbToHex(channels.bright.rgb);
-            channels.dim.rgb = channels.bright.rgb.map((c, i) => dim * c + (1 - dim) * channels.background.rgb[i]);
-            channels.dim.hex = foundry.utils.rgbToHex(channels.dim.rgb);
-
-            area._pv_channels = channels;
+            area._pv_channels = configureChannels(darkness, { daylightColor, darknessColor });
         }
 
         area._pv_zIndex = area.data.z;
@@ -1126,6 +1091,44 @@ function refreshAreas(layer) {
     layer._pv_areas.sort((a, b) => a._pv_zIndex - b._pv_zIndex);
 
     return darknessChanged;
+}
+
+function configureChannels(darkness = null, {
+    backgroundColor,
+    daylightColor = CONFIG.Canvas.daylightColor,
+    darknessColor = CONFIG.Canvas.darknessColor,
+    darknessLightPenalty = CONFIG.Canvas.darknessLightPenalty,
+    dark = CONFIG.Canvas.lightLevels.dark,
+    black = 0.5,
+    dim = CONFIG.Canvas.lightLevels.dim,
+    bright = CONFIG.Canvas.lightLevels.bright
+}) {
+    darkness = darkness ?? canvas.scene.data.darkness;
+    backgroundColor = backgroundColor ?? canvas.backgroundColor;
+
+    const channels = { daylight: {}, darkness: {}, scene: {}, canvas: {}, background: {}, dark: {}, black: {}, bright: {}, dim: {} };
+
+    channels.daylight.rgb = canvas.scene.data.tokenVision ? foundry.utils.hexToRGB(daylightColor) : [1.0, 1.0, 1.0];
+    channels.daylight.hex = foundry.utils.rgbToHex(channels.daylight.rgb);
+    channels.darkness.level = darkness;
+    channels.darkness.rgb = foundry.utils.hexToRGB(darknessColor);
+    channels.darkness.hex = foundry.utils.rgbToHex(channels.darkness.rgb);
+    channels.scene.rgb = foundry.utils.hexToRGB(backgroundColor);
+    channels.scene.hex = foundry.utils.rgbToHex(channels.scene.rgb);
+    channels.canvas.rgb = channels.darkness.rgb.map((c, i) => ((1 - darkness) + darkness * c) * channels.scene.rgb[i]);
+    channels.canvas.hex = foundry.utils.rgbToHex(channels.canvas.rgb);
+    channels.background.rgb = channels.darkness.rgb.map((c, i) => darkness * c + (1 - darkness) * channels.daylight.rgb[i]);
+    channels.background.hex = foundry.utils.rgbToHex(channels.background.rgb);
+    channels.dark.rgb = channels.darkness.rgb.map(c => (1 + dark) * c);
+    channels.dark.hex = foundry.utils.rgbToHex(channels.dark.rgb);
+    channels.black.rgb = channels.dark.rgb.map(c => black * c);
+    channels.black.hex = foundry.utils.rgbToHex(channels.black.rgb);
+    channels.bright.rgb = [1, 1, 1].map(c => bright * (1 - darknessLightPenalty * darkness) * c);
+    channels.bright.hex = foundry.utils.rgbToHex(channels.bright.rgb);
+    channels.dim.rgb = channels.bright.rgb.map((c, i) => dim * c + (1 - dim) * channels.background.rgb[i]);
+    channels.dim.hex = foundry.utils.rgbToHex(channels.dim.rgb);
+
+    return channels;
 }
 
 Hooks.on("updateScene", (scene, change, options, userId) => {
