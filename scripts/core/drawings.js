@@ -104,7 +104,7 @@ function transformShape(shape, matrix) {
         result = buildPolygon(shape);
 
         transformPoints(result.points, matrix);
-    } else if (result.type === PIXI.SHAPES.RECT) {
+    } else if (result.type === PIXI.SHAPES.RECT || result.type === PIXI.SHAPES.RREC) {
         const x = result.width >= 0 ? result.x : result.x + result.width;
         const y = result.height >= 0 ? result.y : result.y + result.height;
 
@@ -112,6 +112,10 @@ function transformShape(shape, matrix) {
         result.y = y;
         result.width = Math.abs(result.width);
         result.height = Math.abs(result.height);
+
+        if (result.type === PIXI.SHAPES.RREC && result.radius <= 0) {
+            result = new PIXI.Rectangle(result.x, result.y, result.width, result.height);
+        }
     } else if (result.type === PIXI.SHAPES.ELIP) {
         result.width = Math.abs(result.width);
         result.height = Math.abs(result.height);
