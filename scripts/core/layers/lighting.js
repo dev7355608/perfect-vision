@@ -7,6 +7,7 @@ import { Mask } from "../mask.js";
 import { patch } from "../../utils/patch.js";
 import { SourcePolygonMesh } from "../../display/source-polygon-mesh.js";
 import { presets } from "../../settings.js";
+import { ShapeData } from "../../display/shape-data.js";
 import { SpriteMesh } from "../../display/sprite-mesh.js";
 
 Hooks.once("init", () => {
@@ -460,7 +461,7 @@ Hooks.once("init", () => {
         CONFIG.Canvas.darknessColor = darknessColor;
 
         this._pv_version = this.version;
-        this._pv_channels = this.channels;
+        this._pv_channels = channels;
 
         return channels;
     });
@@ -481,7 +482,7 @@ Hooks.once("init", () => {
         this._pv_active = true;
         this._pv_parent = null;
         this._pv_origin = null;
-        this._pv_fov = canvas.dimensions.rect.clone();
+        this._pv_fov = new ShapeData(canvas.dimensions.rect.clone());
         this._pv_los = null;
         this._pv_globalLight = this.globalLight;
 
@@ -535,8 +536,17 @@ Hooks.once("init", () => {
         this._pv_active = false;
         this._pv_parent = null;
         this._pv_origin = null;
-        this._pv_fov = null;
-        this._pv_los = null;
+
+        if (this._pv_fov) {
+            this._pv_fov.release();
+            this._pv_fov = null;
+        }
+
+        if (this._pv_los) {
+            this._pv_los.release();
+            this._pv_los = null;
+        }
+
         this._pv_globalLight = false;
         this._pv_daylightColor = 0;
         this._pv_darknessColor = 0;
@@ -632,7 +642,7 @@ Hooks.once("init", () => {
         // Render light sources
         for (let sources of [this.sources, canvas.sight.sources]) {
             for (let source of sources) {
-                const area = Lighting.findArea(source.x, source.y);
+                const area = Lighting.findArea(source);
 
                 if (source._pv_area !== area) {
                     source._pv_area = area;
@@ -790,7 +800,7 @@ function sanitizeLightColor(color) {
 }
 
 function getDarknessLevel(point) {
-    return Lighting.findArea(point.x, point.y)._pv_darknessLevel ?? 0;
+    return Lighting.findArea(point)._pv_darknessLevel ?? 0;
 }
 
 function refreshAreas(layer) {
@@ -881,8 +891,17 @@ function refreshAreas(layer) {
         if (!active) {
             area._pv_parent = null;
             area._pv_origin = null;
-            area._pv_fov = null;
-            area._pv_los = null;
+
+            if (area._pv_fov) {
+                area._pv_fov.release();
+                area._pv_fov = null;
+            }
+
+            if (area._pv_los) {
+                area._pv_los.release();
+                area._pv_los = null;
+            }
+
             area._pv_globalLight = false;
             area._pv_daylightColor = 0;
             area._pv_darknessColor = 0;
@@ -906,20 +925,40 @@ function refreshAreas(layer) {
             origin = document.getFlag("perfect-vision", "origin") ?? null;
         }
 
-        const result = Drawings.extractShapeAndOrigin(area, origin);
+        const extract = Drawings.extractShapeAndOrigin(area, origin);
 
-        area._pv_origin = result.origin;
-        area._pv_fov = result.shape;
+        area._pv_origin = extract.origin;
+
+        let fov;
+
+        if (extract.shape) {
+            fov = ShapeData.from(extract.shape);
+        } else {
+            fov = null;
+        }
+
+        if (area._pv_fov !== fov) {
+            if (area._pv_fov) {
+                area._pv_fov.release();
+            }
+
+            area._pv_fov = fov;
+            canvas.perception.schedule({ sight: { initialize: true, refresh: true } });
+        }
 
         let los;
 
         if (area._pv_origin) {
-            los = canvas.walls.computePolygon(area._pv_origin, canvas.dimensions.maxR, { type: "light" }).los;
+            los = ShapeData.from(canvas.walls.computePolygon(area._pv_origin, canvas.dimensions.maxR, { type: "light" }).los);
         } else {
             los = null;
         }
 
         if (area._pv_los !== los) {
+            if (area._pv_los) {
+                area._pv_los.release();
+            }
+
             area._pv_los = los;
             canvas.perception.schedule({ sight: { initialize: true, refresh: true } });
         }

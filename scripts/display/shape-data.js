@@ -65,20 +65,29 @@ export class ShapeData {
         return !bounds || bounds.width <= 0 || bounds.height <= 0;
     }
 
-    containsPoint(point) {
+    containsPoint(point, y) {
         const shape = this._shape;
 
         if (!shape) {
             return false;
         }
 
+        let x;
+
+        if (y !== undefined) {
+            x = point;
+        } else {
+            x = point.x;
+            y = point.y;
+        }
+
         if (shape.type === PIXI.SHAPES.POLY) {
-            if (!this.bounds.contains(point.x, point.y)) {
+            if (!this.bounds.contains(x, y)) {
                 return false;
             }
         }
 
-        return shape.contains(point.x, point.y);
+        return shape.contains(x, y);
     }
 
     createMesh(shader, state) {

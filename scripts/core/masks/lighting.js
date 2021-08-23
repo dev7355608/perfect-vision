@@ -1,3 +1,4 @@
+import { TexturelessMeshMaterial } from "../../display/mesh.js";
 import { Elevation, ElevationFilter } from "../elevation.js";
 import { Mask } from "../mask.js";
 
@@ -9,17 +10,12 @@ Hooks.once("init", () => {
         dependencies: ["elevation"]
     });
 
-    mask.stage.lighting = mask.stage.addChild(new PIXI.Graphics());
-
-    mask.on("updateStage", (mask) => {
-        mask.clearColor = canvas.lighting.channels ? [canvas.lighting.darknessLevel, canvas.lighting._pv_saturationLevel] : [0, 1];
-    });
-
     mask.on("updateTexture", (mask) => {
         mask.render();
     });
 
     Hooks.on("canvasInit", () => {
+        mask.clearColor = [0, 1];
         mask.stage.filter = canvas.createBlurFilter();
         mask.stage.filter.repeatEdgePixels = true;
         mask.stage.filter.resolution = mask.texture.resolution;
@@ -29,6 +25,9 @@ Hooks.once("init", () => {
     });
 
     Hooks.on("lightingRefresh", () => {
+        mask.clearColor[0] = canvas.lighting._pv_darknessLevel;
+        mask.clearColor[1] = canvas.lighting._pv_saturationLevel;
+
         mask.stage.removeChildren().forEach(c => c.destroy(true));
 
         const areas = canvas.lighting._pv_areas;
@@ -45,25 +44,18 @@ Hooks.once("init", () => {
                 const saturation = area._pv_saturationLevel;
                 const color = (Math.clamped(Math.round(darkness * 255), 0, 255) << 16) | (Math.clamped(Math.round(saturation * 255), 0, 255) << 8);
 
-                const fov = new PIXI.Graphics()
-                    .beginFill(color)
-                    .drawShape(area._pv_fov)
-                    .endFill();
+                const fov = area._pv_fov.createMesh(new TexturelessMeshMaterial({ tint: color }));
 
                 if (area._pv_los) {
-                    const los = new PIXI.Graphics()
-                        .beginFill()
-                        .drawShape(area._pv_los)
-                        .endFill();
-
-                    mask.stage.addChild(los);
+                    const los = area._pv_los.createMaskData();
 
                     fov.mask = los;
+
+                    mask.stage.addChild(los.maskObject);
                 }
 
                 if (elevation) {
-                    fov.filter = new ElevationFilter(Elevation.getElevationRange(area));
-                    fov.filters = [fov.filter];
+                    fov.filters = [new ElevationFilter(Elevation.getElevationRange(area))];
                 }
 
                 mask.stage.addChild(fov);

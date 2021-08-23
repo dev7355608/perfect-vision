@@ -3,6 +3,7 @@ import { Lighting } from "../lighting.js";
 import { Mask } from "../mask.js";
 import { patch } from "../../utils/patch.js";
 import { SpriteMesh } from "../../display/sprite-mesh.js";
+import { TexturelessMeshMaterial } from "../../display/mesh.js";
 
 Hooks.once("init", () => {
     patch("FogExploration.prototype.explore", "OVERRIDE", function (source, force = false) {
@@ -55,6 +56,7 @@ Hooks.once("init", () => {
 
     patch("SightLayer.prototype._recycleVisionContainer", "PRE", function (c) {
         c._pv_fov.removeChildren().forEach(c => c.destroy(true));
+
         return [c];
     });
 
@@ -79,7 +81,7 @@ Hooks.once("init", () => {
         if (!inLOS) return false;
 
         // If global illumination is active, nothing more is required
-        if (points.some(p => Lighting.findArea(p.x, p.y)._pv_globalLight)) return true;
+        if (points.some(p => Lighting.findArea(p)._pv_globalLight)) return true;
 
         // Test that a point is also within some field-of-vision polygon
         for (let source of visionSources.values()) {
@@ -94,40 +96,48 @@ Hooks.once("init", () => {
         return false;
     });
 
+    const shaderBlack = new TexturelessMeshMaterial({ tint: 0x000000 });
+    const shaderWhite = new TexturelessMeshMaterial({ tint: 0xFFFFFF });
+
     patch("SightLayer.prototype.refresh", "OVERRIDE", function ({ forceUpdateFog = false, noUpdateFog = false } = {}) {
-        if (!this._initialized) return;
+        if (!this._initialized) {
+            return;
+        }
+
         if (!this.tokenVision) {
             this.visible = false;
-            return this.restrictVisibility()
+
+            return this.restrictVisibility();
         }
 
         // Configuration variables
         const d = canvas.dimensions;
-        // const unrestrictedVisibility = canvas.lighting.globalLight;
-        const exc = CONFIG.Canvas.exploredColor;
+        const exploredColor = CONFIG.Canvas.exploredColor;
 
         // Recycle the current vision, either adding it to pending fog or returning it to the pool
         const prior = this.explored.removeChild(this.current);
+
         if (prior._explored) {
-            prior.fov.tint = exc;
+            prior.fov.tint = exploredColor;
 
             for (const child of prior._pv_fov.children) {
-                child.tint = exc;
+                child.tint = exploredColor;
             }
 
             this.pending.addChild(prior);
+        } else {
+            this._recycleVisionContainer(prior);
         }
-        else this._recycleVisionContainer(prior);
 
         // Obtain a new vision container from the rotating pool
         const vision = this._getVisionContainer();
 
+        // Draw standard vision sources
+        let inBuffer = canvas.scene.data.padding === 0;
+
         const elevation = !this.fogExploration && Mask.get("elevation");
 
-        const fov = new PIXI.Graphics()
-            .beginFill(canvas.lighting._pv_globalLight ? 0xFFFFFF : 0x000000)
-            .drawShape(canvas.lighting._pv_fov)
-            .endFill();
+        const fov = canvas.lighting._pv_fov.createMesh(canvas.lighting._pv_globalLight ? shaderWhite : shaderBlack);
 
         vision._pv_fov.addChild(fov);
 
@@ -139,20 +149,14 @@ Hooks.once("init", () => {
                     continue;
                 }
 
-                const fov = new PIXI.Graphics()
-                    .beginFill(area._pv_globalLight ? 0xFFFFFF : 0x000000)
-                    .drawShape(area._pv_fov)
-                    .endFill();
+                const fov = area._pv_fov.createMesh(area._pv_globalLight ? shaderWhite : shaderBlack);
 
                 if (area._pv_los) {
-                    const los = new PIXI.Graphics()
-                        .beginFill()
-                        .drawShape(area._pv_los)
-                        .endFill();
-
-                    vision._pv_fov.addChild(los);
+                    const los = area._pv_los.createMaskData();
 
                     fov.mask = los;
+
+                    vision._pv_fov.addChild(los.maskObject);
                 }
 
                 if (elevation) {
@@ -163,49 +167,27 @@ Hooks.once("init", () => {
             }
         }
 
-        // Draw standard vision sources
-        let inBuffer = canvas.scene.data.padding === 0;
-
-        // const elevation = Mask.get("elevation");
-
-        // if (!elevation) {
-        //     // Unrestricted visibility, everything in LOS is visible
-        //     if (unrestrictedVisibility) {
-        //         vision.fov.beginFill(0xFFFFFF, 1.0).drawShape(d.rect).endFill();
-        //     } else {
-        //         vision.fov.beginFill(0x000000, 1.0).drawShape(d.rect).endFill();
-        //     }
-
-        //     for (const area of canvas.lighting._pv_areas) {
-        //         if (area._pv_globalLight) {
-        //             vision.fov.beginFill(0xFFFFFF, 1.0).drawShape(area._pv_fov).endFill();
-        //         } else {
-        //             vision.fov.beginFill(0x000000, 1.0).drawShape(area._pv_fov).endFill();
-        //         }
-        //     }
-        // } else {
-
-        // }
-
         // // Otherwise provided minimum visibility for each vision source
         // else {
-        //     for (let source of this.sources) {
-        //         vision.fov.beginFill(exc, 1.0).drawCircle(source.x, source.y, d.size / 2);
+        //     for (const source of this.sources) {
+        //         vision.fov.beginFill(0xFFFFFF, 1.0).drawCircle(source.x, source.y, d.size / 2);
         //     }
         // }
 
         // Draw sight-based visibility for each vision source
-        for (let source of this.sources) {
+        for (const source of this.sources) {
             source.active = !source.skipRender;
 
             if (!source.active) {
                 continue;
             }
 
-            if (!inBuffer && !d.sceneRect.contains(source.x, source.y)) inBuffer = true;
+            if (!inBuffer && !d.sceneRect.contains(source.x, source.y)) {
+                inBuffer = true;
+            }
 
             // Restricted sight-based visibility for this source
-            if (/*!unrestrictedVisibility && */ (source.radius > 0)) {
+            if (source.radius > 0) {
                 // if (source.radius > 0) {
                 //vision.fov.beginFill(0xFFFFFF, 1.0).drawPolygon(source.fov).endFill();
 
@@ -226,12 +208,16 @@ Hooks.once("init", () => {
             vision.los.beginFill(0xFFFFFF, 1.0).drawPolygon(source.los).endFill();
 
             // Potentially update fog exploration
-            if (!noUpdateFog) this.updateFog(source, forceUpdateFog);
+            if (!noUpdateFog) {
+                this.updateFog(source, forceUpdateFog);
+            }
         }
 
         // Draw global or universal light sources
-        for (let source of canvas.lighting.sources) {
-            if (!this.sources.size || !source.active) continue;
+        for (const source of canvas.lighting.sources) {
+            if (!this.sources.size || !source.active) {
+                continue;
+            }
 
             if (source.radius > 0) {
                 const fov = new PIXI.Graphics()
@@ -247,12 +233,17 @@ Hooks.once("init", () => {
             }
 
             // vision.fov.beginFill(0xFFFFFF, 1.0).drawPolygon(source.fov).endFill();
-            if ((source.type === CONST.SOURCE_TYPES.LOCAL) || source.isDarkness) continue;
+            if (source.type === CONST.SOURCE_TYPES.LOCAL || source.isDarkness) {
+                continue;
+            }
+
             vision.los.beginFill(0xFFFFFF, 1.0).drawPolygon(source.fov).endFill();
         }
 
-        // Asynchronously commit pending fog exploration if enough positions have been explored
-        if (this._fogUpdates >= SightLayer.FOG_COMMIT_THRESHOLD) this.commitFog();
+        // Commit updates to the Fog of War texture
+        if (this._fogUpdates >= SightLayer.FOG_COMMIT_THRESHOLD) {
+            this.commitFog();
+        }
 
         // Alter visibility of the vision layer
         this.visible = this.sources.size || !game.user.isGM;
@@ -261,6 +252,7 @@ Hooks.once("init", () => {
         // Apply a mask to the exploration container
         if (this.explored.msk) {
             const noMask = this.sources.size && inBuffer;
+
             this.explored.mask = noMask ? null : this.explored.msk;
             this.explored.msk.visible = !noMask;
         }
@@ -275,7 +267,8 @@ Hooks.once("init", () => {
         // Log debug status
         if (CONFIG.debug.sight) {
             const perf = SightLayer._performance;
-            let ns = Math.round((performance.now() - perf.start) * 100) / 100;
+            const ns = Math.round((performance.now() - perf.start) * 100) / 100;
+
             console.log(`Rendered Sight Layer update | ${ns}ms | ${perf.rays} rays | ${perf.tests} tests`);
         }
     });

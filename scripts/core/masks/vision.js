@@ -4,6 +4,7 @@ import { Mask } from "../mask.js";
 import { patch } from "../../utils/patch.js";
 import { SourcePolygonMesh, SourcePolygonMeshShader } from "../../display/source-polygon-mesh.js";
 import { Tiles } from "../tiles.js";
+import { TexturelessMeshMaterial } from "../../display/mesh.js";
 
 Hooks.once("init", () => {
     const mask = Mask.create("vision", {
@@ -13,33 +14,34 @@ Hooks.once("init", () => {
         dependencies: ["elevation"]
     });
 
-    mask.stage.background = mask.stage.addChild(new PIXI.Container());
+    mask.stage.areas = mask.stage.addChild(new PIXI.Container());
     mask.stage.layers = [
         new PIXI.Container(),
         new PIXI.Container(),
         new PIXI.Container()
     ];
-    mask.stage.addChild(
-        mask.stage.layers[0],
-        mask.stage.layers[1],
-        mask.stage.layers[2]
-    );
+    mask.stage.addChild(...mask.stage.layers);
     mask.stage.roofs = mask.stage.addChild(new PIXI.Container());
     mask.stage.los = mask.stage.addChild(new PIXI.Graphics());
     mask.stage.mask = null;
+
+    const shaderBlack = new TexturelessMeshMaterial({ tint: 0x000000 });
+    const shaderGreen = new TexturelessMeshMaterial({ tint: 0x00FF00 });
 
     mask.on("updateTexture", (mask) => {
         mask.render();
     });
 
     Hooks.on("canvasInit", () => {
+        mask.clearColor = [0, 0, 0];
+
         if (game.settings.get("core", "softShadows")) {
             mask.texture.multisample = canvas.app.renderer.multisample;
         } else {
             mask.texture.multisample = PIXI.MSAA_QUALITY.NONE;
         }
 
-        mask.stage.background.removeChildren().forEach(c => c.destroy(true));
+        mask.stage.areas.removeChildren().forEach(c => c.destroy(true));
 
         for (const layer of mask.stage.layers) {
             layer.removeChildren();
@@ -50,46 +52,35 @@ Hooks.once("init", () => {
     });
 
     Hooks.on("lightingRefresh", () => {
-        mask.stage.background.removeChildren().forEach(c => c.destroy(true));
+        mask.clearColor[1] = canvas.lighting._pv_globalLight ? 1 : 0;
 
-        const elevation = !canvas.sight.fogExploration && Mask.get("elevation");
-
-        const fov = new PIXI.Graphics()
-            .beginFill(canvas.lighting._pv_globalLight ? 0x00FF00 : 0x000000)
-            .drawShape(canvas.lighting._pv_fov)
-            .endFill();
-
-        mask.stage.background.addChild(fov);
+        mask.stage.areas.removeChildren().forEach(c => c.destroy(true));
 
         const areas = canvas.lighting._pv_areas;
 
         if (areas?.length !== 0) {
+            const elevation = !canvas.sight.fogExploration && Mask.get("elevation");
+
             for (const area of areas) {
                 if (area.skipRender) {
                     continue;
                 }
 
-                const fov = new PIXI.Graphics()
-                    .beginFill(area._pv_globalLight ? 0x00FF00 : 0x000000)
-                    .drawShape(area._pv_fov)
-                    .endFill();
+                const fov = area._pv_fov.createMesh(area._pv_globalLight ? shaderGreen : shaderBlack);
 
                 if (area._pv_los) {
-                    const los = new PIXI.Graphics()
-                        .beginFill()
-                        .drawShape(area._pv_los)
-                        .endFill();
-
-                    mask.stage.background.addChild(los);
+                    const los = area._pv_los.createMaskData();
 
                     fov.mask = los;
+
+                    mask.stage.areas.addChild(los.maskObject);
                 }
 
                 if (elevation) {
                     fov.filters = [new ElevationFilter(Elevation.getElevationRange(area))];
                 }
 
-                mask.stage.background.addChild(fov);
+                mask.stage.areas.addChild(fov);
             }
         }
 

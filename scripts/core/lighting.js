@@ -1,5 +1,5 @@
 export class Lighting {
-    static findArea(x, y) {
+    static findArea(point) {
         let result = canvas.lighting;
 
         if (canvas.lighting._pv_areas) {
@@ -8,7 +8,11 @@ export class Lighting {
                     continue;
                 }
 
-                if ((!area._pv_los || area._pv_los.contains(x, y)) && area._pv_fov.contains(x, y)) {
+                if (area._pv_los && !area._pv_los.containsPoint(point)) {
+                    continue;
+                }
+
+                if (area._pv_fov.containsPoint(point)) {
                     result = area;
                 }
             }
