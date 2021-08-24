@@ -1,5 +1,3 @@
-import { StencilMaskMeshMaterial } from "./mesh.js";
-
 export class ShapeData {
     static _cache = new WeakMap();
 
@@ -97,7 +95,7 @@ export class ShapeData {
             return null;
         }
 
-        const mesh = new PIXI.Mesh(geometry, shader, state);
+        const mesh = new PIXI.Mesh(geometry, shader ?? DefaultShapeShader.instance, state);
 
         Object.defineProperty(mesh, "uvBuffer", {
             configurable: true,
@@ -110,7 +108,7 @@ export class ShapeData {
 
     createMaskData(scissor = false) {
         const shape = this._shape;
-        const mesh = this.createMesh(StencilMaskMeshMaterial.instance);
+        const mesh = this.createMesh();
         const maskData = new PIXI.MaskData(mesh ?? new PIXI.Container());
 
         maskData.autoDetect = false;
@@ -244,6 +242,7 @@ function createGeometryFromShape(shape) {
             vertices[m + 1] = shape.y;
 
             indices = new Uint16Array(n * 3);
+            indices = new (vertices.length > 0xffff ? Uint32Array : Uint16Array)(n * 3);
 
             for (let i = 0, j = n - 1, k = 0; i < n; j = i++) {
                 indices[k++] = n;
@@ -252,7 +251,7 @@ function createGeometryFromShape(shape) {
             }
         } else {
             vertices = new Float32Array(points);
-            indices = new Uint16Array(PIXI.utils.earcut(points));
+            indices = new (vertices.length > 0xffff ? Uint32Array : Uint16Array)(PIXI.utils.earcut(points));
         }
     } else {
         const graphicsData = tempGraphicsData;
@@ -267,14 +266,12 @@ function createGeometryFromShape(shape) {
         command.triangulate(graphicsData, graphicsGeometry);
 
         vertices = new Float32Array(graphicsGeometry.points);
-        indices = new Uint16Array(graphicsGeometry.indices);
+        indices = new (vertices.length > 0xffff ? Uint32Array : Uint16Array)(graphicsGeometry.indices);
 
         graphicsData.points.length = 0;
         graphicsGeometry.points.length = 0;
         graphicsGeometry.indices.length = 0;
     }
-
-    console.assert(vertices.length < 65536);
 
     const verticesBuffer = new PIXI.Buffer(vertices, true, false);
     const indexBuffer = new PIXI.Buffer(indices, true, true);
@@ -283,4 +280,47 @@ function createGeometryFromShape(shape) {
         .addIndex(indexBuffer);
 
     return geometry;
+}
+
+class DefaultShapeShader extends PIXI.Shader {
+    static vertexSource = `\
+        attribute vec2 aVertexPosition;
+
+        uniform mat3 projectionMatrix;
+        uniform mat3 translationMatrix;
+
+        void main()
+        {
+            gl_Position = vec4((projectionMatrix * translationMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
+        }`;
+
+    static fragmentSource = `\
+        uniform vec4 uColor;
+
+        void main()
+        {
+            gl_FragColor = vec4(1.0);
+        }`;
+
+    static get program() {
+        if (!this._program) {
+            this._program = PIXI.Program.from(this.vertexSource, this.fragmentSource);
+        }
+
+        return this._program;
+    }
+
+    static get instance() {
+        if (!this._instance) {
+            this._instance = new this();
+        }
+
+        return this._instance;
+    }
+
+    constructor() {
+        super(DefaultShapeShader.program);
+
+        this.batchable = false;
+    }
 }
