@@ -22,17 +22,28 @@ Hooks.once("init", () => {
     ];
     mask.stage.addChild(...mask.stage.layers);
     mask.stage.roofs = mask.stage.addChild(new PIXI.Container());
-    mask.stage.los = mask.stage.addChild(new PIXI.Graphics());
+    mask.stage.los = mask.stage.addChild(new PIXI.Container());
+    mask.stage.msk = new PIXI.MaskData(mask.stage.los);
+    mask.stage.msk.type = PIXI.MASK_TYPES.SCISSOR;
+    mask.stage.msk.autoDetect = false;
     mask.stage.mask = null;
 
     const shaderBlack = new TexturelessMeshMaterial({ tint: 0x000000 });
     const shaderGreen = new TexturelessMeshMaterial({ tint: 0x00FF00 });
 
+    let isVideo = false;
+
     mask.on("updateTexture", (mask) => {
         mask.render();
+
+        if (isVideo) {
+            mask.invalidate();
+        }
     });
 
     Hooks.on("canvasInit", () => {
+        isVideo = false;
+
         mask.clearColor = [0, 0, 0];
 
         if (game.settings.get("core", "softShadows")) {
@@ -48,10 +59,13 @@ Hooks.once("init", () => {
         }
 
         mask.stage.roofs.removeChildren();
-        mask.stage.los.clear();
+        mask.stage.los.removeChildren().forEach(c => c.destroy(true));
+        mask.stage.mask = null;
     });
 
     Hooks.on("lightingRefresh", () => {
+        isVideo = false;
+
         mask.clearColor[1] = canvas.lighting._pv_globalLight ? 1 : 0;
 
         mask.stage.areas.removeChildren().forEach(c => c.destroy(true));
@@ -134,7 +148,7 @@ Hooks.once("init", () => {
                 mask.stage.roofs.addChild(alpha);
 
                 if (roof.isVideo && !roof.sourceElement.paused) {
-                    mask.invalidate();
+                    isVideo = true;
                 }
             }
         }
@@ -143,17 +157,15 @@ Hooks.once("init", () => {
     });
 
     Hooks.on("sightRefresh", () => {
-        mask.stage.los.clear();
+        mask.stage.los.removeChildren().forEach(c => c.destroy(true));
 
         if (canvas.sight.tokenVision && canvas.sight.sources.size > 0) {
-            mask.stage.los.beginFill();
-
             for (const source of canvas.sight.sources) {
                 if (!source.active) {
                     continue;
                 }
 
-                mask.stage.los.drawPolygon(source.los);
+                mask.stage.los.addChild(source._pv_los.createMesh());
             }
 
             for (const source of canvas.lighting.sources) {
@@ -161,14 +173,11 @@ Hooks.once("init", () => {
                     continue;
                 }
 
-                mask.stage.los.drawPolygon(source.fov);
+                mask.stage.los.addChild(source._pv_fov.createMesh());
             }
 
-            mask.stage.los.endFill();
-            mask.stage.los.visible = true;
-            mask.stage.mask = mask.stage.los;
+            mask.stage.mask = mask.stage.msk;
         } else {
-            mask.stage.los.visible = false;
             mask.stage.mask = null;
         }
 
@@ -195,12 +204,12 @@ Hooks.once("init", () => {
         if (this.sourceType === "light") {
             if (this._pv_radius > 0) {
                 if (!c._pv_fov) {
-                    c._pv_fov = new SourcePolygonMesh(this._pv_fov, new VisionSourcePolygonMeshShader({
+                    c._pv_fov = new SourcePolygonMesh(this._pv_fov.shape, new VisionSourcePolygonMeshShader({
                         source: this,
                         tint: 0xFF0000
                     }));
                 } else {
-                    c._pv_fov.polygon = this._pv_fov;
+                    c._pv_fov.polygon = this._pv_fov.shape;
                 }
             } else if (c._pv_fov) {
                 c._pv_fov.destroy(true);
@@ -282,8 +291,6 @@ Hooks.once("init", () => {
             c._pv_fovBrighten.destroy(true);
             c._pv_fovBrighten = null;
         }
-
-        source._pv_area = null;
     }
 
     patch("Token.prototype.destroy", "PRE", function () {

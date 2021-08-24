@@ -5,7 +5,6 @@ import { Lighting } from "../lighting.js";
 import { Logger } from "../../utils/logger.js";
 import { Mask } from "../mask.js";
 import { patch } from "../../utils/patch.js";
-import { SourcePolygonMesh } from "../../display/source-polygon-mesh.js";
 import { presets } from "../../settings.js";
 import { ShapeData } from "../../display/shape-data.js";
 import { SpriteMesh } from "../../display/sprite-mesh.js";
@@ -103,7 +102,26 @@ Hooks.once("init", () => {
             }
 
             this._pv_radius = this.radius;
-            this._pv_fov = this.fov;
+
+            const fov = ShapeData.from(this.fov);
+
+            if (this._pv_fov !== fov) {
+                if (this._pv_fov) {
+                    this._pv_fov.release();
+                }
+
+                this._pv_fov = fov;
+            }
+
+            const los = ShapeData.from(this.los);
+
+            if (this._pv_los !== los) {
+                if (this._pv_los) {
+                    this._pv_los.release();
+                }
+
+                this._pv_los = los;
+            }
         } else if (this.sourceType === "sight") {
             const token = this.object;
             const scene = token.scene ?? token._original?.scene;
@@ -217,7 +235,25 @@ Hooks.once("init", () => {
             this.los.x = this.x;
             this.los.y = this.y;
 
-            this._pv_fov = this.fov;
+            const fov = ShapeData.from(this.fov);
+
+            if (this._pv_fov !== fov) {
+                if (this._pv_fov) {
+                    this._pv_fov.release();
+                }
+
+                this._pv_fov = fov;
+            }
+
+            const los = ShapeData.from(this.los);
+
+            if (this._pv_los !== los) {
+                if (this._pv_los) {
+                    this._pv_los.release();
+                }
+
+                this._pv_los = los;
+            }
 
             const cache = { [this.radius]: this.fov };
 
@@ -257,6 +293,47 @@ Hooks.once("init", () => {
         }
 
         return this;
+    });
+
+    function destroyPointSource(source) {
+        if (source._pv_fov) {
+            source._pv_fov.release();
+            source._pv_fov = null;
+        }
+
+        if (source._pv_los) {
+            source._pv_los.release();
+            source._pv_los = null;
+        }
+
+        source._pv_area = null;
+    }
+
+    patch("Token.prototype.destroy", "PRE", function () {
+        destroyPointSource(this.vision);
+        destroyPointSource(this.light);
+
+        return arguments;
+    });
+
+    patch("AmbientLight.prototype.destroy", "PRE", function () {
+        destroyPointSource(this.source);
+
+        return arguments;
+    });
+
+    patch("Drawing.prototype.destroy", "PRE", function () {
+        if (this._pv_fov) {
+            this._pv_fov.release();
+            this._pv_fov = null;
+        }
+
+        if (this._pv_los) {
+            this._pv_los.release();
+            this._pv_los = null;
+        }
+
+        return arguments;
     });
 
     function patchFragmentShader(cls, uniforms, code) {
@@ -373,6 +450,8 @@ Hooks.once("init", () => {
         }
     }
 
+    const EMPTY_GEOMETRY = new PIXI.MeshGeometry();
+
     patch("PointSource.prototype._createContainer", "OVERRIDE", function (shaderCls) {
         patchShader(shaderCls);
 
@@ -381,8 +460,7 @@ Hooks.once("init", () => {
         shader.source = this;
 
         const state = new PIXI.State();
-        const light = new SourcePolygonMesh(null, shader, state);
-
+        const light = new PIXI.Mesh(EMPTY_GEOMETRY, shader, state);
         const c = new PIXI.Container();
 
         c.light = c.addChild(light);
@@ -398,7 +476,7 @@ Hooks.once("init", () => {
 
     patch("PointSource.prototype._drawContainer", "OVERRIDE", function (c) {
         if (this._pv_radius > 0) {
-            c.light.polygon = this._pv_fov;
+            c.light.geometry = this._pv_fov.geometry;
 
             const s = 1 / (2 * this._pv_radius);
             const tx = -(this.x - this._pv_radius) * s;
@@ -411,7 +489,7 @@ Hooks.once("init", () => {
             uvsMatrix[6] = tx;
             uvsMatrix[7] = ty;
         } else {
-            c.light.polygon = null;
+            c.light.geometry = EMPTY_GEOMETRY;
         }
 
         return c;
@@ -433,13 +511,17 @@ Hooks.once("init", () => {
 
     patch("LightingLayer.prototype._drawIlluminationContainer", "POST", function (c) {
         c.filter.resolution = canvas.app.renderer.resolution;
+        c.filter.multisample = PIXI.MSAA_QUALITY.NONE;
         c.filterArea = canvas.app.renderer.screen;
+
         return c;
     });
 
     patch("LightingLayer.prototype._drawColorationContainer", "POST", function (c) {
         c.filter.resolution = canvas.app.renderer.resolution;
+        c.filter.multisample = PIXI.MSAA_QUALITY.NONE;
         c.filterArea = canvas.app.renderer.screen;
+
         return c;
     });
 
@@ -466,6 +548,7 @@ Hooks.once("init", () => {
 
         this.globalLight = canvas.scene.data.globalLight;
         this.darknessLevel = canvas.scene.data.darkness;
+        this.channels = null;
 
         this._pv_active = true;
         this._pv_parent = null;
@@ -480,13 +563,14 @@ Hooks.once("init", () => {
             daylightColor = CONFIG.Canvas.daylightColor;
         }
 
+        this._pv_daylightColor = sanitizeLightColor(daylightColor);
+
         let darknessColor = canvas.scene.getFlag("perfect-vision", "darknessColor") ?? "";
 
         if (darknessColor === "") {
             darknessColor = CONFIG.Canvas.darknessColor;
         }
 
-        this._pv_daylightColor = sanitizeLightColor(daylightColor);
         this._pv_darknessColor = sanitizeLightColor(darknessColor);
         this._pv_darknessLevel = this.darknessLevel;
         this._pv_saturationLevel = Math.clamped(canvas.scene.getFlag("perfect-vision", "saturation") ?? (1 - this.darknessLevel), 0, 1);
@@ -563,14 +647,19 @@ Hooks.once("init", () => {
     patch("PointSource.prototype.drawLight", "OVERRIDE", function () {
         // Protect against cases where the canvas is being deactivated
         const shader = this.illumination.shader;
-        if (!shader) return null;
+
+        if (!shader) {
+            return null;
+        }
 
         // Update shader uniforms
         const iu = shader.uniforms;
         const version = this._pv_area?._pv_version ?? canvas.lighting.version;
         const updateChannels = this._lightingVersion < version;
+
         if (this._resetIlluminationUniforms || updateChannels) {
             const channels = this._pv_area?._pv_channels ?? canvas.lighting.channels;
+
             iu.colorDim = this.isDarkness ? channels.dark.rgb : channels.dim.rgb;
             iu.colorBright = this.isDarkness ? channels.black.rgb : channels.bright.rgb;
             this._lightingVersion = version;
@@ -581,6 +670,7 @@ Hooks.once("init", () => {
             iu.pv_LightLevelBright = CONFIG.Canvas.lightLevels.bright;
             iu.pv_DarknessLightPenalty = CONFIG.Canvas.darknessLightPenalty;
         }
+
         if (this._resetIlluminationUniforms) {
             iu.ratio = this.ratio;
             this._resetIlluminationUniforms = false;
@@ -902,6 +992,7 @@ function refreshAreas(layer) {
             area._pv_zIndex = 0;
             area._pv_data_globalLight = false;
             area._pv_data_globalLightThreshold = null;
+
             continue;
         }
 
