@@ -22,7 +22,7 @@ Hooks.once("init", () => {
 
     mask.on("updateStage", (mask) => {
         for (const token of canvas.tokens.placeables) {
-            if (Tokens.isOverhead(token) === false || !token.visible || !token.renderable || !token.icon || !token.icon.visible || !token.renderable || token.icon.alpha < 1) {
+            if (Tokens.isOverhead(token) === false || !token.visible || !token.renderable || !token.icon || !token.icon.parent || !token.icon.visible || !token.renderable || token.icon.alpha < 1) {
                 continue;
             }
 
@@ -40,7 +40,7 @@ Hooks.once("init", () => {
         }
 
         for (const tile of canvas.foreground.tiles) {
-            if (!Tiles.isOverhead(tile) || !tile.visible || !tile.renderable || !tile.tile || !tile.tile.visible || !tile.tile.renderable || Tiles.getAlpha(tile) < 1 && Tiles.getOcclusionAlpha(tile) < 1) {
+            if (!Tiles.isOverhead(tile) || !tile.visible || !tile.renderable || !tile.tile || !tile.tile.parent || !tile.tile.visible || !tile.tile.renderable || Tiles.getAlpha(tile) < 1 && Tiles.getOcclusionAlpha(tile) < 1) {
                 continue;
             }
 

@@ -197,12 +197,16 @@ Hooks.once("init", () => {
             return;
         }
 
-        if (token._pv_overhead === false) {
-            token._pv_overhead = undefined;
-            token._pv_refresh();
+        if (token instanceof Token) {
+            if (token._pv_overhead === false) {
+                token._pv_overhead = undefined;
+                token._pv_refresh();
 
-            token.refresh();
+                token.refresh();
 
+                Mask.invalidateAll("tokens");
+            }
+        } else {
             Mask.invalidateAll("tokens");
         }
 
@@ -235,12 +239,16 @@ Hooks.once("init", () => {
             return;
         }
 
-        if (token._pv_overhead === true) {
-            token._pv_overhead = undefined;
-            token._pv_refresh();
+        if (token instanceof Token) {
+            if (token._pv_overhead === true) {
+                token._pv_overhead = undefined;
+                token._pv_refresh();
 
-            token.refresh();
+                token.refresh();
 
+                Mask.invalidateAll("tokens");
+            }
+        } else {
             Mask.invalidateAll("tokens");
         }
 

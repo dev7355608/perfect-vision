@@ -143,7 +143,7 @@ Hooks.once("init", () => {
 
         const areas = canvas.lighting._pv_areas;
 
-        if (areas?.length !== 0) {
+        if (areas?.length > 0) {
             for (const area of areas) {
                 if (area.skipRender) {
                     continue;

@@ -56,7 +56,7 @@ export class Tiles {
     }
 
     static isVisible(tile, invertAlpha = false) {
-        if (!tile.visible || !tile.renderable || !tile.tile || !tile.tile.visible || !tile.tile.renderable) {
+        if (!tile.visible || !tile.renderable || !tile.tile || !tile.tile.parent || !tile.tile.visible || !tile.tile.renderable) {
             return false;
         }
 

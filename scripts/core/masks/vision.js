@@ -72,7 +72,7 @@ Hooks.once("init", () => {
 
         const areas = canvas.lighting._pv_areas;
 
-        if (areas?.length !== 0) {
+        if (areas?.length > 0) {
             const elevation = !canvas.sight.fogExploration && Mask.get("elevation");
 
             for (const area of areas) {

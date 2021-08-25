@@ -32,17 +32,7 @@ class AlphaObjectPool extends WeakPool {
 export class CachedAlphaObject {
     static pool = new AlphaObjectPool();
 
-    static create(placeable, options) {
-        let object;
-
-        if (placeable instanceof Tile) {
-            object = placeable.tile;
-        } else if (placeable instanceof Token) {
-            object = placeable.icon;
-        } else {
-            object = placeable;
-        }
-
+    static create(object, options) {
         return this.pool.create(object, options);
     }
 }
