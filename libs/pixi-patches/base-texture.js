@@ -19,12 +19,16 @@ Object.defineProperty(PIXI.BaseTexture.prototype, "realHeight", {
 Logger.debug("Patching PIXI.BaseTexture.prototype.setResource (OVERRIDE)");
 
 PIXI.BaseTexture.prototype.setResource = function (resource) {
-    if (!this._fixed) {
-        this._fixed = true;
-
+    if (this._pv_size === undefined) {
         this.width = Math.round(this.width * this.resolution) / this.resolution;
         this.height = Math.round(this.height * this.resolution) / this.resolution;
         this._refreshPOT();
+
+        if (this instanceof PIXI.BaseRenderTexture) {
+            this._pv_size = { width: this.width, height: this.height };
+        } else {
+            this._pv_size = null;
+        }
     }
 
     if (this.resource === resource) {

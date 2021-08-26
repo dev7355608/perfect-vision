@@ -8,12 +8,16 @@ Object.defineProperty(PIXI.BaseRenderTexture.prototype, "framebuffer", {
     },
 
     set(value) {
-        if (this._framebuffer === undefined) {
+        if (this._pv_size) {
+            this.width = this._pv_size.width;
+            this.height = this._pv_size.height;
+            this._pv_size = null;
+
             value.width = this.realWidth;
             value.height = this.realHeight;
         }
 
-        this._framebuffer = value ?? null;
+        this._framebuffer = value;
     }
 });
 
