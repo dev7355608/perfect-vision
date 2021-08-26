@@ -121,7 +121,9 @@ class BackgroundColorShader extends PIXI.Shader {
 
             const channels = canvas.lighting.channels;
 
-            this.uniforms.uColor = channels.canvas.rgb;
+            if (channels) {
+                this.uniforms.uColor = channels.canvas.rgb;
+            }
         }
     }
 }

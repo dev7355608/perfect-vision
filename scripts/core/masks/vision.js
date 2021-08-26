@@ -24,7 +24,7 @@ Hooks.once("init", () => {
     mask.stage.roofs = mask.stage.addChild(new PIXI.Container());
     mask.stage.los = mask.stage.addChild(new PIXI.Container());
     mask.stage.msk = new PIXI.MaskData(mask.stage.los);
-    mask.stage.msk.type = PIXI.MASK_TYPES.SCISSOR;
+    mask.stage.msk.type = PIXI.MASK_TYPES.STENCIL;
     mask.stage.msk.autoDetect = false;
     mask.stage.mask = null;
 

@@ -363,9 +363,6 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
             <div class="form-group">
                 <label>Origin</label>
                 <div class="form-fields">
-                    <label class="checkbox">
-                        <input type="checkbox" id="perfect-vision.hasOrigin">
-                    </label>
                     <label class="grid-label">x</label>
                     <input type="number" name="flags.perfect-vision.origin.x" placeholder="0.5" step="any">
                     <label class="grid-label">y</label>
@@ -377,7 +374,22 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
                     &nbsp;&nbsp;&nbsp;
                     <label class="checkbox" style="visibility: hidden;">Override <input type="checkbox"></label>
                 </div>
-                <p class="notes">If set, this area is blocked by walls with respect to specified point of origin.</p>
+            </div>
+            <div class="form-group">
+                <label>Constrained By Walls</label>
+                <div class="form-fields">
+                    <input type="checkbox" name="flags.perfect-vision.walls" />
+                    &nbsp;&nbsp;&nbsp;
+                    <label class="checkbox">Override <input type="checkbox" id="perfect-vision.overrideWalls"></label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Provides Vision</label>
+                <div class="form-fields">
+                    <input type="checkbox" name="flags.perfect-vision.vision" />
+                    &nbsp;&nbsp;&nbsp;
+                    <label class="checkbox">Override <input type="checkbox" id="perfect-vision.overrideVision"></label>
+                </div>
             </div>
             <div class="form-group">
                 <label>Unrestricted Vision Range</label>
@@ -454,8 +466,6 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
         .val(document.getFlag("perfect-vision", "parent") ?? "");
     html.find(`select[name="flags.perfect-vision.parent"]`)
         .css("color", canvas.drawings.get(document.getFlag("perfect-vision", "parent") ?? "")?._pv_active !== false ? "unset" : "red");
-    html.find(`input[id="perfect-vision.hasOrigin"]`)
-        .attr("checked", document.getFlag("perfect-vision", "origin") != null);
     html.find(`input[name="flags.perfect-vision.origin.x"]`)
         .attr("value", document.getFlag("perfect-vision", "origin.x"));
     html.find(`input[name="flags.perfect-vision.origin.y"]`)
@@ -464,6 +474,14 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
         .on("click", pickOrigin.bind(sheet));
     html.find(`select[name="flags.perfect-vision.type"]`)
         .val(document.getFlag("perfect-vision", "type") ?? "");
+    html.find(`input[id="perfect-vision.overrideWalls"]`)
+        .attr("checked", document.getFlag("perfect-vision", "walls") !== undefined);
+    html.find(`input[name="flags.perfect-vision.walls"]`)
+        .attr("checked", document.getFlag("perfect-vision", "walls"));
+    html.find(`input[id="perfect-vision.overrideVision"]`)
+        .attr("checked", document.getFlag("perfect-vision", "vision") !== undefined);
+    html.find(`input[name="flags.perfect-vision.vision"]`)
+        .attr("checked", document.getFlag("perfect-vision", "vision"));
     html.find(`input[id="perfect-vision.overrideGlobalLight"]`)
         .attr("checked", document.getFlag("perfect-vision", "globalLight") !== undefined);
     html.find(`input[name="flags.perfect-vision.globalLight"]`)
@@ -522,7 +540,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
 
     if (!sheet._minimized) {
         sheet.position.width = Math.max(sheet.position.width, 680);
-        sheet.position.height = Math.max(sheet.position.height, 490);
+        sheet.position.height = Math.max(sheet.position.height, 530);
         sheet.setPosition(sheet.position);
     }
 });
@@ -673,22 +691,30 @@ Hooks.once("init", () => {
         if (drawing._pv_preview.active) {
             drawing._pv_preview.parent = this.form.elements["flags.perfect-vision.parent"].value;
 
-            if (this.form.elements["perfect-vision.hasOrigin"].checked) {
-                const x = this.form.elements["flags.perfect-vision.origin.x"].value ?? "";
-                const y = this.form.elements["flags.perfect-vision.origin.y"].value ?? "";
+            const x = this.form.elements["flags.perfect-vision.origin.x"].value ?? "";
+            const y = this.form.elements["flags.perfect-vision.origin.y"].value ?? "";
 
-                drawing._pv_preview.origin = {
-                    x: x !== "" ? Number(x) : 0.5,
-                    y: y !== "" ? Number(y) : 0.5,
-                };
+            drawing._pv_preview.origin = {
+                x: x !== "" ? Number(x) : 0.5,
+                y: y !== "" ? Number(y) : 0.5,
+            };
+
+            if (this.form.elements["perfect-vision.overrideWalls"].checked) {
+                drawing._pv_preview.walls = this.form.elements["flags.perfect-vision.walls"].checked;
             } else {
-                drawing._pv_preview.origin = null;
+                drawing._pv_preview.walls = undefined;
+            }
+
+            if (this.form.elements["perfect-vision.overrideVision"].checked) {
+                drawing._pv_preview.vision = this.form.elements["flags.perfect-vision.vision"].checked;
+            } else {
+                drawing._pv_preview.vision = undefined;
             }
 
             if (this.form.elements["perfect-vision.overrideGlobalLight"].checked) {
-                drawing._pv_globalLight = this.form.elements["flags.perfect-vision.globalLight"].checked;
+                drawing._pv_preview.globalLight = this.form.elements["flags.perfect-vision.globalLight"].checked;
             } else {
-                drawing._pv_globalLight = undefined;
+                drawing._pv_preview.globalLight = undefined;
             }
 
             if (this.form.elements["perfect-vision.overrideDaylightColor"].checked) {
@@ -719,12 +745,12 @@ Hooks.once("init", () => {
 
             if (this.form.elements["perfect-vision.overrideGlobalThreshold"].checked) {
                 if (this.form.elements["perfect-vision.hasGlobalThreshold"].checked) {
-                    drawing._pv_globalLightThreshold = Number(this.form.elements["flags.perfect-vision.globalLightThreshold"].value);
+                    drawing._pv_preview.globalLightThreshold = Number(this.form.elements["flags.perfect-vision.globalLightThreshold"].value);
                 } else {
-                    drawing._pv_globalLightThreshold = null;
+                    drawing._pv_preview.globalLightThreshold = null;
                 }
             } else {
-                drawing._pv_globalLightThreshold = undefined;
+                drawing._pv_preview.globalLightThreshold = undefined;
             }
         }
 
@@ -734,9 +760,12 @@ Hooks.once("init", () => {
             if (!name || name === "flags.perfect-vision.active" ||
                 this.form.elements["flags.perfect-vision.active"].checked && (
                     name === "flags.perfect-vision.parent" ||
-                    name === "perfect-vision.hasOrigin" ||
-                    name === "flags.perfect-vision.origin.x" && this.form.elements["perfect-vision.hasOrigin"].checked ||
-                    name === "flags.perfect-vision.origin.y" && this.form.elements["perfect-vision.hasOrigin"].checked ||
+                    name === "flags.perfect-vision.origin.x" ||
+                    name === "flags.perfect-vision.origin.y" ||
+                    name === "perfect-vision.overrideVision" ||
+                    name === "perfect-vision.overrideWalls" ||
+                    name === "flags.perfect-vision.walls" && this.form.elements["perfect-vision.overrideWalls"].checked ||
+                    name === "flags.perfect-vision.vision" && this.form.elements["perfect-vision.overrideVision"].checked ||
                     name === "perfect-vision.overrideGlobalLight" ||
                     name === "flags.perfect-vision.globalLight" && this.form.elements["perfect-vision.overrideGlobalLight"].checked ||
                     name === "perfect-vision.overrideDaylightColor" ||
@@ -804,18 +833,22 @@ Hooks.once("init", () => {
             }
         }
 
-        if (!this.form.elements["perfect-vision.hasOrigin"].checked) {
-            delete data["flags.perfect-vision.origin.x"];
-            delete data["flags.perfect-vision.origin.y"];
-            data["flags.perfect-vision.origin"] = null;
-        } else {
-            if (data["flags.perfect-vision.origin.x"] == null) {
-                data["flags.perfect-vision.origin.x"] = 0.5;
-            }
+        if (data["flags.perfect-vision.origin.x"] == null) {
+            data["flags.perfect-vision.origin.x"] = 0.5;
+        }
 
-            if (data["flags.perfect-vision.origin.y"] == null) {
-                data["flags.perfect-vision.origin.y"] = 0.5;
-            }
+        if (data["flags.perfect-vision.origin.y"] == null) {
+            data["flags.perfect-vision.origin.y"] = 0.5;
+        }
+
+        if (!this.form.elements["perfect-vision.overrideWalls"].checked) {
+            delete data["flags.perfect-vision.walls"];
+            data["flags.perfect-vision.-=walls"] = null;
+        }
+
+        if (!this.form.elements["perfect-vision.overrideVision"].checked) {
+            delete data["flags.perfect-vision.vision"];
+            data["flags.perfect-vision.-=vision"] = null;
         }
 
         if (!this.form.elements["perfect-vision.overrideGlobalLight"].checked) {

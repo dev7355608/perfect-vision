@@ -43,19 +43,26 @@ Hooks.once("init", () => {
 
     patch("SightLayer.prototype._createVisionContainer", "POST", function (c) {
         c._pv_fov = c.addChildAt(new PIXI.Container(), 0);
-        c._pv_filter = VisionContainerFilter.instance;
+        c._pv_los = c.addChildAt(new StencilMaskContainer(), 1);
+        c._pv_msk = new PIXI.MaskData(c._pv_los);
+        c._pv_msk.type = PIXI.MASK_TYPES.STENCIL;
+        c._pv_msk.autoDetect = false;
+        c._pv_shader = new TexturelessMeshMaterial({ tint: 0xFFFFFF });
+        c.mask = c._pv_msk;
 
-        if (c.filters?.length > 0) {
-            c.filters.push(c._pv_filter);
-        } else {
-            c.filters = [c._pv_filter];
-        }
+        return c;
+    });
+
+    patch("SightLayer.prototype._getVisionContainer", "POST", function (c) {
+        this.los = c._pv_msk;
 
         return c;
     });
 
     patch("SightLayer.prototype._recycleVisionContainer", "PRE", function (c) {
         c._pv_fov.removeChildren().forEach(c => c.destroy(true));
+        c._pv_los.removeChildren().forEach(c => c.destroy(true));
+        c._pv_shader.tint = 0xFFFFFF;
 
         return [c];
     });
@@ -63,41 +70,71 @@ Hooks.once("init", () => {
     patch("SightLayer.prototype.testVisibility", "OVERRIDE", function (point, { tolerance = 2, object = null } = {}) {
         const visionSources = this.sources;
         const lightSources = canvas.lighting.sources;
-        if (!visionSources.size) return game.user.isGM;
+
+        if (!visionSources.size) {
+            return game.user.isGM;
+        }
 
         // Determine the array of offset points to test
         const t = tolerance;
         const offsets = t > 0 ? [[0, 0], [-t, 0], [t, 0], [0, -t], [0, t], [-t, -t], [-t, t], [t, t], [t, -t]] : [[0, 0]];
         const points = offsets.map(o => new PIXI.Point(point.x + o[0], point.y + o[1]));
 
+        let vision = canvas.lighting._pv_vision;
+
+        for (const area of canvas.lighting._pv_areas) {
+            if (vision !== area._pv_vision && (
+                area._pv_vision && points.some(p => area._pv_fov.containsPoint(p) && (!area._pv_los || area._pv_los.containsPoint(p))) ||
+                !area._pv_vision && points.every(p => area._pv_fov.containsPoint(p) && (!area._pv_los || area._pv_los.containsPoint(p))))
+            ) {
+                vision = area._pv_vision;
+            }
+        }
+
+        if (vision) {
+            return true;
+        }
+
         // Test that a point falls inside a line-of-sight polygon
         let inLOS = false;
-        for (let source of visionSources.values()) {
-            if (points.some(p => source.los.contains(p.x, p.y))) {
+
+        for (const source of visionSources.values()) {
+            if (points.some(p => source._pv_los.containsPoint(p))) {
                 inLOS = true;
                 break;
             }
         }
-        if (!inLOS) return false;
+
+        if (!inLOS) {
+            return false;
+        }
 
         // If global illumination is active, nothing more is required
         if (points.some(p => Lighting.findArea(p)._pv_globalLight)) return true;
 
         // Test that a point is also within some field-of-vision polygon
-        for (let source of visionSources.values()) {
-            if (!source.active) continue;
-            if (points.some(p => source.fov.contains(p.x, p.y))) return true;
+        for (const source of visionSources.values()) {
+            if (!source.active) {
+                continue;
+            }
+
+            if (points.some(p => source._pv_fov.containsPoint(p))) {
+                return true;
+            }
         }
-        for (let source of lightSources.values()) {
-            if (!source.active) continue;
-            if (points.some(p => source.fov.contains(p.x, p.y))) return true;
+
+        for (const source of lightSources.values()) {
+            if (!source.active) {
+                continue;
+            }
+
+            if (points.some(p => source._pv_fov.containsPoint(p))) {
+                return true;
+            }
         }
 
         return false;
     });
-
-    const shaderBlack = new TexturelessMeshMaterial({ tint: 0x000000 });
-    const shaderWhite = new TexturelessMeshMaterial({ tint: 0xFFFFFF });
 
     patch("SightLayer.prototype.refresh", "OVERRIDE", function ({ forceUpdateFog = false, noUpdateFog = false } = {}) {
         if (!this._initialized) {
@@ -119,10 +156,7 @@ Hooks.once("init", () => {
 
         if (prior._explored) {
             prior.fov.tint = exploredColor;
-
-            for (const child of prior._pv_fov.children) {
-                child.tint = exploredColor;
-            }
+            prior._pv_shader.tint = exploredColor;
 
             this.pending.addChild(prior);
         } else {
@@ -137,9 +171,11 @@ Hooks.once("init", () => {
 
         const elevation = !this.fogExploration && Mask.get("elevation");
 
-        const fov = canvas.lighting._pv_fov.createMesh(canvas.lighting._pv_globalLight ? shaderWhite : shaderBlack);
+        if (canvas.lighting._pv_globalLight || canvas.lighting._pv_vision) {
+            const fov = canvas.lighting._pv_fov.createMesh(vision._pv_shader);
 
-        vision._pv_fov.addChild(fov);
+            vision._pv_fov.addChild(fov);
+        }
 
         const areas = canvas.lighting._pv_areas;
 
@@ -149,21 +185,29 @@ Hooks.once("init", () => {
                     continue;
                 }
 
-                const fov = area._pv_fov.createMesh(area._pv_globalLight ? shaderWhite : shaderBlack);
+                if (area._pv_globalLight || area._pv_vision) {
+                    const fov = area._pv_fov.createMesh(vision._pv_shader);
 
-                if (area._pv_los) {
-                    const los = area._pv_los.createMaskData();
+                    if (area._pv_los) {
+                        const los = area._pv_los.createMaskData();
 
-                    fov.mask = los;
+                        fov.mask = los;
 
-                    vision._pv_fov.addChild(los.maskObject);
+                        vision._pv_fov.addChild(los.maskObject);
+                    }
+
+                    if (elevation) {
+                        fov.filters = [new ElevationFilter(Elevation.getElevationRange(area))];
+                    }
+
+                    vision._pv_fov.addChild(fov);
                 }
 
-                if (elevation) {
-                    fov.filters = [new ElevationFilter(Elevation.getElevationRange(area))];
-                }
+                const los = area._pv_fov.createMesh();
 
-                vision._pv_fov.addChild(fov);
+                los.isHole = !area._pv_vision;
+
+                vision._pv_los.addChild(los);
             }
         }
 
@@ -187,25 +231,20 @@ Hooks.once("init", () => {
             }
 
             // Restricted sight-based visibility for this source
-            if (source.radius > 0) {
-                // if (source.radius > 0) {
-                //vision.fov.beginFill(0xFFFFFF, 1.0).drawPolygon(source.fov).endFill();
-
-                const fov = new PIXI.Graphics()
-                    .beginFill(0xFFFFFF)
-                    .drawShape(source.fov)
-                    .endFill();
+            if (source._pv_radius > 0) {
+                const fov = source._pv_fov.createMesh(vision._pv_shader);
 
                 if (elevation) {
                     fov.filters = [new ElevationFilter(Elevation.getElevationRange(source.object))];
                 }
 
                 vision._pv_fov.addChild(fov);
-                // }
             }
 
             // LOS masking polygon for this source
-            vision.los.beginFill(0xFFFFFF, 1.0).drawPolygon(source.los).endFill();
+            const los = source._pv_los.createMesh();
+
+            vision._pv_los.addChild(los);
 
             // Potentially update fog exploration
             if (!noUpdateFog) {
@@ -220,10 +259,7 @@ Hooks.once("init", () => {
             }
 
             if (source.radius > 0) {
-                const fov = new PIXI.Graphics()
-                    .beginFill(0xFFFFFF)
-                    .drawShape(source.fov)
-                    .endFill();
+                const fov = source._pv_fov.createMesh(vision._pv_shader);
 
                 if (elevation) {
                     fov.filters = [new ElevationFilter(Elevation.getElevationRange(source.object))];
@@ -232,12 +268,13 @@ Hooks.once("init", () => {
                 vision._pv_fov.addChild(fov);
             }
 
-            // vision.fov.beginFill(0xFFFFFF, 1.0).drawPolygon(source.fov).endFill();
             if (source.type === CONST.SOURCE_TYPES.LOCAL || source.isDarkness) {
                 continue;
             }
 
-            vision.los.beginFill(0xFFFFFF, 1.0).drawPolygon(source.fov).endFill();
+            const los = source._pv_fov.createMesh();
+
+            vision._pv_los.addChild(los);
         }
 
         // Commit updates to the Fog of War texture
@@ -692,53 +729,42 @@ Hooks.once("init", () => {
     }
 });
 
-Hooks.on("canvasInit", () => {
-    VisionContainerFilter.instance.resolution = canvas.app.renderer.resolution;
-    VisionContainerFilter.instance.multisample = PIXI.MSAA_QUALITY.NONE;
-});
-
-class VisionContainerFilter extends PIXI.Filter {
-    static vertexSource = `\
-        attribute vec2 aVertexPosition;
-
-        uniform mat3 projectionMatrix;
-        uniform vec4 inputSize;
-        uniform vec4 outputFrame;
-
-        varying vec2 vTextureCoord;
-
-        void main()
-        {
-            vec3 position = vec3(aVertexPosition * max(outputFrame.zw, vec2(0.0)) + outputFrame.xy, 1.0);
-            gl_Position = vec4((projectionMatrix * position).xy, 0.0, 1.0);
-            vTextureCoord = aVertexPosition * (outputFrame.zw * inputSize.zw);
-        }`;
-
-    static fragmentSource = `\
-        varying vec2 vTextureCoord;
-
-        uniform sampler2D uSampler;
-
-        void main()
-        {
-            vec3 color = texture2D(uSampler, vTextureCoord).rgb;
-
-            if (any(notEqual(color, vec3(0.0)))) {
-                gl_FragColor = vec4(color, 1.0);
-            } else {
-                gl_FragColor = vec4(0.0);
-            }
-        }`;
-
-    static get instance() {
-        if (!this._instance) {
-            this._instance = new VisionContainerFilter();
+class StencilMaskContainer extends PIXI.Container {
+    render(renderer) {
+        if (!this.isMask || !this.visible || this.worldAlpha <= 0 || !this.renderable) {
+            return;
         }
 
-        return this._instance;
-    }
+        const stencil = renderer.stencil;
+        const maskData = stencil.maskStack[stencil.maskStack.length - 1];
+        const prevMaskCount = maskData._stencilCounter - 1;
+        const bitwiseMask = stencil._getBitwiseMask();
+        const gl = renderer.gl;
 
-    constructor() {
-        super(VisionContainerFilter.vertexSource, VisionContainerFilter.fragmentSource);
+        if (maskData.maskObject !== this || maskData.type !== PIXI.MASK_TYPES.STENCIL) {
+            throw new Error();
+        }
+
+        let isHole = false;
+
+        for (let i = 0, j = this.children.length; i < j; ++i) {
+            const child = this.children[i];
+
+            if (isHole !== !!child.isHole) {
+                isHole = !!child.isHole;
+
+                renderer.batch.flush();
+
+                if (isHole) {
+                    gl.stencilFunc(gl.LEQUAL, prevMaskCount, bitwiseMask);
+                    gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+                } else {
+                    gl.stencilFunc(gl.EQUAL, prevMaskCount, bitwiseMask);
+                    gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR);
+                }
+            }
+
+            child.render(renderer);
+        }
     }
 }

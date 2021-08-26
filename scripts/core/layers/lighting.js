@@ -553,6 +553,8 @@ Hooks.once("init", () => {
         this._pv_active = true;
         this._pv_parent = null;
         this._pv_origin = null;
+        this._pv_walls = false;
+        this._pv_vision = false;
         this._pv_fov = new ShapeData(canvas.dimensions.rect.clone());
         this._pv_los = null;
         this._pv_globalLight = this.globalLight;
@@ -608,6 +610,8 @@ Hooks.once("init", () => {
         this._pv_active = false;
         this._pv_parent = null;
         this._pv_origin = null;
+        this._pv_walls = false;
+        this._pv_vision = false;
 
         if (this._pv_fov) {
             this._pv_fov.release();
@@ -904,6 +908,8 @@ function refreshAreas(layer) {
             area._pv_active = false;
             area._pv_parent = null;
             area._pv_origin = null;
+            area._pv_walls = false;
+            area._pv_vision = false;
             area._pv_fov = null;
             area._pv_los = null;
             area._pv_globalLight = false;
@@ -946,6 +952,7 @@ function refreshAreas(layer) {
     }
 
     let darknessChanged = false;
+    let refreshVision = false;
 
     layer._pv_areas.length = 0;
 
@@ -971,6 +978,8 @@ function refreshAreas(layer) {
         if (!active) {
             area._pv_parent = null;
             area._pv_origin = null;
+            area._pv_walls = false;
+            area._pv_vision = false;
 
             if (area._pv_fov) {
                 area._pv_fov.release();
@@ -1001,14 +1010,44 @@ function refreshAreas(layer) {
         let origin;
 
         if (area._pv_preview?.hasOwnProperty("origin")) {
-            origin = area._pv_preview.origin ?? null;
+            origin = area._pv_preview.origin ?? { x: 0.5, y: 0.5 };
         } else {
-            origin = document.getFlag("perfect-vision", "origin") ?? null;
+            origin = document.getFlag("perfect-vision", "origin") ?? { x: 0.5, y: 0.5 };
         }
 
         const extract = Drawings.extractShapeAndOrigin(area, origin);
 
         area._pv_origin = extract.origin;
+
+        let walls;
+
+        if (area._pv_preview?.hasOwnProperty("walls")) {
+            walls = !!area._pv_preview.walls;
+        } else {
+            walls = !!document.getFlag("perfect-vision", "walls");
+        }
+
+        area._pv_walls = walls;
+
+        if (area._pv_walls !== walls) {
+            area._pv_walls = walls;
+
+            refreshVision = true;
+        }
+
+        let vision;
+
+        if (area._pv_preview?.hasOwnProperty("vision")) {
+            vision = !!area._pv_preview.vision;
+        } else {
+            vision = !!document.getFlag("perfect-vision", "vision");
+        }
+
+        if (area._pv_vision !== vision) {
+            area._pv_vision = vision;
+
+            refreshVision = true;
+        }
 
         let fov;
 
@@ -1025,12 +1064,12 @@ function refreshAreas(layer) {
 
             area._pv_fov = fov;
 
-            canvas.perception.schedule({ sight: { initialize: true, refresh: true } });
+            refreshVision = true;
         }
 
         let los;
 
-        if (area._pv_origin) {
+        if (area._pv_walls) {
             los = ShapeData.from(canvas.walls.computePolygon(area._pv_origin, canvas.dimensions.maxR, { type: "light" }).los);
         } else {
             los = null;
@@ -1043,7 +1082,7 @@ function refreshAreas(layer) {
 
             area._pv_los = los;
 
-            canvas.perception.schedule({ sight: { initialize: true, refresh: true } });
+            refreshVision = true;
         }
 
         let globalLight;
@@ -1168,7 +1207,7 @@ function refreshAreas(layer) {
         if (area._pv_globalLight !== globalLight) {
             area._pv_globalLight = globalLight;
 
-            canvas.perception.schedule({ sight: { initialize: true, refresh: true } });
+            refreshVision = true;
         }
 
         if (area._pv_channels === null) {
@@ -1179,7 +1218,11 @@ function refreshAreas(layer) {
         area._pv_zIndex = area.data.z;
     }
 
-    layer._pv_areas.sort((a, b) => a._pv_zIndex - b._pv_zIndex);
+    layer._pv_areas.sort((a, b) => a._pv_zIndex - b._pv_zIndex || a.id.localeCompare(b.id, "en"));
+
+    if (refreshVision) {
+        canvas.perception.schedule({ sight: { initialize: true, refresh: true } });
+    }
 
     return darknessChanged;
 }
