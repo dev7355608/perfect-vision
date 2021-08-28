@@ -245,6 +245,10 @@ Hooks.once("init", () => {
                 this._pv_fov = fov;
             }
 
+            if (!Number.isNaN(sightLimit)) {
+                this.los = computePolygon(this, sightLimit, cache);
+            }
+
             const los = ShapeData.from(this.los);
 
             if (this._pv_los !== los) {
@@ -259,26 +263,52 @@ Hooks.once("init", () => {
 
             this.fov = computePolygon(this, Math.max(visionRadius, minR), cache);
 
-            if (!Number.isNaN(sightLimit)) {
-                this.los = computePolygon(this, sightLimit, cache);
-            }
+            let fovMono;
 
             if (visionRadius > 0 && !token._original) {
-                this._pv_fovMono = this.fov;
+                fovMono = ShapeData.from(this.fov);
             } else {
-                this._pv_fovMono = null;
+                fovMono = null;
             }
+
+            if (this._pv_fovMono !== fovMono) {
+                if (this._pv_fovMono) {
+                    this._pv_fovMono.release();
+                }
+
+                this._pv_fovMono = fovMono;
+            }
+
+            let fovColor;
 
             if (visionRadiusColor > 0 && !token._original) {
-                this._pv_fovColor = computePolygon(this, Math.max(visionRadiusColor, minR), cache);
+                fovColor = ShapeData.from(computePolygon(this, Math.max(visionRadiusColor, minR), cache));
             } else {
-                this._pv_fovColor = null;
+                fovColor = null;
             }
 
+            if (this._pv_fovColor !== fovColor) {
+                if (this._pv_fovColor) {
+                    this._pv_fovColor.release();
+                }
+
+                this._pv_fovColor = fovColor;
+            }
+
+            let fovBrighten;
+
             if (visionRadiusBrighten > 0 && !token._original) {
-                this._pv_fovBrighten = computePolygon(this, Math.max(visionRadiusBrighten, minR), cache);
+                fovBrighten = ShapeData.from(computePolygon(this, Math.max(visionRadiusBrighten, minR), cache));
             } else {
-                this._pv_fovBrighten = null;
+                fovBrighten = null;
+            }
+
+            if (this._pv_fovBrighten !== fovBrighten) {
+                if (this._pv_fovBrighten) {
+                    this._pv_fovBrighten.release();
+                }
+
+                this._pv_fovBrighten = fovBrighten;
             }
 
             if (token._original?.vision) {
@@ -299,6 +329,21 @@ Hooks.once("init", () => {
         if (source._pv_fov) {
             source._pv_fov.release();
             source._pv_fov = null;
+        }
+
+        if (source._pv_fovMono) {
+            source._pv_fovMono.release();
+            source._pv_fovMono = null;
+        }
+
+        if (source._pv_fovColor) {
+            source._pv_fovColor.release();
+            source._pv_fovColor = null;
+        }
+
+        if (source._pv_fovBrighten) {
+            source._pv_fovBrighten.release();
+            source._pv_fovBrighten = null;
         }
 
         if (source._pv_los) {
@@ -459,7 +504,7 @@ Hooks.once("init", () => {
 
         shader.source = this;
 
-        const state = new PIXI.State();
+        const state = PIXI.State.for2d();
         const light = new PIXI.Mesh(EMPTY_GEOMETRY, shader, state);
         const c = new PIXI.Container();
 
@@ -477,6 +522,7 @@ Hooks.once("init", () => {
     patch("PointSource.prototype._drawContainer", "OVERRIDE", function (c) {
         if (this._pv_radius > 0) {
             c.light.geometry = this._pv_fov.geometry;
+            c.light.drawMode = this._pv_fov.drawMode;
 
             const s = 1 / (2 * this._pv_radius);
             const tx = -(this.x - this._pv_radius) * s;

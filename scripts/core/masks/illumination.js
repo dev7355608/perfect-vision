@@ -1,4 +1,5 @@
-import { TexturelessMeshMaterial } from "../../display/mesh.js";
+import { ShapeDataShader } from "../../display/shape-data.js";
+import { StencilMaskData, StencilMaskShader } from "../../display/stencil-mask.js";
 import { Elevation, ElevationFilter } from "../elevation.js";
 import { Mask } from "../mask.js";
 
@@ -22,6 +23,7 @@ Hooks.once("init", () => {
         mask.stage.filter.multisample = PIXI.MSAA_QUALITY.NONE;
         mask.stage.filters = [mask.stage.filter];
         mask.stage.filterArea = canvas.app.renderer.screen;
+        mask.stage.removeChildren().forEach(c => c.destroy(true));
     });
 
     Hooks.on("lightingRefresh", () => {
@@ -40,22 +42,15 @@ Hooks.once("init", () => {
                 }
 
                 const color = area._pv_channels.background.hex;
-
-                const fov = area._pv_fov.createMesh(new TexturelessMeshMaterial({ tint: color }));
+                const fov = mask.stage.addChild(area._pv_fov.createMesh(new ShapeDataShader({ tint: color })));
 
                 if (area._pv_los) {
-                    const los = area._pv_los.createMaskData();
-
-                    fov.mask = los;
-
-                    mask.stage.addChild(los.maskObject);
+                    fov.mask = new StencilMaskData(mask.stage.addChild(area._pv_los.createMesh(StencilMaskShader.instance)));
                 }
 
                 if (elevation) {
                     fov.filters = [new ElevationFilter(Elevation.getElevationRange(area))];
                 }
-
-                mask.stage.addChild(fov);
             }
         }
 

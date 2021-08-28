@@ -1,10 +1,9 @@
 import { CachedAlphaObject } from "./utils/alpha.js";
 import { Elevation, ElevationFilter } from "../elevation.js";
 import { Mask } from "../mask.js";
-import { patch } from "../../utils/patch.js";
-import { SourcePolygonMesh, SourcePolygonMeshShader } from "../../display/source-polygon-mesh.js";
 import { Tiles } from "../tiles.js";
-import { TexturelessMeshMaterial } from "../../display/mesh.js";
+import { ShapeDataShader } from "../../display/shape-data.js";
+import { StencilMask, StencilMaskData, StencilMaskShader } from "../../display/stencil-mask.js";
 
 Hooks.once("init", () => {
     const mask = Mask.create("vision", {
@@ -22,14 +21,17 @@ Hooks.once("init", () => {
     ];
     mask.stage.addChild(...mask.stage.layers);
     mask.stage.roofs = mask.stage.addChild(new PIXI.Container());
-    mask.stage.los = mask.stage.addChild(new PIXI.Container());
-    mask.stage.msk = new PIXI.MaskData(mask.stage.los);
-    mask.stage.msk.type = PIXI.MASK_TYPES.STENCIL;
-    mask.stage.msk.autoDetect = false;
+    mask.stage.los = mask.stage.addChild(new StencilMask());
+    mask.stage.msk = new StencilMaskData(mask.stage.los);
     mask.stage.mask = null;
 
-    const shaderBlack = new TexturelessMeshMaterial({ tint: 0x000000 });
-    const shaderGreen = new TexturelessMeshMaterial({ tint: 0x00FF00 });
+    const shaderBlack = new ShapeDataShader({ tint: 0x000000 });
+    const shaderGreen = new ShapeDataShader({ tint: 0x00FF00 });
+
+    const stateNormal = PIXI.State.for2d();
+    const stateAdd = PIXI.State.for2d();
+
+    stateAdd.blendMode = PIXI.BLEND_MODES.ADD;
 
     let isVideo = false;
 
@@ -44,8 +46,6 @@ Hooks.once("init", () => {
     Hooks.on("canvasInit", () => {
         isVideo = false;
 
-        mask.clearColor = [0, 0, 0];
-
         if (game.settings.get("core", "softShadows")) {
             mask.texture.multisample = canvas.app.renderer.multisample;
         } else {
@@ -59,16 +59,20 @@ Hooks.once("init", () => {
         }
 
         mask.stage.roofs.removeChildren();
-        mask.stage.los.removeChildren().forEach(c => c.destroy(true));
+        mask.stage.los.clear();
         mask.stage.mask = null;
     });
 
     Hooks.on("lightingRefresh", () => {
         isVideo = false;
 
-        mask.clearColor[1] = canvas.lighting._pv_globalLight ? 1 : 0;
-
         mask.stage.areas.removeChildren().forEach(c => c.destroy(true));
+
+        if (canvas.lighting._pv_globalLight) {
+            const fov = canvas.lighting._pv_fov.createMesh(shaderGreen, stateNormal);
+
+            mask.stage.areas.addChild(fov);
+        }
 
         const areas = canvas.lighting._pv_areas;
 
@@ -80,26 +84,20 @@ Hooks.once("init", () => {
                     continue;
                 }
 
-                const fov = area._pv_fov.createMesh(area._pv_globalLight ? shaderGreen : shaderBlack);
+                const fov = mask.stage.areas.addChild(area._pv_fov.createMesh(area._pv_globalLight ? shaderGreen : shaderBlack, stateNormal));
 
                 if (area._pv_los) {
-                    const los = area._pv_los.createMaskData();
-
-                    fov.mask = los;
-
-                    mask.stage.areas.addChild(los.maskObject);
+                    fov.mask = new StencilMaskData(mask.stage.areas.addChild(area._pv_los.createMesh(StencilMaskShader.instance)));
                 }
 
                 if (elevation) {
                     fov.filters = [new ElevationFilter(Elevation.getElevationRange(area))];
                 }
-
-                mask.stage.areas.addChild(fov);
             }
         }
 
         for (const layer of mask.stage.layers) {
-            layer.removeChildren();
+            layer.removeChildren().forEach(c => c.destroy(true));
         }
 
         for (const source of canvas.sight.sources) {
@@ -107,18 +105,16 @@ Hooks.once("init", () => {
                 continue;
             }
 
-            const sc = source.illumination;
-
-            if (sc._pv_fovMono) {
-                mask.stage.layers[0].addChild(sc._pv_fovMono);
+            if (source._pv_fovMono) {
+                mask.stage.layers[0].addChild(source._pv_fovMono.createMesh(new VisionShader({ source, tint: 0x00FF00 }), stateAdd));
             }
 
-            if (sc._pv_fovColor) {
-                mask.stage.layers[0].addChild(sc._pv_fovColor);
+            if (source._pv_fovColor) {
+                mask.stage.layers[0].addChild(source._pv_fovColor.createMesh(new VisionShader({ source, tint: 0xFF0000 }), stateAdd));
             }
 
-            if (sc._pv_fovBrighten) {
-                mask.stage.layers[2].addChild(sc._pv_fovBrighten);
+            if (source._pv_fovBrighten) {
+                mask.stage.layers[2].addChild(source._pv_fovBrighten.createMesh(new VisionShader({ source, tint: 0x0000FF }), stateAdd));
             }
         }
 
@@ -127,10 +123,8 @@ Hooks.once("init", () => {
                 continue;
             }
 
-            const sc = source.illumination;
-
-            if (sc._pv_fov) {
-                mask.stage.layers[1].addChild(sc._pv_fov);
+            if (source._pv_radius > 0 && source._pv_fov) {
+                mask.stage.layers[1].addChild(source._pv_fov.createMesh(new VisionShader({ source, tint: 0xFF0000 }), stateNormal));
             }
         }
 
@@ -157,15 +151,27 @@ Hooks.once("init", () => {
     });
 
     Hooks.on("sightRefresh", () => {
-        mask.stage.los.removeChildren().forEach(c => c.destroy(true));
+        mask.stage.los.clear();
 
         if (canvas.sight.tokenVision && canvas.sight.sources.size > 0) {
+            const areas = canvas.lighting._pv_areas;
+
+            if (areas?.length > 0) {
+                for (const area of areas) {
+                    if (area.skipRender) {
+                        continue;
+                    }
+
+                    mask.stage.los.drawShape(area._pv_fov, area._pv_los ? [area._pv_los] : null, !area._pv_vision);
+                }
+            }
+
             for (const source of canvas.sight.sources) {
                 if (!source.active) {
                     continue;
                 }
 
-                mask.stage.los.addChild(source._pv_los.createMesh());
+                mask.stage.los.drawShape(source._pv_los);
             }
 
             for (const source of canvas.lighting.sources) {
@@ -173,7 +179,7 @@ Hooks.once("init", () => {
                     continue;
                 }
 
-                mask.stage.los.addChild(source._pv_fov.createMesh());
+                mask.stage.los.drawShape(source._pv_fov);
             }
 
             mask.stage.mask = mask.stage.msk;
@@ -183,131 +189,9 @@ Hooks.once("init", () => {
 
         mask.invalidate();
     });
-
-    patch("PointSource.prototype._createContainer", "POST", function (c, shaderCls) {
-        if (shaderCls === StandardIlluminationShader || shaderCls.prototype instanceof StandardIlluminationShader) {
-            this._pv_illumination_version = -1;
-        } else if (shaderCls === StandardColorationShader || shaderCls.prototype instanceof StandardColorationShader) {
-            this._pv_coloration_version = -1;
-        }
-
-        return c;
-    });
-
-    patch("PointSource.prototype.drawLight", "POST", function (c) {
-        if (c === null || this._pv_illumination_version === c._pv_version) {
-            return c;
-        }
-
-        this._pv_illumination_version = c._pv_illumination_version;
-
-        if (this.sourceType === "light") {
-            if (this._pv_radius > 0) {
-                if (!c._pv_fov) {
-                    c._pv_fov = new SourcePolygonMesh(this._pv_fov.shape, new VisionSourcePolygonMeshShader({
-                        source: this,
-                        tint: 0xFF0000
-                    }));
-                } else {
-                    c._pv_fov.polygon = this._pv_fov.shape;
-                }
-            } else if (c._pv_fov) {
-                c._pv_fov.destroy(true);
-                c._pv_fov = null;
-            }
-
-            mask.invalidate();
-        } else if (this.sourceType === "sight") {
-            if (this._pv_fovMono) {
-                if (!c._pv_fovMono) {
-                    c._pv_fovMono = new SourcePolygonMesh(this._pv_fovMono, new VisionSourcePolygonMeshShader({
-                        source: this,
-                        tint: 0x00FF00
-                    }));
-                    c._pv_fovMono.blendMode = PIXI.BLEND_MODES.ADD;
-                } else {
-                    c._pv_fovMono.polygon = this._pv_fovMono;
-                }
-            } else if (c._pv_fovMono) {
-                c._pv_fovMono.destroy(true);
-                c._pv_fovMono = null;
-            }
-
-            if (this._pv_fovColor) {
-                if (!c._pv_fovColor) {
-                    c._pv_fovColor = new SourcePolygonMesh(this._pv_fovColor, new VisionSourcePolygonMeshShader({
-                        source: this,
-                        tint: 0xFF0000
-                    }));
-                    c._pv_fovColor.blendMode = PIXI.BLEND_MODES.ADD;
-                } else {
-                    c._pv_fovColor.polygon = this._pv_fovColor;
-                }
-            } else if (c._pv_fovColor) {
-                c._pv_fovColor.destroy(true);
-                c._pv_fovColor = null;
-            }
-
-            if (this._pv_fovBrighten) {
-                if (!c._pv_fovBrighten) {
-                    c._pv_fovBrighten = new SourcePolygonMesh(this._pv_fovBrighten, new VisionSourcePolygonMeshShader({
-                        source: this,
-                        tint: 0x0000FF
-                    }));
-                    c._pv_fovBrighten.blendMode = PIXI.BLEND_MODES.ADD;
-                } else {
-                    c._pv_fovBrighten.polygon = this._pv_fovBrighten;
-                }
-            } else if (c._pv_fovBrighten) {
-                c._pv_fovBrighten.destroy(true);
-                c._pv_fovBrighten = null;
-            }
-
-            mask.invalidate();
-        }
-
-        return c;
-    });
-
-    function destroyPointSource(source) {
-        const c = source.illumination;
-
-        if (c._pv_fov) {
-            c._pv_fov.destroy(true);
-            c._pv_fov = null;
-        }
-
-        if (c._pv_fovMono) {
-            c._pv_fovMono.destroy(true);
-            c._pv_fovMono = null;
-        }
-
-        if (c._pv_fovColor) {
-            c._pv_fovColor.destroy(true);
-            c._pv_fovColor = null;
-        }
-
-        if (c._pv_fovBrighten) {
-            c._pv_fovBrighten.destroy(true);
-            c._pv_fovBrighten = null;
-        }
-    }
-
-    patch("Token.prototype.destroy", "PRE", function () {
-        destroyPointSource(this.vision);
-        destroyPointSource(this.light);
-
-        return arguments;
-    });
-
-    patch("AmbientLight.prototype.destroy", "PRE", function () {
-        destroyPointSource(this.source);
-
-        return arguments;
-    });
 });
 
-class VisionSourcePolygonMeshShader extends SourcePolygonMeshShader {
+class VisionShader extends ShapeDataShader {
     static elevationVertex = `\
         attribute vec2 aVertexPosition;
 
@@ -351,7 +235,7 @@ class VisionSourcePolygonMeshShader extends SourcePolygonMeshShader {
     }
 
     static get defaultProgram() {
-        return Mask.get("elevation") ? this.elevationProgram : SourcePolygonMeshShader.defaultProgram;
+        return Mask.get("elevation") ? this.elevationProgram : ShapeDataShader.defaultProgram;
     }
 
     static defaultUniforms() {
@@ -364,10 +248,10 @@ class VisionSourcePolygonMeshShader extends SourcePolygonMeshShader {
 
     constructor(options = {}) {
         options = Object.assign({
-            program: VisionSourcePolygonMeshShader.defaultProgram,
+            program: VisionShader.defaultProgram,
         }, options);
 
-        const uniforms = VisionSourcePolygonMeshShader.defaultUniforms();
+        const uniforms = VisionShader.defaultUniforms();
 
         if (options.uniforms) {
             Object.assign(uniforms, options.uniforms);
@@ -376,6 +260,8 @@ class VisionSourcePolygonMeshShader extends SourcePolygonMeshShader {
         options.uniforms = uniforms;
 
         super(options);
+
+        this.source = options.source;
     }
 
     update() {

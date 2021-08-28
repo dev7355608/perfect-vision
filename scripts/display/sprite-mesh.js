@@ -1,9 +1,9 @@
 export class SpriteMeshGeometry extends PIXI.MeshGeometry {
     constructor() {
         super(
-            new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]),
-            new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]),
-            new Uint16Array([0, 1, 2, 0, 2, 3])
+            new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]),
+            new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]),
+            new Uint16Array([0, 1, 2, 3])
         );
 
         this._anchor = new PIXI.ObservablePoint(this._onAnchorUpdate, this, 0, 0);
@@ -56,11 +56,11 @@ export class SpriteMeshGeometry extends PIXI.MeshGeometry {
         vertices[0] = -this._anchor.x * this._width;
         vertices[1] = -this._anchor.y * this._height;
         vertices[2] = (1 - this._anchor.x) * this._width;
-        vertices[3] = -this._anchor.y * this._height;
-        vertices[4] = (1 - this._anchor.x) * this._width;
+        vertices[3] = vertices[1];
+        vertices[4] = vertices[0];
         vertices[5] = (1 - this._anchor.y) * this._height;
-        vertices[6] = -this._anchor.x * this._width;
-        vertices[7] = (1 - this._anchor.y) * this._height;
+        vertices[6] = vertices[2];
+        vertices[7] = vertices[5];
 
         verticesBuffer.update();
     }
@@ -71,10 +71,10 @@ export class SpriteMeshGeometry extends PIXI.MeshGeometry {
 }
 
 export class SpriteMesh extends PIXI.Mesh {
-    constructor(shader) {
+    constructor(shader, state) {
         const geometry = new SpriteMeshGeometry();
 
-        super(geometry, shader);
+        super(geometry, shader, state, PIXI.DRAW_MODES.TRIANGLE_STRIP);
 
         const texture = shader.texture;
 

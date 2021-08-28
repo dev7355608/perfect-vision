@@ -607,7 +607,6 @@ Hooks.once("init", () => {
         }
 
         canvas.lighting._pv_preview = {};
-        // canvas.lighting._pv_preview.globalLight
         canvas.lighting._pv_preview.daylightColor = this.form.elements["flags.perfect-vision.daylightColor"].value;
         canvas.lighting._pv_preview.darknessColor = this.form.elements["flags.perfect-vision.darknessColor"].value;
         canvas.lighting._pv_preview.darkness = Number(this.form.elements["darkness"].value);
@@ -618,8 +617,7 @@ Hooks.once("init", () => {
             canvas.lighting._pv_preview.saturation = null;
         }
 
-        // canvas.lighting._pv_preview.globalLightThreshold
-        // sightLimit
+        // TODO: preview globalLight, globalLightThreshold, and sightLimit
 
         const result = await wrapped(event);
 

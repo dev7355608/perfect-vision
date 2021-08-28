@@ -1,4 +1,6 @@
 import { Mask } from "../../../core/mask.js";
+import { ShapeDataShader } from "../../../display/shape-data.js";
+import { StencilMaskData, StencilMaskShader } from "../../../display/stencil-mask.js";
 
 Hooks.once("init", () => {
     if (!game.modules.get("betterroofs")?.active) {
@@ -17,7 +19,8 @@ Hooks.once("init", () => {
             group: ["blur"]
         });
 
-        mask.stage.los = mask.stage.addChild(new PIXI.Graphics());
+        const shaderBlack = new ShapeDataShader({ tint: 0x000000 });
+        const shaderRed = new ShapeDataShader({ tint: 0xFF0000 });
 
         mask.on("updateTexture", (mask) => {
             mask.render();
@@ -30,7 +33,7 @@ Hooks.once("init", () => {
             mask.stage.filter.multisample = PIXI.MSAA_QUALITY.NONE;
             mask.stage.filters = [mask.stage.filter];
             mask.stage.filterArea = canvas.app.renderer.screen;
-            mask.stage.los.clear();
+            mask.stage.removeChildren().forEach(c => c.destroy(true));
         }
 
         if (canvas) {
@@ -40,17 +43,31 @@ Hooks.once("init", () => {
         Hooks.on("canvasInit", canvasInit);
 
         Hooks.on("sightRefresh", () => {
-            mask.stage.los.clear();
+            mask.stage.removeChildren().forEach(c => c.destroy(true));
 
             if (canvas.sight.tokenVision && canvas.sight.sources.size > 0) {
-                mask.stage.los.beginFill();
+                const areas = canvas.lighting._pv_areas;
+
+                if (areas?.length > 0) {
+                    for (const area of areas) {
+                        if (area.skipRender) {
+                            continue;
+                        }
+
+                        const fov = mask.stage.addChild(area._pv_fov.createMesh(area._pv_vision ? shaderBlack : shaderRed));
+
+                        if (area._pv_los) {
+                            fov.mask = new StencilMaskData(mask.stage.addChild(area._pv_los.createMesh(StencilMaskShader.instance)));
+                        }
+                    }
+                }
 
                 for (const source of canvas.sight.sources) {
                     if (!source.active) {
                         continue;
                     }
 
-                    mask.stage.los.drawPolygon(source.los);
+                    mask.stage.addChild(source._pv_fov.createMesh(shaderBlack));
                 }
 
                 for (const source of canvas.lighting.sources) {
@@ -58,10 +75,8 @@ Hooks.once("init", () => {
                         continue;
                     }
 
-                    mask.stage.los.drawPolygon(source.fov);
+                    mask.stage.addChild(source._pv_fov.createMesh(shaderBlack));
                 }
-
-                mask.stage.los.endFill();
             }
 
             mask.invalidate();

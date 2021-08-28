@@ -24,6 +24,7 @@ export class ShapeData {
         this._shape = shape;
         this._bounds = undefined;
         this._geometry = undefined;
+        this._drawMode = undefined;
         this._refCount = 1;
         this._cached = false;
     }
@@ -34,11 +35,7 @@ export class ShapeData {
 
     get bounds() {
         if (this._bounds === undefined) {
-            if (this._shape) {
-                this._bounds = calculateBoundsFromShape(this._shape);
-            } else {
-                this._bounds = null;
-            }
+            this._bounds = calculateBoundsFromShape(this._shape, new PIXI.Rectangle());
         }
 
         return this._bounds;
@@ -46,38 +43,51 @@ export class ShapeData {
 
     get geometry() {
         if (this._geometry === undefined) {
-            if (!this.isEmpty()) {
-                this._geometry = createGeometryFromShape(this._shape);
-                this._geometry.refCount++;
-            } else {
-                this._geometry = null;
-            }
+            const { vertices, indices } = !this.isEmpty() ?
+                createGeometryFromShape(this._shape, this.drawMode) :
+                { vertices: new Float32Array(0), indices: new Uint16Array(0) };
+
+            this._geometry = new PIXI.Geometry()
+                .addAttribute("aVertexPosition", new PIXI.Buffer(vertices, true, false), 2, false, PIXI.TYPES.FLOAT)
+                .addIndex(new PIXI.Buffer(indices, true, true));
+            this._geometry.refCount++;
         }
 
         return this._geometry;
     }
 
+    get drawMode() {
+        if (this._drawMode === undefined) {
+            this._drawMode = detectDrawMode(this._shape);
+        }
+
+        return this._drawMode;
+    }
+
+    update() {
+        if (this._bounds) {
+            calculateBoundsFromShape(this._shape, this._bounds);
+        }
+
+        if (this._geometry) {
+            const { vertices, indices } = !this.isEmpty() ?
+                createGeometryFromShape(this._shape, this.drawMode) :
+                { vertices: new Float32Array(0), indices: new Uint16Array(0) };
+
+            this._geometry.buffers[0].update(vertices);
+            this._geometry.indexBuffer.update(indices);
+        }
+    }
+
     isEmpty() {
         const bounds = this.bounds;
 
-        return !bounds || bounds.width <= 0 || bounds.height <= 0;
+        return bounds.width <= 0 || bounds.height <= 0;
     }
 
-    containsPoint(point, y) {
+    containsPoint(point) {
+        const { x, y } = point;
         const shape = this._shape;
-
-        if (!shape) {
-            return false;
-        }
-
-        let x;
-
-        if (y !== undefined) {
-            x = point;
-        } else {
-            x = point.x;
-            y = point.y;
-        }
 
         if (shape.type === PIXI.SHAPES.POLY) {
             if (!this.bounds.contains(x, y)) {
@@ -89,13 +99,7 @@ export class ShapeData {
     }
 
     createMesh(shader, state) {
-        const geometry = this.geometry;
-
-        if (!geometry) {
-            return null;
-        }
-
-        const mesh = new PIXI.Mesh(geometry, shader ?? DefaultShapeShader.instance, state);
+        const mesh = new PIXI.Mesh(this.geometry, shader ?? new ShapeDataShader(), state, this.drawMode);
 
         Object.defineProperty(mesh, "uvBuffer", {
             configurable: true,
@@ -104,22 +108,6 @@ export class ShapeData {
         });
 
         return mesh;
-    }
-
-    createMaskData(scissor = false) {
-        const shape = this._shape;
-        const mesh = this.createMesh();
-        const maskData = new PIXI.MaskData(mesh ?? new PIXI.Container());
-
-        maskData.autoDetect = false;
-
-        if (!mesh || scissor && (shape.type === PIXI.SHAPES.RECT || shape.type === PIXI.SHAPES.RREC && shape.radius <= 0)) {
-            maskData.type = PIXI.MASK_TYPES.SCISSOR;
-        } else {
-            maskData.type = PIXI.MASK_TYPES.STENCIL;
-        }
-
-        return maskData;
     }
 
     retain() {
@@ -151,58 +139,171 @@ export class ShapeData {
             this._shape = null;
             this._bounds = null;
             this._geometry = null;
+            this._drawMode = null;
             this._cached = false;
         }
     }
 }
 
-function calculateBoundsFromShape(shape) {
+export class ShapeDataShader extends PIXI.Shader {
+    static defaultVertexSource = `\
+        attribute vec2 aVertexPosition;
+
+        uniform mat3 projectionMatrix;
+        uniform mat3 translationMatrix;
+
+        void main()
+        {
+            gl_Position = vec4((projectionMatrix * translationMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
+        }`;
+
+    static defaultFragmentSource = `\
+        uniform vec4 uColor;
+
+        void main()
+        {
+            gl_FragColor = uColor;
+        }`;
+
+    static get defaultProgram() {
+        if (!this._defaultProgram) {
+            this._defaultProgram = PIXI.Program.from(this.defaultVertexSource, this.defaultFragmentSource);
+        }
+
+        return this._defaultProgram;
+    }
+
+    static defaultUniforms() {
+        return {
+            uColor: new Float32Array([1.0, 1.0, 1.0, 1.0]),
+            alpha: 1.0,
+        };
+    }
+
+    constructor(options = {}) {
+        options = Object.assign({
+            program: ShapeDataShader.defaultProgram,
+            tint: 0xFFFFFF,
+            alpha: 1.0,
+        }, options);
+
+        const uniforms = ShapeDataShader.defaultUniforms();
+
+        if (options.uniforms) {
+            Object.assign(uniforms, options.uniforms);
+        }
+
+        super(options.program, uniforms);
+
+        this._colorDirty = false;
+
+        this.tint = options.tint;
+        this.alpha = options.alpha;
+
+        this.premultiply = true;
+
+        this.source = options.source;
+    }
+
+    get tint() {
+        return this._tint;
+    }
+
+    set tint(value) {
+        if (this._tint === value) {
+            return;
+        }
+
+        this._tint = value;
+        this._colorDirty = true;
+    }
+
+    get alpha() {
+        return this._alpha;
+    }
+
+    set alpha(value) {
+        if (this._alpha === value) {
+            return;
+        }
+
+        this._alpha = value;
+        this._colorDirty = true;
+    }
+
+    update() {
+        if (this._colorDirty) {
+            this._colorDirty = false;
+
+            PIXI.utils.premultiplyTintToRgba(this._tint, this._alpha, this.uniforms.uColor, this.premultiply);
+        }
+    }
+}
+
+function calculateBoundsFromShape(shape, bounds) {
     const type = shape.type;
 
     if (type === PIXI.SHAPES.RECT || type === PIXI.SHAPES.RREC) {
-        return new PIXI.Rectangle(shape.x, shape.y, shape.width, shape.height);
+        bounds.x = shape.x;
+        bounds.y = shape.y;
+        bounds.width = shape.width;
+        bounds.height = shape.height;
     } else if (type === PIXI.SHAPES.CIRC) {
-        return new PIXI.Rectangle(shape.x - shape.radius, shape.y - shape.radius, shape.radius * 2, shape.radius * 2);
+        bounds.x = shape.x - shape.radius;
+        bounds.y = shape.y - shape.radius;
+        bounds.width = shape.radius * 2;
+        bounds.height = shape.radius * 2;
     } else if (type === PIXI.SHAPES.ELIP) {
-        return new PIXI.Rectangle(shape.x - shape.width, shape.y - shape.height, shape.width * 2, shape.height * 2);
+        bounds.x = shape.x - shape.width;
+        bounds.y = shape.y - shape.height;
+        bounds.width = shape.width * 2;
+        bounds.height = shape.height * 2;
     } else {
         const points = shape.points;
         const length = points.length;
 
         if (length < 6) {
-            return PIXI.Rectangle.EMPTY;
-        }
+            bounds.x = 0;
+            bounds.y = 0;
+            bounds.width = 0;
+            bounds.height = 0;
+        } else {
+            let minX = points[0];
+            let minY = points[1];
+            let maxX = minX;
+            let maxY = minY;
 
-        let minX = points[0];
-        let minY = points[1];
-        let maxX = minX;
-        let maxY = minY;
+            for (let i = 2; i < length; i += 2) {
+                const x = points[i];
+                const y = points[i + 1];
 
-        for (let i = 2; i < length; i += 2) {
-            const x = points[i];
-            const y = points[i + 1];
+                if (minX > x) {
+                    minX = x;
+                } else if (maxX < x) {
+                    maxX = x;
+                }
 
-            if (minX > x) {
-                minX = x;
-            } else if (maxX < x) {
-                maxX = x;
+                if (minY > y) {
+                    minY = y;
+                } else if (maxY < y) {
+                    maxY = y;
+                }
             }
 
-            if (minY > y) {
-                minY = y;
-            } else if (maxY < y) {
-                maxY = y;
-            }
+            bounds.x = minX;
+            bounds.y = minY;
+            bounds.width = maxX - minX;
+            bounds.height = maxY - minY;
         }
-
-        return new PIXI.Rectangle(minX, minY, maxX - minX, maxY - minY);
     }
+
+    return bounds;
 }
 
 const tempGraphicsData = new PIXI.GraphicsData(new PIXI.Polygon());
 const tempGraphicsGeometry = new PIXI.GraphicsGeometry();
 
-function createGeometryFromShape(shape) {
+function createGeometryFromShape(shape, drawMode) {
     let vertices;
     let indices;
 
@@ -222,36 +323,69 @@ function createGeometryFromShape(shape) {
         vertices[6] = x1;
         vertices[7] = y1;
 
-        indices = new Uint16Array(6);
-        indices[0] = 0;
-        indices[1] = 1;
-        indices[2] = 2;
-        indices[3] = 1;
-        indices[4] = 2;
-        indices[5] = 3;
+        if (drawMode === undefined || drawMode === PIXI.DRAW_MODES.TRIANGLE_STRIP) {
+            drawMode = PIXI.DRAW_MODES.TRIANGLE_STRIP;
+
+            indices = new Uint16Array(4);
+            indices[0] = 0;
+            indices[1] = 1;
+            indices[2] = 2;
+            indices[3] = 3;
+        } else if (drawMode === PIXI.DRAW_MODES.TRIANGLES) {
+            indices = new Uint16Array(6);
+            indices[0] = 0;
+            indices[1] = 1;
+            indices[2] = 2;
+            indices[3] = 1;
+            indices[4] = 2;
+            indices[5] = 3;
+        } else {
+            throw new Error();
+        }
     } else if (shape.type === PIXI.SHAPES.POLY) {
         const points = shape.points;
+        const origin = isPointSourcePolygon(shape)
 
-        if (Number.isFinite(shape.x) && Number.isFinite(shape.y)) {
+        if (origin) {
             const m = points.length;
             const n = m / 2;
 
             vertices = new Float32Array(m + 2);
             vertices.set(points);
-            vertices[m] = shape.x;
-            vertices[m + 1] = shape.y;
+            vertices[m] = origin.x;
+            vertices[m + 1] = origin.y;
 
-            indices = new Uint16Array(n * 3);
-            indices = new (vertices.length > 0xffff ? Uint32Array : Uint16Array)(n * 3);
+            if (drawMode === undefined || drawMode === PIXI.DRAW_MODES.TRIANGLE_FAN) {
+                drawMode = PIXI.DRAW_MODES.TRIANGLE_FAN;
 
-            for (let i = 0, j = n - 1, k = 0; i < n; j = i++) {
-                indices[k++] = n;
-                indices[k++] = j;
-                indices[k++] = i;
+                indices = new (vertices.length > 0xffff ? Uint32Array : Uint16Array)(n + 2);
+                indices[0] = n;
+
+                for (let i = 1; i < n; i++) {
+                    indices[i] = i;
+                }
+
+                indices[n] = 0;
+                indices[n + 1] = 1;
+            } else if (drawMode === PIXI.DRAW_MODES.TRIANGLES) {
+                indices = new (vertices.length > 0xffff ? Uint32Array : Uint16Array)(n * 3);
+
+                for (let i = 0, j = n - 1, k = 0; i < n; j = i++) {
+                    indices[k++] = n;
+                    indices[k++] = j;
+                    indices[k++] = i;
+                }
+            } else {
+                throw new Error();
             }
         } else {
             vertices = new Float32Array(points);
-            indices = new (vertices.length > 0xffff ? Uint32Array : Uint16Array)(PIXI.utils.earcut(points));
+
+            if (drawMode === undefined || drawMode === PIXI.DRAW_MODES.TRIANGLES) {
+                indices = new (vertices.length > 0xffff ? Uint32Array : Uint16Array)(PIXI.utils.earcut(points));
+            } else {
+                throw new Error();
+            }
         }
     } else {
         const graphicsData = tempGraphicsData;
@@ -266,61 +400,44 @@ function createGeometryFromShape(shape) {
         command.triangulate(graphicsData, graphicsGeometry);
 
         vertices = new Float32Array(graphicsGeometry.points);
-        indices = new (vertices.length > 0xffff ? Uint32Array : Uint16Array)(graphicsGeometry.indices);
+
+        if (drawMode === undefined || drawMode === PIXI.DRAW_MODES.TRIANGLES) {
+            indices = new (vertices.length > 0xffff ? Uint32Array : Uint16Array)(graphicsGeometry.indices);
+        } else {
+            throw new Error();
+        }
 
         graphicsData.points.length = 0;
         graphicsGeometry.points.length = 0;
         graphicsGeometry.indices.length = 0;
     }
 
-    const verticesBuffer = new PIXI.Buffer(vertices, true, false);
-    const indexBuffer = new PIXI.Buffer(indices, true, true);
-    const geometry = new PIXI.Geometry()
-        .addAttribute("aVertexPosition", verticesBuffer, 2, false, PIXI.TYPES.FLOAT)
-        .addIndex(indexBuffer);
-
-    return geometry;
+    return { vertices, indices, drawMode };
 }
 
-class DefaultShapeShader extends PIXI.Shader {
-    static vertexSource = `\
-        attribute vec2 aVertexPosition;
-
-        uniform mat3 projectionMatrix;
-        uniform mat3 translationMatrix;
-
-        void main()
-        {
-            gl_Position = vec4((projectionMatrix * translationMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
-        }`;
-
-    static fragmentSource = `\
-        uniform vec4 uColor;
-
-        void main()
-        {
-            gl_FragColor = vec4(1.0);
-        }`;
-
-    static get program() {
-        if (!this._program) {
-            this._program = PIXI.Program.from(this.vertexSource, this.fragmentSource);
-        }
-
-        return this._program;
+function detectDrawMode(shape) {
+    if (shape.type === PIXI.SHAPES.RECT || shape.type === PIXI.SHAPES.RREC && shape.radius <= 0) {
+        return PIXI.DRAW_MODES.TRIANGLE_STRIP;
     }
 
-    static get instance() {
-        if (!this._instance) {
-            this._instance = new this();
-        }
-
-        return this._instance;
+    if (isPointSourcePolygon(shape)) {
+        return PIXI.DRAW_MODES.TRIANGLE_FAN;
     }
 
-    constructor() {
-        super(DefaultShapeShader.program);
+    return PIXI.DRAW_MODES.TRIANGLES;
+}
 
-        this.batchable = false;
+function isPointSourcePolygon(shape) {
+    if (shape.type !== PIXI.SHAPES.POLY) {
+        return false;
     }
+
+    const x = shape.x;
+    const y = shape.y;
+
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        return false;
+    }
+
+    return { x, y };
 }

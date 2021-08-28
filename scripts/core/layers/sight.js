@@ -3,7 +3,8 @@ import { Lighting } from "../lighting.js";
 import { Mask } from "../mask.js";
 import { patch } from "../../utils/patch.js";
 import { SpriteMesh } from "../../display/sprite-mesh.js";
-import { TexturelessMeshMaterial } from "../../display/mesh.js";
+import { StencilMask, StencilMaskData, StencilMaskShader } from "../../display/stencil-mask.js";
+import { ShapeDataShader } from "../../display/shape-data.js";
 
 Hooks.once("init", () => {
     patch("FogExploration.prototype.explore", "OVERRIDE", function (source, force = false) {
@@ -43,11 +44,9 @@ Hooks.once("init", () => {
 
     patch("SightLayer.prototype._createVisionContainer", "POST", function (c) {
         c._pv_fov = c.addChildAt(new PIXI.Container(), 0);
-        c._pv_los = c.addChildAt(new StencilMaskContainer(), 1);
-        c._pv_msk = new PIXI.MaskData(c._pv_los);
-        c._pv_msk.type = PIXI.MASK_TYPES.STENCIL;
-        c._pv_msk.autoDetect = false;
-        c._pv_shader = new TexturelessMeshMaterial({ tint: 0xFFFFFF });
+        c._pv_los = c.addChildAt(new StencilMask(), 1);
+        c._pv_msk = new StencilMaskData(c._pv_los);
+        c._pv_shader = new ShapeDataShader({ tint: 0xFFFFFF });
         c.mask = c._pv_msk;
 
         return c;
@@ -61,7 +60,7 @@ Hooks.once("init", () => {
 
     patch("SightLayer.prototype._recycleVisionContainer", "PRE", function (c) {
         c._pv_fov.removeChildren().forEach(c => c.destroy(true));
-        c._pv_los.removeChildren().forEach(c => c.destroy(true));
+        c._pv_los.clear();
         c._pv_shader.tint = 0xFFFFFF;
 
         return [c];
@@ -83,6 +82,10 @@ Hooks.once("init", () => {
         let vision = canvas.lighting._pv_vision;
 
         for (const area of canvas.lighting._pv_areas) {
+            if (area.skipRender) {
+                continue;
+            }
+
             if (vision !== area._pv_vision && (
                 area._pv_vision && points.some(p => area._pv_fov.containsPoint(p) && (!area._pv_los || area._pv_los.containsPoint(p))) ||
                 !area._pv_vision && points.every(p => area._pv_fov.containsPoint(p) && (!area._pv_los || area._pv_los.containsPoint(p))))
@@ -172,9 +175,7 @@ Hooks.once("init", () => {
         const elevation = !this.fogExploration && Mask.get("elevation");
 
         if (canvas.lighting._pv_globalLight || canvas.lighting._pv_vision) {
-            const fov = canvas.lighting._pv_fov.createMesh(vision._pv_shader);
-
-            vision._pv_fov.addChild(fov);
+            vision._pv_fov.addChild(canvas.lighting._pv_fov.createMesh(vision._pv_shader));
         }
 
         const areas = canvas.lighting._pv_areas;
@@ -186,28 +187,18 @@ Hooks.once("init", () => {
                 }
 
                 if (area._pv_globalLight || area._pv_vision) {
-                    const fov = area._pv_fov.createMesh(vision._pv_shader);
+                    const fov = vision._pv_fov.addChild(area._pv_fov.createMesh(vision._pv_shader));
 
                     if (area._pv_los) {
-                        const los = area._pv_los.createMaskData();
-
-                        fov.mask = los;
-
-                        vision._pv_fov.addChild(los.maskObject);
+                        fov.mask = new StencilMaskData(vision._pv_fov.addChild(area._pv_los.createMesh(StencilMaskShader.instance)));
                     }
 
                     if (elevation) {
                         fov.filters = [new ElevationFilter(Elevation.getElevationRange(area))];
                     }
-
-                    vision._pv_fov.addChild(fov);
                 }
 
-                const los = area._pv_fov.createMesh();
-
-                los.isHole = !area._pv_vision;
-
-                vision._pv_los.addChild(los);
+                vision._pv_los.drawShape(area._pv_fov, area._pv_los ? [area._pv_los] : null, !area._pv_vision);
             }
         }
 
@@ -231,7 +222,7 @@ Hooks.once("init", () => {
             }
 
             // Restricted sight-based visibility for this source
-            if (source._pv_radius > 0) {
+            if (source.radius > 0) {
                 const fov = source._pv_fov.createMesh(vision._pv_shader);
 
                 if (elevation) {
@@ -242,9 +233,7 @@ Hooks.once("init", () => {
             }
 
             // LOS masking polygon for this source
-            const los = source._pv_los.createMesh();
-
-            vision._pv_los.addChild(los);
+            vision._pv_los.drawShape(source._pv_los);
 
             // Potentially update fog exploration
             if (!noUpdateFog) {
@@ -272,9 +261,7 @@ Hooks.once("init", () => {
                 continue;
             }
 
-            const los = source._pv_fov.createMesh();
-
-            vision._pv_los.addChild(los);
+            vision._pv_los.drawShape(source._pv_fov);
         }
 
         // Commit updates to the Fog of War texture
@@ -728,43 +715,3 @@ Hooks.once("init", () => {
         });
     }
 });
-
-class StencilMaskContainer extends PIXI.Container {
-    render(renderer) {
-        if (!this.isMask || !this.visible || this.worldAlpha <= 0 || !this.renderable) {
-            return;
-        }
-
-        const stencil = renderer.stencil;
-        const maskData = stencil.maskStack[stencil.maskStack.length - 1];
-        const prevMaskCount = maskData._stencilCounter - 1;
-        const bitwiseMask = stencil._getBitwiseMask();
-        const gl = renderer.gl;
-
-        if (maskData.maskObject !== this || maskData.type !== PIXI.MASK_TYPES.STENCIL) {
-            throw new Error();
-        }
-
-        let isHole = false;
-
-        for (let i = 0, j = this.children.length; i < j; ++i) {
-            const child = this.children[i];
-
-            if (isHole !== !!child.isHole) {
-                isHole = !!child.isHole;
-
-                renderer.batch.flush();
-
-                if (isHole) {
-                    gl.stencilFunc(gl.LEQUAL, prevMaskCount, bitwiseMask);
-                    gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
-                } else {
-                    gl.stencilFunc(gl.EQUAL, prevMaskCount, bitwiseMask);
-                    gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR);
-                }
-            }
-
-            child.render(renderer);
-        }
-    }
-}
