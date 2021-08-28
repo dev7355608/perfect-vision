@@ -15,8 +15,7 @@ PIXI.Renderer.prototype.contextChange = function () {
 
     let samples;
 
-    if (this.context.webGLVersion === 1)
-    {
+    if (this.context.webGLVersion === 1) {
         const framebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -24,9 +23,7 @@ PIXI.Renderer.prototype.contextChange = function () {
         samples = gl.getParameter(gl.SAMPLES);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-    }
-    else
-    {
+    } else {
         const framebuffer = gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING);
 
         gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
@@ -38,14 +35,11 @@ PIXI.Renderer.prototype.contextChange = function () {
 
     if (samples >= PIXI.MSAA_QUALITY.HIGH) {
         this._multisample = PIXI.MSAA_QUALITY.HIGH;
-    }
-    else if (samples >= PIXI.MSAA_QUALITY.MEDIUM) {
+    } else if (samples >= PIXI.MSAA_QUALITY.MEDIUM) {
         this._multisample = PIXI.MSAA_QUALITY.MEDIUM;
-    }
-    else if (samples >= PIXI.MSAA_QUALITY.LOW) {
+    } else if (samples >= PIXI.MSAA_QUALITY.LOW) {
         this._multisample = PIXI.MSAA_QUALITY.LOW;
-    }
-    else {
+    } else {
         this._multisample = PIXI.MSAA_QUALITY.NONE;
     }
 };

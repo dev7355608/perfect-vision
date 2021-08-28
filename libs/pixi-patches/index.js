@@ -18,6 +18,7 @@ import "./renderer.js";
 import "./scissor-system.js";
 import "./stencil-system.js";
 import "./texture-system.js";
+import { Logger } from "../../scripts/utils/logger.js";
 
 // https://github.com/pixijs/pixijs/issues/6822
 Hooks.once("canvasInit", () => {
@@ -46,6 +47,8 @@ Hooks.once("canvasInit", () => {
         } else {
             ui.notifications.warn("Rendering bug detected. Workaround enabled. Consider switching to a Chromium-based browser!");
 
+            Logger.debug("Patching PIXI.Renderer.prototype.create (WRAPPER)");
+
             const render = PIXI.Renderer.prototype.render;
             PIXI.Renderer.prototype.render = function () {
                 render.apply(this, arguments);
@@ -61,3 +64,20 @@ Hooks.once("canvasInit", () => {
 
     texture.destroy(true);
 });
+
+Logger.debug("Patching PIXI.Graphics with PIXI.smooth.SmoothGraphics (OVERRIDE)");
+
+PIXI.LegacyGraphics = PIXI.Graphics;
+PIXI.Graphics = PIXI.smooth.SmoothGraphics;
+
+Logger.debug("Patching PIXI.Renderer.prototype.create (WRAPPER)");
+
+const create = PIXI.Renderer.create;
+PIXI.Renderer.create = function (options) {
+    if (options?.view?.id === "board" /* Foundry VTT */) {
+        options.antialias = false;
+        options.autoDensity = true;
+    }
+
+    return create.call(this, options);
+};

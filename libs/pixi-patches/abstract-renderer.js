@@ -12,7 +12,7 @@ PIXI.AbstractRenderer.prototype.resize = function (screenWidth, screenHeight) {
     this.screen.width = screenWidth;
     this.screen.height = screenHeight;
 
-    if (this.autoDensity || this.view.id === "board" /* Foundry VTT */) {
+    if (this.autoDensity) {
         this.view.style.width = `${screenWidth}px`;
         this.view.style.height = `${screenHeight}px`;
     }

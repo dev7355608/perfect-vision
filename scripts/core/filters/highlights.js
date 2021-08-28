@@ -6,7 +6,7 @@ Hooks.on("canvasInit", () => {
 
     segment.filters.unshift(new BackgroundMaskFilter());
     segment.filters[0].resolution = canvas.app.renderer.resolution;
-    segment.filters[0].multisample = PIXI.MSAA_QUALITY.HIGH;
+    segment.filters[0].multisample = PIXI.MSAA_QUALITY.NONE;
     segment.filterArea = canvas.app.renderer.screen;
 });
 
