@@ -168,7 +168,10 @@ export class Layer extends PIXI.Container {
         super();
 
         this.sortableChildren = true;
+        this.interactive = false;
         this.interactiveChildren = false;
+        this.accessible = false;
+        this.accessibleChildren = false;
         this.zIndex = zIndex;
         this.filters = [];
         this.filterArea = null;
@@ -429,7 +432,10 @@ export class Layer extends PIXI.Container {
         this.filters = [];
         this.filterArea = null;
         this.sortableChildren = true;
+        this.interactive = false;
         this.interactiveChildren = false;
+        this.accessible = false;
+        this.accessibleChildren = false;
         this.removeChildren().forEach(object => object.render.destroy());
     }
 }
@@ -440,7 +446,10 @@ export class Segment extends PIXI.Container {
 
         this.zIndex = bottomIndex;
         this.sortableChildren = true;
+        this.interactive = false;
         this.interactiveChildren = false;
+        this.accessible = false;
+        this.accessibleChildren = false;
         this.bottomIndex = bottomIndex;
         this.topIndex = topIndex;
         this.sprite = null;
@@ -478,7 +487,10 @@ export class Segment extends PIXI.Container {
         this.filters = [];
         this.filterArea = null;
         this.sortableChildren = true;
+        this.interactive = false;
         this.interactiveChildren = false;
+        this.accessible = false;
+        this.accessibleChildren = false;
 
         for (const child of this.children) {
             if (child !== this.sprite) {

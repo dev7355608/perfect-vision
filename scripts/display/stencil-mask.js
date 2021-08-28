@@ -28,6 +28,8 @@ export class StencilMask extends PIXI.DisplayObject {
         this._state.depthTest = false;
         this.interactive = false;
         this.interactiveChildren = false;
+        this.accessible = false;
+        this.accessibleChildren = false;
     }
 
     destroy(options) {
