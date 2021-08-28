@@ -1,5 +1,5 @@
 import { CachedAlphaObject } from "./utils/alpha.js";
-import { Elevation, ElevationFilter } from "../elevation.js";
+import { Elevation } from "../elevation.js";
 import { Mask } from "../mask.js";
 import { Tiles } from "../tiles.js";
 import { ShapeDataShader } from "../../display/shape-data.js";
@@ -55,7 +55,7 @@ Hooks.once("init", () => {
         mask.stage.areas.removeChildren().forEach(c => c.destroy(true));
 
         for (const layer of mask.stage.layers) {
-            layer.removeChildren();
+            layer.removeChildren().forEach(c => c.destroy(true));
         }
 
         mask.stage.roofs.removeChildren();
@@ -77,21 +77,11 @@ Hooks.once("init", () => {
         const areas = canvas.lighting._pv_areas;
 
         if (areas?.length > 0) {
-            const elevation = !canvas.sight.fogExploration && Mask.get("elevation");
-
             for (const area of areas) {
-                if (area.skipRender) {
-                    continue;
-                }
-
                 const fov = mask.stage.areas.addChild(area._pv_fov.createMesh(area._pv_globalLight ? shaderGreen : shaderBlack, stateNormal));
 
                 if (area._pv_los) {
                     fov.mask = new StencilMaskData(mask.stage.areas.addChild(area._pv_los.createMesh(StencilMaskShader.instance)));
-                }
-
-                if (elevation) {
-                    fov.filters = [new ElevationFilter(Elevation.getElevationRange(area))];
                 }
             }
         }
@@ -123,7 +113,7 @@ Hooks.once("init", () => {
                 continue;
             }
 
-            if (source._pv_radius > 0 && source._pv_fov) {
+            if (source.radius > 0 && source._pv_fov) {
                 mask.stage.layers[1].addChild(source._pv_fov.createMesh(new VisionShader({ source, tint: 0xFF0000 }), stateNormal));
             }
         }
@@ -158,10 +148,6 @@ Hooks.once("init", () => {
 
             if (areas?.length > 0) {
                 for (const area of areas) {
-                    if (area.skipRender) {
-                        continue;
-                    }
-
                     mask.stage.los.drawShape(area._pv_fov, area._pv_los ? [area._pv_los] : null, !area._pv_vision);
                 }
             }
@@ -179,7 +165,9 @@ Hooks.once("init", () => {
                     continue;
                 }
 
-                mask.stage.los.drawShape(source._pv_fov);
+                if (source.radius > 0) {
+                    mask.stage.los.drawShape(source._pv_fov);
+                }
             }
 
             mask.stage.mask = mask.stage.msk;

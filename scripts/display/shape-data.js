@@ -77,6 +77,8 @@ export class ShapeData {
             this._geometry.buffers[0].update(vertices);
             this._geometry.indexBuffer.update(indices);
         }
+
+        return this;
     }
 
     isEmpty() {

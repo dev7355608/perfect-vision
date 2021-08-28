@@ -1,6 +1,4 @@
-import { Elevation, ElevationFilter } from "../elevation.js";
 import { Lighting } from "../lighting.js";
-import { Mask } from "../mask.js";
 import { patch } from "../../utils/patch.js";
 import { SpriteMesh } from "../../display/sprite-mesh.js";
 import { StencilMask, StencilMaskData, StencilMaskShader } from "../../display/stencil-mask.js";
@@ -11,14 +9,14 @@ Hooks.once("init", () => {
         let globalLight = canvas.lighting.globalLight;
 
         if (!globalLight) {
-            for (const area of canvas.lighting._pv_areas) {
-                if (area.skipRender) {
-                    continue;
-                }
+            const areas = canvas.lighting._pv_areas;
 
-                if (area._pv_globalLight) {
-                    globalLight = true;
-                    break;
+            if (areas?.length > 0) {
+                for (const area of areas) {
+                    if (area._pv_globalLight) {
+                        globalLight = true;
+                        break;
+                    }
                 }
             }
         }
@@ -42,30 +40,6 @@ Hooks.once("init", () => {
         return true;
     });
 
-    patch("SightLayer.prototype._createVisionContainer", "POST", function (c) {
-        c._pv_fov = c.addChildAt(new PIXI.Container(), 0);
-        c._pv_los = c.addChildAt(new StencilMask(), 1);
-        c._pv_msk = new StencilMaskData(c._pv_los);
-        c._pv_shader = new ShapeDataShader({ tint: 0xFFFFFF });
-        c.mask = c._pv_msk;
-
-        return c;
-    });
-
-    patch("SightLayer.prototype._getVisionContainer", "POST", function (c) {
-        this.los = c._pv_msk;
-
-        return c;
-    });
-
-    patch("SightLayer.prototype._recycleVisionContainer", "PRE", function (c) {
-        c._pv_fov.removeChildren().forEach(c => c.destroy(true));
-        c._pv_los.clear();
-        c._pv_shader.tint = 0xFFFFFF;
-
-        return [c];
-    });
-
     patch("SightLayer.prototype.testVisibility", "OVERRIDE", function (point, { tolerance = 2, object = null } = {}) {
         const visionSources = this.sources;
         const lightSources = canvas.lighting.sources;
@@ -81,16 +55,16 @@ Hooks.once("init", () => {
 
         let vision = canvas.lighting._pv_vision;
 
-        for (const area of canvas.lighting._pv_areas) {
-            if (area.skipRender) {
-                continue;
-            }
+        const areas = canvas.lighting._pv_areas;
 
-            if (vision !== area._pv_vision && (
-                area._pv_vision && points.some(p => area._pv_fov.containsPoint(p) && (!area._pv_los || area._pv_los.containsPoint(p))) ||
-                !area._pv_vision && points.every(p => area._pv_fov.containsPoint(p) && (!area._pv_los || area._pv_los.containsPoint(p))))
-            ) {
-                vision = area._pv_vision;
+        if (areas?.length > 0) {
+            for (const area of areas) {
+                if (vision !== area._pv_vision && (
+                    area._pv_vision && points.some(p => area._pv_fov.containsPoint(p) && (!area._pv_los || area._pv_los.containsPoint(p))) ||
+                    !area._pv_vision && points.every(p => area._pv_fov.containsPoint(p) && (!area._pv_los || area._pv_los.containsPoint(p))))
+                ) {
+                    vision = area._pv_vision;
+                }
             }
         }
 
@@ -139,6 +113,33 @@ Hooks.once("init", () => {
         return false;
     });
 
+    patch("SightLayer.prototype._createVisionContainer", "POST", function (c) {
+        c._pv_fov = c.addChild(new StencilMask());
+        c._pv_los = c.addChild(new StencilMask());
+        c._pv_shader = new ShapeDataShader({ tint: 0xFFFFFF });
+        c._pv_mesh = c.addChildAt(canvas.lighting._pv_fov.createMesh(c._pv_shader), 0);
+        c._pv_mesh.mask = new StencilMaskData(c._pv_fov);
+        c.mask = new StencilMaskData(c._pv_los);
+        c.removeChild(c.fov);
+        c.removeChild(c.los);
+
+        return c;
+    });
+
+    patch("SightLayer.prototype._getVisionContainer", "POST", function (c) {
+        this.los = c.mask;
+
+        return c;
+    });
+
+    patch("SightLayer.prototype._recycleVisionContainer", "PRE", function (c) {
+        c._pv_fov.clear();
+        c._pv_los.clear();
+        c._pv_shader.tint = 0xFFFFFF;
+
+        return [c];
+    });
+
     patch("SightLayer.prototype.refresh", "OVERRIDE", function ({ forceUpdateFog = false, noUpdateFog = false } = {}) {
         if (!this._initialized) {
             return;
@@ -172,42 +173,18 @@ Hooks.once("init", () => {
         // Draw standard vision sources
         let inBuffer = canvas.scene.data.padding === 0;
 
-        const elevation = !this.fogExploration && Mask.get("elevation");
-
-        if (canvas.lighting._pv_globalLight || canvas.lighting._pv_vision) {
-            vision._pv_fov.addChild(canvas.lighting._pv_fov.createMesh(vision._pv_shader));
+        if (canvas.lighting._pv_vision || canvas.lighting._pv_globalLight) {
+            vision._pv_fov.drawShape(canvas.lighting._pv_fov);
         }
 
         const areas = canvas.lighting._pv_areas;
 
         if (areas?.length > 0) {
             for (const area of areas) {
-                if (area.skipRender) {
-                    continue;
-                }
-
-                if (area._pv_globalLight || area._pv_vision) {
-                    const fov = vision._pv_fov.addChild(area._pv_fov.createMesh(vision._pv_shader));
-
-                    if (area._pv_los) {
-                        fov.mask = new StencilMaskData(vision._pv_fov.addChild(area._pv_los.createMesh(StencilMaskShader.instance)));
-                    }
-
-                    if (elevation) {
-                        fov.filters = [new ElevationFilter(Elevation.getElevationRange(area))];
-                    }
-                }
-
+                vision._pv_fov.drawShape(area._pv_fov, area._pv_los ? [area._pv_los] : null, !area._pv_vision && !area._pv_globalLight);
                 vision._pv_los.drawShape(area._pv_fov, area._pv_los ? [area._pv_los] : null, !area._pv_vision);
             }
         }
-
-        // // Otherwise provided minimum visibility for each vision source
-        // else {
-        //     for (const source of this.sources) {
-        //         vision.fov.beginFill(0xFFFFFF, 1.0).drawCircle(source.x, source.y, d.size / 2);
-        //     }
-        // }
 
         // Draw sight-based visibility for each vision source
         for (const source of this.sources) {
@@ -223,13 +200,7 @@ Hooks.once("init", () => {
 
             // Restricted sight-based visibility for this source
             if (source.radius > 0) {
-                const fov = source._pv_fov.createMesh(vision._pv_shader);
-
-                if (elevation) {
-                    fov.filters = [new ElevationFilter(Elevation.getElevationRange(source.object))];
-                }
-
-                vision._pv_fov.addChild(fov);
+                vision._pv_fov.drawShape(source._pv_fov);
             }
 
             // LOS masking polygon for this source
@@ -248,20 +219,16 @@ Hooks.once("init", () => {
             }
 
             if (source.radius > 0) {
-                const fov = source._pv_fov.createMesh(vision._pv_shader);
-
-                if (elevation) {
-                    fov.filters = [new ElevationFilter(Elevation.getElevationRange(source.object))];
-                }
-
-                vision._pv_fov.addChild(fov);
+                vision._pv_fov.drawShape(source._pv_fov);
             }
 
             if (source.type === CONST.SOURCE_TYPES.LOCAL || source.isDarkness) {
                 continue;
             }
 
-            vision._pv_los.drawShape(source._pv_fov);
+            if (source.radius > 0) {
+                vision._pv_los.drawShape(source._pv_fov);
+            }
         }
 
         // Commit updates to the Fog of War texture
@@ -447,6 +414,12 @@ Hooks.once("init", () => {
             }
 
             fogShader.texture = PIXI.Texture.EMPTY;
+
+            for (const vision of this._visionPool) {
+                vision.destroy(true);
+            }
+
+            this._visionPool.length = 0;
 
             return await wrapped(...args);
         });

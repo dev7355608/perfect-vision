@@ -8,7 +8,7 @@ Hooks.once("init", () => {
 
         return new Proxy(filter, {
             get: function (target, prop, receiver) {
-                if (prop === "enabled" && canvas.blurDistance === 0) {
+                if (prop === "enabled" && filter.blur === 0) {
                     return false;
                 }
 
@@ -18,13 +18,13 @@ Hooks.once("init", () => {
     });
 
     patch("Canvas.prototype.updateBlur", "OVERRIDE", function (scale) {
-        scale = scale || this.stage.scale.x;
+        scale = Math.abs(scale || this.stage.scale.x);
 
         if (this.blurDistance === 0) {
             return;
         }
 
-        this.blurDistance = Math.round(Math.abs(scale) * CONFIG.Canvas.blurStrength);
+        this.blurDistance = Math.max(Math.round(Math.clamped(scale, 0, 1) * CONFIG.Canvas.blurStrength), 1);
 
         for (const filter of this.blurFilters) {
             filter.blur = this.blurDistance;

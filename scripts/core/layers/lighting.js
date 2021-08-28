@@ -1051,7 +1051,9 @@ function refreshAreas(layer) {
             continue;
         }
 
-        layer._pv_areas.push(area);
+        if (!area.skipRender) {
+            layer._pv_areas.push(area);
+        }
 
         let origin;
 

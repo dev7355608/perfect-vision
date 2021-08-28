@@ -261,7 +261,7 @@ Hooks.once("init", () => {
         }
 
         const tElev = cToken.losHeight;
-        let scheduled = false;
+        let refresh = false;
 
         for (const drawing of canvas.drawings.placeables) {
             const { rangeBottom, rangeTop } = this.getFlagsForObject(drawing);
@@ -275,14 +275,15 @@ Hooks.once("init", () => {
             if (drawing.skipRender !== skipRender) {
                 drawing.skipRender = skipRender;
 
-                if (!scheduled) {
-                    scheduled = true;
-                    canvas.perception.schedule({
-                        lighting: { refresh: true },
-                        sight: { initialize: true, refresh: true }
-                    });
-                }
+                refresh = true;
             }
+        }
+
+        if (refresh) {
+            canvas.perception.schedule({
+                lighting: { refresh: true },
+                sight: { initialize: true, refresh: true }
+            });
         }
     });
 

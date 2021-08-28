@@ -1,6 +1,5 @@
 import { ShapeDataShader } from "../../display/shape-data.js";
 import { StencilMaskData, StencilMaskShader } from "../../display/stencil-mask.js";
-import { Elevation, ElevationFilter } from "../elevation.js";
 import { Mask } from "../mask.js";
 
 Hooks.once("init", () => {
@@ -34,22 +33,12 @@ Hooks.once("init", () => {
         const areas = canvas.lighting._pv_areas;
 
         if (areas?.length > 0) {
-            const elevation = Mask.get("elevation");
-
             for (const area of areas) {
-                if (area.skipRender) {
-                    continue;
-                }
-
                 const color = area._pv_channels.background.hex;
                 const fov = mask.stage.addChild(area._pv_fov.createMesh(new ShapeDataShader({ tint: color })));
 
                 if (area._pv_los) {
                     fov.mask = new StencilMaskData(mask.stage.addChild(area._pv_los.createMesh(StencilMaskShader.instance)));
-                }
-
-                if (elevation) {
-                    fov.filters = [new ElevationFilter(Elevation.getElevationRange(area))];
                 }
             }
         }
