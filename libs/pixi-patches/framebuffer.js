@@ -15,16 +15,10 @@ PIXI.Framebuffer.prototype.resize = function (width, height) {
     this.dirtySize++;
 
     for (let i = 0; i < this.colorTextures.length; i++) {
-        const texture = this.colorTextures[i];
-        const resolution = texture.resolution;
-
-        // take into account the fact the texture may have a different resolution..
-        texture.setSize(width / resolution, height / resolution);
+        this.colorTextures[i].setRealSize(width, height);
     }
 
     if (this.depthTexture) {
-        const resolution = this.depthTexture.resolution;
-
-        this.depthTexture.setSize(width / resolution, height / resolution);
+        this.depthTexture.setRealSize(width, height);
     }
 };

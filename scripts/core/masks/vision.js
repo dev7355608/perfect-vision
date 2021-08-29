@@ -47,7 +47,7 @@ Hooks.once("init", () => {
         isVideo = false;
 
         if (game.settings.get("core", "softShadows")) {
-            mask.texture.multisample = canvas.app.renderer.multisample;
+            mask.texture.multisample = PIXI.MSAA_QUALITY.LOW;
         } else {
             mask.texture.multisample = PIXI.MSAA_QUALITY.NONE;
         }
