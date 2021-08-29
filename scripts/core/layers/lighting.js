@@ -235,6 +235,8 @@ Hooks.once("init", () => {
             this.los.x = this.x;
             this.los.y = this.y;
 
+            const cache = { [this.radius]: this.fov };
+
             const fov = ShapeData.from(this.fov);
 
             if (this._pv_fov !== fov) {
@@ -258,8 +260,6 @@ Hooks.once("init", () => {
 
                 this._pv_los = los;
             }
-
-            const cache = { [this.radius]: this.fov };
 
             this.fov = computePolygon(this, Math.max(visionRadius, minR), cache);
 
