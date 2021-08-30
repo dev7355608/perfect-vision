@@ -197,15 +197,30 @@ PIXI.FramebufferSystem.prototype.blit = function (framebuffer, sourcePixels, des
         if (!fbo.msaaBuffer) {
             return;
         }
+
+        const colorTexture = current.colorTextures[0];
+
+        if (!colorTexture) {
+            return;
+        }
+
         if (!fbo.blitFramebuffer) {
             fbo.blitFramebuffer = new PIXI.Framebuffer(current.width, current.height);
-            fbo.blitFramebuffer.addColorTexture(0, current.colorTextures[0]);
+            fbo.blitFramebuffer.addColorTexture(0, colorTexture);
         }
+
         framebuffer = fbo.blitFramebuffer;
+
+        if (framebuffer.colorTextures[0] !== colorTexture) {
+            framebuffer.colorTextures[0] = colorTexture;
+            framebuffer.dirtyId++;
+            framebuffer.dirtyFormat++;
+        }
 
         if (framebuffer.width !== current.width || framebuffer.height !== current.height) {
             framebuffer.width = current.width;
             framebuffer.height = current.height;
+            framebuffer.dirtyId++;
             framebuffer.dirtySize++;
         }
     }

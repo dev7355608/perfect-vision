@@ -352,10 +352,10 @@ Hooks.once("init", () => {
         )
     });
 
-    {
-        let renderTexturePool = [];
-        let renderTextureOptions = {};
+    const renderTexturePool = [];
+    const renderTextureOptions = {};
 
+    {
         Hooks.on("sightRefresh", () => {
             fogShader.uniforms.uExploredColor = foundry.utils.hexToRGB(CONFIG.Canvas.exploredColor);
         });
@@ -409,9 +409,11 @@ Hooks.once("init", () => {
         patch("SightLayer.prototype.tearDown", "WRAPPER", async function (wrapped, ...args) {
             if (this.saved.texture instanceof PIXI.RenderTexture) {
                 renderTexturePool.push(this.saved.texture);
-
-                this.saved.texture = PIXI.Texture.EMPTY;
+            } else if (this.saved.texture.valid) {
+                this.saved.texture.destroy(true);
             }
+
+            this.saved.texture = PIXI.Texture.EMPTY;
 
             fogShader.texture = PIXI.Texture.EMPTY;
 
@@ -465,7 +467,7 @@ Hooks.once("init", () => {
             // Swap the staging texture to the rendered Sprite
             if (this.saved.texture instanceof PIXI.RenderTexture) {
                 renderTexturePool.push(this.saved.texture);
-            } else {
+            } else if (this.saved.texture.valid) {
                 this.saved.texture.destroy(true);
             }
 
@@ -486,7 +488,9 @@ Hooks.once("init", () => {
         }
 
         // Remove the previous render texture if one exists
-        if (this.saved.texture.valid) {
+        if (this.saved.texture instanceof PIXI.RenderTexture) {
+            renderTexturePool.push(this.saved.texture);
+        } else if (this.saved.texture.valid) {
             this.saved.texture.destroy(true);
         }
 
@@ -618,7 +622,7 @@ Hooks.once("init", () => {
                     fogShader.uniforms.uExploredColor = foundry.utils.hexToRGB(0x7F7F7F);
                 }
 
-                canvas.app.renderer.render(sprite, { renderTexture: texture, clear: false });
+                canvas.app.renderer.render(sprite, { renderTexture: texture, clear: true });
 
                 if (this.saved.texture.baseTexture.format === PIXI.FORMATS.RED) {
                     fogShader.uniforms.uExploredColor = foundry.utils.hexToRGB(CONFIG.Canvas.exploredColor);

@@ -936,6 +936,10 @@ function getDarknessLevel(point) {
 }
 
 function refreshAreas(layer) {
+    if (!layer._pv_areas) {
+        return;
+    }
+
     const sorted = [];
     const visited = {};
 

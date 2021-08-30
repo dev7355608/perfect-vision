@@ -25,4 +25,5 @@ Logger.debug("Patching PIXI.BaseRenderTexture.prototype.resize (OVERRIDE)");
 
 PIXI.BaseRenderTexture.prototype.resize = function (desiredWidth, desiredHeight) {
     this.framebuffer.resize(desiredWidth * this.resolution, desiredHeight * this.resolution);
+    this.setRealSize(this.framebuffer.width, this.framebuffer.height);
 };
