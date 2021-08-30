@@ -9,6 +9,7 @@ import "./filter-system.js";
 import "./framebuffer-system.js";
 import "./framebuffer.js";
 import "./geometry.js";
+import "./graphics-smooth.js";
 import "./mask-data.js";
 import "./mask-system.js";
 import "./render-texture.js";
