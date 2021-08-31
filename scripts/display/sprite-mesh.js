@@ -72,16 +72,27 @@ export class SpriteMeshGeometry extends PIXI.MeshGeometry {
 
 export class SpriteMesh extends PIXI.Mesh {
     constructor(shader, state) {
-        const geometry = new SpriteMeshGeometry();
+        super(new SpriteMeshGeometry(), shader, state, PIXI.DRAW_MODES.TRIANGLE_STRIP);
 
-        super(geometry, shader, state, PIXI.DRAW_MODES.TRIANGLE_STRIP);
+        if (this.texture) {
+            this.anchor.set(this.texture.defaultAnchor.x, this.texture.defaultAnchor.y);
+        }
 
-        const texture = shader.texture;
+        this.indices = new Uint16Array([0, 1, 2, 1, 2, 3]);
+    }
 
-        this.texture = texture;
+    get shader() {
+        return this._shader;
+    }
 
-        if (texture) {
-            this.anchor.set(texture.defaultAnchor.x, texture.defaultAnchor.y);
+    set shader(value) {
+        this._shader = value;
+
+        if (value) {
+            this.texture = value.texture;
+        } else if (this._texture) {
+            this._texture.off("update", this._onTextureUpdate, this);
+            this._texture = null;
         }
     }
 
@@ -158,5 +169,51 @@ export class SpriteMesh extends PIXI.Mesh {
                 this.scale.y = Math.sign(this.scale.y) * this._height / this.geometry.height;
             }
         }
+    }
+
+    _render(renderer) {
+        if (this.shader.batchable && !(this.filters && this._enabledFilters?.length || (this.mask && (!this.mask.isMaskData || this.mask.enabled && this.mask.type !== PIXI.MASK_TYPES.NONE)))) {
+            this._renderToBatch(renderer);
+        } else {
+            this._renderDefault(renderer);
+        }
+    }
+
+    _renderToBatch(renderer) {
+        const shader = this.shader;
+
+        if (shader.uvMatrix) {
+            shader.uvMatrix.update();
+            this.calculateUvs();
+        }
+
+        this.calculateVertices();
+
+        this._tintRGB = shader._tintRGB;
+        this._texture = shader.texture;
+
+        const pluginName = shader.pluginName;
+
+        renderer.batch.setObjectRenderer(renderer.plugins[pluginName]);
+        renderer.plugins[pluginName].render(this);
+    }
+
+    destroy(options) {
+        if (this._texture) {
+            this._texture.off("update", this._onTextureUpdate, this);
+            this._texture = null;
+        }
+
+        if (this.texture) {
+            const destroyTexture = typeof options === "boolean" ? options : options && options.texture;
+
+            if (destroyTexture) {
+                const destroyBaseTexture = typeof options === "boolean" ? options : options && options.baseTexture;
+
+                this.texture.destroy(!!destroyBaseTexture);
+            }
+        }
+
+        super.destroy(options);
     }
 }

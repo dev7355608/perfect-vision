@@ -23,7 +23,7 @@ class AlphaObjectPool extends WeakPool {
                 }
             },
             destroy(alpha) {
-                alpha.destroy(true)
+                alpha.destroy()
             }
         });
     }
