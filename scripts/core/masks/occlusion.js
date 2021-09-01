@@ -9,40 +9,12 @@ Hooks.once("init", () => {
         groups: ["blur"]
     });
 
-    let occludingTokens = null;
+    mask.stage.shapes = mask.stage.addChild(new PIXI.LegacyGraphics());
+
     let updatingOcclusion = false;
-
-    mask.on("updateStage", (mask) => {
-        if (canvas.foreground.tiles.length === 0 || canvas.tokens.controlled.length === 0) {
-            return;
-        }
-
-        const tokens = occludingTokens;
-
-        if (!tokens) {
-            return;
-        }
-
-        const graphics = new PIXI.Graphics();
-
-        graphics.beginFill();
-
-        for (const token of tokens) {
-            const c = token.center;
-            const r = Math.max(token.w, token.h);
-
-            graphics.drawCircle(c.x, c.y, r);
-        }
-
-        graphics.endFill();
-
-        mask.stage.addChild(graphics);
-    });
 
     mask.on("updateTexture", (mask) => {
         mask.render();
-
-        mask.stage.removeChildren().forEach(c => c.destroy());
     });
 
     Hooks.on("canvasInit", () => {
@@ -50,8 +22,8 @@ Hooks.once("init", () => {
         mask.stage.filter.resolution = mask.texture.resolution;
         mask.stage.filter.multisample = PIXI.MSAA_QUALITY.NONE;
         mask.stage.filters = [mask.stage.filter];
+        mask.stage.shapes.clear();
 
-        occludingTokens = null;
         updatingOcclusion = false;
     });
 
@@ -72,9 +44,20 @@ Hooks.once("init", () => {
     });
 
     patch("ForegroundLayer.prototype._drawOcclusionShapes", "OVERRIDE", function (tokens) {
-        occludingTokens = tokens;
+        mask.stage.shapes.clear();
 
-        if (this.tiles.length !== 0) {
+        if (this.tiles.length !== 0 && tokens?.length > 0) {
+            mask.stage.shapes.beginFill();
+
+            for (const token of tokens) {
+                const c = token.center;
+                const r = Math.max(token.w, token.h);
+
+                mask.stage.shapes.drawCircle(c.x, c.y, r);
+            }
+
+            mask.stage.shapes.endFill();
+
             mask.invalidate();
         }
     });

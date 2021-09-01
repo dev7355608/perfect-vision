@@ -8,12 +8,7 @@ Hooks.once("init", () => {
 
     const mask = Mask.get("weather");
 
-    mask.on("updateStage", (mask) => {
-        mask.stage.weatherblock = _weatherBlock.createMask(!canvas.scene.getFlag("weatherblock", "invertMask"));
-        mask.stage.addChild(mask.stage.weatherblock);
-    });
-
-    mask.on("updateTexture", (mask) => {
+    Hooks.on("canvasInit", () => {
         if (mask.stage.weatherblock) {
             mask.stage.weatherblock.destroy(true);
             mask.stage.weatherblock = null;
@@ -21,6 +16,14 @@ Hooks.once("init", () => {
     });
 
     patch("_weatherBlock.updateMask", "OVERRIDE", function () {
+        if (mask.stage.weatherblock) {
+            mask.stage.weatherblock.destroy(true);
+            mask.stage.weatherblock = null;
+        }
+
+        mask.stage.weatherblock = _weatherBlock.createMask(!canvas.scene.getFlag("weatherblock", "invertMask"));
+        mask.stage.addChild(mask.stage.weatherblock);
+
         mask.invalidate();
     });
 });

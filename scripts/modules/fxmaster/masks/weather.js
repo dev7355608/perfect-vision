@@ -8,12 +8,7 @@ Hooks.once("init", () => {
 
     const mask = Mask.get("weather");
 
-    mask.on("updateStage", (mask) => {
-        mask.stage.fxmaster = canvas.scene.getFlag("fxmaster", "invert") ? canvas.fxmaster._createMask() : canvas.fxmaster._createInvertMask();
-        mask.stage.addChild(mask.stage.fxmaster);
-    });
-
-    mask.on("updateTexture", (mask) => {
+    Hooks.on("canvasInit", () => {
         if (mask.stage.fxmaster) {
             mask.stage.fxmaster.destroy(true);
             mask.stage.fxmaster = null;
@@ -22,6 +17,14 @@ Hooks.once("init", () => {
 
     patch("Canvas.layers.fxmaster.prototype.updateMask", "OVERRIDE", function () {
         this.visible = true;
+
+        if (mask.stage.fxmaster) {
+            mask.stage.fxmaster.destroy(true);
+            mask.stage.fxmaster = null;
+        }
+
+        mask.stage.fxmaster = canvas.scene.getFlag("fxmaster", "invert") ? canvas.fxmaster._createMask() : canvas.fxmaster._createInvertMask();
+        mask.stage.addChild(mask.stage.fxmaster);
 
         mask.invalidate();
     });

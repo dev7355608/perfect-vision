@@ -14,20 +14,24 @@ Hooks.once("init", () => {
     mask.stage.roofs = mask.stage.addChild(new PIXI.Container());
     mask.stage.roofs.sortableChildren = true;
 
-    mask.on("updateStage", (mask) => {
-        if (canvas.foreground.displayRoofs) {
-            for (const roof of canvas.foreground.roofs) {
-                if (!Tiles.isOverhead(roof) || !Tiles.isVisible(roof, true)) {
-                    continue;
-                }
+    mask.on("updateStage", (mask, invalid) => {
+        if (invalid.groups.tiles || invalid.masks.occlusionRadial || invalid.masks.occlusionSight) {
+            mask.stage.roofs.removeChildren();
 
-                const alpha = CachedAlphaObject.create(roof.tile, { alpha: [Tiles.getAlpha(roof, true), Tiles.getOcclusionAlpha(roof, true)], mask: Tiles.getOcclusionMaskTexture(roof) });
+            if (canvas.foreground.displayRoofs) {
+                for (const roof of canvas.foreground.roofs) {
+                    if (!Tiles.isOverhead(roof) || !Tiles.isVisible(roof, true)) {
+                        continue;
+                    }
 
-                alpha.zIndex = roof.zIndex;
-                mask.stage.roofs.addChild(alpha);
+                    const alpha = CachedAlphaObject.create(roof.tile, { alpha: [Tiles.getAlpha(roof, true), Tiles.getOcclusionAlpha(roof, true)], mask: Tiles.getOcclusionMaskTexture(roof) });
 
-                if (roof.isVideo && !roof.sourceElement.paused) {
-                    mask.invalidate();
+                    alpha.zIndex = roof.zIndex;
+                    mask.stage.roofs.addChild(alpha);
+
+                    if (roof.isVideo && !roof.sourceElement.paused) {
+                        mask.invalidate();
+                    }
                 }
             }
         }
@@ -35,7 +39,9 @@ Hooks.once("init", () => {
 
     mask.on("updateTexture", (mask) => {
         mask.render();
+    });
 
+    Hooks.on("canvasInit", () => {
         mask.stage.roofs.removeChildren();
     });
 });

@@ -39,6 +39,7 @@ export class Mask extends PIXI.utils.EventEmitter {
     }
 
     static masks = new Map();
+    static invalid = { masks: {}, groups: {} };
 
     static create(name, options) {
         console.assert(typeof name === "string" && !this.masks.has(name));
@@ -112,6 +113,14 @@ export class Mask extends PIXI.utils.EventEmitter {
     }
 
     static invalidateAll(...groups) {
+        if (groups.length !== 0) {
+            const invalidGroups = this.invalid.groups;
+
+            for (const group of groups) {
+                invalidGroups[group] = true;
+            }
+        }
+
         for (const mask of this.masks.values()) {
             if (!mask.dirty && (groups.length === 0 || groups.some(group => mask.groups.has(group)))) {
                 mask.invalidate();
@@ -131,12 +140,14 @@ export class Mask extends PIXI.utils.EventEmitter {
             start = performance.now();
         }
 
+        const invalid = this.invalid;
+
         for (const mask of this.masks.values()) {
             if (mask.dirty && (groups.length === 0 || groups.some(group => mask.groups.has(group)))) {
                 mask.dirty = false;
 
-                mask.emit("updateStage", mask);
-                mask.emit("updateTexture", mask);
+                mask.emit("updateStage", mask, invalid);
+                mask.emit("updateTexture", mask, invalid);
 
                 if (this.debug) {
                     if (!updated) {
@@ -146,6 +157,14 @@ export class Mask extends PIXI.utils.EventEmitter {
                     updated.push(mask.name);
                 }
             }
+        }
+
+        for (const name in invalid.masks) {
+            delete invalid.masks[name];
+        }
+
+        for (const name in invalid.groups) {
+            delete invalid.groups[name];
         }
 
         if (this.debug && updated) {
@@ -262,6 +281,8 @@ export class Mask extends PIXI.utils.EventEmitter {
     invalidate() {
         if (!this.dirty) {
             this.dirty = true;
+
+            Mask.invalid.masks[this.name] = true;
 
             for (const dependent of this.dependents) {
                 Mask.get(dependent)?.invalidate();
