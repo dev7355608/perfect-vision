@@ -1,10 +1,11 @@
-export class SpriteMeshGeometry extends PIXI.MeshGeometry {
+const POINTS = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
+
+export class SpriteMeshGeometry extends PIXI.Geometry {
     constructor() {
-        super(
-            new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]),
-            new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]),
-            new Uint16Array([0, 1, 2, 3])
-        );
+        super();
+
+        this.addAttribute("aVertexPosition", new PIXI.Buffer(new Float32Array(POINTS)), 2, false, PIXI.TYPES.FLOAT)
+            .addAttribute("aTextureCoord", new PIXI.Buffer(new Float32Array(POINTS), true), 2, false, PIXI.TYPES.FLOAT);
 
         this._anchor = new PIXI.ObservablePoint(this._onAnchorUpdate, this, 0, 0);
         this._width = 1;
@@ -70,6 +71,8 @@ export class SpriteMeshGeometry extends PIXI.MeshGeometry {
     }
 }
 
+const INDICES = new Uint16Array([0, 1, 2, 1, 2, 3]);
+
 export class SpriteMesh extends PIXI.Mesh {
     constructor(shader, state) {
         super(new SpriteMeshGeometry(), shader, state, PIXI.DRAW_MODES.TRIANGLE_STRIP);
@@ -77,8 +80,6 @@ export class SpriteMesh extends PIXI.Mesh {
         if (this.texture) {
             this.anchor.set(this.texture.defaultAnchor.x, this.texture.defaultAnchor.y);
         }
-
-        this.indices = new Uint16Array([0, 1, 2, 1, 2, 3]);
     }
 
     get shader() {
@@ -184,11 +185,12 @@ export class SpriteMesh extends PIXI.Mesh {
 
         if (shader.uvMatrix) {
             shader.uvMatrix.update();
-            this.calculateUvs();
         }
 
         this.calculateVertices();
+        this.calculateUvs();
 
+        this.indices = INDICES;
         this._tintRGB = shader._tintRGB;
         this._texture = shader.texture;
 
@@ -196,6 +198,22 @@ export class SpriteMesh extends PIXI.Mesh {
 
         renderer.batch.setObjectRenderer(renderer.plugins[pluginName]);
         renderer.plugins[pluginName].render(this);
+    }
+
+    calculateUvs() {
+        const geomUvs = this.geometry.buffers[1];
+        const shader = this.shader;
+
+        if (shader.uvMatrix && !shader.uvMatrix.isSimple) {
+            if (!this.batchUvs) {
+                this.batchUvs = new PIXI.MeshBatchUvs(geomUvs, shader.uvMatrix);
+            }
+
+            this.batchUvs.update();
+            this.uvs = this.batchUvs.data;
+        } else {
+            this.uvs = geomUvs.data;
+        }
     }
 
     destroy(options) {
