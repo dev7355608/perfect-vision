@@ -406,7 +406,13 @@ Hooks.once("init", () => {
             return this;
         });
 
-        patch("SightLayer.prototype.tearDown", "WRAPPER", async function (wrapped, ...args) {
+        patch("SightLayer.prototype.tearDown", "OVERRIDE", async function () {
+            const wasDeleted = !game.scenes.has(canvas.scene?.id);
+
+            if ((this._fogUpdates || this._fogUpdated) && !wasDeleted) {
+                await this.saveFog();
+            }
+
             if (this.saved.texture instanceof PIXI.RenderTexture) {
                 renderTexturePool.push(this.saved.texture);
             } else if (this.saved.texture.valid) {
@@ -423,7 +429,11 @@ Hooks.once("init", () => {
 
             this._visionPool.length = 0;
 
-            return await wrapped(...args);
+            this.exploration = null;
+            this.sources.clear();
+            this._initialized = false;
+
+            return CanvasLayer.prototype.tearDown.call(this);
         });
 
         patch("SightLayer.prototype.commitFog", "OVERRIDE", function () {
