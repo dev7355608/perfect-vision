@@ -52,6 +52,10 @@ Hooks.once("init", () => {
         Hooks.on("lightingRefresh", () => {
             mask.stage.fov.removeChildren().forEach(c => c.destroy(true));
 
+            if (canvas.lighting._pv_globalLight || canvas.lighting._pv_vision) {
+                mask.stage.fov.addChild(canvas.lighting._pv_fov.createMesh(shaderBlack));
+            }
+
             const areas = canvas.lighting._pv_areas;
 
             if (areas?.length > 0) {
@@ -112,7 +116,7 @@ Hooks.once("init", () => {
                         continue;
                     }
 
-                    if (source.radius > 0) {
+                    if (source.radius > 0 && source._pv_fov) {
                         mask.stage.los.drawShape(source._pv_fov);
                     }
                 }
