@@ -15,12 +15,13 @@ export class StencilMask extends PIXI.DisplayObject {
 
         this._drawCalls = [];
         this._drawCallsDirty = false;
+        this._drawCallsSkip = true;
+        this._drawCallsSimple = true;
         this._quad = new PIXI.Geometry()
             .addAttribute("aVertexPosition", new PIXI.Buffer(new Float32Array(8), false, false), 2, false, PIXI.TYPES.FLOAT)
             .addIndex(new PIXI.Buffer(new Uint16Array([0, 1, 2, 3]), true, true));
         this._quad.refCount++;
         this._quadDrawMode = PIXI.DRAW_MODES.TRIANGLE_STRIP;
-        this._quadEmpty = true;
         this._shader = StencilMaskShader.instance;
         this._state = new PIXI.State();
         this._state.blend = false;
@@ -33,8 +34,12 @@ export class StencilMask extends PIXI.DisplayObject {
     }
 
     destroy(options) {
+        this.clear();
+
         this._drawCalls = null;
         this._drawCallsDirty = false;
+        this._drawCallsSkip = true;
+        this._drawCallsSimple = true;
         this._quad.refCount--;
 
         if (this._quad.refCount === 0) {
@@ -43,7 +48,8 @@ export class StencilMask extends PIXI.DisplayObject {
 
         this._quad = null;
         this._quadDrawMode = null;
-        this._quadEmpty = true;
+        this._shader = null;
+        this._state = null;
 
         return super.destroy(options);
     }
@@ -70,13 +76,20 @@ export class StencilMask extends PIXI.DisplayObject {
     }
 
     clear() {
-        for (const { shape, mask } of this._drawCalls) {
+        for (const { shape, masks } of this._drawCalls) {
             shape.release();
-            mask?.release();
+
+            if (masks) {
+                for (const mask of masks) {
+                    mask.release();
+                }
+            }
         }
 
         this._drawCalls.length = 0;
         this._drawCallsDirty = true;
+        this._drawCallsSkip = true;
+        this._drawCallsSimple = true;
     }
 
     calculateBounds() { }
@@ -90,30 +103,37 @@ export class StencilMask extends PIXI.DisplayObject {
 
         if (this._drawCallsDirty) {
             this._drawCallsDirty = false;
+            this._drawCallsSkip = true;
+            this._drawCallsSimple = true;
 
             let minX = Infinity;
             let minY = Infinity;
             let maxX = -Infinity;
             let maxY = -Infinity;
 
-            for (const { shape, masks, hole } of this._drawCalls) {
-                if (hole && !masks) {
-                    continue;
-                }
+            for (const drawCall of this._drawCalls) {
+                drawCall.skip = true;
 
-                const bounds = shape.bounds;
+                const bounds = drawCall.shape.bounds;
                 const _minX = bounds.x;
                 const _minY = bounds.y;
                 const _maxX = _minX + bounds.width;
                 const _maxY = _minY + bounds.height;
 
                 if (_minX < _maxX && _minY < _maxY) {
-                    let skip;
+                    const { masks, hole } = drawCall;
+
+                    if (hole && !masks) {
+                        drawCall.skip = false;
+
+                        continue;
+                    }
 
                     if (masks) {
-                        skip = true;
+                        masks.size = masks.length;
 
-                        for (const mask of masks) {
+                        for (let i = 0; i < masks.size;) {
+                            const mask = masks[i];
                             const bounds = mask.bounds;
                             const _minX = bounds.x;
                             const _minY = bounds.y;
@@ -126,23 +146,38 @@ export class StencilMask extends PIXI.DisplayObject {
                                 maxX = _maxX > maxX ? _maxX : maxX;
                                 maxY = _maxY > maxY ? _maxY : maxY;
 
-                                skip = false;
+                                i++;
+                            } else {
+                                masks.size--;
+
+                                if (i < masks.size) {
+                                    masks[i] = masks[masks.size];
+                                    masks[masks.size] = mask;
+                                }
                             }
                         }
+
+                        if (masks.size === 0) {
+                            continue;
+                        }
+
+                        this._drawCallsSimple = false;
                     }
 
-                    if (!skip) {
-                        minX = _minX < minX ? _minX : minX;
-                        minY = _minY < minY ? _minY : minY;
-                        maxX = _maxX > maxX ? _maxX : maxX;
-                        maxY = _maxY > maxY ? _maxY : maxY;
+                    minX = _minX < minX ? _minX : minX;
+                    minY = _minY < minY ? _minY : minY;
+                    maxX = _maxX > maxX ? _maxX : maxX;
+                    maxY = _maxY > maxY ? _maxY : maxY;
+
+                    drawCall.skip = false;
+
+                    if (!hole) {
+                        this._drawCallsSkip = false;
                     }
                 }
             }
 
-            this._quadEmpty = !(minX < maxX && minY < maxY);
-
-            if (!this._quadEmpty) {
+            if (!this._drawCallsSkip) {
                 const verticesBuffer = this._quad.buffers[0];
                 const vertices = verticesBuffer.data;
 
@@ -159,7 +194,7 @@ export class StencilMask extends PIXI.DisplayObject {
             }
         }
 
-        if (this._quadEmpty) {
+        if (this._drawCallsSkip) {
             return;
         }
 
@@ -174,99 +209,108 @@ export class StencilMask extends PIXI.DisplayObject {
 
         let prevMaskCount = maskData._stencilCounter - 1;
 
-        if (maskData.maskObject !== this) {
-            gl.stencilFunc(gl.LESS, prevMaskCount + 1, 0xFFFFFFFF);
-            gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+        if (this._drawCallsSimple) {
+            if (maskData.maskObject !== this) {
+                renderer.geometry.bind(this._quad, this._shader);
+                renderer.geometry.draw(this._quadDrawMode, 0, 0, 1);
 
-            renderer.geometry.bind(this._quad, this._shader);
-            renderer.geometry.draw(this._quadDrawMode, 0, 0, 1);
-
-            return;
-        }
-
-        if (prevMaskCount & 1) {
-            renderer.geometry.bind(this._quad, this._shader);
-            renderer.geometry.draw(this._quadDrawMode, 0, 0, 1);
-
-            prevMaskCount++;
-            maskData._stencilCounter++;
-        }
-
-        maskData._stencilCounter++;
-
-        for (const { shape, masks, hole } of this._drawCalls) {
-            if (shape.isEmpty()) {
-                continue;
+                return;
             }
 
-            let numMasks = 0;
+            let state = false;
 
-            if (masks) {
-                numMasks = masks.length;
+            for (const { shape, hole, skip } of this._drawCalls) {
+                if (skip) {
+                    continue;
+                }
 
-                for (let i = 0; i < numMasks;) {
-                    const mask = masks[i];
+                if (state !== hole) {
+                    state = hole;
 
-                    if (mask.isEmpty()) {
-                        numMasks--;
-
-                        if (i < numMasks) {
-                            masks[i] = masks[numMasks];
-                            masks[numMasks] = mask;
-                        }
+                    if (hole) {
+                        gl.stencilFunc(gl.EQUAL, prevMaskCount + 1, 0xFFFFFFFF);
+                        gl.stencilOp(gl.KEEP, gl.KEEP, gl.DECR);
                     } else {
-                        i++;
+                        gl.stencilFunc(gl.EQUAL, prevMaskCount, 0xFFFFFFFF);
+                        gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR);
                     }
                 }
 
-                if (numMasks === 0) {
-                    continue;
-                }
+                renderer.geometry.bind(shape.geometry, this._shader);
+                renderer.geometry.draw(shape.drawMode, 0, 0, 1);
             }
-
-            if (hole) {
-                if (numMasks === 0) {
-                    gl.stencilFunc(gl.LESS, prevMaskCount, 0xFFFFFFFF);
-                    gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
-                } else {
-                    gl.stencilFunc(gl.EQUAL, prevMaskCount + 2, 0xFFFFFFFF);
-                    gl.stencilOp(gl.KEEP, gl.KEEP, gl.DECR);
-                }
-            } else {
-                if (numMasks === 0) {
-                    gl.stencilFunc(gl.EQUAL, prevMaskCount, 0xFFFFFFFE);
-                } else {
-                    gl.stencilFunc(gl.EQUAL, prevMaskCount, 0xFFFFFFFF);
-                }
-
-                gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR);
-            }
-
-            if (numMasks !== 0) {
-                for (let i = 0; i < numMasks; i++) {
-                    const mask = masks[i];
-
-                    renderer.geometry.bind(mask.geometry, this._shader);
-                    renderer.geometry.draw(mask.drawMode, 0, 0, 1);
-                }
-
-                gl.stencilFunc(gl.EQUAL, prevMaskCount + 1, 0xFFFFFFFF);
-            } else if (!hole) {
-                shape.geometry.instanced = true;
-                shape.geometry.instanceCount = 2;
-            }
-
-            renderer.geometry.bind(shape.geometry, this._shader);
-            renderer.geometry.draw(shape.drawMode, 0, 0, shape.geometry.instanceCount);
-
-            if (numMasks !== 0) {
-                gl.stencilOp(gl.KEEP, gl.KEEP, hole ? gl.INCR : gl.DECR);
+        } else {
+            if (maskData.maskObject !== this) {
+                gl.stencilFunc(gl.LESS, prevMaskCount + 1, 0xFFFFFFFF);
+                gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
 
                 renderer.geometry.bind(this._quad, this._shader);
                 renderer.geometry.draw(this._quadDrawMode, 0, 0, 1);
-            } else if (!hole) {
-                shape.geometry.instanced = false;
-                shape.geometry.instanceCount = 1;
+
+                return;
+            }
+
+            if (prevMaskCount & 1) {
+                renderer.geometry.bind(this._quad, this._shader);
+                renderer.geometry.draw(this._quadDrawMode, 0, 0, 1);
+
+                prevMaskCount++;
+                maskData._stencilCounter++;
+            }
+
+            maskData._stencilCounter++;
+
+            for (const { shape, masks, hole, skip } of this._drawCalls) {
+                if (skip) {
+                    continue;
+                }
+
+                const numMasks = masks?.size;
+
+                if (hole) {
+                    if (!numMasks) {
+                        gl.stencilFunc(gl.LESS, prevMaskCount, 0xFFFFFFFF);
+                        gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+                    } else {
+                        gl.stencilFunc(gl.EQUAL, prevMaskCount + 2, 0xFFFFFFFF);
+                        gl.stencilOp(gl.KEEP, gl.KEEP, gl.DECR);
+                    }
+                } else {
+                    if (!numMasks) {
+                        gl.stencilFunc(gl.EQUAL, prevMaskCount, 0xFFFFFFFE);
+                    } else {
+                        gl.stencilFunc(gl.EQUAL, prevMaskCount, 0xFFFFFFFF);
+                    }
+
+                    gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR);
+                }
+
+                if (numMasks) {
+                    for (let i = 0; i < numMasks; i++) {
+                        const mask = masks[i];
+
+                        renderer.geometry.bind(mask.geometry, this._shader);
+                        renderer.geometry.draw(mask.drawMode, 0, 0, 1);
+                    }
+
+                    gl.stencilFunc(gl.EQUAL, prevMaskCount + 1, 0xFFFFFFFF);
+                } else if (!hole) {
+                    shape.geometry.instanced = true;
+                    shape.geometry.instanceCount = 2;
+                }
+
+                renderer.geometry.bind(shape.geometry, this._shader);
+                renderer.geometry.draw(shape.drawMode, 0, 0, shape.geometry.instanceCount);
+
+                if (numMasks) {
+                    gl.stencilOp(gl.KEEP, gl.KEEP, hole ? gl.INCR : gl.DECR);
+
+                    renderer.geometry.bind(this._quad, this._shader);
+                    renderer.geometry.draw(this._quadDrawMode, 0, 0, 1);
+                } else if (!hole) {
+                    shape.geometry.instanced = false;
+                    shape.geometry.instanceCount = 1;
+                }
             }
         }
     }
