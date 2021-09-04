@@ -15,7 +15,7 @@ Hooks.once("init", () => {
     });
 
     Hooks.on("canvasInit", () => {
-        mask.clearColor = [0, 1];
+        mask.clearColor.set([0, 1]);
         mask.stage.filter = canvas.createBlurFilter();
         mask.stage.filter.repeatEdgePixels = true;
         mask.stage.filter.resolution = mask.texture.resolution;

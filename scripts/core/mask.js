@@ -190,11 +190,11 @@ export class Mask extends PIXI.utils.EventEmitter {
             mipmap: PIXI.MIPMAP_MODES.OFF,
             anisotropicLevel: 0,
             wrapMode: PIXI.WRAP_MODES.CLAMP,
-            scaleMode: PIXI.SCALE_MODES.LINEAR,
-            format: PIXI.FORMATS.RGBA,
+            scaleMode: PIXI.SCALE_MODES.NEAREST,
+            format: PIXI.FORMATS.RED,
             type: PIXI.TYPES.UNSIGNED_BYTE,
             target: PIXI.TARGETS.TEXTURE_2D,
-            alphaMode: PIXI.ALPHA_MODES.NPM,
+            alphaMode: PIXI.ALPHA_MODES.PMA,
             multisample: PIXI.MSAA_QUALITY.NONE,
             clear: true,
             clearColor: [0, 0, 0, 0],
@@ -223,20 +223,6 @@ export class Mask extends PIXI.utils.EventEmitter {
             resolution: Mask.resolution
         });
 
-        if (this.options.clearColor) {
-            if (this.options.clearColor instanceof Array) {
-                this.texture.baseTexture.clearColor = [0, 0, 0, 0];
-            } else if (this.options.clearColor instanceof Float32Array) {
-                this.texture.baseTexture.clearColor = new Float32Array(4);
-            } else if (this.options.clearColor instanceof Int32Array) {
-                this.texture.baseTexture.clearColor = new Int32Array(4);
-            } else if (this.options.clearColor instanceof Uint32Array) {
-                this.texture.baseTexture.clearColor = new Uint32Array(4);
-            }
-
-            this.clearColor = this.options.clearColor;
-        }
-
         if (this.sprite) {
             this.sprite.texture = null;
             this.sprite.destroy(true);
@@ -253,6 +239,7 @@ export class Mask extends PIXI.utils.EventEmitter {
 
         this.stage = new MaskStage();
         this.clear = this.options.clear;
+        this.clearColor = this.options.clearColor;
         this.dirty = true;
         this.lazy = this.options.lazy;
     }
@@ -266,16 +253,25 @@ export class Mask extends PIXI.utils.EventEmitter {
     }
 
     get clearColor() {
-        return this.texture.baseTexture.clearColor;
+        return this.stage.clearColor;
     }
 
-    set clearColor([r, g, b, a]) {
-        const clearColor = this.texture.baseTexture.clearColor;
+    set clearColor(value) {
+        let clearColor;
 
-        clearColor[0] = r ?? clearColor[0];
-        clearColor[1] = g ?? clearColor[1];
-        clearColor[2] = b ?? clearColor[2];
-        clearColor[3] = a ?? clearColor[3];
+        if (value instanceof Int32Array) {
+            clearColor = new Int32Array(4);
+        } else if (value instanceof Uint32Array) {
+            clearColor = new Uint32Array(4);
+        } else {
+            clearColor = new Float32Array(4);
+        }
+
+        if (value) {
+            clearColor.set(value);
+        }
+
+        this.stage.clearColor = clearColor;
     }
 
     invalidate() {
@@ -439,22 +435,22 @@ class MaskStage extends PIXI.Container {
         super();
 
         this.clear = undefined;
+        this.clearColor = undefined;
     }
 
     render(renderer) {
         if (this.clear !== undefined ? this.clear : renderer.clearBeforeRender) {
+            const clearColor = this.clearColor;
             const gl = renderer.gl;
-            const rt = renderer.renderTexture;
-            const clearColor = rt.current.baseTexture.clearColor;
 
-            if (clearColor instanceof Array) {
-                rt.clear(clearColor, PIXI.BUFFER_BITS.COLOR);
-            } else if (clearColor instanceof Float32Array) {
+            if (clearColor instanceof Float32Array) {
                 gl.clearBufferfv(gl.COLOR, 0, clearColor);
             } else if (clearColor instanceof Int32Array) {
                 gl.clearBufferiv(gl.COLOR, 0, clearColor);
             } else if (clearColor instanceof Uint32Array) {
                 gl.clearBufferuiv(gl.COLOR, 0, clearColor);
+            } else {
+                renderer.renderTexture.clear(clearColor, PIXI.BUFFER_BITS.COLOR);
             }
         }
 

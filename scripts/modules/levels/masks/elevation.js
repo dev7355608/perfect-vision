@@ -13,7 +13,7 @@ Hooks.once("init", () => {
     const mask = Mask.create("elevation", {
         format: PIXI.FORMATS.RED,
         type: PIXI.TYPES.FLOAT,
-        clearColor: new Float32Array([-1, 0, 0, 0]),
+        clearColor: [-1, 0, 0, 0],
         dependencies: ["occlusionRadial", "occlusionSight"],
         groups: ["tiles", "tokens"]
     });

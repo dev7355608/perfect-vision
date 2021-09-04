@@ -1,4 +1,3 @@
-// import "./background.js";
 import "./foreground.js";
 import "./illumination.js";
 import "./lighting.js";
