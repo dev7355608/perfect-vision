@@ -421,6 +421,8 @@ export class Layer extends PIXI.Container {
     }
 
     destroy(options) {
+        this.removeChildren().forEach(object => object.render.destroy());
+
         super.destroy();
     }
 

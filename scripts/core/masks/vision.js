@@ -46,10 +46,16 @@ Hooks.once("init", () => {
     Hooks.on("canvasInit", () => {
         isVideo = false;
 
+        let multisample;
+
         if (game.settings.get("core", "softShadows")) {
-            mask.texture.multisample = PIXI.MSAA_QUALITY.LOW;
+            multisample = PIXI.MSAA_QUALITY.LOW;
         } else {
-            mask.texture.multisample = PIXI.MSAA_QUALITY.NONE;
+            multisample = PIXI.MSAA_QUALITY.NONE;
+        }
+
+        if (mask.texture.multisample !== multisample) {
+            mask.reset({ multisample });
         }
 
         mask.stage.areas.removeChildren().forEach(c => c.destroy(true));

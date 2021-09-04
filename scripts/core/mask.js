@@ -206,38 +206,64 @@ export class Mask extends PIXI.utils.EventEmitter {
     constructor(options) {
         super();
 
-        this.options = Object.assign(Mask.defaultOptions(), options);
-
-        this.reset();
+        this.reset(options);
     }
 
-    reset() {
-        if (this.texture) {
-            this.texture.destroy(true);
+    reset(options) {
+        this.options = Object.assign(this.options ?? Mask.defaultOptions(), options);
+
+        let clearColor;
+
+        if (this.options.clearColor instanceof Int32Array) {
+            clearColor = new Int32Array(4);
+        } else if (this.options.clearColor instanceof Uint32Array) {
+            clearColor = new Uint32Array(4);
+        } else {
+            clearColor = new Float32Array(4);
         }
 
-        this.texture = PIXI.RenderTexture.create({
-            ...this.options,
-            width: Mask.width,
-            height: Mask.height,
-            resolution: Mask.resolution
-        });
+        if (this.options.clearColor) {
+            clearColor.set(this.options.clearColor);
+        }
+
+        this.options.clearColor = clearColor;
+
+        if (this.texture) {
+            const { baseTexture, framebuffer } = this.texture;
+
+            baseTexture.dispose();
+            baseTexture.mipmap = this.options.mipmap;
+            baseTexture.anisotropicLevel = this.options.anisotropicLevel;
+            baseTexture.wrapMode = this.options.wrapMode;
+            baseTexture.scaleMode = this.options.scaleMode;
+            baseTexture.format = this.options.format;
+            baseTexture.target = this.options.target;
+            baseTexture.type = this.options.type;
+            baseTexture.alphaMode = this.options.alphaMode;
+
+            framebuffer.dispose();
+            framebuffer.multisample = this.options.multisample;
+        } else {
+            this.texture = PIXI.RenderTexture.create({
+                ...this.options,
+                width: Mask.width,
+                height: Mask.height,
+                resolution: Mask.resolution
+            });
+        }
 
         if (this.sprite) {
-            this.sprite.texture = null;
-            this.sprite.destroy(true);
+            this.sprite.shader = new (this.options.shader)();
+        } else {
+            this.sprite = new MaskSprite(new (this.options.shader)());
         }
 
-        this.sprite = new MaskSprite(new (this.options.shader)());
         this.sprite.texture = this.texture;
-        this.sprite.width = this.texture.width;
-        this.sprite.height = this.texture.height;
 
-        if (this.stage) {
-            this.stage.destroy({ children: true });
+        if (!this.stage) {
+            this.stage = new MaskStage();
         }
 
-        this.stage = new MaskStage();
         this.clear = this.options.clear;
         this.clearColor = this.options.clearColor;
         this.dirty = true;
