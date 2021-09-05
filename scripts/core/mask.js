@@ -578,6 +578,8 @@ export class MaskData extends PIXI.MaskData {
     constructor(name, filter) {
         super(new PIXI.Sprite(Mask.getTexture(name)));
 
+        this.type = PIXI.MASK_TYPES.SPRITE;
+        this.autoDetect = false;
         this.filter = filter ?? new MaskFilter();
         this.resolution = null;
         this.multisample = PIXI.MSAA_QUALITY.NONE;

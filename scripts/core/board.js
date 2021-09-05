@@ -380,10 +380,18 @@ export class Layer extends PIXI.Container {
                     this._enabledFilters.push(filters[i]);
                 }
             }
+        }
 
-            if (this._enabledFilters.length) {
-                renderer.filter.push(this, this._enabledFilters);
-            }
+        const flush = (filters && this._enabledFilters && this._enabledFilters.length)
+            || (mask && (!mask.isMaskData
+                || (mask.enabled && (mask.autoDetect || mask.type !== PIXI.MASK_TYPES.NONE))));
+
+        if (flush) {
+            renderer.batch.flush();
+        }
+
+        if (filters && this._enabledFilters && this._enabledFilters.length) {
+            renderer.filter.push(this, this._enabledFilters);
         }
 
         if (mask) {
@@ -409,7 +417,9 @@ export class Layer extends PIXI.Container {
             child.render(renderer, skip);
         }
 
-        renderer.batch.flush();
+        if (flush) {
+            renderer.batch.flush();
+        }
 
         if (mask) {
             renderer.mask.pop(this);

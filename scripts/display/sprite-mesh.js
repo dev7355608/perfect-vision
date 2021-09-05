@@ -173,7 +173,7 @@ export class SpriteMesh extends PIXI.Mesh {
     }
 
     _render(renderer) {
-        if (this.shader.batchable && !(this.filters && this._enabledFilters?.length || (this.mask && (!this.mask.isMaskData || this.mask.enabled && this.mask.type !== PIXI.MASK_TYPES.NONE)))) {
+        if (this.shader.batchable && !(this.filters && this._enabledFilters?.length || (this.mask && (!this.mask.isMaskData || this.mask.enabled && (this.mask.autoDetect || this.mask.type !== PIXI.MASK_TYPES.NONE))))) {
             this._renderToBatch(renderer);
         } else {
             this._renderDefault(renderer);
