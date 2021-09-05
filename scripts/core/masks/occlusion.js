@@ -18,10 +18,25 @@ Hooks.once("init", () => {
     });
 
     Hooks.on("canvasInit", () => {
-        mask.stage.filter = canvas.createBlurFilter();
-        mask.stage.filter.resolution = mask.texture.resolution;
-        mask.stage.filter.multisample = PIXI.MSAA_QUALITY.NONE;
-        mask.stage.filters = [mask.stage.filter];
+        if (game.settings.get("core", "softShadows")) {
+            mask.stage.filter = canvas.createBlurFilter();
+            mask.stage.filter.repeatEdgePixels = true;
+            mask.stage.filter.resolution = mask.texture.resolution;
+            mask.stage.filter.multisample = PIXI.MSAA_QUALITY.NONE;
+        } else {
+            if (mask.stage.filter) {
+                mask.reset();
+            }
+
+            mask.stage.filter = null;
+        }
+
+        if (mask.stage.filter) {
+            mask.stage.filters = [mask.stage.filter];
+        } else {
+            mask.stage.filters = null;
+        }
+
         mask.stage.shapes.clear();
 
         updatingOcclusion = false;

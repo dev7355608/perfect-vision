@@ -3,18 +3,22 @@ import { patch } from "../utils/patch.js";
 import { SpriteMesh } from "../display/sprite-mesh.js";
 
 Hooks.once("init", () => {
+    Hooks.on("canvasInit", () => {
+        if (game.settings.get("core", "softShadows")) {
+            canvas._pv_softShadows = true;
+        } else {
+            if (canvas._pv_softShadows) {
+                canvas.app.renderer.filter.texturePool.clear();
+            }
+
+            canvas._pv_softShadows = false;
+        }
+    });
+
     patch("Canvas.prototype.createBlurFilter", "POST", function (filter) {
         filter.resolution = canvas.app.renderer.resolution;
 
-        return new Proxy(filter, {
-            get: function (target, prop, receiver) {
-                if (prop === "enabled" && filter.blur === 0) {
-                    return false;
-                }
-
-                return Reflect.get(...arguments);
-            }
-        });
+        return filter;
     });
 
     patch("Canvas.prototype.updateBlur", "OVERRIDE", function (scale) {
