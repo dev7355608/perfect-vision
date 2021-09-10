@@ -1,8 +1,8 @@
 import { Logger } from "../../scripts/utils/logger.js";
 
-Logger.debug("Patching PIXI.Geometry.prototype.geometry (OVERRIDE)");
+Logger.debug("Patching PIXI.Mesh.prototype.geometry (OVERRIDE)");
 
-Object.defineProperty(PIXI.Geometry.prototype, "geometry", {
+Object.defineProperty(PIXI.Mesh.prototype, "geometry", {
     get() {
         return this._geometry;
     },
@@ -19,11 +19,11 @@ Object.defineProperty(PIXI.Geometry.prototype, "geometry", {
             }
         }
 
-        this._geometry = value;
-
-        if (this._geometry) {
-            this._geometry.refCount++;
+        if ("_geometry" in this && value) {
+            value.refCount++;
         }
+
+        this._geometry = value;
 
         this.vertexDirty = -1;
     }
