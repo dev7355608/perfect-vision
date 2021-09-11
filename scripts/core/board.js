@@ -1,4 +1,5 @@
 import { Logger } from "../utils/logger.js";
+import { RenderTargetMixin } from "../display/render-target.js";
 
 export class RenderFunction {
     static _key = Symbol();
@@ -452,43 +453,20 @@ export class Layer extends PIXI.Container {
     }
 }
 
-export class Segment extends PIXI.Container {
+export class Segment extends RenderTargetMixin(PIXI.Container) {
     constructor(bottomIndex, topIndex) {
         super();
 
         this.zIndex = bottomIndex;
+        this.bottomIndex = bottomIndex;
+        this.topIndex = topIndex;
+        this.filters = [];
+        this.filterArea = null;
         this.sortableChildren = true;
         this.interactive = false;
         this.interactiveChildren = false;
         this.accessible = false;
         this.accessibleChildren = false;
-        this.bottomIndex = bottomIndex;
-        this.topIndex = topIndex;
-        this.sprite = null;
-        this.filters = [];
-        this.filterArea = null;
-        this._backupCurrent = null;
-        this._backupSourceFrame = new PIXI.Rectangle();
-        this._backupDestinationFrame = new PIXI.Rectangle();
-    }
-
-    get renderTexture() {
-        return this.sprite?.texture ?? null;
-    }
-
-    set renderTexture(value) {
-        if (this.sprite?.texture !== value) {
-            if (this.sprite) {
-                this.sprite.destroy();
-                this.sprite = null;
-            }
-
-            if (value) {
-                this.sprite = new PIXI.Sprite(value);
-                this.sprite.visible = false;
-                this.addChild(this.sprite);
-            }
-        }
     }
 
     _clear() {
@@ -557,48 +535,6 @@ export class Segment extends PIXI.Container {
         this.addChild(layer);
 
         return layer;
-    }
-
-    render(renderer) {
-        if (this.sprite) {
-            this._renderToTexture(renderer, this.sprite.texture);
-            this.sprite.visible = true;
-            this.sprite.render(renderer);
-            this.sprite.visible = false;
-        } else {
-            super.render(renderer);
-        }
-    }
-
-    _renderToTexture(renderer, texture) {
-        const rt = renderer.renderTexture;
-        const fs = renderer.filter.defaultFilterStack;
-
-        this._backupCurrent = rt.current;
-        this._backupSourceFrame.copyFrom(rt.sourceFrame);
-        this._backupDestinationFrame.copyFrom(rt.destinationFrame);
-
-        renderer.batch.flush();
-
-        rt.bind(texture);
-        rt.clear();
-
-        if (fs.length > 1) {
-            fs[fs.length - 1].renderTexture = texture;
-        }
-
-        super.render(renderer);
-
-        renderer.batch.flush();
-        renderer.framebuffer.blit();
-
-        if (fs.length > 1) {
-            fs[fs.length - 1].renderTexture = this._backupCurrent;
-        }
-
-        rt.bind(this._backupCurrent, this._backupSourceFrame, this._backupDestinationFrame);
-
-        this._backupCurrent = null;
     }
 }
 

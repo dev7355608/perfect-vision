@@ -77,6 +77,8 @@ export class SpriteMesh extends PIXI.Mesh {
     constructor(shader, state) {
         super(new SpriteMeshGeometry(), shader, state, PIXI.DRAW_MODES.TRIANGLE_STRIP);
 
+        this.isSprite = true;
+
         if (this.texture) {
             this.anchor.set(this.texture.defaultAnchor.x, this.texture.defaultAnchor.y);
         }
