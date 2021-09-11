@@ -216,7 +216,7 @@ class VisionShader extends ShapeDataShader {
             if (elevation < 0.0 || uElevationRange.x <= elevation && elevation < uElevationRange.y) {
                 gl_FragColor = uColor;
             } else {
-                gl_FragColor = vec4(0.0);
+                discard;
             }
         }`;
 

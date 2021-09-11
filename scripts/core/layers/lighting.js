@@ -488,7 +488,7 @@ Hooks.once("init", () => {
                     if (elevation < 0.0 || pv_ElevationRange.x <= elevation && elevation < pv_ElevationRange.y) {
                         %main%();
                     } else {
-                        gl_FragColor = vec4(0.0);
+                        discard;
                     }
                 }`
             );
