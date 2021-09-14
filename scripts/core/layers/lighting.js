@@ -6,7 +6,7 @@ import { Logger } from "../../utils/logger.js";
 import { Mask } from "../mask.js";
 import { patch } from "../../utils/patch.js";
 import { presets } from "../../settings.js";
-import { ShapeData } from "../../display/shape-data.js";
+import { ShapeGeometry, ShapeMesh } from "../../display/shape.js";
 import { SpriteMesh } from "../../display/sprite-mesh.js";
 
 Hooks.once("init", () => {
@@ -103,25 +103,17 @@ Hooks.once("init", () => {
 
             this._pv_radius = this.radius;
 
-            const fov = ShapeData.from(this.fov);
-
-            if (this._pv_fov !== fov) {
-                if (this._pv_fov) {
-                    this._pv_fov.release();
-                }
-
-                this._pv_fov = fov;
+            if (this._pv_fov) {
+                this._pv_fov.release();
             }
 
-            const los = ShapeData.from(this.los);
+            this._pv_fov = new ShapeGeometry(this.fov).retain();
 
-            if (this._pv_los !== los) {
-                if (this._pv_los) {
-                    this._pv_los.release();
-                }
-
-                this._pv_los = los;
+            if (this._pv_los) {
+                this._pv_los.release();
             }
+
+            this._pv_los = new ShapeGeometry(this.los).retain();
         } else if (this.sourceType === "sight") {
             const token = this.object;
             const scene = token.scene ?? token._original?.scene;
@@ -237,78 +229,60 @@ Hooks.once("init", () => {
 
             const cache = { [this.radius]: this.fov };
 
-            const fov = ShapeData.from(this.fov);
+            if (this._pv_fov) {
+                this._pv_fov.release();
+            }
 
-            if (this._pv_fov !== fov) {
-                if (this._pv_fov) {
-                    this._pv_fov.release();
-                }
+            this._pv_fov = new ShapeGeometry(this.fov).retain();
 
-                this._pv_fov = fov;
+            const pv_cache = { [this.radius]: this._pv_fov };
+
+            if (this._pv_los) {
+                this._pv_los.release();
             }
 
             if (!Number.isNaN(sightLimit)) {
                 this.los = computePolygon(this, sightLimit, cache);
-            }
 
-            const los = ShapeData.from(this.los);
-
-            if (this._pv_los !== los) {
-                if (this._pv_los) {
-                    this._pv_los.release();
-                }
-
-                this._pv_los = los;
+                this._pv_los = (pv_cache[sightLimit] ?? (pv_cache[sightLimit] = new ShapeGeometry(this.los))).retain();
+            } else {
+                this._pv_los = new ShapeGeometry(this.los).retain();
             }
 
             this.fov = computePolygon(this, Math.max(visionRadius, minR), cache);
 
-            let fovMono;
+            if (this._pv_fovMono) {
+                this._pv_fovMono.release();
+            }
 
             if (visionRadius > 0 && !token._original) {
-                fovMono = ShapeData.from(this.fov);
+                this._pv_fovMono = (pv_cache[visionRadius] ?? (pv_cache[visionRadius] = new ShapeGeometry(this.fov))).retain();
             } else {
-                fovMono = null;
+                this._pv_fovMono = null;
             }
 
-            if (this._pv_fovMono !== fovMono) {
-                if (this._pv_fovMono) {
-                    this._pv_fovMono.release();
-                }
-
-                this._pv_fovMono = fovMono;
+            if (this._pv_fovColor) {
+                this._pv_fovColor.release();
             }
-
-            let fovColor;
 
             if (visionRadiusColor > 0 && !token._original) {
-                fovColor = ShapeData.from(computePolygon(this, Math.max(visionRadiusColor, minR), cache));
+                const fovColor = computePolygon(this, Math.max(visionRadiusColor, minR), cache);
+
+                this._pv_fovColor = (pv_cache[visionRadiusColor] ?? (pv_cache[visionRadiusColor] = new ShapeGeometry(fovColor))).retain();
             } else {
-                fovColor = null;
+                this._pv_fovColor = null;
             }
 
-            if (this._pv_fovColor !== fovColor) {
-                if (this._pv_fovColor) {
-                    this._pv_fovColor.release();
-                }
-
-                this._pv_fovColor = fovColor;
+            if (this._pv_fovBrighten) {
+                this._pv_fovBrighten.release();
             }
-
-            let fovBrighten;
 
             if (visionRadiusBrighten > 0 && !token._original) {
-                fovBrighten = ShapeData.from(computePolygon(this, Math.max(visionRadiusBrighten, minR), cache));
+                const fovBrighten = computePolygon(this, Math.max(visionRadiusBrighten, minR), cache);
+
+                this._pv_fovBrighten = (pv_cache[visionRadiusBrighten] ?? (pv_cache[visionRadiusBrighten] = new ShapeGeometry(fovBrighten))).retain();
             } else {
-                fovBrighten = null;
-            }
-
-            if (this._pv_fovBrighten !== fovBrighten) {
-                if (this._pv_fovBrighten) {
-                    this._pv_fovBrighten.release();
-                }
-
-                this._pv_fovBrighten = fovBrighten;
+                this._pv_fovBrighten = null;
             }
 
             if (token._original?.vision) {
@@ -495,8 +469,6 @@ Hooks.once("init", () => {
         }
     }
 
-    const EMPTY_GEOMETRY = new PIXI.MeshGeometry();
-
     patch("PointSource.prototype._createContainer", "OVERRIDE", function (shaderCls) {
         patchShader(shaderCls);
 
@@ -505,7 +477,7 @@ Hooks.once("init", () => {
         shader.source = this;
 
         const state = PIXI.State.for2d();
-        const light = new PIXI.Mesh(EMPTY_GEOMETRY, shader, state);
+        const light = new ShapeMesh(ShapeGeometry.EMPTY, shader, state);
         const c = new PIXI.Container();
 
         c.light = c.addChild(light);
@@ -521,8 +493,10 @@ Hooks.once("init", () => {
 
     patch("PointSource.prototype._drawContainer", "OVERRIDE", function (c) {
         if (this._pv_radius > 0) {
-            c.light.geometry = this._pv_fov.geometry;
-            c.light.drawMode = this._pv_fov.drawMode;
+            const geometry = this._pv_fov;
+
+            c.light.geometry = geometry;
+            c.light.drawMode = geometry.drawMode;
 
             const s = 1 / (2 * this._pv_radius);
             const tx = -(this.x - this._pv_radius) * s;
@@ -535,7 +509,10 @@ Hooks.once("init", () => {
             uvsMatrix[6] = tx;
             uvsMatrix[7] = ty;
         } else {
-            c.light.geometry = EMPTY_GEOMETRY;
+            const geometry = ShapeGeometry.EMPTY;
+
+            c.light.geometry = geometry;
+            c.light.drawMode = geometry.drawMode;
         }
 
         return c;
@@ -601,7 +578,7 @@ Hooks.once("init", () => {
         this._pv_origin = null;
         this._pv_walls = false;
         this._pv_vision = false;
-        this._pv_fov = new ShapeData(canvas.dimensions.rect.clone());
+        this._pv_fov = new ShapeGeometry(canvas.dimensions.rect).retain();
         this._pv_los = null;
         this._pv_globalLight = this.globalLight;
 
@@ -909,6 +886,16 @@ Hooks.once("init", () => {
         const sd = canvas.scene.data;
         return sd.globalLight && (sd.globalLightThreshold === null || this.darknessLevel <= sd.globalLightThreshold);
     });
+
+    patch("LightingLayer.prototype.initializeSources", "POST", function () {
+        const areas = this._pv_areas;
+
+        if (areas?.length > 0) {
+            for (const area of areas) {
+                area._pv_update = true;
+            }
+        }
+    });
 });
 
 function getLightRadius(token, units) {
@@ -934,6 +921,9 @@ function sanitizeLightColor(color) {
 function getDarknessLevel(point) {
     return Lighting.findArea(point)._pv_darknessLevel ?? 0;
 }
+
+const tempPoint = new PIXI.Point();
+const tempMatrix = new PIXI.Matrix();
 
 function refreshAreas(layer) {
     if (!layer._pv_areas) {
@@ -972,6 +962,7 @@ function refreshAreas(layer) {
             area._pv_zIndex = 0;
             area._pv_data_globalLight = false;
             area._pv_data_globalLightThreshold = null;
+            area._pv_update = true;
         }
 
         let parent;
@@ -1051,12 +1042,23 @@ function refreshAreas(layer) {
             area._pv_zIndex = 0;
             area._pv_data_globalLight = false;
             area._pv_data_globalLightThreshold = null;
+            area._pv_update = true;
 
             continue;
         }
 
         if (!area.skipRender) {
             layer._pv_areas.push(area);
+        }
+
+        let updateFOV = false;
+        let updateLOS = false;
+
+        if (area._pv_update) {
+            area._pv_update = false;
+
+            updateFOV = true;
+            updateLOS = true;
         }
 
         let origin;
@@ -1067,9 +1069,21 @@ function refreshAreas(layer) {
             origin = document.getFlag("perfect-vision", "origin") ?? { x: 0.5, y: 0.5 };
         }
 
-        const extract = Drawings.extractShapeAndOrigin(area, origin);
+        origin = tempPoint.set(origin.x * area.data.width, origin.y * area.data.height);
 
-        area._pv_origin = extract.origin;
+        const transform = Drawings.getTransform(area, tempMatrix);
+
+        transform.apply(origin, origin);
+
+        if (area._pv_origin?.x !== origin.x || area._pv_origin?.y !== origin.y) {
+            if (!area._pv_origin) {
+                area._pv_origin = new PIXI.Point();
+            }
+
+            area._pv_origin.copyFrom(origin);
+
+            updateLOS = true;
+        }
 
         let walls;
 
@@ -1079,12 +1093,10 @@ function refreshAreas(layer) {
             walls = !!document.getFlag("perfect-vision", "walls");
         }
 
-        area._pv_walls = walls;
-
         if (area._pv_walls !== walls) {
             area._pv_walls = walls;
 
-            refreshVision = true;
+            updateLOS = true;
         }
 
         let vision;
@@ -1101,38 +1113,26 @@ function refreshAreas(layer) {
             refreshVision = true;
         }
 
-        let fov;
-
-        if (extract.shape) {
-            fov = ShapeData.from(extract.shape);
-        } else {
-            fov = null;
-        }
-
-        if (area._pv_fov !== fov) {
+        if (updateFOV) {
             if (area._pv_fov) {
                 area._pv_fov.release();
             }
 
-            area._pv_fov = fov;
+            area._pv_fov = new ShapeGeometry(Drawings.getShape(area), transform).retain();
 
             refreshVision = true;
         }
 
-        let los;
-
-        if (area._pv_walls) {
-            los = ShapeData.from(canvas.walls.computePolygon(area._pv_origin, canvas.dimensions.maxR, { type: "light" }).los);
-        } else {
-            los = null;
-        }
-
-        if (area._pv_los !== los) {
+        if (updateLOS) {
             if (area._pv_los) {
                 area._pv_los.release();
             }
 
-            area._pv_los = los;
+            if (area._pv_walls) {
+                area._pv_los = new ShapeGeometry(canvas.walls.computePolygon(area._pv_origin, canvas.dimensions.maxR, { type: "light" }).los).retain();
+            } else {
+                area._pv_los = null;
+            }
 
             refreshVision = true;
         }

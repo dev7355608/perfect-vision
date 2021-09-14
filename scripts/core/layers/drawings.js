@@ -17,6 +17,16 @@ Hooks.once("init", () => {
     });
 
     patch("Drawing.prototype.destroy", "PRE", function () {
+        if (this._pv_fov) {
+            this._pv_fov.release();
+            this._pv_fov = null;
+        }
+
+        if (this._pv_los) {
+            this._pv_los.release();
+            this._pv_los = null;
+        }
+
         if (this._pv_active) {
             canvas.perception.schedule({ lighting: { refresh: true } });
         }
@@ -31,6 +41,8 @@ Hooks.on("updateDrawing", (document, change, options, userId, arg) => {
     if (!scene?.isView || !document.object._pv_active && !("flags" in change && ("perfect-vision" in change.flags || "-=perfect-vision" in change.flags) || "-=flags" in change)) {
         return;
     }
+
+    document.object._pv_update = true;
 
     canvas.perception.schedule({ lighting: { refresh: true } });
 });

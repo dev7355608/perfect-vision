@@ -2,7 +2,7 @@ import { CachedAlphaObject } from "./utils/alpha.js";
 import { Elevation } from "../elevation.js";
 import { Mask } from "../mask.js";
 import { Tiles } from "../tiles.js";
-import { ShapeDataShader } from "../../display/shape-data.js";
+import { ShapeShader } from "../../display/shape.js";
 import { StencilMask, StencilMaskData, StencilMaskShader } from "../../display/stencil-mask.js";
 
 Hooks.once("init", () => {
@@ -25,8 +25,8 @@ Hooks.once("init", () => {
     mask.stage.msk = new StencilMaskData(mask.stage.los);
     mask.stage.mask = null;
 
-    const shaderBlack = new ShapeDataShader({ tint: 0x000000 });
-    const shaderGreen = new ShapeDataShader({ tint: 0x00FF00 });
+    const shaderBlack = new ShapeShader({ tint: 0x000000 });
+    const shaderGreen = new ShapeShader({ tint: 0x00FF00 });
 
     const stateNormal = PIXI.State.for2d();
     const stateAdd = PIXI.State.for2d();
@@ -185,7 +185,7 @@ Hooks.once("init", () => {
     });
 });
 
-class VisionShader extends ShapeDataShader {
+class VisionShader extends ShapeShader {
     static elevationVertex = `\
         attribute vec2 aVertexPosition;
 
@@ -229,7 +229,7 @@ class VisionShader extends ShapeDataShader {
     }
 
     static get defaultProgram() {
-        return Mask.get("elevation") ? this.elevationProgram : ShapeDataShader.defaultProgram;
+        return Mask.get("elevation") ? this.elevationProgram : ShapeShader.defaultProgram;
     }
 
     static defaultUniforms() {

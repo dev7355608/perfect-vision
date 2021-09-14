@@ -1,5 +1,5 @@
 import { Mask } from "../../../core/mask.js";
-import { ShapeDataShader } from "../../../display/shape-data.js";
+import { ShapeShader } from "../../../display/shape.js";
 import { StencilMask, StencilMaskData, StencilMaskShader } from "../../../display/stencil-mask.js";
 
 Hooks.once("init", () => {
@@ -24,8 +24,8 @@ Hooks.once("init", () => {
         mask.stage.msk = new StencilMaskData(mask.stage.los);
         mask.stage.mask = null;
 
-        const shaderBlack = new ShapeDataShader({ tint: 0x000000 });
-        const shaderRed = new ShapeDataShader({ tint: 0xFF0000 });
+        const shaderBlack = new ShapeShader({ tint: 0x000000 });
+        const shaderRed = new ShapeShader({ tint: 0xFF0000 });
 
         mask.on("updateTexture", (mask) => {
             mask.render();

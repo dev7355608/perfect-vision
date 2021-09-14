@@ -1,8 +1,8 @@
 import { Lighting } from "../lighting.js";
 import { patch } from "../../utils/patch.js";
 import { SpriteMesh } from "../../display/sprite-mesh.js";
-import { StencilMask, StencilMaskData, StencilMaskShader } from "../../display/stencil-mask.js";
-import { ShapeDataShader } from "../../display/shape-data.js";
+import { StencilMask, StencilMaskData } from "../../display/stencil-mask.js";
+import { ShapeShader } from "../../display/shape.js";
 
 Hooks.once("init", () => {
     patch("FogExploration.prototype.explore", "OVERRIDE", function (source, force = false) {
@@ -116,7 +116,7 @@ Hooks.once("init", () => {
     patch("SightLayer.prototype._createVisionContainer", "POST", function (c) {
         c._pv_fov = c.addChild(new StencilMask());
         c._pv_los = c.addChild(new StencilMask());
-        c._pv_shader = new ShapeDataShader({ tint: 0xFFFFFF });
+        c._pv_shader = new ShapeShader({ tint: 0xFFFFFF });
         c._pv_mesh = c.addChildAt(canvas.lighting._pv_fov.createMesh(c._pv_shader), 0);
         c._pv_mesh.mask = new StencilMaskData(c._pv_fov);
         c.mask = new StencilMaskData(c._pv_los);
