@@ -119,7 +119,7 @@ Hooks.once("init", () => {
                 continue;
             }
 
-            if (source.radius > 0 && source._pv_fov) {
+            if (source._pv_radius > 0 && source._pv_fov) {
                 mask.stage.layers[1].addChild(source._pv_fov.createMesh(new VisionShader({ source, tint: 0xFF0000 }), stateNormal));
             }
         }
@@ -171,7 +171,7 @@ Hooks.once("init", () => {
                     continue;
                 }
 
-                if (source.radius > 0) {
+                if (source._pv_radius > 0) {
                     mask.stage.los.drawShape(source._pv_fov);
                 }
             }

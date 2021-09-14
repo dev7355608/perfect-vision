@@ -21,7 +21,7 @@ Hooks.once("init", () => {
             }
         }
 
-        const r = globalLight ? canvas.dimensions.maxR : source.radius;
+        const r = globalLight ? canvas.dimensions.maxR : source._pv_radius;
         if (r < 0) return false;
         const coords = canvas.grid.getCenter(source.x, source.y).map(Math.round).join("_");
         const position = this.data.positions[coords];
@@ -34,7 +34,7 @@ Hooks.once("init", () => {
         if (CONFIG.debug.fog) console.debug("SightLayer | Updating fog exploration for new explored position.");
         this.data.update({
             positions: {
-                [coords]: { radius: source.radius, limit: source.limited }
+                [coords]: { radius: source._pv_radius, limit: source.limited }
             }
         });
         return true;
@@ -199,7 +199,7 @@ Hooks.once("init", () => {
             }
 
             // Restricted sight-based visibility for this source
-            if (source.radius > 0) {
+            if (source._pv_radius > 0) {
                 vision._pv_fov.drawShape(source._pv_fov);
             }
 
@@ -218,7 +218,7 @@ Hooks.once("init", () => {
                 continue;
             }
 
-            if (source.radius > 0) {
+            if (source._pv_radius > 0) {
                 vision._pv_fov.drawShape(source._pv_fov);
             }
 
@@ -226,7 +226,7 @@ Hooks.once("init", () => {
                 continue;
             }
 
-            if (source.radius > 0) {
+            if (source._pv_radius > 0) {
                 vision._pv_los.drawShape(source._pv_fov);
             }
         }

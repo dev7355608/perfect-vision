@@ -97,7 +97,7 @@ Hooks.once("init", () => {
                     continue;
                 }
 
-                if (source.radius > 0 && source._pv_fov) {
+                if (source._pv_radius > 0 && source._pv_fov) {
                     mask.stage.fov.addChild(source._pv_fov.createMesh(shaderBlack));
                 }
             }
@@ -130,7 +130,7 @@ Hooks.once("init", () => {
                         continue;
                     }
 
-                    if (source.radius > 0 && source._pv_fov) {
+                    if (source._pv_radius > 0 && source._pv_fov) {
                         mask.stage.los.drawShape(source._pv_fov);
                     }
                 }

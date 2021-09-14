@@ -102,12 +102,19 @@ Hooks.once("init", () => {
             }
 
             this._pv_radius = this.radius;
+            this._pv_radiusSource = this.radius;
 
             if (this._pv_fov) {
                 this._pv_fov.release();
             }
 
             this._pv_fov = new ShapeGeometry(this.fov).retain();
+
+            if (this._pv_fovSource) {
+                this._pv_fovSource.release();
+            }
+
+            this._pv_fovSource = this._pv_fov.retain();
 
             if (this._pv_los) {
                 this._pv_los.release();
@@ -187,7 +194,7 @@ Hooks.once("init", () => {
                 brightVisionInDarkness === "dim" || brightVisionInDarkness === "dim_mono" ? bright : 0
             );
 
-            this._pv_radius = Math.max(data.dim, data.bright);
+            this._pv_radiusSource = Math.max(data.dim, data.bright);
 
             if (data.dim === 0 && data.bright === 0) {
                 data.dim = minR;
@@ -228,35 +235,47 @@ Hooks.once("init", () => {
             this.los.y = this.y;
 
             const cache = { [this.radius]: this.fov };
+            const pv_cache = {};
+
+            if (this._pv_fovSource) {
+                this._pv_fovSource.release();
+            }
+
+            this._pv_fovSource = pv_cache[this.radius] = new ShapeGeometry(this.fov).retain();
 
             if (this._pv_fov) {
                 this._pv_fov.release();
             }
 
-            this._pv_fov = new ShapeGeometry(this.fov).retain();
+            {
+                const radius = Math.max(visionRadius, minR);
 
-            const pv_cache = { [this.radius]: this._pv_fov };
+                this._pv_radius = radius;
+                this.fov = computePolygon(this, radius, cache);
+                this._pv_fov = (pv_cache[radius] ?? (pv_cache[radius] = new ShapeGeometry(this.fov))).retain();
+            }
 
             if (this._pv_los) {
                 this._pv_los.release();
             }
 
             if (!Number.isNaN(sightLimit)) {
-                this.los = computePolygon(this, sightLimit, cache);
+                const radius = sightLimit;
 
-                this._pv_los = (pv_cache[sightLimit] ?? (pv_cache[sightLimit] = new ShapeGeometry(this.los))).retain();
+                this.los = computePolygon(this, radius, cache);
+                this._pv_los = (pv_cache[radius] ?? (pv_cache[radius] = new ShapeGeometry(this.los))).retain();
             } else {
                 this._pv_los = new ShapeGeometry(this.los).retain();
             }
-
-            this.fov = computePolygon(this, Math.max(visionRadius, minR), cache);
 
             if (this._pv_fovMono) {
                 this._pv_fovMono.release();
             }
 
             if (visionRadius > 0 && !token._original) {
-                this._pv_fovMono = (pv_cache[visionRadius] ?? (pv_cache[visionRadius] = new ShapeGeometry(this.fov))).retain();
+                const radius = Math.max(visionRadius, minR);
+
+                this._pv_fovMono = (pv_cache[radius] ?? (pv_cache[radius] = new ShapeGeometry(computePolygon(this, radius, cache)))).retain();
             } else {
                 this._pv_fovMono = null;
             }
@@ -266,9 +285,9 @@ Hooks.once("init", () => {
             }
 
             if (visionRadiusColor > 0 && !token._original) {
-                const fovColor = computePolygon(this, Math.max(visionRadiusColor, minR), cache);
+                const radius = Math.max(visionRadiusColor, minR);
 
-                this._pv_fovColor = (pv_cache[visionRadiusColor] ?? (pv_cache[visionRadiusColor] = new ShapeGeometry(fovColor))).retain();
+                this._pv_fovColor = (pv_cache[radius] ?? (pv_cache[radius] = new ShapeGeometry(computePolygon(this, radius, cache)))).retain();
             } else {
                 this._pv_fovColor = null;
             }
@@ -278,9 +297,9 @@ Hooks.once("init", () => {
             }
 
             if (visionRadiusBrighten > 0 && !token._original) {
-                const fovBrighten = computePolygon(this, Math.max(visionRadiusBrighten, minR), cache);
+                const radius = Math.max(visionRadiusBrighten, minR);
 
-                this._pv_fovBrighten = (pv_cache[visionRadiusBrighten] ?? (pv_cache[visionRadiusBrighten] = new ShapeGeometry(fovBrighten))).retain();
+                this._pv_fovBrighten = (pv_cache[radius] ?? (pv_cache[radius] = new ShapeGeometry(computePolygon(this, radius, cache)))).retain();
             } else {
                 this._pv_fovBrighten = null;
             }
@@ -303,6 +322,11 @@ Hooks.once("init", () => {
         if (source._pv_fov) {
             source._pv_fov.release();
             source._pv_fov = null;
+        }
+
+        if (source._pv_fovSource) {
+            source._pv_fovSource.release();
+            source._pv_fovSource = null;
         }
 
         if (source._pv_fovMono) {
@@ -492,15 +516,15 @@ Hooks.once("init", () => {
     });
 
     patch("PointSource.prototype._drawContainer", "OVERRIDE", function (c) {
-        if (this._pv_radius > 0) {
-            const geometry = this._pv_fov;
+        if (this._pv_radiusSource > 0) {
+            const geometry = this._pv_fovSource;
 
             c.light.geometry = geometry;
             c.light.drawMode = geometry.drawMode;
 
-            const s = 1 / (2 * this._pv_radius);
-            const tx = -(this.x - this._pv_radius) * s;
-            const ty = -(this.y - this._pv_radius) * s;
+            const s = 1 / (2 * this._pv_radiusSource);
+            const tx = -(this.x - this._pv_radiusSource) * s;
+            const ty = -(this.y - this._pv_radiusSource) * s;
 
             const uvsMatrix = c.light.shader.uniforms.pv_UvsMatrix;
 
@@ -1370,25 +1394,25 @@ Hooks.on("updateAmbientLight", (document, change, options, userId, arg) => {
 Logger.debug("Patching AbstractBaseShader.vertexShader (OVERRIDE)");
 
 AbstractBaseShader.vertexShader = `\
-    precision mediump float;
+precision mediump float;
 
-    attribute vec2 aVertexPosition;
+attribute vec2 aVertexPosition;
 
-    uniform mat3 translationMatrix;
-    uniform mat3 projectionMatrix;
-    uniform mat3 pv_UvsMatrix;
-    uniform vec4 pv_MaskSize;
+uniform mat3 translationMatrix;
+uniform mat3 projectionMatrix;
+uniform mat3 pv_UvsMatrix;
+uniform vec4 pv_MaskSize;
 
-    varying vec2 vUvs;
-    varying vec2 pv_MaskCoord;
+varying vec2 vUvs;
+varying vec2 pv_MaskCoord;
 
-    void main()
-    {
-        vec3 position = translationMatrix * vec3(aVertexPosition, 1.0);
-        gl_Position = vec4((projectionMatrix * position).xy, 0.0, 1.0);
-        vUvs = (pv_UvsMatrix * vec3(aVertexPosition, 1.0)).xy;
-        pv_MaskCoord = position.xy * pv_MaskSize.zw;
-    }`;
+void main()
+{
+    vec3 position = translationMatrix * vec3(aVertexPosition, 1.0);
+    gl_Position = vec4((projectionMatrix * position).xy, 0.0, 1.0);
+    vUvs = (pv_UvsMatrix * vec3(aVertexPosition, 1.0)).xy;
+    pv_MaskCoord = position.xy * pv_MaskSize.zw;
+}`;
 
 Logger.debug("Patching AbstractBaseShader.prototype.update (OVERRIDE)");
 
