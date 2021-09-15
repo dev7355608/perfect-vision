@@ -103,7 +103,7 @@ Hooks.once("init", () => {
         return wrapped(...args);
     });
 
-    patch("Levels.prototype.showOwnedTokensForPlayer", "POST", function () {
+    patch("Levels.prototype.collateVisions", "POST", function () {
         Mask.invalidateAll("tokens");
     });
 
