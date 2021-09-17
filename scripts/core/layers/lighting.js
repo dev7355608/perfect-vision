@@ -556,18 +556,33 @@ Hooks.once("init", () => {
         this.coloration.shader.source = this;
     });
 
-    patch("LightingLayer.prototype._drawIlluminationContainer", "POST", function (c) {
+    patch("LightingLayer.prototype._drawIlluminationContainer", "OVERRIDE", function () {
+        const c = new PIXI.Container();
+
+        c.background = new PIXI.Graphics();
+        c._pv_background = c.addChildAt(new SpriteMesh(IlluminationBackgroundShader.instance));
+        c.lights = c.addChild(new PIXI.Container());
+        c.lights.sortableChildren = true;
+        c.filter = canvas.blurDistance ? canvas.createBlurFilter() : new PIXI.filters.AlphaFilter(1.0);
+        c.filter.blendMode = PIXI.BLEND_MODES.MULTIPLY;
         c.filter.resolution = canvas.app.renderer.resolution;
         c.filter.multisample = PIXI.MSAA_QUALITY.NONE;
+        c.filters = [c.filter];
         c.filterArea = canvas.app.renderer.screen;
 
         return c;
     });
 
-    patch("LightingLayer.prototype._drawColorationContainer", "POST", function (c) {
+    patch("LightingLayer.prototype._drawColorationContainer", "OVERRIDE", function () {
+        const c = new PIXI.Container();
+
+        c.filter = new PIXI.filters.AlphaFilter(1.0);
+        c.filter.blendMode = PIXI.BLEND_MODES.ADD;
         c.filter.resolution = canvas.app.renderer.resolution;
         c.filter.multisample = PIXI.MSAA_QUALITY.NONE;
+        c.filters = [c.filter];
         c.filterArea = canvas.app.renderer.screen;
+        c.sortableChildren = true;
 
         return c;
     });
@@ -581,13 +596,6 @@ Hooks.once("init", () => {
         });
 
         return channels;
-    });
-
-    patch("LightingLayer.prototype._drawIlluminationContainer", "POST", function (c) {
-        c.background.destroy(true);
-        c.background = c.addChildAt(new SpriteMesh(IlluminationBackgroundShader.instance));
-
-        return c;
     });
 
     patch("LightingLayer.prototype.draw", "OVERRIDE", async function () {
@@ -637,10 +645,10 @@ Hooks.once("init", () => {
 
         const bgRect = canvas.dimensions.rect.clone().pad(CONFIG.Canvas.blurStrength * 2);
 
-        this.illumination.background.x = bgRect.x;
-        this.illumination.background.y = bgRect.y;
-        this.illumination.background.width = bgRect.width;
-        this.illumination.background.height = bgRect.height;
+        this.illumination._pv_background.x = bgRect.x;
+        this.illumination._pv_background.y = bgRect.y;
+        this.illumination._pv_background.width = bgRect.width;
+        this.illumination._pv_background.height = bgRect.height;
 
         this.activateAnimation();
 
