@@ -1,0 +1,724 @@
+import { patch } from "../../utils/patch.js";
+import { presets } from "../settings.js";
+import { PointSourceGeometry } from "./geometry.js";
+import { PointSourceMesh } from "./mesh.js";
+import { TransformedShape } from "../../utils/transformed-shape.js";
+import { Logger } from "../../utils/logger.js";
+
+import "./shader.js";
+
+Hooks.once("init", () => {
+    patch("PointSource.prototype.destroy", "POST", function () {
+        if (this.background && !this.background.destroyed) {
+            this.background.destroy({ children: true });
+        }
+
+        if (this.illumination && !this.illumination.destroyed) {
+            this.illumination.destroy({ children: true });
+        }
+
+        if (this.coloration && !this.coloration.destroyed) {
+            this.coloration.destroy({ children: true });
+        }
+
+        if (this.delimiter && !this.delimiter.destroyed) {
+            this.delimiter.destroy({ children: true });
+        }
+
+        this._pv_fov = null;
+        this._pv_los = null;
+        this._pv_geometry = null;
+
+        if (this._pv_shader) {
+            this._pv_shader.destroy();
+        }
+
+        this._pv_shader = null;
+
+        if (this._pv_mesh) {
+            this._pv_mesh.destroy();
+        }
+
+        this._pv_mesh = null;
+        this._pv_area = null;
+        this._pv_occlusionTiles = null;
+    });
+
+    patch("PointSource.prototype._createMesh", "OVERRIDE", function (shaderCls) {
+        const shader = shaderCls.create();
+        const mesh = new PointSourceMesh(PointSourceGeometry.EMPTY, shader);
+
+        Object.defineProperty(mesh, "uniforms", { get: () => mesh.shader.uniforms });
+
+        shader.source = this;
+
+        return mesh;
+    });
+
+    patch("PointSource.prototype._updateMesh", "OVERRIDE", function (mesh) {
+        const geometry = this._pv_geometry ?? PointSourceGeometry.EMPTY;
+
+        mesh.geometry = geometry;
+
+        if (this.object.data.walls) {
+            mesh.occlusionObjects = this._pv_occlusionTiles;
+        } else {
+            mesh.occlusionObjects = null;
+        }
+
+        const { x, y } = this.data;
+        const radius = this.radius;
+        const uniforms = mesh.uniforms;
+
+        uniforms.pv_origin[0] = x;
+        uniforms.pv_origin[1] = y;
+        uniforms.pv_radius = radius;
+        uniforms.pv_smoothness = geometry.inset;
+
+        return mesh;
+    });
+
+    patch("LightSource.prototype.initialize", "WRAPPER", function (wrapped, data) {
+        wrapped(data);
+
+        this._pv_los = this.los ? new TransformedShape(this.los) : null;
+        this._pv_geometry = new PointSourceGeometry(null, this._pv_los, canvas.dimensions.size / 10);
+        this._pv_shader = new LightSourceShader(this);
+        this._pv_mesh = new PointSourceMesh(this._pv_geometry, this._pv_shader);
+        this._pv_mesh.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
+
+        this._flags.useFov = false;
+        this._flags.renderFOV = false;
+
+        return this;
+    });
+
+    patch("LightSource.prototype._initializeShaders", "OVERRIDE", function () {
+        // Create each shader
+        const createShader = (cls, container) => {
+            const current = container.shader;
+
+            if (current?.constructor.name === cls.name) {
+                return;
+            }
+
+            const shader = cls.create({ uBkgSampler: canvas.primary.renderTexture });
+
+            shader.source = this;
+            shader.container = container;
+            container.shader = shader;
+
+            if (current) {
+                current.destroy();
+            }
+        }
+
+        // Initialize shaders
+        createShader(DelimiterShader, this.delimiter);
+        createShader(this.animation.backgroundShader || AdaptiveBackgroundShader, this.background);
+        createShader(this.animation.illuminationShader || AdaptiveIlluminationShader, this.illumination);
+        createShader(this.animation.colorationShader || AdaptiveColorationShader, this.coloration);
+
+        /**
+         * A hook event that fires after LightSource shaders have initialized.
+         * @function initializeLightSourceShaders
+         * @memberof hookEvents
+         * @param {PointSource} source   The LightSource being initialized
+         */
+        Hooks.callAll("initializeLightSourceShaders", this);
+    });
+
+    patch("LightSource.prototype._initializeBlending", "WRAPPER", function (wrapped) {
+        wrapped();
+
+        const defaultZ = this.isDarkness ? 10 : 0;
+        const BM = PIXI.BLEND_MODES;
+
+        // Delimiter
+        this.delimiter.blendMode = BM[this.isDarkness ? "NORMAL" : "MAX_COLOR"];
+        this.delimiter.zIndex = this.data.z ?? defaultZ;
+    });
+
+    patch("LightSource.prototype.drawLight", "OVERRIDE", function () {
+        const shader = this.illumination.shader;
+
+        // Protect against cases where the canvas is being deactivated
+        if (!shader) {
+            return null;
+        }
+
+        // Update illumination uniforms
+        const ic = this.illumination;
+        const version = this._pv_area?._pv_version ?? canvas.lighting.version;
+        const updateChannels = !(this._flags.lightingVersion >= version);
+
+        if (this._resetUniforms.illumination || updateChannels) {
+            this._updateIlluminationUniforms(shader);
+
+            if (this._shutdown.illumination) {
+                this._shutdown.illumination = !(ic.renderable = true);
+            }
+
+            this._flags.lightingVersion = version;
+        }
+
+        if (this._resetUniforms.illumination) {
+            this._resetUniforms.illumination = false;
+        }
+
+        // Draw the container
+        return this._updateMesh(ic);
+    });
+
+    patch("LightSource.prototype._updateIlluminationUniforms", "OVERRIDE", function (shader) {
+        const area = this._pv_area;
+        const u = shader.uniforms;
+        const d = shader._defaults;
+        const c = area?._pv_channels ?? canvas.lighting.channels;
+        const ll = area?._pv_lightLevels ?? CONFIG.Canvas.lightLevels;
+        const inverseGamma = 1 / ((2.4 * this.data.alpha) + 0.25);
+        const blend = (rgb1, rgb2, w) => rgb1.map((x, i) => (w * x) + ((1 - w) * (rgb2[i]))); // linear interpolation
+
+        // Darkness [-1, 0)
+        if (this.isDarkness) {
+            let lc, cdim1, cdim2, cbr1, cbr2;
+
+            // Construct gamma-adjusted darkness colors for "black" and the midpoint between dark and black
+            const iMid = c.background.rgb.map((x, i) => (x + c.black.rgb[i]) / 2);
+            const mid = this.data.color ? this.colorRGB.map((x, i) => Math.pow(x * iMid[i], inverseGamma)) : iMid;
+            const black = this.data.color ? this.colorRGB.map((x, i) => Math.pow(x * c.black.rgb[i], inverseGamma)) : c.black.rgb;
+
+            // For darkness [-1, -0.5), blend between the chosen darkness color and black
+            if (this.data.luminosity < -0.5) {
+                lc = Math.abs(this.data.luminosity) - 0.5;
+
+                // Darkness Dim colors -> tend to darker tone
+                cdim1 = black;
+                cdim2 = black.map(x => x * 0.625);
+
+                // Darkness Bright colors -> tend to darkest tone
+                cbr1 = black.map(x => x * 0.5);
+                cbr2 = black.map(x => x * 0.125);
+            }
+            // For darkness [-0.5, 0) blend between the chosen darkness color and the dark midpoint
+            else {
+                lc = Math.pow((Math.abs(this.data.luminosity) * 2), 0.4); // Accelerating easing toward dark tone with pow
+
+                // Darkness Dim colors -> tend to medium tone
+                cdim1 = mid;
+                cdim2 = black;
+
+                // Darkness Bright colors -> tend to dark tone
+                cbr1 = mid;
+                cbr2 = black.map(x => x * 0.5);
+            }
+
+            // Linear interpolation between tones according to luminosity
+            u.colorDim = blend(cdim1, cdim2, 1 - lc);
+            u.colorBright = blend(cbr1, cbr2, 1 - lc);
+
+            // TODO
+            // if (this.data.luminosity < -0.5) {
+            //     const s = 1.5 + this.data.luminosity;
+
+            //     u.colorDim = c.dark.rgb.map(x => x * s);
+            //     u.colorBright = c.black.rgb.map(x => x * s);
+            // } else {
+            //     const s = this.data.luminosity * -2;
+
+            //     u.colorDim = blend(c.dark.rgb, c.background.rgb, s);
+            //     u.colorBright = blend(c.black.rgb, c.background.rgb, s);
+            // }
+        }
+        // Light [0,1]
+        else {
+            const penalty = shader.getDarknessPenalty(c.darkness.level, this.data.luminosity);
+            const lumPenalty = Math.clamped(this.data.luminosity * 2, 0, 1);
+
+            u.colorBright = [1, 1, 1].map((x, i) => Math.max(ll.bright * x * (1 - penalty) * lumPenalty, c.background.rgb[i]));
+            u.colorDim = u.colorBright.map((x, i) => (ll.dim * x) + ((1 - ll.dim) * c.background.rgb[i]));
+        }
+
+        // Apply standard uniforms for this PointSource
+        this._updateCommonUniforms(shader);
+
+        u.color = this.data.color ? this.colorRGB : d.color;
+        u.colorBackground = c.background.rgb;
+
+        u.pv_sight = false;
+        u.pv_luminosity = this.data.luminosity;
+        u.pv_lightLevels = [ll.bright, ll.dim, ll.dark, ll.black];
+    });
+
+    patch("LightSource.prototype._updateDelimiterUniforms", "OVERRIDE", function (shader) {
+        const u = shader.uniforms;
+
+        u.ratio = this.ratio;
+        u.darkness = this.isDarkness;
+        u.screenDimensions = canvas.screenDimensions;;
+        u.pv_sight = false;
+        u.pv_darkness = this.isDarkness;
+    });
+
+    function getLightRadius(token, units) {
+        if (units === 0) {
+            return 0;
+        }
+
+        const u = Math.abs(units);
+        const hw = token.w / 2;
+
+        return (u / canvas.dimensions.distance * canvas.dimensions.size + hw) * Math.sign(units);
+    }
+
+    patch("VisionSource.prototype.initialize", "OVERRIDE", function (data = {}) {
+        const token = this.object;
+        const document = token.document;
+        const scene = token.scene ?? token._original?.scene;
+
+        let visionRules = document.getFlag("perfect-vision", "visionRules") || "default";
+        let dimVisionInDarkness;
+        let dimVisionInDimLight;
+        let brightVisionInDarkness;
+        let brightVisionInDimLight;
+
+        if (visionRules === "custom") {
+            dimVisionInDarkness = document.getFlag("perfect-vision", "dimVisionInDarkness");
+            dimVisionInDimLight = document.getFlag("perfect-vision", "dimVisionInDimLight");
+            brightVisionInDarkness = document.getFlag("perfect-vision", "brightVisionInDarkness");
+            brightVisionInDimLight = document.getFlag("perfect-vision", "brightVisionInDimLight");
+        } else {
+            if (visionRules === "default") {
+                visionRules = game.settings.get("perfect-vision", "visionRules");
+            }
+
+            if (visionRules !== "custom") {
+                dimVisionInDarkness = presets[visionRules].dimVisionInDarkness;
+                dimVisionInDimLight = presets[visionRules].dimVisionInDimLight;
+                brightVisionInDarkness = presets[visionRules].brightVisionInDarkness;
+                brightVisionInDimLight = presets[visionRules].brightVisionInDimLight;
+            }
+        }
+
+        dimVisionInDarkness = dimVisionInDarkness || game.settings.get("perfect-vision", "dimVisionInDarkness");
+        dimVisionInDimLight = dimVisionInDimLight || game.settings.get("perfect-vision", "dimVisionInDimLight");
+        brightVisionInDarkness = brightVisionInDarkness || game.settings.get("perfect-vision", "brightVisionInDarkness");
+        brightVisionInDimLight = brightVisionInDimLight || game.settings.get("perfect-vision", "brightVisionInDimLight");
+
+        let sightLimit = parseFloat(document.getFlag("perfect-vision", "sightLimit"));
+
+        if (Number.isNaN(sightLimit)) {
+            sightLimit = parseFloat(scene?.getFlag("perfect-vision", "sightLimit"));
+        }
+
+        if (!Number.isNaN(sightLimit)) {
+            sightLimit = Math.max(getLightRadius(Math.abs(sightLimit)), Math.min(token.w, token.h) * 0.5);
+        } else {
+            sightLimit = undefined;
+        }
+
+        let { dim, bright } = data;
+
+        if (sightLimit !== undefined) {
+            dim = Math.min(dim, sightLimit);
+            bright = Math.min(bright, sightLimit);
+        }
+
+        data.bright = Math.max(
+            dimVisionInDarkness === "bright" || dimVisionInDarkness === "bright_mono" ? dim : 0,
+            brightVisionInDarkness === "bright" || brightVisionInDarkness === "bright_mono" ? bright : 0
+        );
+        data.dim = Math.max(
+            data.bright,
+            dimVisionInDarkness === "dim" || dimVisionInDarkness === "dim_mono" ? dim : 0,
+            brightVisionInDarkness === "dim" || brightVisionInDarkness === "dim_mono" ? bright : 0
+        );
+
+        // Initialize new input data
+        const changes = this._initializeData(data);
+
+        this._pv_minRadius = token.w / 2;
+
+        // Compute derived data attributes
+        this.radius = Math.max(Math.abs(this.data.dim), Math.abs(this.data.bright));
+        this.ratio = Math.clamped(Math.abs(this.data.bright) / this.radius, 0, 1);
+        this.limited = this.data.angle !== 360;
+
+        const radiusSight = Math.max(
+            dimVisionInDarkness === "scene" || dimVisionInDarkness === "scene_mono" ? dim : 0,
+            dimVisionInDarkness === "dim" || dimVisionInDarkness === "dim_mono" ? dim : 0,
+            dimVisionInDarkness === "bright" || dimVisionInDarkness === "bright_mono" ? dim : 0,
+            brightVisionInDarkness === "scene" || brightVisionInDarkness === "scene_mono" ? bright : 0,
+            brightVisionInDarkness === "dim" || brightVisionInDarkness === "dim_mono" ? bright : 0,
+            brightVisionInDarkness === "bright" || brightVisionInDarkness === "bright_mono" ? bright : 0
+        );
+        const radiusColor = Math.max(
+            dimVisionInDarkness === "scene" ? dim : 0,
+            dimVisionInDarkness === "dim" ? dim : 0,
+            dimVisionInDarkness === "bright" ? dim : 0,
+            brightVisionInDarkness === "scene" ? bright : 0,
+            brightVisionInDarkness === "dim" ? bright : 0,
+            brightVisionInDarkness === "bright" ? bright : 0
+        );
+        const radiusBoost = Math.max(
+            dimVisionInDimLight === "bright" ? dim : 0,
+            brightVisionInDimLight === "bright" ? bright : 0
+        );
+
+        // Compute the source polygon
+        const origin = { x: this.data.x, y: this.data.y };
+
+        if (sightLimit !== undefined) {
+            this.los = CONFIG.Canvas.losBackend.create(origin, {
+                type: "sight",
+                angle: this.data.angle,
+                rotation: this.data.rotation,
+                source: this
+            });
+        } else {
+            this.los = CONFIG.Canvas.losBackend.create(origin, {
+                type: "sight",
+                angle: this.data.angle,
+                rotation: this.data.rotation,
+                radius: sightLimit,
+                source: this
+            });
+        }
+
+        // Store the FOV circle
+        this.fov = new PIXI.Circle(origin.x, origin.y, radiusSight);
+
+        this._pv_fov = this.fov ? new TransformedShape(this.fov) : null;
+        this._pv_los = this.los ? new TransformedShape(this.los) : null;
+        this._pv_geometry = new PointSourceGeometry(this.radius === radiusSight ? this._pv_fov : new TransformedShape(new PIXI.Circle(origin.x, origin.y, this.radius)), this._pv_los, canvas.dimensions.size / 10);
+        this._pv_shader = new VisionSourceShader(this);
+        this._pv_mesh = new PointSourceMesh(this._pv_geometry, this._pv_shader);
+        this._pv_mesh.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
+        this._pv_mesh.drawMask.fov = false;
+
+        if (this.radius !== radiusSight) {
+            this._pv_fovGeometry = new PIXI.Geometry()
+                .addAttribute("aVertexPosition", new PIXI.Buffer(this._pv_fov.generateContour(canvas.sight._pv_contourOptions), true, false), 2, false, PIXI.TYPES.FLOAT);
+            this._pv_fovGeometry.drawMode = PIXI.DRAW_MODES.TRIANGLE_FAN;
+        } else {
+            this._pv_fovGeometry = null;
+        }
+
+        if (radiusColor > 0 && !token._original) {
+            this._pv_radiusColor = radiusColor;
+        } else {
+            this._pv_radiusColor = 0;
+        }
+
+        if (radiusBoost > 0 && !token._original) {
+            this._pv_radiusBoost = radiusBoost;
+        } else {
+            this._pv_radiusBoost = 0;
+        }
+
+        if (token._original?.vision) {
+            this._pv_tintMono = token._original.vision._pv_tintMono;
+        } else if (this.radius > 0) {
+            this._pv_tintMono = foundry.utils.colorStringToHex(
+                document.getFlag("perfect-vision", "monoVisionColor") || game.settings.get("perfect-vision", "monoVisionColor") || "#ffffff"
+            );
+        } else {
+            this._pv_tintMono = 0xFFFFFF;
+        }
+
+        this._flags.useFov = false;
+        this._flags.renderFOV = false;
+
+        if (this.constructor._appearanceKeys.some(k => k in changes)) {
+            for (let k of Object.keys(this._resetUniforms)) {
+                this._resetUniforms[k] = true;
+            }
+        }
+
+        // Set the correct blend mode
+        this._initializeBlending();
+
+        return this;
+    });
+
+    patch("VisionSource.prototype._initializeBlending", "WRAPPER", function (wrapped) {
+        wrapped();
+
+        const defaultZ = this.isDarkness ? 10 : 0;
+        const BM = PIXI.BLEND_MODES;
+
+        // Delimiter
+        this.delimiter.blendMode = BM[this.isDarkness ? "NORMAL" : "MAX_COLOR"];
+        this.delimiter.zIndex = this.data.z ?? defaultZ;
+    });
+
+    patch("VisionSource.prototype._updateIlluminationUniforms", "OVERRIDE", function (shader) {
+        const area = this._pv_area;
+        const u = shader.uniforms;
+        const c = area?._pv_channels ?? canvas.lighting.channels;
+
+        // Determine light colors
+        const ll = area?._pv_lightLevels ?? CONFIG.Canvas.lightLevels;
+        const penalty = shader.getDarknessPenalty(c.darkness.level, 0.5);
+        const lumPenalty = 1.0;
+
+        u.colorBright = [1, 1, 1].map((x, i) => Math.max(ll.bright * x * (1 - penalty) * lumPenalty, c.background.rgb[i]));
+        u.colorDim = u.colorBright.map((x, i) => (ll.dim * x) + ((1 - ll.dim) * c.background.rgb[i]));
+        u.colorBackground = c.background.rgb;
+
+        // Apply standard uniforms for this PointSource
+        u.ratio = this.ratio;
+
+        const cci = shader._defaults.alpha // Assume alpha is the default value for vision
+
+        u.inverseGamma = 1 / ((2.4 * cci) + 0.25);
+        u.reverseInverseGamma = 1 / ((2.4 * (1.0 - cci)) + 0.25);
+        u.screenDimensions = canvas.screenDimensions;;
+        u.uBkgSampler = canvas.primary.renderTexture;
+
+        u.pv_sight = true;
+        u.pv_luminosity = 0.5;
+        u.pv_lightLevels = [ll.bright, ll.dim, ll.dark, ll.black];
+    });
+});
+
+Logger.debug("Patching VisionSource.prototype._updateDelimiterUniforms (ADDED)");
+
+VisionSource.prototype._updateDelimiterUniforms = function (shader) {
+    LightSource.prototype._updateDelimiterUniforms.call(this, shader);
+
+    shader.uniforms.pv_sight = true;
+};
+
+Logger.debug("Patching VisionSource.prototype.drawDelimiter (ADDED)");
+
+VisionSource.prototype.drawDelimiter = LightSource.prototype.drawDelimiter;
+
+Logger.debug("Patching VisionSource.prototype.delimiter (ADDED)");
+
+Object.defineProperty(VisionSource.prototype, "delimiter", {
+    get() {
+        if (!this._pv_delimiter) {
+            this._pv_delimiter = this._createMesh(DelimiterShader);
+            this._resetUniforms.delimiter = true;
+        }
+
+        return this._pv_delimiter;
+    }
+});
+
+LightSource.prototype._pv_drawMesh = function () {
+    const mesh = this._pv_mesh;
+
+    mesh.colorMask.red = this.object.data.vision;
+
+    if (this.object.data.walls) {
+        mesh.occlusionObjects = this._pv_occlusionTiles;
+    } else {
+        mesh.occlusionObjects = null;
+    }
+
+    return mesh;
+};
+
+VisionSource.prototype._pv_drawMesh = function () {
+    const mesh = this._pv_mesh;
+    const uniforms = this._pv_shader.uniforms;
+    const { x, y } = this.data;
+
+    uniforms.uOrigin[0] = x;
+    uniforms.uOrigin[1] = y;
+    uniforms.uRadius = this.fov.radius;
+    uniforms.uRadiusDim = this.radius;
+    uniforms.uRadiusBright = this.radius * this.ratio;
+    uniforms.uRadiusColor = this._pv_radiusColor;
+    uniforms.uRadiusBoost = this._pv_radiusBoost;
+    uniforms.uSmoothness = mesh.geometry.inset;
+
+    return mesh;
+};
+
+class LightSourceShader extends PIXI.Shader {
+    static vertexSrc = `\
+        #version 300 es
+
+        precision ${PIXI.settings.PRECISION_VERTEX} float;
+
+        layout(location = 0) in vec2 aVertexPosition;
+        layout(location = 1) in lowp float aVertexDepth;
+
+        uniform mat3 projectionMatrix;
+        uniform mat3 translationMatrix;
+
+        void main() {
+            gl_Position = vec4((projectionMatrix * (translationMatrix * vec3(aVertexPosition, 1.0))).xy, aVertexDepth, 1.0);
+        }`;
+
+    static get fragmentSrc() {
+        return `\
+        #version 300 es
+
+        precision ${PIXI.settings.PRECISION_FRAGMENT} float;
+
+        ${game.modules.get("levels")?.active ? "#define OCCLUSION_MASK" : ""}
+
+        #ifdef OCCLUSION_MASK
+        uniform ${PIXI.settings.PRECISION_VERTEX} vec4 viewportFrame;
+        uniform ${PIXI.settings.PRECISION_VERTEX} mat3 projectionMatrixInverse;
+        uniform ${PIXI.settings.PRECISION_VERTEX} mat3 translationMatrixInverse;
+
+        uniform sampler2D uOcclusionMaskSampler;
+        uniform vec4 uOcclusionMaskFrame;
+
+        float occlusionMaskAlpha(vec2 worldPosition) {
+            return texture(uOcclusionMaskSampler, (worldPosition - uOcclusionMaskFrame.xy) / uOcclusionMaskFrame.zw).r;
+        }
+        #endif
+
+        layout(location = 0) out vec4 textures[1];
+
+        void main() {
+            float alpha = smoothstep(0.0, 1.0, gl_FragCoord.z);
+
+            #ifdef OCCLUSION_MASK
+            ${PIXI.settings.PRECISION_VERTEX} vec3 worldPosition = projectionMatrixInverse * vec3(((gl_FragCoord.xy - viewportFrame.xy) / viewportFrame.zw) * 2.0 - 1.0, 1.0);
+
+            alpha = min(alpha, occlusionMaskAlpha(worldPosition.xy));
+            #endif
+
+            textures[0] = vec4(alpha, alpha, alpha, 0.0);
+        }`;
+    }
+
+    static get program() {
+        if (!this._program) {
+            this._program = PIXI.Program.from(this.vertexSrc, this.fragmentSrc);
+
+            if (game.modules.get("levels")?.active) {
+                LightSourceShader.prototype.update = LightSourceShader.prototype._update;
+            }
+        }
+
+        return this._program;
+    }
+
+    constructor(source) {
+        super(LightSourceShader.program, {
+            uOcclusionMaskSampler: PIXI.Texture.WHITE,
+            uOcclusionMaskFrame: new Float32Array(4)
+        });
+
+        this.source = source;
+    }
+
+    get occlusionMask() {
+        return this.uniforms.uOcclusionMaskSampler;
+    }
+
+    set occlusionMask(value) {
+        this.uniforms.uOcclusionMaskSampler = value ?? PIXI.Texture.EMPTY;
+    }
+
+    _update(renderer, mesh) {
+        const uniforms = this.uniforms;
+
+        uniforms.translationMatrixInverse = mesh.worldTransformInverse.toArray(true);
+
+        const occlusionMaskFrame = uniforms.uOcclusionMaskFrame;
+        const occlusionMaskTexture = uniforms.uOcclusionMaskSampler;
+        const occlusionMaskTextureFilterFrame = occlusionMaskTexture.filterFrame;
+
+        if (occlusionMaskTextureFilterFrame) {
+            occlusionMaskFrame[0] = occlusionMaskTextureFilterFrame.x;
+            occlusionMaskFrame[1] = occlusionMaskTextureFilterFrame.y;
+            occlusionMaskFrame[2] = occlusionMaskTextureFilterFrame.width;
+            occlusionMaskFrame[3] = occlusionMaskTextureFilterFrame.height;
+        } else {
+            occlusionMaskFrame[0] = 0;
+            occlusionMaskFrame[1] = 0;
+            occlusionMaskFrame[2] = occlusionMaskTexture.width;
+            occlusionMaskFrame[3] = occlusionMaskTexture.height;
+        }
+    }
+}
+
+class VisionSourceShader extends PIXI.Shader {
+    static vertexSrc = `\
+        #version 300 es
+
+        precision ${PIXI.settings.PRECISION_VERTEX} float;
+
+        layout(location = 0) in vec2 aVertexPosition;
+        layout(location = 1) in lowp float aVertexDepth;
+
+        uniform mat3 projectionMatrix;
+        uniform mat3 translationMatrix;
+
+        void main() {
+            gl_Position = vec4((projectionMatrix * (translationMatrix * vec3(aVertexPosition, 1.0))).xy, aVertexDepth, 1.0);
+        }`;
+
+    static fragmentSrc = `\
+        #version 300 es
+
+        precision ${PIXI.settings.PRECISION_FRAGMENT} float;
+
+        uniform ${PIXI.settings.PRECISION_VERTEX} vec4 viewportFrame;
+        uniform ${PIXI.settings.PRECISION_VERTEX} mat3 projectionMatrixInverse;
+        uniform ${PIXI.settings.PRECISION_VERTEX} mat3 translationMatrixInverse;
+
+        uniform vec2 uOrigin;
+        uniform float uRadius;
+        uniform float uRadiusDim;
+        uniform float uRadiusBright;
+        uniform float uRadiusColor;
+        uniform float uRadiusBoost;
+        uniform float uSmoothness;
+
+        layout(location = 0) out vec4 textures[2];
+
+        void main() {
+            ${PIXI.settings.PRECISION_VERTEX} vec3 worldPosition = projectionMatrixInverse * vec3(((gl_FragCoord.xy - viewportFrame.xy) / viewportFrame.zw) * 2.0 - 1.0, 1.0);
+            ${PIXI.settings.PRECISION_VERTEX} vec2 localPosition = (translationMatrixInverse * worldPosition).xy - uOrigin;
+
+            float dist = length(localPosition);
+
+            float sight = smoothstep(uRadius, uRadius - uSmoothness, dist);
+            float dim = smoothstep(uRadiusDim, uRadiusDim - uSmoothness, dist);
+            float bright = smoothstep(uRadiusBright, uRadiusBright - uSmoothness, dist);
+            float vision = mix(bright, 1.0, dim / 2.0);
+            float color = smoothstep(uRadiusColor, uRadiusColor - uSmoothness, dist);
+            float boost = smoothstep(uRadiusBoost, uRadiusBoost - uSmoothness, dist);
+
+            float alpha = smoothstep(0.0, 1.0, gl_FragCoord.z);
+
+            textures[0] = vec4(alpha, min(sight, alpha), 0.0, min(color, alpha));
+            textures[1] = vec4(0.0, 0.0, min(vision, alpha), min(boost, alpha));
+        }`;
+
+    static get program() {
+        if (!this._program) {
+            this._program = PIXI.Program.from(this.vertexSrc, this.fragmentSrc);
+        }
+
+        return this._program;
+    }
+
+    constructor(source) {
+        super(VisionSourceShader.program, {
+            uOrigin: new Float32Array(2),
+            uRadius: 0,
+            uRadiusDim: 0,
+            uRadiusBright: 0,
+            uRadiusColor: 0,
+            uRadiusBoost: 0,
+            uSmoothness: 0
+        });
+
+        this.source = source;
+    }
+
+    update(renderer, mesh) {
+        this.uniforms.translationMatrixInverse = mesh.worldTransformInverse.toArray(true);
+    }
+}

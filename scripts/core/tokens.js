@@ -1,21 +1,28 @@
-export class Tokens {
-    static isOverhead(token) {
-        return undefined;
-    }
+import { patch } from "../utils/patch.js";
 
-    static hasOverlayEffect(token) {
-        if (token.data.overlayEffect) {
-            return true;
+Hooks.once("init", () => {
+    patch("Token.prototype.refresh", "WRAPPER", function (wrapped) {
+        wrapped();
+
+        if (!this._pv_border) {
+            this._pv_border = new ObjectHUD(this);
+        } else {
+            this._pv_border.removeChildren();
         }
 
-        if (token.actor) {
-            for (const effect of token.actor.data.effects.values()) {
-                if (effect.data.flags?.core?.overlay) {
-                    return true;
-                }
-            }
-        }
+        this._pv_border.addChild(this.border);
 
-        return false;
-    }
-}
+        if (this._hover) {
+            canvas._pv_highlights_overhead.borders.addChild(this._pv_border);
+        } else {
+            canvas._pv_highlights_underfoot.borders.addChild(this._pv_border);
+        }
+    });
+
+    patch("Token.prototype.destroy", "WRAPPER", function (wrapped, options) {
+        this._pv_border?.destroy(options);
+        this._pv_border = null;
+
+        wrapped(options);
+    });
+});
