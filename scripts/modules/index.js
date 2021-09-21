@@ -11,3 +11,4 @@ import "./token-auras/index.js";
 import "./token-factions/index.js";
 import "./turnmarker/index.js";
 import "./weatherblock/index.js";
+import "./world-explorer/index.js";
