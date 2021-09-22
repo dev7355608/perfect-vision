@@ -72,6 +72,11 @@ Logger.debug("Patching PIXI.Graphics with PIXI.smooth.SmoothGraphics (OVERRIDE)"
 PIXI.LegacyGraphics = PIXI.Graphics;
 PIXI.Graphics = PIXI.smooth.SmoothGraphics;
 
+// Temporary fix to ensure compatibility with Enhanced Terrain Layer
+if (PIXI.LegacyGraphics.prototype.drawDashedPolygon) {
+    PIXI.Graphics.prototype.drawDashedPolygon = PIXI.LegacyGraphics.prototype.drawDashedPolygon;
+}
+
 Logger.debug("Patching PIXI.Renderer.prototype.create (WRAPPER)");
 
 const create = PIXI.Renderer.create;
