@@ -67,6 +67,9 @@ Hooks.once("canvasInit", () => {
     texture.destroy(true);
 });
 
+// Enable WebGL 2 on mobile devices
+PIXI.settings.PREFER_ENV = PIXI.ENV.WEBGL2;
+
 Logger.debug("Patching PIXI.Graphics with PIXI.smooth.SmoothGraphics (OVERRIDE)");
 
 PIXI.LegacyGraphics = PIXI.Graphics;
