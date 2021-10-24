@@ -134,7 +134,7 @@ Hooks.once("init", () => {
 
         const zIndex = tileIndex.levelsOverhead ? tileIndex.range[0] + 2 : tileIndex.range[0];
 
-        Board.place(`Tile#${tile.id}.tile`, tile.tile, Board.LAYERS.UNDERFOOT_TILES + 1, zIndex);
+        Board.place(`Tile#${tile.id}.tile`, tile.tile, Board.LAYERS.UNDERFOOT_TILES + 5, zIndex);
 
         canvas.perception.schedule({ foreground: { refresh: true } });
 

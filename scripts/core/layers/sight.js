@@ -90,6 +90,10 @@ Hooks.once("init", () => {
         let inLOS = false;
 
         for (const source of visionSources.values()) {
+            if (!source.active) {
+                continue;
+            }
+
             if (points.some(p => source._pv_los.containsPoint(p))) {
                 inLOS = true;
                 break;

@@ -65,7 +65,7 @@ Token.prototype._pv_refresh = function () {
                 Board.place(`Token#${this.id}.icon`, this.icon, Board.LAYERS.OVERHEAD_TILES + 1, zIndex);
                 Board.unplace(`Token#${this.id}.effects`);
             } else {
-                Board.place(`Token#${this.id}.icon`, this.icon, Board.LAYERS.UNDERFOOT_TILES + 1, zIndex);
+                Board.place(`Token#${this.id}.icon`, this.icon, Board.LAYERS.UNDERFOOT_TILES + 10, zIndex);
 
                 if (Tokens.hasOverlayEffect(this)) {
                     Board.place(`Token#${this.id}.effects`, this.effects, Board.LAYERS.TOKEN_EFFECTS, Board.Z_INDICES.PARENT);
