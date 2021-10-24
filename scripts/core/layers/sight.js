@@ -59,6 +59,14 @@ Hooks.once("init", () => {
         const offsets = t > 0 ? [[0, 0], [-t, 0], [t, 0], [0, -t], [0, t], [-t, -t], [-t, t], [t, t], [t, -t]] : [[0, 0]];
         const points = offsets.map(o => new PIXI.Point(point.x + o[0], point.y + o[1]));
 
+        if (!this._pv_inBuffer) {
+            const d = canvas.dimensions;
+
+            if (points.every(p => !d.sceneRect.contains(p.x, p.y))) {
+                return false;
+            }
+        }
+
         let vision = canvas.lighting._pv_vision;
 
         const areas = canvas.lighting._pv_areas;
@@ -236,6 +244,8 @@ Hooks.once("init", () => {
                 vision._pv_los.drawShape(source._pv_fov);
             }
         }
+
+        this._pv_inBuffer = inBuffer;
 
         // Commit updates to the Fog of War texture
         if (this._fogUpdates >= SightLayer.FOG_COMMIT_THRESHOLD) {
