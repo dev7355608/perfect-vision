@@ -8,35 +8,41 @@ Hooks.once("init", () => {
     patch("FogExploration.prototype.explore", "OVERRIDE", function (source, force = false) {
         let globalLight = canvas.lighting.globalLight;
 
-        if (!globalLight) {
-            const areas = canvas.lighting._pv_areas;
+        for (const area of canvas.lighting._pv_areas) {
+            if (globalLight !== area._pv_globalLight) {
+                globalLight = undefined;
 
-            if (areas?.length > 0) {
-                for (const area of areas) {
-                    if (area._pv_globalLight) {
-                        globalLight = true;
-                        break;
-                    }
-                }
+                break;
             }
         }
 
-        const r = globalLight ? canvas.dimensions.maxR : source._pv_radius;
-        if (r < 0) return false;
+        const r = globalLight ? canvas.dimensions.maxR : source.radius;
+
+        if (r < 0) {
+            return false;
+        }
+
         const coords = canvas.grid.getCenter(source.x, source.y).map(Math.round).join("_");
         const position = this.data.positions[coords];
 
         // Check whether the position has already been explored
         let explored = position && (position.limit !== true) && (position.radius >= r);
-        if (explored && !force) return false;
+
+        if (explored && !force) {
+            return false;
+        }
 
         // Update explored positions
-        if (CONFIG.debug.fog) console.debug("SightLayer | Updating fog exploration for new explored position.");
+        if (CONFIG.debug.fog) {
+            console.debug("SightLayer | Updating fog exploration for new explored position.");
+        }
+
         this.data.update({
             positions: {
-                [coords]: { radius: source._pv_radius, limit: source.limited }
+                [coords]: { radius: source.radius, limit: source.limited || globalLight === undefined }
             }
         });
+
         return true;
     });
 
