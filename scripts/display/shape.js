@@ -39,7 +39,6 @@ export class ShapeGeometry extends PIXI.Geometry {
 
         this._shape = null;
         this._matrix = null;
-        this._origin = null;
         this._points = null;
         this._vertices = null;
         this._indices = null;
@@ -183,14 +182,6 @@ export class ShapeGeometry extends PIXI.Geometry {
 
         this._shape = shape;
         this._matrix = matrix ?? null;
-
-        if (shape.type === PIXI.SHAPES.RECT || shape.type === PIXI.SHAPES.RREC) {
-            this._origin = new PIXI.Point(shape.x + shape.width / 2, shape.y + shape.height / 2);
-        } else if (Number.isFinite(shape.x) && Number.isFinite(shape.y)) {
-            this._origin = new PIXI.Point(shape.x, shape.y);
-        } else if ("origin" in shape) {
-            this._origin = new PIXI.Point(shape.origin.x, shape.origin.y);
-        }
     }
 
     _buildGeometry() {
@@ -226,35 +217,30 @@ export class ShapeGeometry extends PIXI.Geometry {
         } else if (shape.type === PIXI.SHAPES.POLY) {
             const p = shape.points;
             const m = p.length;
-            const origin = this._origin;
 
-            if (origin) {
-                vertices = new Float32Array(m + 4);
-                vertices[0] = origin.x;
-                vertices[1] = origin.y;
-                vertices.set(p, 2);
-                vertices[m + 2] = p[0];
-                vertices[m + 3] = p[1];
+            vertices = new Float32Array(p);
+            indices = new (m > 0x1FFFE ? Uint32Array : Uint16Array)(PIXI.utils.earcut(p));
 
-                points = vertices.subarray(2, -2);
-                drawMode = PIXI.DRAW_MODES.TRIANGLE_FAN;
-            } else {
-                vertices = new Float32Array(p);
-                indices = new (m > 0x1FFFE ? Uint32Array : Uint16Array)(PIXI.utils.earcut(p));
-
-                points = vertices;
-                drawMode = PIXI.DRAW_MODES.TRIANGLES;
-            }
+            points = vertices;
+            drawMode = PIXI.DRAW_MODES.TRIANGLES;
         } else {
-            const { x, y } = this._origin;
+            let x, y;
             let dx, dy;
             let rx, ry;
 
             if (shape.type === PIXI.SHAPES.RREC) {
+                const w = shape.width / 2;
+                const h = shape.height / 2;
+
+                x = shape.x + w;
+                y = shape.y + h;
                 rx = ry = shape.radius;
-                dx = shape.width / 2 - rx;
-                dy = shape.height / 2 - ry;
+                dx = w - rx;
+                dy = h - ry;
             } else {
+                x = shape.x;
+                y = shape.y;
+
                 if (shape.type === PIXI.SHAPES.CIRC) {
                     rx = ry = shape.radius;
                 } else {
@@ -273,17 +259,17 @@ export class ShapeGeometry extends PIXI.Geometry {
             if (matrix = this._matrix) {
                 const { a, b, c, d } = matrix;
 
-                sx *= a * a + c * c;
-                sy *= b * b + d * d;
+                sx *= Math.sqrt(a * a + c * c);
+                sy *= Math.sqrt(b * b + d * d);
             }
 
             const n = Math.max(1, Math.round(Math.sqrt(450 * (sx + sy)) / 9.2));
-            const m = n * 8 - (dx ? 0 : 4) - (dy ? 0 : 4);
+            const m = n * 8 + (dx ? 4 : 0) + (dy ? 4 : 0);
 
             vertices = new Float32Array(m);
 
             let j1 = 0;
-            let j2 = n * 4 - (dx ? 0 : 2);
+            let j2 = n * 4 + (dx ? 2 : 0) + 2;
             let j3 = j2;
             let j4 = m;
 
@@ -309,7 +295,7 @@ export class ShapeGeometry extends PIXI.Geometry {
                 }
             }
 
-            const a = Math.PI / n;
+            const a = Math.PI / (n * 2);
 
             for (let i = 1; i < n; i++) {
                 const x0 = dx + Math.cos(a * i) * rx;
@@ -529,7 +515,6 @@ export class ShapeGeometry extends PIXI.Geometry {
     destroy(options) {
         this._shape = null;
         this._matrix = null;
-        this._origin = null;
         this._points = null;
         this._vertices = null;
         this._indices = null;
