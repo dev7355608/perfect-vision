@@ -62,11 +62,14 @@ Hooks.once("init", () => {
         mask.stage.shapes.clear();
 
         if (this.tiles.length !== 0 && tokens?.length > 0) {
+            const rMulti = game.modules.get("betterroofs")?.active ?
+                (canvas.scene.getFlag("betterroofs", "occlusionRadius") ?? game.settings.get("betterroofs", "occlusionRadius")) : 1.0;
+
             mask.stage.shapes.beginFill();
 
             for (const token of tokens) {
                 const c = token.center;
-                const r = Math.max(token.w, token.h);
+                const r = Math.max(token.w, token.h) * rMulti;
 
                 mask.stage.shapes.drawCircle(c.x, c.y, r);
             }
