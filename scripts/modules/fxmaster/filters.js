@@ -46,10 +46,12 @@ Hooks.once("setup", () => {
                     const segment = Board.stage;
 
                     segment.filters.push(filter);
+                    segment.filterArea = canvas.app.renderer.screen;
                 } else if (key === "core_predator" || key === "core_oldfilm") {
                     const segment = Board.getSegment(Board.SEGMENTS.LIGHTING);
 
                     segment.filters.push(filter);
+                    segment.filterArea = canvas.app.renderer.screen;
 
                     if (manager.apply_to.drawings) {
                         Logger.warn("Perfect Vision does not apply FXMaster's %s filter to the drawings layer", key);
@@ -58,6 +60,7 @@ Hooks.once("setup", () => {
                     const segment = Board.getSegment(Board.SEGMENTS.LIGHTING);
 
                     segment.filters.unshift(filter);
+                    segment.filterArea = canvas.app.renderer.screen;
 
                     if (manager.apply_to.drawings) {
                         Logger.warn("Perfect Vision does not apply FXMaster's %s filter to the drawings layer", key);
