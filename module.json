@@ -3,7 +3,7 @@
   "title": "Perfect Vision",
   "description": "Darkvision rules and other vision-related improvements.",
   "author": "dev7355608",
-  "version": "2.10.7",
+  "version": "2.10.8",
   "minimumCoreVersion": "0.8.8",
   "compatibleCoreVersion": "0.8.9",
   "esmodules": [
@@ -20,7 +20,7 @@
   ],
   "url": "https://github.com/dev7355608/perfect-vision",
   "manifest": "https://raw.githubusercontent.com/dev7355608/perfect-vision/main/module.json",
-  "download": "https://github.com/dev7355608/perfect-vision/archive/v2.10.7.zip",
+  "download": "https://github.com/dev7355608/perfect-vision/archive/v2.10.8.zip",
   "bugs": "https://github.com/dev7355608/perfect-vision/issues",
   "readme": "https://raw.githubusercontent.com/dev7355608/perfect-vision/main/README.md"
 }

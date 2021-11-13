@@ -1,5 +1,6 @@
 import "./betterroofs/index.js";
 import "./combatbooster/index.js";
+import "./dungeon-draw/index.js";
 import "./fxmaster/index.js";
 import "./levels/index.js";
 import "./monks-little-details/index.js";

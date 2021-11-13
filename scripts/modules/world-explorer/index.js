@@ -6,6 +6,6 @@ Hooks.once("init", () => {
     }
 
     Hooks.on("canvasReady", () => {
-        Board.place("worldExplorer", canvas.worldExplorer, Board.LAYERS.BACKGROUND, 1);
+        Board.place("worldExplorer", canvas.worldExplorer, Board.LAYERS.BACKGROUND, 10);
     });
 });
