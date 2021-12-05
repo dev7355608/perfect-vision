@@ -222,16 +222,16 @@ Hooks.once("init", () => {
             const drawMode = geometry.drawMode;
             const { size: losSize, start: losStart } = geometry.segments.los;
 
-            if (source.radius > 0) { // Token FOV radius
-                const { size: fovSize, start: fovStart } = geometry.segments.fov;
-
-                vision._pv_fov.pushMask(false, geometry, drawMode, fovSize, fovStart);
-                vision._pv_fov.draw(false, geometry, drawMode, losSize, losStart);
-                vision._pv_fov.popMasks();
-            } else if (source.fov.radius > 0) {
+            if (source.fov.radius > source.radius) {
                 const fovGeometry = source._pv_fovGeometry;
 
                 vision._pv_fov.pushMask(false, fovGeometry, fovGeometry.drawMode, fovGeometry.size, fovGeometry.start);
+                vision._pv_fov.draw(false, geometry, drawMode, losSize, losStart);
+                vision._pv_fov.popMasks();
+            } else if (source.radius > 0) { // Token FOV radius
+                const { size: fovSize, start: fovStart } = geometry.segments.fov;
+
+                vision._pv_fov.pushMask(false, geometry, drawMode, fovSize, fovStart);
                 vision._pv_fov.draw(false, geometry, drawMode, losSize, losStart);
                 vision._pv_fov.popMasks();
             }
