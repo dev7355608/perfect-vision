@@ -84,8 +84,11 @@ Hooks.once("init", () => {
         this._pv_los = this.los ? new TransformedShape(this.los) : null;
         this._pv_geometry = new PointSourceGeometry(null, this._pv_los, canvas.dimensions.size / 10);
         this._pv_shader = new LightSourceShader(this);
-        this._pv_mesh = new PointSourceMesh(this._pv_geometry, this._pv_shader);
-        this._pv_mesh.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
+
+        if (!this._pv_mesh) {
+            this._pv_mesh = new PointSourceMesh(this._pv_geometry, this._pv_shader);
+            this._pv_mesh.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
+        }
 
         this._flags.useFov = false;
         this._flags.renderFOV = false;
@@ -392,9 +395,12 @@ Hooks.once("init", () => {
         this._pv_los = this.los ? new TransformedShape(this.los) : null;
         this._pv_geometry = new PointSourceGeometry(this.radius === radiusSight ? this._pv_fov : new TransformedShape(new PIXI.Circle(origin.x, origin.y, this.radius)), this._pv_los, canvas.dimensions.size / 10);
         this._pv_shader = new VisionSourceShader(this);
-        this._pv_mesh = new PointSourceMesh(this._pv_geometry, this._pv_shader);
-        this._pv_mesh.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
-        this._pv_mesh.drawMask.fov = false;
+
+        if (!this._pv_mesh) {
+            this._pv_mesh = new PointSourceMesh(this._pv_geometry, this._pv_shader);
+            this._pv_mesh.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
+            this._pv_mesh.drawMask.fov = false;
+        }
 
         if (this.radius !== radiusSight) {
             this._pv_fovGeometry = new PIXI.Geometry()
@@ -510,6 +516,8 @@ Object.defineProperty(VisionSource.prototype, "delimiter", {
 LightSource.prototype._pv_drawMesh = function () {
     const mesh = this._pv_mesh;
 
+    mesh.geometry = this._pv_geometry;
+    mesh.shader = this._pv_shader;
     mesh.colorMask.red = this.object.data.vision;
 
     if (this.object.data.walls) {
@@ -525,6 +533,9 @@ VisionSource.prototype._pv_drawMesh = function () {
     const mesh = this._pv_mesh;
     const uniforms = this._pv_shader.uniforms;
     const { x, y } = this.data;
+
+    mesh.geometry = this._pv_geometry;
+    mesh.shader = this._pv_shader;
 
     uniforms.uOrigin[0] = x;
     uniforms.uOrigin[1] = y;

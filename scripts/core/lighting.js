@@ -91,9 +91,16 @@ Hooks.once("init", () => {
         this._pv_los = null;
         this._pv_geometry = new PointSourceGeometry(this._pv_fov, this._pv_los, canvas.dimensions.size / 10);
         this._pv_shader = new LightingAreaShader(this);
-        this._pv_mesh = new PointSourceMesh(this._pv_geometry, this._pv_shader);
-        this._pv_mesh.blendMode = PIXI.BLEND_MODES.NORMAL_NPM;
-        this._pv_mesh.colorMask.alpha = false;
+
+        if (!this._pv_mesh) {
+            this._pv_mesh = new PointSourceMesh(this._pv_geometry, this._pv_shader);
+            this._pv_mesh.blendMode = PIXI.BLEND_MODES.NORMAL_NPM;
+            this._pv_mesh.colorMask.alpha = false;
+        } else {
+            this._pv_mesh.geometry = this._pv_geometry;
+            this._pv_mesh.shader = this._pv_shader;
+        }
+
         this._pv_globalLight = this.globalLight;
 
         let daylightColor = canvas.scene.getFlag("perfect-vision", "daylightColor") ?? "";
@@ -695,9 +702,6 @@ LightingLayer.prototype._pv_updateArea = function (area) {
         area._pv_mesh = new PointSourceMesh(area._pv_geometry, area._pv_shader);
         area._pv_mesh.blendMode = PIXI.BLEND_MODES.NORMAL_NPM;
         area._pv_mesh.colorMask.alpha = false;
-    } else {
-        area._pv_mesh.geometry = area._pv_geometry;
-        area._pv_mesh.shader = area._pv_shader;
     }
 
     let globalLight;
@@ -963,6 +967,9 @@ Drawing.prototype._pv_drawMesh = function () {
     const mesh = this._pv_mesh;
     const uniforms = this._pv_shader.uniforms;
     const channels = this._pv_channels;
+
+    mesh.geometry = this._pv_geometry;
+    mesh.shader = this._pv_shader;
 
     uniforms.uLos = this._pv_vision ? 1 : 0;
     uniforms.uFov = this._pv_vision || this._pv_globalLight ? 1 : 0;

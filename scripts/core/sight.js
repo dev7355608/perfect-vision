@@ -68,6 +68,8 @@ Hooks.once("init", () => {
             this.pending.addChild(prior);
 
             commitFog = this.pending.children.length >= this.constructor.FOG_COMMIT_THRESHOLD;
+        } else {
+            prior.destroy({ children: true });
         }
 
         // Create a new vision container for this frame
