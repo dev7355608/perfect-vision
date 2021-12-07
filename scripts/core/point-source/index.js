@@ -315,7 +315,7 @@ Hooks.once("init", () => {
         }
 
         if (!Number.isNaN(sightLimit)) {
-            sightLimit = Math.max(getLightRadius(Math.abs(sightLimit)), Math.min(token.w, token.h) * 0.5);
+            sightLimit = Math.max(getLightRadius(token, Math.abs(sightLimit)), Math.min(token.w, token.h) * 0.5);
         } else {
             sightLimit = undefined;
         }
@@ -371,7 +371,7 @@ Hooks.once("init", () => {
         // Compute the source polygon
         const origin = { x: this.data.x, y: this.data.y };
 
-        if (sightLimit !== undefined) {
+        if (sightLimit === undefined) {
             this.los = CONFIG.Canvas.losBackend.create(origin, {
                 type: "sight",
                 angle: this.data.angle,
@@ -382,8 +382,9 @@ Hooks.once("init", () => {
             this.los = CONFIG.Canvas.losBackend.create(origin, {
                 type: "sight",
                 angle: this.data.angle,
-                rotation: this.data.rotation,
+                density: 60,
                 radius: sightLimit,
+                rotation: this.data.rotation,
                 source: this
             });
         }
