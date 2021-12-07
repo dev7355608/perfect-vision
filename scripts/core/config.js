@@ -227,12 +227,16 @@ Hooks.on("renderSceneConfig", (sheet, html, data) => {
             </div>
             <p class="notes">Desaturate unilluminated areas and monochrome vision. If disabled, the saturation is linked to the Darkness Level.</p>
         </div>`);
+
+    const forceSaturation = canvas.scene.getFlag("perfect-vision", "forceSaturation");
+    const saturation = forceSaturation !== undefined && !forceSaturation ? 0 : (document.getFlag("perfect-vision", "saturation") ?? 0);
+
     html.find(`input[id="perfect-vision.hasSaturation"]`)
-        .attr("checked", Number.isFinite(document.getFlag("perfect-vision", "saturation")));
+        .attr("checked", forceSaturation !== undefined ? forceSaturation : Number.isFinite(document.getFlag("perfect-vision", "saturation")));
     html.find(`input[name="flags.perfect-vision.saturation"]`)
-        .attr("value", document.getFlag("perfect-vision", "saturation") ?? 0);
+        .attr("value", saturation);
     html.find(`input[name="flags.perfect-vision.saturation"]`).next()
-        .html(document.getFlag("perfect-vision", "saturation") ?? 0);
+        .html(saturation);
 
     const addColorSetting = (name, label) => {
         const defaultColor = "#" + ("000000" + CONFIG.Canvas[name].toString(16)).slice(-6);
@@ -638,6 +642,8 @@ Hooks.once("init", () => {
         if (!this.form.elements["perfect-vision.hasSaturation"].checked) {
             data["flags.perfect-vision.saturation"] = null;
         }
+
+        data["flags.perfect-vision.-=forceSaturation"] = null;
 
         return data;
     });
