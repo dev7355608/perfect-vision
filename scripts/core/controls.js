@@ -22,7 +22,7 @@ Hooks.on("getSceneControlButtons", controls => {
         lightingControl.tools.splice(index, 0, {
             name: "perfect-vision.improvedGMVision",
             title: "Toggle GM Vision",
-            icon: "fas fa-eye",
+            icon: "far fa-eye",
             toggle: true,
             active: !!game.settings.get("perfect-vision", "improvedGMVision"),
             onClick: toggled => game.settings.set("perfect-vision", "improvedGMVision", toggled)
