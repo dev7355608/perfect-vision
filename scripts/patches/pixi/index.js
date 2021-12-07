@@ -70,3 +70,56 @@ PIXI.ProjectionSystem.prototype.calculateProjectionInverse = function (_destinat
     pmi.tx = pmi.a + sourceFrame.x;
     pmi.ty = sign * pmi.d + sourceFrame.y;
 };
+
+PIXI.Transform.prototype._localInverseID = -1;
+PIXI.Transform.prototype._worldInverseID = -1;
+PIXI.Transform.prototype._localTransformInverse = null;
+PIXI.Transform.prototype._worldTransformInverse = null;
+
+Object.defineProperties(PIXI.Transform.prototype, {
+    localTransformInverse: {
+        get() {
+            let lti = this._localTransformInverse;
+
+            if (!lti) {
+                lti = this._localTransformInverse = new PIXI.Matrix();
+            }
+
+            if (this._localInverseID !== this._currentLocalID) {
+                this._localInverseID = this._currentLocalID;
+                lti.copyFrom(this.localTransform).invert();
+            }
+
+            return lti;
+        }
+    },
+    worldTransformInverse: {
+        get() {
+            let wti = this._worldTransformInverse;
+
+            if (!wti) {
+                wti = this._worldTransformInverse = new PIXI.Matrix();
+            }
+
+            if (this._worldInverseID !== this._worldID) {
+                this._worldInverseID = this._worldID;
+                wti.copyFrom(this.worldTransform).invert();
+            }
+
+            return wti;
+        }
+    }
+});
+
+Object.defineProperties(PIXI.DisplayObject.prototype, {
+    localTransformInverse: {
+        get() {
+            return this.transform.localTransformInverse;
+        }
+    },
+    worldTransformInverse: {
+        get() {
+            return this.transform.worldTransformInverse;
+        }
+    }
+});

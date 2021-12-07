@@ -52,8 +52,6 @@ export class PointSourceMesh extends PIXI.Mesh {
     constructor(geometry, shader, state) {
         super(geometry, shader, state);
 
-        this._worldTransformInverse = null;
-        this._worldTransformDirty = -1;
         this._blendColor = null;
         this._colorMask = null;
         this._drawMask = null;
@@ -93,22 +91,6 @@ export class PointSourceMesh extends PIXI.Mesh {
         }
 
         return this._drawMask;
-    }
-
-    get worldTransformInverse() {
-        const worldTransformID = this.transform._worldID;
-
-        if (this._worldTransformDirty !== worldTransformID) {
-            this._worldTransformDirty = worldTransformID;
-
-            if (!this._worldTransformInverse) {
-                this._worldTransformInverse = new PIXI.Matrix();
-            }
-
-            this._worldTransformInverse.copyFrom(this.transform.worldTransform).invert();
-        }
-
-        return this._worldTransformInverse;
     }
 
     destroy(options) {
