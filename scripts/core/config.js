@@ -340,7 +340,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
     nav.append(`<a class="item" data-tab="perfect-vision.lighting" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 10px; padding-right: 10px; margin-left: -10px; margin-right: -10px;"><i class="fas fa-lightbulb"></i> Lighting</a>`);
     nav.parent().find("footer").before(`\
         <div class="tab" data-tab="perfect-vision.lighting">
-            <p class="notes">Adjust vision and lighting of the area below the Drawing overriding the scene settings. Drawings with higher Z-Index override the vision and lighting settings of overlapping Drawings with lower Z-Index.</p>
+            <p class="notes">Adjust lighting and vision of the area below the Drawing. Drawings with a higher Z-Index override lighting settings of overlapping Drawings with a lower Z-Index.</p>
             <div class="form-group">
                 <label>Active</label>
                 <div class="form-fields">
@@ -350,7 +350,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
                     <label class="checkbox" style="visibility: hidden;">Override&nbsp;</label>
                     <input type="checkbox" name="flags.perfect-vision.active">
                 </div>
-                <p class="notes">If enabled, vision and lighting of the area below is controlled by the following settings.</p>
+                <p class="notes">If enabled, lighting and vision of the area below is controlled by the following settings.</p>
             </div>
             <div class="form-group">
                 <label>Parent</label>
@@ -569,7 +569,7 @@ Hooks.on("renderDrawingHUD", (hud, html, data) => {
         toggle.classList.add("active");
     }
 
-    toggle.setAttribute("title", "Toggle Vision & Lighting");
+    toggle.setAttribute("title", "Toggle Lighting");
     toggle.dataset.action = "perfect-vision.toggle";
     toggle.innerHTML = `<i class="far fa-lightbulb"></i>`;
 
