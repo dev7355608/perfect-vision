@@ -33,6 +33,8 @@ Perfect Vision ...
 - **Dim (Bright) Vision in Dim Light**: This controls how dim (bright) vision interacts with dim light, i.e., whether dim light becomes bright light.
 - **Monochrome Vision Color**: If this setting is set to white, monochrome vision is grayscale. Set this color to anything other than white to make monochrome vision stand out visibly in darkness. For example, choose a green tone to make it look like night vision goggles. The amount of desaturation is linked to the scene's *Darkness Level* in a way such that, if it is 0, monochrome and non-monochrome vision are indistinguishable, unless the [*Saturation Level*](#scene-configuration) is set to a specific value in the scene configuration. You can also choose a color for each token individually in the token configuration under the *Vision* tab.
 
+![Monochrome Vision](images/monochrome.png)
+
 ### Custom Vision Rules Example: *Devil's Sight*
 
 Let's give a token *devil's sight*. Go to the *Vision* tab of the token configuration. Change *Vision Rules* from *D&D 5e* to *Custom*. Then set *Bright Vision in Darkness* to *Bright Light* (or *Bright Light (monochrome)*, if you prefer that) and *Bright Vision in Dim Light* to *Dim Light*. Finally set *Bright Vision* to 120.
