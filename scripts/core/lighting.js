@@ -314,7 +314,7 @@ Hooks.once("init", () => {
         del.removeChildren();
 
         if (game.user.isGM) {
-            const gmVision = game.settings.get("perfect-vision", "improvedGMVision");
+            const gmVision = game.settings.get("perfect-vision", "improvedGMVision") && canvas.sight.sources.size === 0;
 
             ilm._pv_filter.brightness = gmVision ? 0.25 * darkness : 0.0;
             ilm._pv_filter.enabled = ilm._pv_filter === ilm.filter || gmVision;
