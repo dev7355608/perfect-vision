@@ -376,7 +376,7 @@ Hooks.once("init", () => {
             }
         }
 
-        this._pv_vision = canvas.sight.sources.size === 0;
+        this._pv_vision = canvas.sight.sources.size === 0 && game.user.isGM;
 
         // Render sight from vision sources
         for (const source of canvas.sight.sources) {
