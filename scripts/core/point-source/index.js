@@ -408,17 +408,8 @@ Hooks.once("init", () => {
             this._pv_fovGeometry = null;
         }
 
-        if (radiusColor > 0 && !token._original) {
-            this._pv_radiusColor = radiusColor;
-        } else {
-            this._pv_radiusColor = 0;
-        }
-
-        if (radiusBoost > 0 && !token._original) {
-            this._pv_radiusBoost = radiusBoost;
-        } else {
-            this._pv_radiusBoost = 0;
-        }
+        this._pv_radiusColor = radiusColor;
+        this._pv_radiusBoost = radiusBoost;
 
         if (token._original?.vision) {
             this._pv_tintMono = token._original.vision._pv_tintMono;
