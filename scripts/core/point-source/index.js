@@ -611,7 +611,7 @@ class LightSourceShader extends PIXI.Shader {
             alpha = min(alpha, occlusionMaskAlpha(worldPosition.xy));
             #endif
 
-            textures[0] = vec4(alpha, alpha, alpha, 0.0);
+            textures[0] = vec4(alpha);
         }`;
     }
 

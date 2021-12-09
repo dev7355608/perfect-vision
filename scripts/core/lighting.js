@@ -325,6 +325,8 @@ Hooks.once("init", () => {
         // Tint the background color
         canvas.app.renderer.backgroundColor = this.channels.canvas.hex;
 
+        this._pv_vision = canvas.sight.sources.size === 0 && game.user.isGM;
+
         this._pv_refreshAreas();
 
         let refreshVision = false;
@@ -375,8 +377,6 @@ Hooks.once("init", () => {
                 this._animatedSources.push(source);
             }
         }
-
-        this._pv_vision = canvas.sight.sources.size === 0 && game.user.isGM;
 
         // Render sight from vision sources
         for (const source of canvas.sight.sources) {
@@ -669,6 +669,10 @@ LightingLayer.prototype._pv_updateArea = function (area) {
         vision = !!area._pv_preview.vision;
     } else {
         vision = !!document.getFlag("perfect-vision", "vision");
+    }
+
+    if (this._pv_vision) {
+        vision = true;
     }
 
     if (area._pv_vision !== vision) {

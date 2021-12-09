@@ -469,11 +469,11 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
 
                 if (type === AdaptiveIlluminationShader) {
                     this.fragmentShader = replace(this.fragmentShader,
-                        /(^|\W)else\s+finalColor\s*\*=\s*fade\(dist\s*\*\s*dist\)\s*;($|\W)/gm,
-                        `$1/* vec3 */ else finalColor = mix(finalColor, mix(colorDim, colorBackground,
+                        /(^|\W)(else\s+finalColor\s*\*=\s*fade\(dist\s*\*\s*dist\)\s*;)($|\W)/gm,
+                        `$1/* $2 */ else finalColor = mix(mix(colorDim, colorBackground,
                             smoothstep(pv_radius * ratio - pv_radius * 0.2 * (pv_dist / pv_radius),
                                        pv_radius * ratio + pv_radius * 0.2 * (1.0 - pv_dist / pv_radius),
-                                       pv_dist)), 1.0 - fade(dist * dist)); /* Patched by Perfect Vision */$2`
+                                       pv_dist)), finalColor, fade(dist * dist)); /* Patched by Perfect Vision */$3`
                     );
 
                     this.fragmentShader = wrap(this.fragmentShader, ["ratio", "colorBackground", "colorDim", "colorBright"], `\
