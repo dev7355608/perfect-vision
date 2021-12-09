@@ -65,6 +65,10 @@ Hooks.once("init", () => {
         return placeholder;
     });
 
+    patch("ForegroundLayer.prototype.initialize", "OVERRIDE", function () {
+        // TODO ?
+    });
+
     patch("ForegroundLayer.prototype.tearDown", "WRAPPER", async function (wrapped, ...args) {
         const stage = this._pv_stage;
 

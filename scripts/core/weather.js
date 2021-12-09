@@ -19,7 +19,7 @@ Hooks.once("init", () => {
             stage.masks = stage.addChild(new PIXI.Container());
             stage.baseTextures = [];
 
-            if (canvas.blurDistance) {
+            if (canvas.performance.blur.enabled) {
                 stage.masks.filters = [canvas.createBlurFilter()];
                 stage.masks.filterArea = canvas.app.renderer.screen;
             }

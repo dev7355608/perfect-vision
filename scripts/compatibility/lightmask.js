@@ -62,5 +62,5 @@ Hooks.once("init", () => {
 
     patch("LightSource.prototype._updateCommonUniforms", "WRAPPER", updateShaderUniforms);
 
-    patch("LightSource.prototype._updateDelimiterUniforms", "WRAPPER", updateShaderUniforms);
+    patch("LightSource.prototype._pv_updateDelimiterUniforms", "WRAPPER", updateShaderUniforms);
 });

@@ -148,115 +148,88 @@ Object.defineProperty(AdaptiveLightingShader.prototype, "occlusionMask", {
     }
 });
 
-Logger.debug("Patching DelimiterShader.vertexShader (OVERRIDE)");
+export class DelimiterShader extends AdaptiveLightingShader {
+    static fragmentShader = `\
+    #version 300 es\n
 
-delete DelimiterShader.vertexShader;
+    /* Patched by Perfect Vision */
 
-Logger.debug("Patching DelimiterShader.fragmentShader (OVERRIDE)");
+    precision ${PIXI.settings.PRECISION_FRAGMENT} float;
 
-DelimiterShader.fragmentShader = `\
-#version 300 es\n
+    uniform bool darkness;
+    uniform float ratio;
+    uniform vec2 screenDimensions;
 
-/* Patched by Perfect Vision */
+    uniform ${PIXI.settings.PRECISION_VERTEX} vec4 viewportFrame;
+    uniform ${PIXI.settings.PRECISION_VERTEX} mat3 projectionMatrixInverse;
+    uniform ${PIXI.settings.PRECISION_VERTEX} mat3 translationMatrix;
+    uniform ${PIXI.settings.PRECISION_VERTEX} mat3 translationMatrixInverse;
 
-precision ${PIXI.settings.PRECISION_FRAGMENT} float;
+    uniform bool pv_mask;
+    uniform vec2 pv_origin;
+    uniform float pv_radius;
+    uniform float pv_smoothness;
+    uniform bool pv_sight;
+    uniform sampler2D pv_sampler1;
+    uniform sampler2D pv_sampler2;
 
-uniform bool darkness;
-uniform float ratio;
-uniform vec2 screenDimensions;
+    layout(location = 0) out vec4 pv_fragColor;
 
-uniform ${PIXI.settings.PRECISION_VERTEX} vec4 viewportFrame;
-uniform ${PIXI.settings.PRECISION_VERTEX} mat3 projectionMatrixInverse;
-uniform ${PIXI.settings.PRECISION_VERTEX} mat3 translationMatrix;
-uniform ${PIXI.settings.PRECISION_VERTEX} mat3 translationMatrixInverse;
+    %OCCLUSION_MASK%
+    ${OCCLUSION_MASK}
 
-uniform bool pv_mask;
-uniform vec2 pv_origin;
-uniform float pv_radius;
-uniform float pv_smoothness;
-uniform bool pv_sight;
-uniform bool pv_darkness;
-uniform sampler2D pv_sampler1;
-uniform sampler2D pv_sampler2;
+    %LIGHT_MASK%
+    ${SHAPES_AND_DISTANCE}
 
-layout(location = 0) out vec4 pv_fragColor;
+    void main() {
+        ${PIXI.settings.PRECISION_VERTEX} vec3 worldPosition = projectionMatrixInverse * vec3(((gl_FragCoord.xy - viewportFrame.xy) / viewportFrame.zw) * 2.0 - 1.0, 1.0);
+        ${PIXI.settings.PRECISION_VERTEX} vec2 localPosition = (translationMatrixInverse * worldPosition).xy;
 
-%OCCLUSION_MASK%
-${OCCLUSION_MASK}
+        vec2 vSamplerUvs = worldPosition.xy / screenDimensions;
 
-%LIGHT_MASK%
-${SHAPES_AND_DISTANCE}
+        float alpha = smoothstep(0.0, 1.0, gl_FragCoord.z);
 
-void main() {
-    ${PIXI.settings.PRECISION_VERTEX} vec3 worldPosition = projectionMatrixInverse * vec3(((gl_FragCoord.xy - viewportFrame.xy) / viewportFrame.zw) * 2.0 - 1.0, 1.0);
-    ${PIXI.settings.PRECISION_VERTEX} vec2 localPosition = (translationMatrixInverse * worldPosition).xy;
+        #ifdef PV_OCCLUSION_MASK
+        alpha = min(alpha, pv_occlusionMaskAlpha(worldPosition.xy));
+        #endif
 
-    vec2 vSamplerUvs = worldPosition.xy / screenDimensions;
+        if (!darkness) {
+            float dist = pv_distance(localPosition, pv_origin);
 
-    float alpha = smoothstep(0.0, 1.0, gl_FragCoord.z);
+            float brightness = smoothstep(
+                pv_radius * ratio + pv_smoothness * (dist / pv_radius),
+                pv_radius * ratio - pv_smoothness * (1.0 - dist / pv_radius),
+                dist
+            );
 
-    #ifdef PV_OCCLUSION_MASK
-    alpha = min(alpha, pv_occlusionMaskAlpha(worldPosition.xy));
-    #endif
+            if (!pv_sight) {
+                brightness = max(brightness, texture(pv_sampler2, vSamplerUvs).a);
+            } else {
+                alpha = min(alpha, 1.0 - texture(pv_sampler1, vSamplerUvs).b);
+            }
 
-    if (!pv_darkness) {
-        float dist = pv_distance(localPosition, pv_origin);
+            vec2 point = (translationMatrix * vec3(localPosition.xy, 0.0)).xy / 3.0;
 
-        float brightness = smoothstep(
-            pv_radius * ratio + pv_smoothness * (dist / pv_radius),
-            pv_radius * ratio - pv_smoothness * (1.0 - dist / pv_radius),
-            dist
-        );
+            alpha = min(alpha, (sin(point.x) * sin(point.y)) * 4.0 - mix(3.0, 2.0, brightness));
 
-        if (!pv_sight) {
-            brightness = max(brightness, texture(pv_sampler2, vSamplerUvs).a);
+            if (pv_mask) {
+                vec4 v = texture(pv_sampler1, vSamplerUvs);
+
+                alpha = min(alpha, min(v.r, v.g));
+            }
+
+            pv_fragColor = vec4(brightness * 0.5 + 0.5) * alpha;
         } else {
-            alpha = min(alpha, 1.0 - texture(pv_sampler1, vSamplerUvs).b);
+            // TODO: proper delimiter for dark light sources
+            pv_fragColor = vec4(0.0, 0.0, 0.0, alpha);
         }
+    }`;
 
-        vec2 point = (translationMatrix * vec3(localPosition.xy, 0.0)).xy / 3.0;
-
-        alpha = min(alpha, (sin(point.x) * sin(point.y)) * 4.0 - mix(3.0, 2.0, brightness));
-
-        if (pv_mask) {
-            vec4 v = texture(pv_sampler1, vSamplerUvs);
-
-            alpha = min(alpha, min(v.r, v.g));
-        }
-
-        pv_fragColor = vec4(brightness * 0.5 + 0.5) * alpha;
-    } else {
-        // TODO: proper delimiter for dark light sources
-        pv_fragColor = vec4(0.0, 0.0, 0.0, alpha);
-    }
-}`;
-
-Logger.debug("Patching DelimiterFilter.fragmentShader (OVERRIDE)");
-
-DelimiterFilter.fragmentShader = `\
-varying vec2 vTextureCoord;
-
-uniform sampler2D uSampler;
-uniform float uAlpha;
-
-void main() {
-    gl_FragColor = vec4(texture2D(uSampler, vTextureCoord).r) * uAlpha;
-}`;
-
-Logger.debug("Patching DelimiterFilter.defaultUniforms (OVERRIDE)");
-
-DelimiterShader.defaultUniforms = { uAlpha: 1 };
-
-Logger.debug("Patching DelimiterFilter.prototype.alpha (ADDED)");
-
-Object.defineProperty(DelimiterFilter.prototype, "alpha", {
-    get() {
-        return this.uniforms.uAlpha;
-    },
-    set(value) {
-        this.uniforms.uAlpha = value;
-    }
-});
+    static defaultUniforms = {
+        ratio: 0.5,
+        darkness: false,
+    };
+}
 
 function stashComments(source, comments) {
     return source.replace(/(?:\/\*[\s\S]*?\*\/)|(?:\/\/.*)/gm, (comment) => {

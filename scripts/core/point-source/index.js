@@ -3,9 +3,8 @@ import { presets } from "../settings.js";
 import { PointSourceGeometry } from "./geometry.js";
 import { PointSourceMesh } from "./mesh.js";
 import { TransformedShape } from "../../utils/transformed-shape.js";
-import { Logger } from "../../utils/logger.js";
 
-import "./shader.js";
+import { DelimiterShader } from "./shader.js";
 
 Hooks.once("init", () => {
     patch("PointSource.prototype.destroy", "POST", function () {
@@ -21,8 +20,8 @@ Hooks.once("init", () => {
             this.coloration.destroy({ children: true });
         }
 
-        if (this.delimiter && !this.delimiter.destroyed) {
-            this.delimiter.destroy({ children: true });
+        if (this._pv_delimiter && !this._pv_delimiter.destroyed) {
+            this._pv_delimiter.destroy({ children: true });
         }
 
         this._pv_fov = null;
@@ -117,7 +116,7 @@ Hooks.once("init", () => {
         }
 
         // Initialize shaders
-        createShader(DelimiterShader, this.delimiter);
+        createShader(DelimiterShader, this._pv_delimiter);
         createShader(this.animation.backgroundShader || AdaptiveBackgroundShader, this.background);
         createShader(this.animation.illuminationShader || AdaptiveIlluminationShader, this.illumination);
         createShader(this.animation.colorationShader || AdaptiveColorationShader, this.coloration);
@@ -137,9 +136,17 @@ Hooks.once("init", () => {
         const defaultZ = this.isDarkness ? 10 : 0;
         const BM = PIXI.BLEND_MODES;
 
-        // Delimiter
-        this.delimiter.blendMode = BM[this.isDarkness ? "NORMAL" : "MAX_COLOR"];
-        this.delimiter.zIndex = this.data.z ?? defaultZ;
+        this._pv_delimiter.blendMode = BM[this.isDarkness ? "NORMAL" : "MAX_COLOR"];
+        this._pv_delimiter.zIndex = this.data.z ?? defaultZ;
+    });
+
+    patch("LightSource.prototype.drawMeshes", "OVERRIDE", function () {
+        const background = this.drawBackground();
+        const light = this.drawLight();
+        const color = this.drawColor();
+        const delimiter = this._pv_drawDelimiter();
+
+        return { background, light, color, _pv_delimiter: delimiter };
     });
 
     patch("LightSource.prototype.drawLight", "OVERRIDE", function () {
@@ -251,16 +258,6 @@ Hooks.once("init", () => {
         u.pv_sight = false;
         u.pv_luminosity = this.data.luminosity;
         u.pv_lightLevels = [ll.bright, ll.dim, ll.dark, ll.black];
-    });
-
-    patch("LightSource.prototype._updateDelimiterUniforms", "OVERRIDE", function (shader) {
-        const u = shader.uniforms;
-
-        u.ratio = this.ratio;
-        u.darkness = this.isDarkness;
-        u.screenDimensions = canvas.screenDimensions;;
-        u.pv_sight = false;
-        u.pv_darkness = this.isDarkness;
     });
 
     function getLightRadius(token, units) {
@@ -454,9 +451,13 @@ Hooks.once("init", () => {
         const defaultZ = this.isDarkness ? 10 : 0;
         const BM = PIXI.BLEND_MODES;
 
-        // Delimiter
-        this.delimiter.blendMode = BM[this.isDarkness ? "NORMAL" : "MAX_COLOR"];
-        this.delimiter.zIndex = this.data.z ?? defaultZ;
+        this._pv_delimiter.blendMode = BM[this.isDarkness ? "NORMAL" : "MAX_COLOR"];
+        this._pv_delimiter.zIndex = this.data.z ?? defaultZ;
+    });
+
+    // TODO
+    patch("VisionSource.prototype.drawVision", "OVERRIDE", function () {
+        return LightSource.prototype.drawLight.call(this);
     });
 
     patch("VisionSource.prototype._updateIlluminationUniforms", "OVERRIDE", function (shader) {
@@ -489,30 +490,42 @@ Hooks.once("init", () => {
     });
 });
 
-Logger.debug("Patching VisionSource.prototype._updateDelimiterUniforms (ADDED)");
+for (const cls of [LightSource, VisionSource]) {
+    Object.defineProperty(cls.prototype, "_pv_delimiter", {
+        get() {
+            if (!this._pv_delimiter_) {
+                this._pv_delimiter_ = this._createMesh(DelimiterShader);
+                this._resetUniforms._pv_delimiter = true;
+            }
 
-VisionSource.prototype._updateDelimiterUniforms = function (shader) {
-    LightSource.prototype._updateDelimiterUniforms.call(this, shader);
+            return this._pv_delimiter_;
+        }
+    });
+}
 
-    shader.uniforms.pv_sight = true;
+LightSource.prototype._pv_drawDelimiter = VisionSource.prototype._pv_drawDelimiter = function () {
+    const shader = this._pv_delimiter.shader;
+
+    if (!shader) {
+        return null;
+    }
+
+    if (this._resetUniforms._pv_delimiter) {
+        this._pv_updateDelimiterUniforms(shader);
+        this._resetUniforms._pv_delimiter = false;
+    }
+
+    return this._updateMesh(this._pv_delimiter);
 };
 
-Logger.debug("Patching VisionSource.prototype.drawDelimiter (ADDED)");
+LightSource.prototype._pv_updateDelimiterUniforms = VisionSource.prototype._pv_updateDelimiterUniforms = function (shader) {
+    const uniforms = shader.uniforms;
 
-VisionSource.prototype.drawDelimiter = LightSource.prototype.drawDelimiter;
-
-Logger.debug("Patching VisionSource.prototype.delimiter (ADDED)");
-
-Object.defineProperty(VisionSource.prototype, "delimiter", {
-    get() {
-        if (!this._pv_delimiter) {
-            this._pv_delimiter = this._createMesh(DelimiterShader);
-            this._resetUniforms.delimiter = true;
-        }
-
-        return this._pv_delimiter;
-    }
-});
+    uniforms.screenDimensions = canvas.screenDimensions;
+    uniforms.ratio = this.ratio;
+    uniforms.darkness = this.isDarkness;
+    uniforms.pv_sight = this.sourceType === "vision";
+};
 
 LightSource.prototype._pv_drawMesh = function () {
     const mesh = this._pv_mesh;

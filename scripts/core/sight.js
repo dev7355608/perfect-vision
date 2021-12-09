@@ -12,7 +12,7 @@ Hooks.once("init", () => {
         this.filter.resolution = canvas.app.renderer.resolution;
         this.filterArea = canvas.app.renderer.screen;
 
-        this._pv_contourOptions = { maxZoomLevel: canvas.blurDistance ? 0.25 : 0.5, arrayType: Float32Array };
+        this._pv_contourOptions = { maxZoomLevel: canvas.performance.blur.enabled ? 0.25 : 0.5, arrayType: Float32Array };
         this._pv_circle = new TransformedShape(new PIXI.Circle(0, 0, canvas.dimensions.size / 2)).generateContour(this._pv_contourOptions);
 
         for (let i = 0; i < this._pv_circle.length; i++) {
@@ -258,12 +258,12 @@ Hooks.once("init", () => {
             source.illumination.shader.uniforms.pv_mask = this.visible;
             source.coloration.shader.uniforms.pv_mask = this.visible;
             source.background.shader.uniforms.pv_mask = this.visible;
-            source.delimiter.shader.uniforms.pv_mask = this.visible;
+            source._pv_delimiter.shader.uniforms.pv_mask = this.visible;
         }
 
         for (const source of this.sources) {
             source.illumination.shader.uniforms.pv_mask = this.visible;
-            source.delimiter.shader.uniforms.pv_mask = this.visible;
+            source._pv_delimiter.shader.uniforms.pv_mask = this.visible;
         }
 
         // Apply a mask to the exploration container

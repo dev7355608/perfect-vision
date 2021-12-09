@@ -130,9 +130,7 @@ Hooks.once("init", () => {
         this.background = this.lighting.addChild(this._drawBackgroundContainer());
         this.illumination = this.lighting.addChild(this._drawIlluminationContainer());
         this.coloration = this.lighting.addChild(this._drawColorationContainer());
-
-        this._pv_delimiter = canvas._pv_highlights_overhead.delimiter.addChild(new ObjectHUD(this));
-        this.delimiter = this._pv_delimiter.addChild(this._drawDelimiterContainer());
+        this._pv_delimiter = canvas._pv_highlights_overhead.delimiter.addChild(new ObjectHUD(this)).addChild(this._pv_drawDelimiterContainer());
 
         // Draw the background
         const bgRect = canvas.dimensions.rect;
@@ -170,11 +168,26 @@ Hooks.once("init", () => {
         c.lights = c.primary.addChild(new PIXI.Container());
         c.lights.sortableChildren = true;
 
-        c.filter = new IlluminationContainerFilter();
+        if (game.user.isGM) {
+            c._pv_filter = new IlluminationContainerFilter();
+            c._pv_filter.resolution = canvas.app.renderer.resolution;
+            c._pv_filter.multisample = PIXI.MSAA_QUALITY.NONE;
+
+            if (canvas.performance.blur.illumination) {
+                c.filter = canvas.createBlurFilter();
+                c.filters = [c._pv_filter, c.filter];
+            } else {
+                c.filter = c._pv_filter;
+                c.filters = [c.filter];
+            }
+        } else {
+            c.filter = canvas.performance.blur.illumination ? canvas.createBlurFilter() : new PIXI.filters.AlphaFilter();
+            c.filters = [c.filter];
+        }
+
         c.filter.blendMode = PIXI.BLEND_MODES.MULTIPLY;
         c.filter.resolution = canvas.app.renderer.resolution;
         c.filter.multisample = PIXI.MSAA_QUALITY.NONE;
-        c.filters = [c.filter];
         c.filterArea = canvas.app.renderer.screen;
 
         return c;
@@ -190,22 +203,6 @@ Hooks.once("init", () => {
         c.filters = [c.filter];
         c.filterArea = canvas.app.renderer.screen;
         c.sortableChildren = true;
-
-        return c;
-    });
-
-    patch("LightingLayer.prototype._drawDelimiterContainer", "OVERRIDE", function () {
-        const c = new PointSourceContainer();
-
-        c.filterDelimiter = DelimiterFilter.create();
-        c.filterDelimiter.alpha = 0.5;
-        c.filterDelimiter.blendMode = PIXI.BLEND_MODES.NORMAL;
-        c.filterDelimiter.resolution = canvas.app.renderer.resolution;
-        c.filterDelimiter.multisample = PIXI.MSAA_QUALITY.NONE;
-        c.filters = [c.filterDelimiter];
-        c.filterArea = canvas.app.renderer.screen;
-        c.sortableChildren = true;
-        c.visible = false;
 
         return c;
     });
@@ -308,7 +305,7 @@ Hooks.once("init", () => {
         const bkg = this.background;
         const ilm = this.illumination;
         const col = this.coloration;
-        const del = this.delimiter;
+        const del = this._pv_delimiter;
 
         // Clear currently rendered sources
         bkg.removeChildren();
@@ -317,7 +314,10 @@ Hooks.once("init", () => {
         del.removeChildren();
 
         if (game.user.isGM) {
-            ilm.filter.brightness = game.settings.get("perfect-vision", "improvedGMVision") ? 0.25 * darkness : 0.0;
+            const gmVision = game.settings.get("perfect-vision", "improvedGMVision");
+
+            ilm._pv_filter.brightness = gmVision ? 0.25 * darkness : 0.0;
+            ilm._pv_filter.enabled = ilm._pv_filter === ilm.filter || gmVision;
         }
 
         this._animatedSources = [];
@@ -367,8 +367,8 @@ Hooks.once("init", () => {
                 col.addChild(meshes.color);
             }
 
-            if (meshes.delimiter) {
-                del.addChild(meshes.delimiter);
+            if (meshes._pv_delimiter) {
+                del.addChild(meshes._pv_delimiter);
             }
 
             if (source.data.animation?.type) {
@@ -393,7 +393,7 @@ Hooks.once("init", () => {
             }
 
             const sight = source.drawVision();
-            const delimiter = source.drawDelimiter();
+            const delimiter = source._pv_drawDelimiter();
 
             if (sight) {
                 ilm.lights.addChild(sight);
@@ -452,6 +452,26 @@ Hooks.once("init", () => {
         return !this.data.hidden && canvas.lighting._pv_getDarknessLevel(this.center).between(this.data.darkness.min ?? 0, this.data.darkness.max ?? 1);
     });
 });
+
+LightingLayer.prototype._pv_toggleDelimiters = function (toggled) {
+    this._pv_delimiter.visible = toggled;
+    this.refresh();
+};
+
+LightingLayer.prototype._pv_drawDelimiterContainer = function () {
+    const c = new PointSourceContainer();
+
+    c.filterDelimiter = new PIXI.filters.AlphaFilter(0.5);
+    c.filterDelimiter.blendMode = PIXI.BLEND_MODES.NORMAL;
+    c.filterDelimiter.resolution = canvas.app.renderer.resolution;
+    c.filterDelimiter.multisample = PIXI.MSAA_QUALITY.NONE;
+    c.filters = [c.filterDelimiter];
+    c.filterArea = canvas.app.renderer.screen;
+    c.sortableChildren = true;
+    c.visible = false;
+
+    return c;
+};
 
 LightingLayer.prototype._pv_getArea = function (point) {
     let result = this;

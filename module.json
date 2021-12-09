@@ -4,8 +4,8 @@
   "description": "Darkvision and other lighting/vision improvements.",
   "author": "dev7355608",
   "version": "3.0.3",
-  "minimumCoreVersion": "9.233",
-  "compatibleCoreVersion": "9.233",
+  "minimumCoreVersion": "9.235",
+  "compatibleCoreVersion": "9.235",
   "esmodules": [
     "scripts/index.js"
   ],

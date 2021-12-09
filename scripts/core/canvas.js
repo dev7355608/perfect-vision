@@ -373,7 +373,8 @@ Hooks.once("init", () => {
 
     patch("Canvas.prototype._configurePerformanceMode", "POST", function (settings) {
         if (canvas.performance && (
-            canvas.performance.blur !== settings.blur && !settings.blur ||
+            (canvas.performance.blur.enabled || canvas.performance.blur.illumination) !== (settings.blur.enabled || settings.blur.illumination) &&
+            !(settings.blur.enabled || settings.blur.illumination) ||
             canvas.performance.msaa !== settings.msaa)) {
             canvas.app.renderer.filter.texturePool.clear();
         }
