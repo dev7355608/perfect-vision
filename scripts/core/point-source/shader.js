@@ -466,11 +466,25 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                     /(^|\W)vec3\s+finalColor($|\W)/gm,
                     "$1/* vec3 */ finalColor /* Patched by Perfect Vision */$2"
                 );
+                this.fragmentShader = replace(this.fragmentShader,
+                    /(^|\W)vec4\s+baseColor\s*=\s*texture2D\s*\(\s*uBkgSampler\s*,\s*vSamplerUvs\s*\)($|\W)/gm,
+                    "$1/* vec4 */ baseColor = pv_unpremultiply(texture2D(uBkgSampler, vSamplerUvs)) /* Patched by Perfect Vision */$2"
+                );
 
                 if (type === AdaptiveBackgroundShader) {
                     this.fragmentShader = replace(this.fragmentShader,
-                        /(^|\W)vec3\s+baseColor($|\W)/gm,
-                        "$1/* vec3 */ baseColor /* Patched by Perfect Vision */$2"
+                        /(^|\W)(if\s*\(gradual\)\s*cexp\s*=\s*halfExposure\s*\*\s*smoothstep\s*\(\s*ratio\s*\*\s*0.8,\s*ratio\s*\*\s*1.2,\s*1.0\s*-\s*dist\s*\)\s*\+\s*halfExposure)($|\W)/gm,
+                        `$1/* $2 */ if (gradual) cexp = halfExposure * smoothstep(
+                            pv_radius * ratio - pv_radius * 0.2 * (pv_dist / pv_radius),
+                            pv_radius * ratio + pv_radius * 0.2 * (1.0 - pv_dist / pv_radius),
+                            pv_dist) + halfExposure /* Patched by Perfect Vision */$3`
+                    );
+                    this.fragmentShader = replace(this.fragmentShader,
+                        /(^|\W)(else\s+cexp\s*=\s*halfExposure\s*\*\s*smoothstep\s*\(\s*ratio\s*\*\s*0.98,\s*ratio\s*\*\s*1.02,\s*1.0\s*-\s*dist\s*\)\s*\+\s*halfExposure)($|\W)/gm,
+                        `$1/* $2 */ else cexp = halfExposure * smoothstep(
+                            pv_radius * ratio - pv_smoothness * (1.0 - pv_dist / pv_radius),
+                            pv_radius * ratio + pv_smoothness * (pv_dist / pv_radius),
+                            pv_dist) + halfExposure /* Patched by Perfect Vision */$3`
                     );
                 }
 
@@ -623,7 +637,8 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
 
                         %wrapped%();
 
-                        pv_fragColor = ${type === AdaptiveIlluminationShader ? "darkness ? vec4(mix(mix(pv_cb, vec3(1.0), 1.0 - pv_alpha), finalColor, pv_alpha), 1.0) : vec4(mix(pv_cb, finalColor, pv_alpha), 1.0)" : `vec4(finalColor, ${type === AdaptiveBackgroundShader ? "baseColor.a" : "1.0"}) * pv_alpha`};
+                        pv_alpha = ${type === AdaptiveBackgroundShader ? "pv_alpha * baseColor.a" : "pv_alpha"};
+                        pv_fragColor = ${type === AdaptiveIlluminationShader ? "darkness ? vec4(mix(mix(pv_cb, vec3(1.0), 1.0 - pv_alpha), finalColor, pv_alpha), 1.0) : vec4(mix(pv_cb, finalColor, pv_alpha), 1.0)" : `vec4(finalColor, 1.0) * pv_alpha`};
                     }`
                 );
 
@@ -659,6 +674,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                     ${OCCLUSION_MASK}
                     %LIGHT_MASK%
                     ${SHAPES_AND_DISTANCE}
+                    vec4 pv_unpremultiply(vec4 color) { return color.a > 0.0 ? vec4(color.rgb / color.a, color.a) : vec4(0.0); }
                     /* ------------------------- */\n\n\
                     ${this.fragmentShader}`;
             }
