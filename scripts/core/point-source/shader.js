@@ -467,6 +467,13 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                     "$1/* vec3 */ finalColor /* Patched by Perfect Vision */$2"
                 );
 
+                if (type === AdaptiveBackgroundShader) {
+                    this.fragmentShader = replace(this.fragmentShader,
+                        /(^|\W)vec3\s+baseColor($|\W)/gm,
+                        "$1/* vec3 */ baseColor /* Patched by Perfect Vision */$2"
+                    );
+                }
+
                 if (type === AdaptiveIlluminationShader) {
                     this.fragmentShader = replace(this.fragmentShader,
                         /(^|\W)(else\s+finalColor\s*\*=\s*fade\(dist\s*\*\s*dist\)\s*;)($|\W)/gm,
@@ -479,7 +486,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                     this.fragmentShader = wrap(this.fragmentShader, ["ratio", "colorBackground", "colorDim", "colorBright"], `\
                         uniform bool pv_sight;
                         uniform float pv_luminosity;
-                        uniform vec4 pv_lightLevels; // TODO
+                        uniform vec3 pv_lightLevels; // TODO
                         uniform sampler2D pv_sampler2;
                         uniform sampler2D pv_colorBackgroundSampler;
 
@@ -616,7 +623,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
 
                         %wrapped%();
 
-                        pv_fragColor = ${type === AdaptiveIlluminationShader ? "darkness ? vec4(mix(mix(pv_cb, vec3(1.0), 1.0 - pv_alpha), finalColor, pv_alpha), 1.0) : vec4(mix(pv_cb, finalColor, pv_alpha), 1.0)" : "vec4(finalColor, 1.0) * pv_alpha"};
+                        pv_fragColor = ${type === AdaptiveIlluminationShader ? "darkness ? vec4(mix(mix(pv_cb, vec3(1.0), 1.0 - pv_alpha), finalColor, pv_alpha), 1.0) : vec4(mix(pv_cb, finalColor, pv_alpha), 1.0)" : `vec4(finalColor, ${type === AdaptiveBackgroundShader ? "baseColor.a" : "1.0"}) * pv_alpha`};
                     }`
                 );
 
@@ -647,6 +654,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                     float pv_alpha;
                     vec3 pv_cb;
                     vec3 finalColor;
+                    vec4 baseColor;
                     %OCCLUSION_MASK%
                     ${OCCLUSION_MASK}
                     %LIGHT_MASK%
@@ -680,7 +688,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
     if (shader instanceof AdaptiveIlluminationShader) {
         shader.uniforms.pv_sight = false;
         shader.uniforms.pv_luminosity = 0;
-        shader.uniforms.pv_lightLevels = [0, 0, 0, 0];
+        shader.uniforms.pv_lightLevels = [0, 0, 0];
         shader.uniforms.pv_sampler2 = PIXI.Texture.EMPTY;
         shader.uniforms.pv_colorBackgroundSampler = PIXI.Texture.EMPTY;
     } else if (shader instanceof DelimiterShader) {

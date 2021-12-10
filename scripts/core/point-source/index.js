@@ -257,7 +257,7 @@ Hooks.once("init", () => {
 
         u.pv_sight = false;
         u.pv_luminosity = this.data.luminosity;
-        u.pv_lightLevels = [ll.bright, ll.dim, ll.dark, ll.black];
+        u.pv_lightLevels = [ll.bright, ll.dim, ll.dark];
     });
 
     function getLightRadius(token, units) {
@@ -477,7 +477,7 @@ Hooks.once("init", () => {
 
         u.pv_sight = true;
         u.pv_luminosity = 0.5;
-        u.pv_lightLevels = [ll.bright, ll.dim, ll.dark, ll.black];
+        u.pv_lightLevels = [ll.bright, ll.dim, ll.dark];
     });
 });
 
