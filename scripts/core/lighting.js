@@ -605,6 +605,8 @@ LightingLayer.prototype._pv_updateArea = function (area) {
 
     if (area._pv_active !== active) {
         area._pv_active = active;
+        area._pv_flags_updateFOV = true;
+        area._pv_flags_updateLOS = true;
 
         this._pv_refreshVision = true;
     }

@@ -14,18 +14,38 @@ Hooks.once("init", () => {
     });
 });
 
+const fovOnlyUpdateKeys = ["type", "points", "bezierFactor"];
+const fovAndLosUpdateKeys = ["x", "y", "width", "height", "rotation"];
+
 Hooks.on("updateDrawing", (document, change, options, userId, arg) => {
     const scene = document.parent;
 
-    if (!scene?.isView || !document.object._pv_active && !("flags" in change && ("perfect-vision" in change.flags || "-=perfect-vision" in change.flags) || "-=flags" in change)) {
+    if (!scene?.isView) {
         return;
     }
 
-    // TODO: only flag for update if relevant properties changed
-    document.object._pv_flags_updateFOV = true;
-    document.object._pv_flags_updateLOS = true;
+    let refresh = "flags" in change && ("perfect-vision" in change.flags || "-=perfect-vision" in change.flags) || "-=flags" in change;
 
-    canvas.perception.schedule({ lighting: { refresh: true } });
+    if (!document.object._pv_active && !refresh) {
+        return;
+    }
+
+    if (fovAndLosUpdateKeys.some(key => key in change)) {
+        document.object._pv_flags_updateFOV = true;
+        document.object._pv_flags_updateLOS = true;
+
+        refresh = true;
+    } else if (fovOnlyUpdateKeys.some(key => key in change)) {
+        document.object._pv_flags_updateFOV = true;
+
+        refresh = true;
+    } else if (!refresh && "z" in change) {
+        refresh = true;
+    }
+
+    if (refresh) {
+        canvas.perception.schedule({ lighting: { refresh: true } });
+    }
 });
 
 const tempMatrix = new PIXI.Matrix();
@@ -58,4 +78,3 @@ Drawing.prototype._pv_getLocalPosition = function (globalPosition, out) {
 Drawing.prototype._pv_getGlobalPosition = function (localPosition, out) {
     return this._pv_getTransform(tempMatrix).apply(localPosition, out);
 };
-

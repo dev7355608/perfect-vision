@@ -639,11 +639,19 @@ Hooks.once("init", () => {
     });
 
     patch("SceneConfig.prototype._getSubmitData", "POST", function (data) {
+        const document = this.object;
+
+        if (!document) {
+            return data;
+        }
+
         if (!this.form.elements["perfect-vision.hasSaturation"].checked) {
             data["flags.perfect-vision.saturation"] = null;
         }
 
-        data["flags.perfect-vision.-=forceSaturation"] = null;
+        if (document.data.flags?.["perfect-vision"] && "forceSaturation" in document.data.flags?.["perfect-vision"]) {
+            data["flags.perfect-vision.-=forceSaturation"] = null;
+        }
 
         return data;
     });
@@ -846,48 +854,73 @@ Hooks.once("init", () => {
 
         if (!this.form.elements["perfect-vision.overrideWalls"].checked) {
             delete data["flags.perfect-vision.walls"];
-            data["flags.perfect-vision.-=walls"] = null;
+
+            if (document.data.flags?.["perfect-vision"] && "walls" in document.data.flags?.["perfect-vision"]) {
+                data["flags.perfect-vision.-=walls"] = null;
+            }
         }
 
         if (!this.form.elements["perfect-vision.overrideVision"].checked) {
             delete data["flags.perfect-vision.vision"];
-            data["flags.perfect-vision.-=vision"] = null;
+
+            if (document.data.flags?.["perfect-vision"] && "vision" in document.data.flags?.["perfect-vision"]) {
+                data["flags.perfect-vision.-=vision"] = null;
+            }
         }
 
         if (!this.form.elements["perfect-vision.overrideGlobalLight"].checked) {
             delete data["flags.perfect-vision.globalLight"];
-            data["flags.perfect-vision.-=globalLight"] = null;
+
+
+            if (document.data.flags?.["perfect-vision"] && "globalLight" in document.data.flags?.["perfect-vision"]) {
+                data["flags.perfect-vision.-=globalLight"] = null;
+            }
         }
 
         if (!this.form.elements["perfect-vision.overrideDaylightColor"].checked) {
             delete data["flags.perfect-vision.daylightColor"];
-            data["flags.perfect-vision.-=daylightColor"] = null;
+
+            if (document.data.flags?.["perfect-vision"] && "daylightColor" in document.data.flags?.["perfect-vision"]) {
+                data["flags.perfect-vision.-=daylightColor"] = null;
+            }
         } else if (!data["flags.perfect-vision.daylightColor"]) {
             data["flags.perfect-vision.daylightColor"] = "";
         }
 
         if (!this.form.elements["perfect-vision.overrideDarknessColor"].checked) {
             delete data["flags.perfect-vision.darknessColor"];
-            data["flags.perfect-vision.-=darknessColor"] = null;
+
+            if (document.data.flags?.["perfect-vision"] && "darknessColor" in document.data.flags?.["perfect-vision"]) {
+                data["flags.perfect-vision.-=darknessColor"] = null;
+            }
         } else if (!data["flags.perfect-vision.darknessColor"]) {
             data["flags.perfect-vision.darknessColor"] = "";
         }
 
         if (!this.form.elements["perfect-vision.overrideDarkness"].checked) {
             delete data["flags.perfect-vision.darkness"];
-            data["flags.perfect-vision.-=darkness"] = null;
+
+            if (document.data.flags?.["perfect-vision"] && "darkness" in document.data.flags?.["perfect-vision"]) {
+                data["flags.perfect-vision.-=darkness"] = null;
+            }
         }
 
         if (!this.form.elements["perfect-vision.overrideSaturation"].checked) {
             delete data["flags.perfect-vision.saturation"];
-            data["flags.perfect-vision.-=saturation"] = null;
+
+            if (document.data.flags?.["perfect-vision"] && "saturation" in document.data.flags?.["perfect-vision"]) {
+                data["flags.perfect-vision.-=saturation"] = null;
+            }
         } else if (!this.form.elements["perfect-vision.hasSaturation"].checked) {
             data["flags.perfect-vision.saturation"] = null;
         }
 
         if (!this.form.elements["perfect-vision.overrideGlobalThreshold"].checked) {
             delete data["flags.perfect-vision.globalLightThreshold"];
-            data["flags.perfect-vision.-=globalLightThreshold"] = null;
+
+            if (document.data.flags?.["perfect-vision"] && "globalLightThreshold" in document.data.flags?.["perfect-vision"]) {
+                data["flags.perfect-vision.-=globalLightThreshold"] = null;
+            }
         } else if (!this.form.elements["perfect-vision.hasGlobalThreshold"].checked) {
             data["flags.perfect-vision.globalLightThreshold"] = null;
         }
