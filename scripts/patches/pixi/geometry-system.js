@@ -1,8 +1,6 @@
 import { Logger } from "../../utils/logger.js";
 
-Logger.debug("Patching PIXI.GeometrySystem.prototype.checkCompatibility (OVERRIDE)");
-
-PIXI.GeometrySystem.prototype.checkCompatibility = function (geometry, program) { };
+// TODO: remove in pixi.js v6.2.1
 
 Logger.debug("Patching PIXI.GeometrySystem.prototype.getSignature (OVERRIDE)");
 

@@ -1,7 +1,4 @@
-import "./framebuffer-system.js";
 import "./geometry-system.js";
-import "./graphics-smooth.js";
-import "./shader-system.js";
 import "./stencil-system.js";
 
 if (!PIXI.Rectangle.prototype.intersects) {
@@ -19,6 +16,8 @@ if (!PIXI.Rectangle.prototype.intersects) {
         return y1 > y0;
     };
 }
+
+PIXI.GeometrySystem.prototype.checkCompatibility = function (geometry, program) { };
 
 Object.defineProperty(PIXI.Renderer.prototype, "globalUniforms", {
     set(value) {
