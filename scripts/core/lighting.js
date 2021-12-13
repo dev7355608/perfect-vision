@@ -89,6 +89,7 @@ Hooks.once("init", () => {
         this._pv_active = true;
         this._pv_fov = new TransformedShape(canvas.dimensions.rect);
         this._pv_los = null;
+        this._pv_bounds = canvas.dimensions.rect;
         this._pv_geometry = new PointSourceGeometry(this._pv_fov, this._pv_los, canvas.dimensions.size / 10);
         this._pv_shader = new LightingAreaShader(this);
 
@@ -102,6 +103,8 @@ Hooks.once("init", () => {
         }
 
         this._pv_globalLight = this.globalLight;
+
+        this._pv_sightLimit = (canvas.scene.getFlag("perfect-vision", "sightLimit") ?? Infinity) / canvas.dimensions.distance * canvas.dimensions.size;
 
         let daylightColor = canvas.scene.getFlag("perfect-vision", "daylightColor") ?? "";
 
@@ -246,6 +249,22 @@ Hooks.once("init", () => {
 
         this._pv_saturationLevel = saturation = Math.clamped(saturation, 0, 1);
 
+        let sightLimit;
+
+        if (this._pv_preview?.hasOwnProperty("sightLimit")) {
+            sightLimit = this._pv_preview.sightLimit;
+        } else {
+            sightLimit = canvas.scene.getFlag("perfect-vision", "sightLimit");
+        }
+
+        sightLimit = (sightLimit ?? Infinity) / canvas.dimensions.distance * canvas.dimensions.size;
+
+        if (this._pv_sightLimit !== sightLimit) {
+            this._pv_sightLimit = sightLimit;
+
+            this._pv_initializeVision = true;
+        }
+
         let daylightColor;
 
         if (this._pv_preview?.hasOwnProperty("daylightColor")) {
@@ -292,6 +311,8 @@ Hooks.once("init", () => {
 
         this._pv_darknessChanged = darknessChanged;
 
+        let refreshVision = false;
+
         // Track global illumination
         const globalLight = this.hasGlobalIllumination();
 
@@ -299,7 +320,7 @@ Hooks.once("init", () => {
             this.globalLight = globalLight;
             this._pv_globalLight = globalLight;
 
-            canvas.perception.schedule({ sight: { initialize: true, refresh: true } });
+            refreshVision = true;
         }
 
         const bkg = this.background;
@@ -329,7 +350,11 @@ Hooks.once("init", () => {
 
         this._pv_refreshAreas();
 
-        let refreshVision = false;
+        if (this._pv_initializeVision) {
+            this._pv_initializeVision = false;
+
+            canvas.sight.initializeSources();
+        }
 
         // Render light sources
         for (const source of this.sources) {
@@ -407,7 +432,9 @@ Hooks.once("init", () => {
         this._pv_refreshBuffer();
 
         // Refresh vision if necessary
-        if (refreshVision) {
+        if (refreshVision || this._pv_refreshVision) {
+            this._pv_refreshVision = false;
+
             canvas.perception.schedule({ sight: { refresh: true } });
         }
 
@@ -547,43 +574,21 @@ LightingLayer.prototype._pv_refreshAreas = function () {
 
     this._pv_areas.sort((a, b) => a._pv_zIndex - b._pv_zIndex || a.id.localeCompare(b.id, "en"));
 
-    this._pv_localized_globalLight = false;
-    this._pv_localized_daylightColor = false;
-    this._pv_localized_darknessColor = false;
-    this._pv_localized_darknessLevel = false;
-    this._pv_localized_saturationLevel = false;
-    this._pv_localized_globalLightThreshold = false;
+    this._pv_index = -1;
 
-    for (const area of this._pv_areas) {
-        if (this._pv_globalLight !== area._pv_globalLight) {
-            this._pv_localized_globalLight = true;
-        }
-
-        if (this._pv_daylightColor !== area._pv_daylightColor) {
-            this._pv_localized_daylightColor = true;
-        }
-
-        if (this._pv_darknessColor !== area._pv_darknessColor) {
-            this._pv_localized_darknessColor = true;
-        }
-
-        if (this._pv_darknessLevel !== area._pv_darknessLevel) {
-            this._pv_localized_darknessLevel = true;
-        }
-
-        if (this._pv_saturationLevel !== area._pv_saturationLevel) {
-            this._pv_localized_saturationLevel = true;
-        }
-
-        if (this._pv_globalLightThreshold !== area._pv_globalLightThreshold) {
-            this._pv_localized_globalLightThreshold = true;
-        }
+    for (let i = 0; i < this._pv_areas.length; i++) {
+        this._pv_areas[i]._pv_index = i;
     }
 
-    if (this._pv_refreshVision) {
-        this._pv_refreshVision = false;
+    this._pv_parentIndex = -1;
+    this._pv_uniformSightLimit = true;
 
-        canvas.perception.schedule({ sight: { initialize: true, refresh: true } });
+    for (const area of this._pv_areas) {
+        area._pv_parentIndex = area._pv_parent._pv_index;
+
+        if (this._pv_sightLimit !== area._pv_sightLimit) {
+            this._pv_uniformSightLimit = false;
+        }
     }
 }
 
@@ -608,6 +613,7 @@ LightingLayer.prototype._pv_updateArea = function (area) {
         area._pv_flags_updateFOV = true;
         area._pv_flags_updateLOS = true;
 
+        this._pv_initializeVision = true;
         this._pv_refreshVision = true;
     }
 
@@ -702,6 +708,22 @@ LightingLayer.prototype._pv_updateArea = function (area) {
     if (updateFOV || updateLOS) {
         area._pv_geometry = new PointSourceGeometry(area._pv_fov, area._pv_los, canvas.dimensions.size / 10);
 
+        if (!area._pv_bounds) {
+            area._pv_bounds = new PIXI.Rectangle();
+        }
+
+        area._pv_bounds.copyFrom(area._pv_fov.bounds);
+
+        if (area._pv_los) {
+            area._pv_bounds.fit(area._pv_los.bounds);
+        }
+
+        area._pv_bounds.ceil();
+
+        if (!this._pv_uniformSightLimit) {
+            this._pv_initializeVision = true;
+        }
+
         this._pv_refreshVision = true;
     }
 
@@ -728,6 +750,27 @@ LightingLayer.prototype._pv_updateArea = function (area) {
     }
 
     area._pv_data_globalLight = globalLight = !!globalLight;
+
+    let sightLimit;
+
+    if (area._pv_preview?.hasOwnProperty("sightLimit")) {
+        sightLimit = area._pv_preview.sightLimit;
+    } else {
+        sightLimit = document.getFlag("perfect-vision", "sightLimit");
+    }
+
+    if (sightLimit !== undefined) {
+        sightLimit = (sightLimit ?? Infinity) / canvas.dimensions.distance * canvas.dimensions.size;
+    } else {
+        sightLimit = area._pv_parent._pv_sightLimit;
+    }
+
+    if (area._pv_sightLimit !== sightLimit) {
+        area._pv_sightLimit = sightLimit;
+
+        this._pv_initializeVision = true;
+        this._pv_refreshVision = true;
+    }
 
     let daylightColor;
 
@@ -852,12 +895,15 @@ LightingLayer.prototype._pv_updateArea = function (area) {
 
 LightingLayer.prototype._pv_initializeArea = LightingLayer.prototype._pv_destroyArea = function (area) {
     area._pv_active = false;
+    area._pv_index = 0;
     area._pv_parent = null;
+    area._pv_parentIndex = null;
     area._pv_origin = null;
     area._pv_walls = false;
     area._pv_vision = false;
     area._pv_fov = null;
     area._pv_los = null;
+    area._pv_bounds = null;
     area._pv_geometry = null;
 
     if (area._pv_shader) {
@@ -872,6 +918,7 @@ LightingLayer.prototype._pv_initializeArea = LightingLayer.prototype._pv_destroy
 
     area._pv_mesh = null;
     area._pv_globalLight = false;
+    area._pv_sightLimit = Infinity;
     area._pv_daylightColor = 0;
     area._pv_darknessColor = 0;
     area._pv_darknessLevel = 0;
@@ -1018,9 +1065,6 @@ function configureChannels({
     channels.canvas.hex = foundry.utils.rgbToHex(channels.canvas.rgb);
     channels.background.rgb = channels.darkness.rgb.map((c, i) => darkness * c + (1 - darkness) * channels.daylight.rgb[i]);
     channels.background.hex = foundry.utils.rgbToHex(channels.background.rgb);
-    // TODO
-    // channels.dark.rgb = channels.darkness.rgb.map((c, i) => Math.min((1 + dark) * c, channels.background.rgb[i]));
-    // channels.dark.rgb = channels.darkness.rgb.map((c, i) => Math.min((1 - dark) * c + dark * channels.background.rgb[i], channels.background.rgb[i]));
     channels.dark.rgb = foundry.utils.hexToRGB(CONFIG.Canvas.darknessColor).map(c => (1 + dark) * c);
     channels.dark.hex = foundry.utils.rgbToHex(channels.dark.rgb);
     channels.black.rgb = channels.dark.rgb.map(c => black * c);
