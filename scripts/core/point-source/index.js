@@ -337,6 +337,7 @@ Hooks.once("init", () => {
         const changes = this._initializeData(data);
 
         this._pv_minRadius = token.w / 2;
+        this._pv_sightLimit = sightLimit ?? Infinity;
 
         // Compute derived data attributes
         this.radius = Math.max(Math.abs(this.data.dim), Math.abs(this.data.bright));

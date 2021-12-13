@@ -150,7 +150,7 @@ Hooks.once("init", () => {
 
                 this._pv_occlusionTile.geometry = geometry;
 
-                canvas.lighting._pv_buffer?.invalidate();
+                canvas.lighting._pv_buffer?.invalidate(true);
             } else {
                 if (this._pv_occlusionTile) {
                     this._pv_occlusionTile.geometry.refCount--;
@@ -162,7 +162,7 @@ Hooks.once("init", () => {
                     this._pv_occlusionTile.destroy();
                     this._pv_occlusionTile = null;
 
-                    canvas.lighting._pv_buffer?.invalidate();
+                    canvas.lighting._pv_buffer?.invalidate(true);
                 }
             }
         }
@@ -240,12 +240,59 @@ Hooks.once("init", () => {
         }
 
         if (refresh) {
-            canvas.perception.schedule({
-                lighting: { refresh: true },
-                sight: { initialize: true, refresh: true }
-            });
+            canvas.perception.schedule({ lighting: { refresh: true } });
         }
 
         return result;
+    });
+
+    patch("Levels.prototype.overrideVisibilityTest", "OVERRIDE", function (sourceToken, token) {
+        if (canvas.lighting._pv_uniformVision) {
+            if (canvas.lighting._pv_vision) {
+                return true;
+            }
+        } else {
+            const point = token.center;
+            const t = Math.min(token.w, token.h) / 4;
+            const offsets = t > 0 ? [[0, 0], [-t, 0], [t, 0], [0, -t], [0, t], [-t, -t], [-t, t], [t, t], [t, -t]] : [[0, 0]];
+            const points = offsets.map(o => new PIXI.Point(point.x + o[0], point.y + o[1]));
+
+            if (points.some(p => canvas.lighting._pv_getArea(p)._pv_vision)) {
+                return true;
+            }
+        }
+    });
+
+    patch("Levels.prototype.tokenInRange", "OVERRIDE", function (sourceToken, token) {
+        let range = sourceToken.vision.fov.radius;
+
+        if (canvas.lighting._pv_uniformGlobalLight) {
+            if (canvas.lighting._pv_globalLight) {
+                range = Infinity;
+            }
+        } else {
+            const point = token.center;
+            const t = Math.min(token.w, token.h) / 4;
+            const offsets = t > 0 ? [[0, 0], [-t, 0], [t, 0], [0, -t], [0, t], [-t, -t], [-t, t], [t, t], [t, -t]] : [[0, 0]];
+            const points = offsets.map(o => new PIXI.Point(point.x + o[0], point.y + o[1]));
+
+            if (points.some(p => canvas.lighting._pv_getArea(p)._pv_globalLight)) {
+                range = Infinity;
+            }
+        }
+
+        range = Math.min(range, sourceToken.vision._pv_sightLimit);
+
+        if (range === 0) {
+            return false;
+        }
+
+        if (range === Infinity) {
+            return true;
+        }
+
+        const distance = this.getUnitTokenDist(sourceToken, token) * canvas.dimensions.size / canvas.dimensions.distance;
+
+        return distance <= range;
     });
 });
