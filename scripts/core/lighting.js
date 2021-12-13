@@ -1073,25 +1073,6 @@ Hooks.on("updateToken", (document, change, options, userId, arg) => {
     }
 });
 
-Hooks.on("updateAmbientLight", (document, change, options, userId, arg) => {
-    const scene = document.parent;
-
-    if (!scene?.isView || !("flags" in change && ("perfect-vision" in change.flags || "-=perfect-vision" in change.flags) || "-=flags" in change)) {
-        return;
-    }
-
-    const light = document.object;
-
-    if (light) {
-        light.updateSource({ defer: true });
-
-        canvas.perception.schedule({
-            lighting: { refresh: true },
-            sight: { refresh: true, forceUpdateFog: true }
-        });
-    }
-});
-
 class IlluminationContainerFilter extends PIXI.Filter {
     static vertexSrc = `\
         #version 100

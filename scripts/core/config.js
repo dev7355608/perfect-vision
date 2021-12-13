@@ -548,18 +548,6 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
     }
 });
 
-Hooks.on("renderLightConfig", (sheet, html, data) => {
-    const document = sheet.object;
-
-    html.find(`select[name="t"] > option[value="${CONST.SOURCE_TYPES.LOCAL}"]`).after(
-        `<option value="perfect-vision.${CONST.SOURCE_TYPES.LOCAL}_unrestricted">${game.i18n.localize("LIGHT.TypeLocal")} (Unrestricted)</option>`
-    );
-
-    if (document.data.t === CONST.SOURCE_TYPES.LOCAL && document.getFlag("perfect-vision", "unrestricted")) {
-        html.find(`select[name="t"] > option[value="perfect-vision.${CONST.SOURCE_TYPES.LOCAL}_unrestricted"]`).prop("selected", true);
-    }
-});
-
 Hooks.on("renderDrawingHUD", (hud, html, data) => {
     const toggle = document.createElement("div");
 
@@ -943,16 +931,5 @@ Hooks.once("init", () => {
             lighting: { initialize: true, refresh: true },
             sight: { initialize: true, refresh: true }
         });
-    });
-
-    patch("LightConfig.prototype._getSubmitData", "POST", function (data) {
-        if (data.t === `perfect-vision.${CONST.SOURCE_TYPES.LOCAL}_unrestricted`) {
-            data.t = CONST.SOURCE_TYPES.LOCAL;
-            data["flags.perfect-vision.unrestricted"] = true;
-        } else {
-            data["flags.perfect-vision.-=unrestricted"] = null;
-        }
-
-        return data;
     });
 });
