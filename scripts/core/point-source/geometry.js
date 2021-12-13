@@ -23,12 +23,7 @@ export class PointSourceGeometry extends PIXI.Geometry {
         const { fov, los } = this;
 
         if (fov && los) {
-            const x1 = Math.max(fov.bounds.x, los.bounds.x);
-            const x2 = Math.min(fov.bounds.x + fov.bounds.width, los.bounds.x + los.bounds.width);
-            const y1 = Math.max(fov.bounds.y, los.bounds.y);
-            const y2 = Math.min(fov.bounds.y + fov.bounds.height, los.bounds.y + los.bounds.height);
-
-            this.bounds = new PIXI.Rectangle(x1, y1, Math.max(x2 - x1, 0), Math.max(y2 - y1, 0));
+            this.bounds = fov.bounds.clone().fit(los.bounds);
         } else {
             this.bounds = (fov ?? los).bounds.clone();
         }

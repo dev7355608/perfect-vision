@@ -185,7 +185,6 @@ Hooks.once("init", () => {
         const u = shader.uniforms;
         const d = shader._defaults;
         const c = area?._pv_channels ?? canvas.lighting.channels;
-        const ll = area?._pv_lightLevels ?? CONFIG.Canvas.lightLevels;
         const inverseGamma = 1 / ((2.4 * this.data.alpha) + 0.25);
         const blend = (rgb1, rgb2, w) => rgb1.map((x, i) => (w * x) + ((1 - w) * (rgb2[i]))); // linear interpolation
 
@@ -242,6 +241,7 @@ Hooks.once("init", () => {
         }
         // Light [0,1]
         else {
+            const ll = CONFIG.Canvas.lightLevels;
             const penalty = shader.getDarknessPenalty(c.darkness.level, this.data.luminosity);
             const lumPenalty = Math.clamped(this.data.luminosity * 2, 0, 1);
 
@@ -257,7 +257,6 @@ Hooks.once("init", () => {
 
         u.pv_sight = false;
         u.pv_luminosity = this.data.luminosity;
-        u.pv_lightLevels = [ll.bright, ll.dim, ll.dark];
     });
 
     function getLightRadius(token, units) {
@@ -457,11 +456,10 @@ Hooks.once("init", () => {
         const c = area?._pv_channels ?? canvas.lighting.channels;
 
         // Determine light colors
-        const ll = area?._pv_lightLevels ?? CONFIG.Canvas.lightLevels;
+        const ll = CONFIG.Canvas.lightLevels;
         const penalty = shader.getDarknessPenalty(c.darkness.level, 0.5);
-        const lumPenalty = 1.0;
 
-        u.colorBright = [1, 1, 1].map((x, i) => Math.max(ll.bright * x * (1 - penalty) * lumPenalty, c.background.rgb[i]));
+        u.colorBright = [1, 1, 1].map((x, i) => Math.max(ll.bright * x * (1 - penalty), c.background.rgb[i]));
         u.colorDim = u.colorBright.map((x, i) => (ll.dim * x) + ((1 - ll.dim) * c.background.rgb[i]));
         u.colorBackground = c.background.rgb;
 
@@ -477,7 +475,6 @@ Hooks.once("init", () => {
 
         u.pv_sight = true;
         u.pv_luminosity = 0.5;
-        u.pv_lightLevels = [ll.bright, ll.dim, ll.dark];
     });
 });
 

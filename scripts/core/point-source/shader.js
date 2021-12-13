@@ -500,9 +500,10 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                     this.fragmentShader = wrap(this.fragmentShader, ["ratio", "colorBackground", "colorDim", "colorBright"], `\
                         uniform bool pv_sight;
                         uniform float pv_luminosity;
-                        uniform vec3 pv_lightLevels; // TODO
                         uniform sampler2D pv_sampler2;
                         uniform sampler2D pv_colorBackgroundSampler;
+
+                        const vec3 pv_lightLevels = vec3(${CONFIG.Canvas.lightLevels.bright.toFixed(3)}, ${CONFIG.Canvas.lightLevels.dim.toFixed(3)}, ${CONFIG.Canvas.lightLevels.dark.toFixed(3)});
 
                         vec3 colorVision(vec3 colorBackground, float darknessLevel, float vision) {
                             float luminosity = 0.5;
@@ -704,7 +705,6 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
     if (shader instanceof AdaptiveIlluminationShader) {
         shader.uniforms.pv_sight = false;
         shader.uniforms.pv_luminosity = 0;
-        shader.uniforms.pv_lightLevels = [0, 0, 0];
         shader.uniforms.pv_sampler2 = PIXI.Texture.EMPTY;
         shader.uniforms.pv_colorBackgroundSampler = PIXI.Texture.EMPTY;
     } else if (shader instanceof DelimiterShader) {
