@@ -306,27 +306,33 @@ Hooks.once("init", () => {
             }
         }
 
-        let vision = canvas.lighting._pv_vision;
+        let areas;
 
-        const areas = canvas.lighting._pv_areas;
-
-        if (areas?.length > 0) {
-            for (const area of areas) {
-                if (vision !== area._pv_vision && (
-                    area._pv_vision && points.some(p => area._pv_geometry.containsPoint(p)) ||
-                    !area._pv_vision && points.every(p => area._pv_geometry.containsPoint(p)))) {
-                    vision = area._pv_vision;
-                }
+        if (canvas.lighting._pv_uniformVision) {
+            if (canvas.lighting._pv_vision) {
+                return true;
             }
-        }
+        } else {
+            areas = [];
 
-        if (vision) {
-            return true;
+            if (points.some(p => {
+                const a = canvas.lighting._pv_getArea(p);
+                areas.push(a);
+                return a._pv_vision;
+            })) {
+                return true;
+            }
         }
 
         // We require both LOS and FOV membership for a point to be visible
         let hasLOS = false;
-        let hasFOV = false;
+        let hasFOV;
+
+        if (canvas.lighting._pv_uniformGlobalLight) {
+            hasFOV = canvas.lighting._pv_globalLight;
+        } else {
+            hasFOV = areas ? areas.some(a => a._pv_globalLight) : points.some(p => canvas.lighting._pv_getArea(p)._pv_globalLight);
+        }
 
         // Check vision sources
         for (const source of visionSources.values()) {
@@ -353,7 +359,7 @@ Hooks.once("init", () => {
                 continue;
             }
 
-            if (points.some(p => source._pv_los.containsPoint(p))) {
+            if ((!hasFOV || !hasLOS && source.data.vision) && points.some(p => source._pv_los.containsPoint(p))) {
                 if (source.data.vision) {
                     hasLOS = true;
                 }
@@ -366,20 +372,11 @@ Hooks.once("init", () => {
             }
         }
 
-        return hasLOS && points.some(p => canvas.lighting._pv_getArea(p)._pv_globalLight);
+        return false;
     });
 
     patch("FogExploration.prototype.explore", "OVERRIDE", function (source, force = false) {
-        let globalLight = canvas.lighting.globalLight;
-
-        for (const area of canvas.lighting._pv_areas) {
-            if (globalLight !== area._pv_globalLight) {
-                globalLight = undefined;
-
-                break;
-            }
-        }
-
+        const globalLight = canvas.lighting._pv_uniformGlobalLight ? canvas.lighting._pv_globalLight : undefined;
         const r = globalLight ? canvas.dimensions.maxR : source.fov.radius;
 
         if (r < 0) {

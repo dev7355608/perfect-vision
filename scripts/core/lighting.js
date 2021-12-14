@@ -581,10 +581,20 @@ LightingLayer.prototype._pv_refreshAreas = function () {
     }
 
     this._pv_parentIndex = -1;
+    this._pv_uniformVision = true;
+    this._pv_uniformGlobalLight = true;
     this._pv_uniformSightLimit = true;
 
     for (const area of this._pv_areas) {
         area._pv_parentIndex = area._pv_parent._pv_index;
+
+        if (this._pv_vision !== area._pv_vision) {
+            this._pv_uniformVision = false;
+        }
+
+        if (this._pv_globalLight !== area._pv_globalLight) {
+            this._pv_uniformGlobalLight = false;
+        }
 
         if (this._pv_sightLimit !== area._pv_sightLimit) {
             this._pv_uniformSightLimit = false;
