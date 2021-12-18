@@ -3,7 +3,7 @@ import { Framebuffer } from "../utils/framebuffer.js";
 import { MaskData } from "../utils/mask-filter.js";
 
 Hooks.once("init", () => {
-    patch("WeatherLayer.prototype.draw", "WRAPPER", async function (wrapped) {
+    patch("WeatherLayer.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
         let stage = this._pv_stage;
 
         if (stage) {
@@ -44,7 +44,7 @@ Hooks.once("init", () => {
             });
         }
 
-        await wrapped();
+        await wrapped(...args);
 
         return this;
     });
@@ -64,8 +64,8 @@ Hooks.once("init", () => {
         return await wrapped(...args);
     });
 
-    patch("WeatherLayer.prototype.drawWeather", "WRAPPER", function (wrapped) {
-        const weather = wrapped();
+    patch("WeatherLayer.prototype.drawWeather", "WRAPPER", function (wrapped, ...args) {
+        const weather = wrapped(...args);
 
         this._pv_updateMask(!!weather);
 

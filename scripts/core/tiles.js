@@ -3,8 +3,8 @@ import { SpriteMesh } from "../utils/sprite-mesh.js";
 import { MaskData, MaskFilter } from "../utils/mask-filter.js";
 
 Hooks.once("init", () => {
-    patch("Tile.prototype.draw", "WRAPPER", async function (wrapped) {
-        await wrapped();
+    patch("Tile.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
+        await wrapped(...args);
 
         if (this._alphaMap?.texture) {
             this._alphaMap.texture.destroy(true);
@@ -30,8 +30,8 @@ Hooks.once("init", () => {
         return this;
     });
 
-    patch("Tile.prototype.refresh", "WRAPPER", function (wrapped) {
-        wrapped();
+    patch("Tile.prototype.refresh", "WRAPPER", function (wrapped, ...args) {
+        wrapped(...args);
 
         if (this._alphaMap?.texture) {
             this._alphaMap.texture.destroy(true);

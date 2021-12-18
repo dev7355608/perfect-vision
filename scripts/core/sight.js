@@ -3,8 +3,8 @@ import { patch } from "../utils/patch.js";
 import { TransformedShape } from "../utils/transformed-shape.js";
 
 Hooks.once("init", () => {
-    patch("SightLayer.prototype.draw", "WRAPPER", async function (wrapped) {
-        await wrapped();
+    patch("SightLayer.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
+        await wrapped(...args);
 
         this.pending.filters = null;
 

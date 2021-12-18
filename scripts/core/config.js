@@ -588,7 +588,7 @@ Hooks.on("canvasInit", () => {
 });
 
 Hooks.once("init", () => {
-    patch("SceneConfig.prototype._onChangeInput", "WRAPPER", async function (wrapped, event) {
+    patch("SceneConfig.prototype._onChangeInput", "WRAPPER", async function (wrapped, event, ...args) {
         const target = event.target;
         let name = target.name || target.id;
 
@@ -610,7 +610,7 @@ Hooks.once("init", () => {
 
         // TODO: preview globalLight, globalLightThreshold, and sightLimit
 
-        const result = await wrapped(event);
+        const result = await wrapped(event, ...args);
 
         if (this.object.isView) {
             if (name === "flags.perfect-vision.daylightColor" ||
@@ -653,27 +653,27 @@ Hooks.once("init", () => {
         });
     });
 
-    patch("DrawingConfig.prototype._onChangeInput", "WRAPPER", async function (wrapped, event) {
+    patch("DrawingConfig.prototype._onChangeInput", "WRAPPER", async function (wrapped, event, ...args) {
         if (!game.user.isGM) {
-            return await wrapped(event);
+            return await wrapped(event, ...args);
         }
 
         const document = this.object;
 
         if (!document) {
-            return await wrapped(event);
+            return await wrapped(event, ...args);
         }
 
         const scene = document.parent;
 
         if (!scene) {
-            return await wrapped(event);
+            return await wrapped(event, ...args);
         }
 
         const drawing = document.object;
 
         if (!drawing) {
-            return await wrapped(event);
+            return await wrapped(event, ...args);
         }
 
         const target = event.target;
@@ -753,7 +753,7 @@ Hooks.once("init", () => {
             }
         }
 
-        const result = await wrapped(event);
+        const result = await wrapped(event, ...args);
 
         if (scene.isView) {
             if (!name || name === "flags.perfect-vision.active" ||

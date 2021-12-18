@@ -14,7 +14,7 @@ import "./weather.js";
 
 Hooks.once("canvasInit", () => {
     if (canvas.app.renderer.context.webGLVersion !== 2) {
-        ui.notifications.error("Perfect Vision requires WebGL 2!");
+        ui.notifications.error("Perfect Vision requires WebGL 2!", { permanent: true });
     }
 });
 

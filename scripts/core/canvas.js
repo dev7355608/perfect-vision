@@ -341,8 +341,8 @@ Hooks.once("init", () => {
         }
     });
 
-    patch("Canvas.prototype.draw", "WRAPPER", async function (wrapped) {
-        await wrapped();
+    patch("Canvas.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
+        await wrapped(...args);
 
         if (this.scene === null) {
             return this;

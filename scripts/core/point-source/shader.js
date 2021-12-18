@@ -416,6 +416,11 @@ const keywords300es = new RegExp(
     ].join("|")})($|\\W)`, "gm"
 );
 
+const DIST_SMOOTHSTEP = `smoothstep(
+    pv_radius * ratio - (gradual ? pv_radius * PV_GRADUAL_SMOOTHNESS : pv_smoothness) * (1.0 - pv_dist / pv_radius),
+    pv_radius * ratio + (gradual ? pv_radius * PV_GRADUAL_SMOOTHNESS : pv_smoothness) * (pv_dist / pv_radius),
+    pv_dist)`;
+
 Logger.debug("Patching AdaptiveLightingShader.create (OVERRIDE)");
 
 const create = AdaptiveLightingShader.create;
@@ -454,13 +459,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                 );
                 this.fragmentShader = removeVariable(this.fragmentShader, "useFov", "false");
                 this.fragmentShader = replaceFunction(this.fragmentShader, "switchColor", `
-                    return mix(innerColor, outerColor, (gradual ?
-                            smoothstep(pv_radius * ratio - pv_radius * 0.2 * (1.0 - pv_dist / pv_radius),
-                                       pv_radius * ratio + pv_radius * 0.2 * (pv_dist / pv_radius),
-                                       pv_dist) :
-                            smoothstep(pv_radius * ratio - pv_smoothness * (1.0 - pv_dist / pv_radius),
-                                       pv_radius * ratio + pv_smoothness * (pv_dist / pv_radius),
-                                       pv_dist)));
+                    return mix(innerColor, outerColor, ${DIST_SMOOTHSTEP});
                 `);
                 this.fragmentShader = replace(this.fragmentShader,
                     /(^|\W)vec3\s+finalColor($|\W)/gm,
@@ -470,33 +469,12 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                     /(^|\W)vec4\s+baseColor\s*=\s*texture2D\s*\(\s*uBkgSampler\s*,\s*vSamplerUvs\s*\)($|\W)/gm,
                     "$1/* vec4 */ baseColor = pv_unpremultiply(texture2D(uBkgSampler, vSamplerUvs)) /* Patched by Perfect Vision */$2"
                 );
-
-                if (type === AdaptiveBackgroundShader) {
-                    this.fragmentShader = replace(this.fragmentShader,
-                        /(^|\W)(if\s*\(gradual\)\s*cexp\s*=\s*halfExposure\s*\*\s*smoothstep\s*\(\s*ratio\s*\*\s*0.8,\s*ratio\s*\*\s*1.2,\s*1.0\s*-\s*dist\s*\)\s*\+\s*halfExposure)($|\W)/gm,
-                        `$1/* $2 */ if (gradual) cexp = halfExposure * smoothstep(
-                            pv_radius * ratio - pv_radius * 0.2 * (pv_dist / pv_radius),
-                            pv_radius * ratio + pv_radius * 0.2 * (1.0 - pv_dist / pv_radius),
-                            pv_dist) + halfExposure /* Patched by Perfect Vision */$3`
-                    );
-                    this.fragmentShader = replace(this.fragmentShader,
-                        /(^|\W)(else\s+cexp\s*=\s*halfExposure\s*\*\s*smoothstep\s*\(\s*ratio\s*\*\s*0.98,\s*ratio\s*\*\s*1.02,\s*1.0\s*-\s*dist\s*\)\s*\+\s*halfExposure)($|\W)/gm,
-                        `$1/* $2 */ else cexp = halfExposure * smoothstep(
-                            pv_radius * ratio - pv_smoothness * (1.0 - pv_dist / pv_radius),
-                            pv_radius * ratio + pv_smoothness * (pv_dist / pv_radius),
-                            pv_dist) + halfExposure /* Patched by Perfect Vision */$3`
-                    );
-                }
+                this.fragmentShader = replace(this.fragmentShader,
+                    /(^|\W)(smoothstep\s*\(\s*ratio\s*\*\s*\(\s*gradual\s*\?\s*0\.\d+\s*:\s*0\.\d+\s*\)\s*,\s*ratio\s*\*\s*\(\s*gradual\s*\?\s*1\.\d+\s*:\s*1\.\d+\s*\)\s*,\s*dist\s*\))($|\W)/gm,
+                    `$1/* $2 */ ${DIST_SMOOTHSTEP} /* Patched by Perfect Vision */$3`
+                );
 
                 if (type === AdaptiveIlluminationShader) {
-                    this.fragmentShader = replace(this.fragmentShader,
-                        /(^|\W)(else\s+finalColor\s*\*=\s*fade\(dist\s*\*\s*dist\)\s*;)($|\W)/gm,
-                        `$1/* $2 */ else finalColor = mix(mix(colorDim, colorBackground,
-                            smoothstep(pv_radius * ratio - pv_radius * 0.2 * (pv_dist / pv_radius),
-                                       pv_radius * ratio + pv_radius * 0.2 * (1.0 - pv_dist / pv_radius),
-                                       pv_dist)), finalColor, fade(dist * dist)); /* Patched by Perfect Vision */$3`
-                    );
-
                     this.fragmentShader = wrap(this.fragmentShader, ["ratio", "colorBackground", "colorDim", "colorBright"], `\
                         uniform bool pv_sight;
                         uniform float pv_luminosity;
@@ -565,10 +543,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                                     if (gl_FragCoord.z < 1.0) {
                                         float t = smoothstep(0.0, 1.0, gl_FragCoord.z);
 
-                                        finalColor = mix(mix(colorVision(pv_cb, darknessLevel, vision),
-                                                                pv_cb,
-                                                                clamp((light - t) / (1.0 - t), 0.0, 1.0)
-                                                            ), finalColor, t);
+                                        finalColor = mix(mix(colorVision(pv_cb, darknessLevel, vision), pv_cb, clamp((light - t) / (1.0 - t), 0.0, 1.0)), finalColor, t);
                                     }
                                 } else {
                                     ratio = %ratio%;
@@ -671,6 +646,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                     vec3 pv_cb;
                     vec3 finalColor;
                     vec4 baseColor;
+                    #define PV_GRADUAL_SMOOTHNESS 0.2
                     %OCCLUSION_MASK%
                     ${OCCLUSION_MASK}
                     %LIGHT_MASK%

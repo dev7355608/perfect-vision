@@ -6,8 +6,8 @@ Hooks.once("setup", () => {
         return;
     }
 
-    patch("Canvas.layers.fxmaster.prototype.drawWeather", "WRAPPER", async function (wrapped, options = {}) {
-        const result = await wrapped(options);
+    patch("Canvas.layers.fxmaster.prototype.drawWeather", "WRAPPER", async function (wrapped, ...args) {
+        const result = await wrapped(...args);
 
         WeatherLayer.prototype._pv_updateMask.call(this, Object.keys(this.weatherEffects).length === 0);
 
@@ -41,7 +41,7 @@ Hooks.once("setup", () => {
 
         if (manager.apply_to.background || manager.apply_to.foreground || manager.apply_to.tokens || manager.apply_to.drawings) {
             if (!manager.apply_to.background || !manager.apply_to.foreground || !manager.apply_to.tokens || !manager.apply_to.drawings) {
-                ui.notifications.error("[Perfect Vision] FXMaster's filters cannot be applied to layers separately!");
+                ui.notifications.warn("[Perfect Vision] FXMaster's filters cannot be applied to layers separately!");
                 Logger.warn("FXMaster's filters cannot be applied to layers separately!");
             }
 

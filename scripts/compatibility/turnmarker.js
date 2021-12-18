@@ -5,8 +5,8 @@ Hooks.once("init", () => {
         return;
     }
 
-    patch("Tile.prototype.refresh", "WRAPPER", function (wrapped) {
-        wrapped();
+    patch("Tile.prototype.refresh", "WRAPPER", function (wrapped, ...args) {
+        wrapped(...args);
 
         this._pv_turnmarker?.removeChildren().forEach(c => c.destroy());
 

@@ -36,13 +36,3 @@ Hooks.once("init", () => {
         wrapped(options);
     });
 });
-
-Hooks.once("canvasInit", () => {
-    if (!game.modules.get("token-factions")?.active) {
-        return;
-    }
-
-    if (game.user.isGM && !isNewerVersion(game.modules.get("token-factions").data.version, "0.2.1")) {
-        ui.notifications.error("[Perfect Vision] The Token Factions module is not up to date!");
-    }
-});

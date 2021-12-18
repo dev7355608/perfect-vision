@@ -8,7 +8,7 @@ Hooks.once("init", () => {
         });
     });
 
-    patch("ForegroundLayer.prototype.draw", "WRAPPER", async function (wrapped) {
+    patch("ForegroundLayer.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
         let stage = this._pv_stage;
 
         if (stage) {
@@ -50,7 +50,7 @@ Hooks.once("init", () => {
             });
         }
 
-        await wrapped();
+        await wrapped(...args);
 
         return this;
     });
@@ -81,8 +81,8 @@ Hooks.once("init", () => {
         return await wrapped(...args);
     });
 
-    patch("ForegroundLayer.prototype.refresh", "WRAPPER", function (wrapped) {
-        wrapped();
+    patch("ForegroundLayer.prototype.refresh", "WRAPPER", function (wrapped, ...args) {
+        wrapped(...args);
 
         let mask = false;
 

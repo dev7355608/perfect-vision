@@ -1,8 +1,8 @@
 import { patch } from "../utils/patch.js";
 
 Hooks.once("init", () => {
-    patch("Token.prototype.refresh", "WRAPPER", function (wrapped) {
-        wrapped();
+    patch("Token.prototype.refresh", "WRAPPER", function (wrapped, ...args) {
+        wrapped(...args);
 
         if (!this._pv_border) {
             this._pv_border = new ObjectHUD(this);

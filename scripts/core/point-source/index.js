@@ -77,8 +77,8 @@ Hooks.once("init", () => {
         return mesh;
     });
 
-    patch("LightSource.prototype.initialize", "WRAPPER", function (wrapped, data) {
-        wrapped(data);
+    patch("LightSource.prototype.initialize", "WRAPPER", function (wrapped, data, ...args) {
+        wrapped(data, ...args);
 
         this._pv_los = this.los ? new TransformedShape(this.los) : null;
         this._pv_geometry = new PointSourceGeometry(null, this._pv_los, canvas.dimensions.size / 10);
@@ -130,8 +130,8 @@ Hooks.once("init", () => {
         Hooks.callAll("initializeLightSourceShaders", this);
     });
 
-    patch("LightSource.prototype._initializeBlending", "WRAPPER", function (wrapped) {
-        wrapped();
+    patch("LightSource.prototype._initializeBlending", "WRAPPER", function (wrapped, ...args) {
+        wrapped(...args);
 
         const defaultZ = this.isDarkness ? 10 : 0;
         const BM = PIXI.BLEND_MODES;
@@ -185,17 +185,17 @@ Hooks.once("init", () => {
         const u = shader.uniforms;
         const d = shader._defaults;
         const c = area?._pv_channels ?? canvas.lighting.channels;
-        const inverseGamma = 1 / ((2.4 * this.data.alpha) + 0.25);
+        const colorIntensity = this.data.alpha * 2;
         const blend = (rgb1, rgb2, w) => rgb1.map((x, i) => (w * x) + ((1 - w) * (rgb2[i]))); // linear interpolation
 
         // Darkness [-1, 0)
         if (this.isDarkness) {
             let lc, cdim1, cdim2, cbr1, cbr2;
 
-            // Construct gamma-adjusted darkness colors for "black" and the midpoint between dark and black
+            // Construct intensity-adjusted darkness colors for "black" and the midpoint between dark and black
             const iMid = c.background.rgb.map((x, i) => (x + c.black.rgb[i]) / 2);
-            const mid = this.data.color ? this.colorRGB.map((x, i) => Math.pow(x * iMid[i], inverseGamma)) : iMid;
-            const black = this.data.color ? this.colorRGB.map((x, i) => Math.pow(x * c.black.rgb[i], inverseGamma)) : c.black.rgb;
+            const mid = this.data.color ? this.colorRGB.map((x, i) => x * iMid[i] * colorIntensity) : iMid;
+            const black = this.data.color ? this.colorRGB.map((x, i) => x * c.black.rgb[i] * colorIntensity) : c.black.rgb;
 
             // For darkness [-1, -0.5), blend between the chosen darkness color and black
             if (this.data.luminosity < -0.5) {
@@ -225,19 +225,6 @@ Hooks.once("init", () => {
             // Linear interpolation between tones according to luminosity
             u.colorDim = blend(cdim1, cdim2, 1 - lc);
             u.colorBright = blend(cbr1, cbr2, 1 - lc);
-
-            // TODO
-            // if (this.data.luminosity < -0.5) {
-            //     const s = 1.5 + this.data.luminosity;
-
-            //     u.colorDim = c.dark.rgb.map(x => x * s);
-            //     u.colorBright = c.black.rgb.map(x => x * s);
-            // } else {
-            //     const s = this.data.luminosity * -2;
-
-            //     u.colorDim = blend(c.dark.rgb, c.background.rgb, s);
-            //     u.colorBright = blend(c.black.rgb, c.background.rgb, s);
-            // }
         }
         // Light [0,1]
         else {
@@ -436,8 +423,8 @@ Hooks.once("init", () => {
         return this;
     });
 
-    patch("VisionSource.prototype._initializeBlending", "WRAPPER", function (wrapped) {
-        wrapped();
+    patch("VisionSource.prototype._initializeBlending", "WRAPPER", function (wrapped, ...args) {
+        wrapped(...args);
 
         const defaultZ = this.isDarkness ? 10 : 0;
         const BM = PIXI.BLEND_MODES;
@@ -466,11 +453,6 @@ Hooks.once("init", () => {
 
         // Apply standard uniforms for this PointSource
         u.ratio = this.ratio;
-
-        const cci = shader._defaults.alpha // Assume alpha is the default value for vision
-
-        u.inverseGamma = 1 / ((2.4 * cci) + 0.25);
-        u.reverseInverseGamma = 1 / ((2.4 * (1.0 - cci)) + 0.25);
         u.screenDimensions = canvas.screenDimensions;;
         u.uBkgSampler = canvas.primary.renderTexture;
 

@@ -302,11 +302,10 @@ Hooks.once("init", () => {
 
         // Update lighting channels
         if (darknessChanged || bgChanged || !this.channels) {
-            this.channels = this._configureChannels({
+            this.channels = this._pv_channels = this._configureChannels({
                 backgroundColor: foundry.utils.colorStringToHex(backgroundColor),
                 darkness
             });
-            this._pv_channels = this.channels;
         }
 
         this._pv_darknessChanged = darknessChanged;
@@ -317,10 +316,9 @@ Hooks.once("init", () => {
         const globalLight = this.hasGlobalIllumination();
 
         if (this.globalLight !== globalLight) {
-            this.globalLight = globalLight;
-            this._pv_globalLight = globalLight;
+            this.globalLight = this._pv_globalLight = globalLight;
 
-            refreshVision = true;
+            refreshVision = true; // TODO: initialize necessary as well?
         }
 
         const bkg = this.background;

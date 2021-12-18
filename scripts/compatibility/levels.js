@@ -13,7 +13,7 @@ Hooks.once("init", () => {
         container.disableTempParent(cacheParent);
     }
 
-    patch("ForegroundLayer.prototype.draw", "WRAPPER", async function (wrapped) {
+    patch("ForegroundLayer.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
         let container = this._pv_occlusionTiles;
 
         if (container) {
@@ -29,7 +29,7 @@ Hooks.once("init", () => {
 
         canvas.app.ticker.add(onTick, undefined, PIXI.UPDATE_PRIORITY.LOW + 2);
 
-        await wrapped();
+        await wrapped(...args);
 
         return this;
     });
@@ -48,8 +48,8 @@ Hooks.once("init", () => {
         return await wrapped(...args);
     });
 
-    patch("ForegroundLayer.prototype.refresh", "WRAPPER", function (wrapped) {
-        wrapped();
+    patch("ForegroundLayer.prototype.refresh", "WRAPPER", function (wrapped, ...args) {
+        wrapped(...args);
 
         for (const tile of this.tiles) {
             if (tile.tile && this._pv_occlusionTile) {
@@ -60,8 +60,8 @@ Hooks.once("init", () => {
         return this;
     });
 
-    patch("Tile.prototype.refresh", "WRAPPER", function (wrapped) {
-        wrapped();
+    patch("Tile.prototype.refresh", "WRAPPER", function (wrapped, ...args) {
+        wrapped(...args);
 
         if (!this._original) {
             // TODO: ref count sprite?
