@@ -470,8 +470,12 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                     "$1/* vec4 */ baseColor = pv_unpremultiply(texture2D(uBkgSampler, vSamplerUvs)) /* Patched by Perfect Vision */$2"
                 );
                 this.fragmentShader = replace(this.fragmentShader,
-                    /(^|\W)(smoothstep\s*\(\s*ratio\s*\*\s*\(\s*gradual\s*\?\s*0\.\d+\s*:\s*0\.\d+\s*\)\s*,\s*ratio\s*\*\s*\(\s*gradual\s*\?\s*1\.\d+\s*:\s*1\.\d+\s*\)\s*,\s*dist\s*\))($|\W)/gm,
-                    `$1/* $2 */ ${DIST_SMOOTHSTEP} /* Patched by Perfect Vision */$3`
+                    /(^|\W)(smoothstep\s*\(\s*ratio\s*\*\s*\(\s*gradual\s*\?\s*0\.\d+\s*:\s*0\.\d+\s*\)\s*,\s*ratio\s*\*\s*\(\s*gradual\s*\?\s*1\.\d+\s*:\s*1\.\d+\s*\)\s*,\s*1.0\s*-\s*dist\s*\))($|\W)/gm,
+                    `$1/* $2 */ (1.0 - ${DIST_SMOOTHSTEP}) /* Patched by Perfect Vision */$3`
+                );
+                this.fragmentShader = replace(this.fragmentShader,
+                    /(^|\W)(smoothstep\s*\(\s*ratio\s*\*\s*\(\s*gradual\s*\?\s*1\.\d+\s*:\s*1\.\d+\s*\)\s*,\s*ratio\s*\*\s*\(\s*gradual\s*\?\s*0\.\d+\s*:\s*0\.\d+\s*\)\s*,\s*dist\s*\))($|\W)/gm,
+                    `$1/* $2 */ (1.0 - ${DIST_SMOOTHSTEP}) /* Patched by Perfect Vision */$3`
                 );
 
                 if (type === AdaptiveIlluminationShader) {
@@ -585,6 +589,13 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                     );
                 }
 
+                if (this === AdaptiveBackgroundShader) {
+                    this.fragmentShader = replace(this.fragmentShader,
+                        /(^|\W)(gl_FragColor\s*=[^}]+)($|\W)/gm,
+                        `$1/* $2 */ pv_alpha *= baseColor.a * (1.0 - smoothstep(0.75, 1.0, dist * dist * dist)); /* Patched by Perfect Vision */$3`
+                    );
+                }
+
                 this.fragmentShader = wrap(this.fragmentShader, ["vUvs", "vSamplerUvs"], `\
                     uniform ${PIXI.settings.PRECISION_VERTEX} vec4 viewportFrame;
                     uniform ${PIXI.settings.PRECISION_VERTEX} mat3 projectionMatrixInverse;
@@ -613,7 +624,6 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
 
                         %wrapped%();
 
-                        pv_alpha = ${type === AdaptiveBackgroundShader ? "pv_alpha * baseColor.a" : "pv_alpha"};
                         pv_fragColor = ${type === AdaptiveIlluminationShader ? "darkness ? vec4(mix(mix(pv_cb, vec3(1.0), 1.0 - pv_alpha), finalColor, pv_alpha), 1.0) : vec4(mix(pv_cb, finalColor, pv_alpha), 1.0)" : `vec4(finalColor, 1.0) * pv_alpha`};
                     }`
                 );
