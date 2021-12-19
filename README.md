@@ -14,10 +14,14 @@ Perfect Vision ...
 - ... renders the grid, drawings, token borders & auras, and turn markers in such away that these elements are not affected by lighting, and therefore remain clearly visible and colorful in dark scenes.
 - ... changes the light shaders match the shaped lights of the [Light/Sound Mask](https://github.com/caewok/fvtt-light-mask) module.
 - ... improves the quality of [FXMaster's](https://foundryvtt.com/packages/fxmaster) & [Weather Blocker's](https://github.com/theripper93/Weather-Blocker) weather masks and [Better Roofs](https://foundryvtt.com/packages/betterroofs) masks.
+- ... makes [FXMaster's](https://foundryvtt.com/packages/fxmaster) weather effects interact with roof tiles just like core weather effects.
+- ... is 100% compatible with [Levels](https://foundryvtt.com/packages/levels).
 
 ![Screenshot](images/screenshot.png)
 
 ## Module Settings
+
+![Module Settings](images/module-settings.png)
 
 - **Vision Rules**: Select one of the presets, or choose *Custom* set your own rules. It is also possible to set the rules for each token individually. You can find these token-specific settings in the token configuration under the *Vision* tab.
 
@@ -43,11 +47,8 @@ Let's give a token *devil's sight*. Go to the *Vision* tab of the token configur
 
 ![Scene Controls](images/controls.png)
 
-- **Toggle GM Vision**: If enabled, brightens the scene and disables desaturation for the GM, but doesn't change anything while a token is controlled; so the GM still sees exactly what a player would see if they select a token that has vision. You may find this script-macro useful to toggle *GM Vision*:
-```js
-game.settings.set("perfect-vision", "improvedGMVision", !game.settings.get("perfect-vision", "improvedGMVision"));
-```
-- **Display Delimiter**: Toggles an overlay that makes it easy to distinguish between dim, bright, and no light.
+- **Toggle GM Vision**: If enabled, brightens the scene and disables desaturation for the GM, but doesn't change anything while a token is controlled; so the GM still sees exactly what a player would see if they select a token that has vision. Default keybinding is *CTRL+G*.
+- **Toggle Delimiters**: Toggles an overlay that makes it easy to distinguish between dim, bright, and no light. Default keybinding is *CTRL+H*.
 
 ![Delimiter](images/delimiter.png)
 
@@ -55,7 +56,9 @@ game.settings.set("perfect-vision", "improvedGMVision", !game.settings.get("perf
 
 You find these settings in the *Lighting* tab.
 
-- **Sight Limit**: Limits the sight of all controlled tokens to the specified distance. This limit is in effect even if *Unrestricted Vision Range* is enabled. The limit can be set for each token individually in the token configuration under the *Vision* tab. You may find this script-macros useful to toggle the blindness of all controlled tokens:
+![Scene Configuration](images/scene-config.png)
+
+- **Sight Limit**: Limits the sight of all tokens to the specified distance. This limit is in effect even if *Unrestricted Vision Range* is enabled. The limit can be set for each token individually in the token configuration under the *Vision* tab. You may find this script-macros useful to toggle the blindness of all controlled tokens:
 ```js
 canvas.tokens.controlled.forEach(token => {
     if (Number.isFinite(token.document.getFlag("perfect-vision", "sightLimit"))) {
@@ -65,7 +68,6 @@ canvas.tokens.controlled.forEach(token => {
     }
 });
 ```
-
 - **Daylight and Darkness Colors**: These settings allow you to change the tint of daylight and darkness.
 - **Saturation Level**: If the box is unchecked, the saturation is set to `1 - Darkness Level`; so, if *Darkness Level* is 0, monochrome and non-monochrome vision are indistinguishable, and, if *Darkness Level* is 1, monochrome vision is fully desaturated. If you don't want to link saturation to the *Darkness Level* in this way, simply check the box and set your preferred amount of saturation manually.
 
@@ -73,17 +75,21 @@ canvas.tokens.controlled.forEach(token => {
 
 You find these settings in the *Vision* tab.
 
+![Token Configuration](images/token-config.png)
+
 - **Vision Rules**: Same setting as in the [module settings](#module-settings). Defaults to the module settings' *Vision Rules*, if not set.
 - **Dim (Bright) Vision in Darkness**: Same setting as in the [module settings](#module-settings).
 - **Dim (Bright) Vision in Dim Light**: Same setting as in the [module settings](#module-settings).
 - **Monochrome Vision Color**: Same setting as in the [module settings](#module-settings). Defaults to the module settings' *Monochrome Vision Color*, if not set.
-- **Sight Limit**: Same setting as in the [scene configuration](#module-settings). Defaults to the scene's *Sight Limit*, if not set.
+- **Sight Limit**: Same setting as in the [scene configuration](#module-settings).
 
 ## Drawing Configuration
 
 You find these settings in the *Lighting* tab.
 
-If you check the *Active* checkbox, lighting and vision of the area below the drawing is set by the settings below. Drawings with a higher *Z-Index* override the lighting settings of overlapping drawings with a lower Z-Index. You can choose any of the drawing shapes, but it is recommended to *not* use the freehand tool and instead to use the polygon tool; try to draw your area with the fewest amount of points possible, just like you would when you add walls to the scene.
+If you check the *Active* checkbox, lighting and vision of the area below the drawing is set by the settings below. Drawings with a higher *Z-Index* override the lighting settings of overlapping drawings with a lower Z-Index. You can choose any of the drawing shapes, but it is recommended to *not* use the freehand tool and instead to use the polygon tool; try to draw your area with the fewest amount of points possible, just like you would when you add walls to the scene. *Important:* make sure that the polygon you draw does not intersect itself!
+
+![Drawing Configuration](images/drawing-config.png)
 
 - **Active**: If enabled, lighting and vision of the area below is controlled by the following settings. If disabled, then all children (and children's children ...) of the drawing are disabled as well, even if they are set to active. If the ID, which you find next to the *Reset Defaults* button, is red, the drawing is currently inactive.
 - **Parent**: If left blank, the scene is the parent, otherwise you may choose another drawing as its parent by selecting the ID of the drawing. You find the ID of a drawing next to the *Reset Defaults* button in the *Lighting* tab. The settings below default to the parent's settings if *Override* is unchecked; settings with a *Override* checkbox are inherited from the parent unless this box is checked.
@@ -91,10 +97,13 @@ If you check the *Active* checkbox, lighting and vision of the area below the dr
 - **Constrained By Walls**: If enabled, the area is masked by the line-of-sight polygon originating in the origin of the area. Same setting as in the light configuration.
 - **Provides Vision**: If enabled, any token has vision of this area regardless of line-of-sight restrictions. Same setting as in the light configuration.
 - **Unrestricted Vision Range**: Same setting as in the scene configuration.
+- **Sight Limit**: Same setting as in the [scene configuration](#scene-configuration).
 - **Daylight and Darkness Colors**: Same setting as in the [scene configuration](#scene-configuration).
 - **Darkness Level**: Same setting as in the scene configuration.
 - **Saturation Level**: Same setting as in the [scene configuration](#scene-configuration).
 - **Vision Limitation Threshold**: Same setting as in the scene configuration.
+
+![Lighting Area](images/lighting-area.png)
 
 ### Drawing Example: *Mixed Indoor/Outdoor Scene*
 
