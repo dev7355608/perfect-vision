@@ -67,20 +67,22 @@ Hooks.once("setup", () => {
         filters = [];
 
         if (this.filteredLayers.background) {
+            let pos = 0;
+
             for (const [key, filter] of Object.entries(this.filters)) {
                 filters.push(filter);
 
-                if (key === "core_underwater") {
+                if (filter instanceof CONFIG.fxmaster.filters.underwater) {
                     const container = canvas.stage._pv_scene_with_overlays;
 
                     container.filters.push(filter);
                 } else {
                     const container = canvas.stage._pv_scene_without_overlays;
 
-                    if (key === "core_predator" || key === "core_oldfilm") {
+                    if (filter instanceof CONFIG.fxmaster.filters.predator || filter instanceof CONFIG.fxmaster.filters.oldfilm) {
                         container.filters.push(filter);
                     } else {
-                        container.filters.unshift(filter);
+                        container.filters.splice(pos++, 0, filter);
                     }
 
                     if (this.filteredLayers.drawings) {
