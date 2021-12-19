@@ -6,15 +6,18 @@ Hooks.once("setup", () => {
         return;
     }
 
-    patch("Canvas.layers.fxmaster.prototype.drawWeather", "WRAPPER", async function (wrapped, ...args) {
+    CONFIG.Canvas.layers.fxmaster.group = "primary";
+    CONFIG.Canvas.layers.specials.group = "primary";
+
+    patch("Canvas.layers.fxmaster.layerClass.prototype.drawWeather", "WRAPPER", async function (wrapped, ...args) {
         const result = await wrapped(...args);
 
-        WeatherLayer.prototype._pv_updateMask.call(this, Object.keys(this.weatherEffects).length === 0);
+        WeatherLayer.prototype._pv_updateMask.call(this, Object.keys(this.weatherEffects).length !== 0);
 
         return result;
     });
 
-    patch("Canvas.layers.fxmaster.prototype.updateMask", "OVERRIDE", function () {
+    patch("Canvas.layers.fxmaster.layerClass.prototype.updateMask", "OVERRIDE", function () {
         this.visible = true;
 
         if (this._pv_mask) {
@@ -22,7 +25,7 @@ Hooks.once("setup", () => {
             this._pv_mask = null;
         }
 
-        this._pv_mask = (canvas.scene.getFlag("fxmaster", "invert") ? this._createMask() : this._createInvertMask()) ?? null;
+        this._pv_mask = (canvas.scene.getFlag("fxmaster", "invert") ? this._createMask() : this._createInvertedMask()) ?? null;
 
         if (this._pv_mask) {
             canvas.weather._pv_stage.masks.addChild(this._pv_mask);
@@ -33,22 +36,22 @@ Hooks.once("setup", () => {
 
     let filters = [];
 
-    function updateFilters(manager) {
-        canvas.background.filters = [];
-        canvas.drawings.filters = [];
-        canvas.tokens.filters = [];
-        canvas.foreground.filters = [];
+    patch("FXMASTER.filters.applyFiltersToLayers", "OVERRIDE", function () {
+        canvas.background.filters = canvas.background.filters ?? [];
+        canvas.drawings.filters = canvas.drawings.filters ?? [];
+        canvas.tokens.filters = canvas.tokens.filters ?? [];
+        canvas.foreground.filters = canvas.foreground.filters ?? [];
 
-        if (manager.apply_to.background || manager.apply_to.foreground || manager.apply_to.tokens || manager.apply_to.drawings) {
-            if (!manager.apply_to.background || !manager.apply_to.foreground || !manager.apply_to.tokens || !manager.apply_to.drawings) {
+        if (this.filteredLayers.background || this.filteredLayers.foreground || this.filteredLayers.tokens || this.filteredLayers.drawings) {
+            if (!this.filteredLayers.background || !this.filteredLayers.foreground || !this.filteredLayers.tokens || !this.filteredLayers.drawings) {
                 ui.notifications.warn("[Perfect Vision] FXMaster's filters cannot be applied to layers separately!");
                 Logger.warn("FXMaster's filters cannot be applied to layers separately!");
             }
 
-            manager.apply_to.background = true;
-            manager.apply_to.foreground = true;
-            manager.apply_to.tokens = true;
-            manager.apply_to.drawings = true;
+            this.filteredLayers.background = true;
+            this.filteredLayers.foreground = true;
+            this.filteredLayers.tokens = true;
+            this.filteredLayers.drawings = true;
         }
 
         for (const container of [canvas.stage._pv_scene_without_overlays, canvas.stage._pv_scene_with_overlays]) {
@@ -56,15 +59,15 @@ Hooks.once("setup", () => {
                 const index = container.filters.indexOf(filter);
 
                 if (index >= 0) {
-                    segment.filters.splice(index, 1);
+                    container.filters.splice(index, 1);
                 }
             }
         }
 
         filters = [];
 
-        if (manager.apply_to.background) {
-            for (const [key, filter] of Object.entries(manager.filters)) {
+        if (this.filteredLayers.background) {
+            for (const [key, filter] of Object.entries(this.filters)) {
                 filters.push(filter);
 
                 if (key === "core_underwater") {
@@ -80,26 +83,11 @@ Hooks.once("setup", () => {
                         container.filters.unshift(filter);
                     }
 
-                    if (manager.apply_to.drawings) {
-                        Logger.warn("Perfect Vision does not apply FXMaster's %s filter to the drawings layer", key);
+                    if (this.filteredLayers.drawings) {
+                        Logger.warn("Perfect Vision does not apply FXMaster's %s filter to the drawings layer!", key);
                     }
                 }
             }
         }
-
-        for (const filter of filters) {
-            filter.resolution = canvas.app.renderer.resolution;
-            filter.multisample = PIXI.MSAA_QUALITY.NONE;
-        }
-    }
-
-    patch("FXMASTER.filters.activate", "POST", function () {
-        updateFilters(this);
-    });
-
-    patch("FXMASTER.filters.update", "POST", async function (result) {
-        await result;
-
-        updateFilters(this);
     });
 });
