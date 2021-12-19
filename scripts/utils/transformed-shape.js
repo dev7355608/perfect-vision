@@ -488,7 +488,7 @@ export class TransformedShape {
 
         const smax = Math.max(sx, sy);
 
-        let da = Math.acos(1 - Math.min(0.25 / (maxZoomLevel * smax), 1));
+        let da = 2 * Math.acos(1 - Math.min(0.5 / (maxZoomLevel * smax), 1));
 
         if (maxEdgeLength > 0) {
             const { width, height } = this.bounds;

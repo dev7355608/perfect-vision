@@ -287,12 +287,36 @@ Hooks.once("init", () => {
             return false;
         }
 
-        if (range === Infinity) {
-            return true;
+        const unitsToPixel = canvas.dimensions.size / canvas.dimensions.distance;
+        const x1 = sourceToken.center.x;
+        const y1 = sourceToken.center.y;
+        const x2 = token.center.x;
+        const y2 = token.center.y;
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const dist2 = dx * dx + dy * dy;
+        const dist = Math.sqrt(dist2);
+        const adjust = Math.min(token.w, token.h) * 0.49;
+
+        if (dist - adjust > range) {
+            return false;
         }
 
-        const distance = this.getUnitTokenDist(sourceToken, token) * canvas.dimensions.size / canvas.dimensions.distance;
+        const z1 = this.getTokenLOSheight(sourceToken) * unitsToPixel;
+        const z2 = this.getTokenLOSheight(token) * unitsToPixel;
+        const dz = z2 - z1;
+        const t = canvas._pv_raySystem.castRay(
+            Math.round(x1),
+            Math.round(y1),
+            Math.round(dx),
+            Math.round(dy),
+            Math.round(dz),
+            sourceToken.vision._pv_minRadius,
+            dist
+        );
 
-        return distance <= range;
+        const distance = Math.sqrt(dist2 + dz * dz);
+
+        return distance - adjust <= Math.min(range, distance * t);
     });
 });

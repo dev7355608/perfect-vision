@@ -260,7 +260,6 @@ Hooks.once("init", () => {
     patch("VisionSource.prototype.initialize", "OVERRIDE", function (data = {}) {
         const token = this.object;
         const document = token.document;
-        const scene = token.scene ?? token._original?.scene;
 
         let visionRules = document.getFlag("perfect-vision", "visionRules") || "default";
         let dimVisionInDarkness;
@@ -292,10 +291,6 @@ Hooks.once("init", () => {
         brightVisionInDimLight = brightVisionInDimLight || game.settings.get("perfect-vision", "brightVisionInDimLight");
 
         let sightLimit = parseFloat(document.getFlag("perfect-vision", "sightLimit"));
-
-        if (Number.isNaN(sightLimit)) {
-            sightLimit = parseFloat(scene?.getFlag("perfect-vision", "sightLimit"));
-        }
 
         if (!Number.isNaN(sightLimit)) {
             sightLimit = Math.max(getLightRadius(token, Math.abs(sightLimit)), Math.min(token.w, token.h) * 0.5);
@@ -355,23 +350,12 @@ Hooks.once("init", () => {
         // Compute the source polygon
         const origin = { x: this.data.x, y: this.data.y };
 
-        if (sightLimit === undefined) {
-            this.los = CONFIG.Canvas.losBackend.create(origin, {
-                type: "sight",
-                angle: this.data.angle,
-                rotation: this.data.rotation,
-                source: this
-            });
-        } else {
-            this.los = CONFIG.Canvas.losBackend.create(origin, {
-                type: "sight",
-                angle: this.data.angle,
-                density: 60,
-                radius: sightLimit,
-                rotation: this.data.rotation,
-                source: this
-            });
-        }
+        this.los = CONFIG.Canvas.losBackend.create(origin, {
+            type: "sight",
+            angle: this.data.angle,
+            rotation: this.data.rotation,
+            source: this
+        });
 
         // Store the FOV circle
         this.fov = new PIXI.Circle(origin.x, origin.y, radiusSight);

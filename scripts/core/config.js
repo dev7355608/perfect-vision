@@ -131,14 +131,7 @@ function renderConfig(sheet, html, data) {
     }
 
     if (sheet instanceof TokenConfig) {
-        const scene = document.parent
-
-        if (scene) {
-            const defaultSightLimit = scene.getFlag("perfect-vision", "sightLimit");
-            html.find(`input[name="${prefix}.sightLimit"]`).attr("placeholder", `Scene Default (${defaultSightLimit ?? "Unlimited"})`);
-        } else {
-            html.find(`input[name="${prefix}.sightLimit"]`).attr("placeholder", "Unlimited");
-        }
+        html.find(`input[name="${prefix}.sightLimit"]`).attr("placeholder", "Unlimited");
     }
 
     const update = () => {
@@ -403,6 +396,14 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
                 </div>
             </div>
             <div class="form-group">
+                <label>Sight Limit</label>
+                <div class="form-fields">
+                    <input type="number" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
+                    &nbsp;&nbsp;&nbsp;
+                    <label class="checkbox">Override <input type="checkbox" id="perfect-vision.overrideSightLimit"></label>
+                </div>
+            </div>
+            <div class="form-group">
                 <label>Darkness Level</label>
                 <div class="form-fields">
                     <input type="range" name="flags.perfect-vision.darkness" min="0" max="1" step="0.05">
@@ -489,6 +490,10 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
         .attr("checked", document.getFlag("perfect-vision", "globalLight") !== undefined);
     html.find(`input[name="flags.perfect-vision.globalLight"]`)
         .attr("checked", document.getFlag("perfect-vision", "globalLight"));
+    html.find(`input[id="perfect-vision.overrideSightLimit"]`)
+        .attr("checked", document.getFlag("perfect-vision", "sightLimit") !== undefined);
+    html.find(`input[name="flags.perfect-vision.sightLimit"]`)
+        .attr("value", document.getFlag("perfect-vision", "sightLimit"));
     html.find(`input[id="perfect-vision.overrideDarkness"]`)
         .attr("checked", document.getFlag("perfect-vision", "darkness") !== undefined);
     html.find(`input[name="flags.perfect-vision.darkness"]`).next()
@@ -543,7 +548,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
 
     if (!sheet._minimized) {
         sheet.position.width = Math.max(sheet.position.width, 680);
-        sheet.position.height = Math.max(sheet.position.height, 530);
+        sheet.position.height = Math.max(sheet.position.height, 560);
         sheet.setPosition(sheet.position);
     }
 });
@@ -716,6 +721,12 @@ Hooks.once("init", () => {
                 drawing._pv_preview.globalLight = undefined;
             }
 
+            if (this.form.elements["perfect-vision.overrideSightLimit"].checked) {
+                drawing._pv_preview.sightLimit = this.form.elements["flags.perfect-vision.sightLimit"].value;
+            } else {
+                drawing._pv_preview.sightLimit = undefined;
+            }
+
             if (this.form.elements["perfect-vision.overrideDaylightColor"].checked) {
                 drawing._pv_preview.daylightColor = this.form.elements["flags.perfect-vision.daylightColor"].value;
             } else {
@@ -767,6 +778,8 @@ Hooks.once("init", () => {
                     name === "flags.perfect-vision.vision" && this.form.elements["perfect-vision.overrideVision"].checked ||
                     name === "perfect-vision.overrideGlobalLight" ||
                     name === "flags.perfect-vision.globalLight" && this.form.elements["perfect-vision.overrideGlobalLight"].checked ||
+                    name === "perfect-vision.overrideSightLimit" ||
+                    name === "flags.perfect-vision.sightLimit" && this.form.elements["perfect-vision.overrideSightLimit"].checked ||
                     name === "perfect-vision.overrideDaylightColor" ||
                     name === "flags.perfect-vision.daylightColor" && this.form.elements["perfect-vision.overrideDaylightColor"].checked ||
                     name === "perfect-vision.overrideDarknessColor" ||
@@ -862,6 +875,14 @@ Hooks.once("init", () => {
 
             if (document.data.flags?.["perfect-vision"] && "globalLight" in document.data.flags?.["perfect-vision"]) {
                 data["flags.perfect-vision.-=globalLight"] = null;
+            }
+        }
+
+        if (!this.form.elements["perfect-vision.overrideSightLimit"].checked) {
+            delete data["flags.perfect-vision.sightLimit"];
+
+            if (document.data.flags?.["perfect-vision"] && "sightLimit" in document.data.flags?.["perfect-vision"]) {
+                data["flags.perfect-vision.-=sightLimit"] = null;
             }
         }
 

@@ -12,11 +12,11 @@ Hooks.once("init", () => {
         this.filter.resolution = canvas.app.renderer.resolution;
         this.filterArea = canvas.app.renderer.screen;
 
-        this._pv_contourOptions = { maxZoomLevel: canvas.performance.blur.enabled ? 0.25 : 0.5, arrayType: Float32Array };
-        this._pv_circle = new TransformedShape(new PIXI.Circle(0, 0, canvas.dimensions.size / 2)).generateContour(this._pv_contourOptions);
+        this._pv_contourOptions = { maxZoomLevel: 1.0, arrayType: Float32Array };
+        this._pv_circle = new TransformedShape(new PIXI.Circle(0, 0, canvas.dimensions.size)).generateContour(this._pv_contourOptions);
 
         for (let i = 0; i < this._pv_circle.length; i++) {
-            this._pv_circle[i] /= canvas.dimensions.size / 2;
+            this._pv_circle[i] /= canvas.dimensions.size;
         }
 
         return this;
