@@ -340,12 +340,12 @@ Hooks.once("init", () => {
                 continue;
             }
 
-            if (!hasLOS && points.some(p => source._pv_los.containsPoint(p))) {
+            if ((!hasLOS || !hasFOV) && points.some(p => source._pv_los.containsPoint(p))) {
                 hasLOS = true;
-            }
 
-            if (!hasFOV && points.some(p => source._pv_fov.containsPoint(p))) {
-                hasFOV = true;
+                if (!hasFOV && points.some(p => source._pv_fov.containsPoint(p))) {
+                    hasFOV = true;
+                }
             }
 
             if (hasLOS && hasFOV) {
