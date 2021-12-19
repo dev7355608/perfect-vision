@@ -45,11 +45,11 @@ Hooks.once("init", () => {
     presets["default"] = presets[game.system.id === "dnd5e" ? "dnd5e" : (game.system.id === "pf1" ? "pf1e" : (game.system.id === "pf2e" ? "pf2e" : (game.system.id === "D35E" ? "dnd35e" : (game.system.id === "sfrpg" ? "sf" : "fvtt"))))];
 });
 
-function refresh({ lighting = true, sight = true, initialize = true } = {}) {
+function refresh() {
     if (canvas?.ready) {
         canvas.perception.schedule({
-            lighting: { initialize, refresh: lighting },
-            sight: { initialize, refresh: sight }
+            lighting: { initialize: true, refresh: true },
+            sight: { initialize: true, refresh: true }
         });
     }
 }
@@ -57,16 +57,40 @@ function refresh({ lighting = true, sight = true, initialize = true } = {}) {
 Hooks.once("init", () => {
     game.settings.register("perfect-vision", "improvedGMVision", {
         name: "Improved GM Vision",
-        hint: "Improves the visibility in darkness for the GM massively while lit areas of the scene are still rendered normally.",
         scope: "client",
         config: false,
         type: Boolean,
         default: false,
-        onChange: () => {
-            if (game.user.isGM) {
-                canvas.lighting.version++;
+        onChange: (value) => {
+            if (!canvas?.ready || !game.user.isGM) {
+                return;
+            }
 
-                refresh({ initialize: false });
+            canvas.perception.schedule({ lighting: { refresh: true } });
+
+            if (ui.controls.control.name === "lighting") {
+                ui.controls.control.tools.find(tool => tool.name === "perfect-vision.improvedGMVision").active = value;
+                ui.controls.render();
+            }
+        }
+    });
+
+    game.settings.register("perfect-vision", "delimiters", {
+        name: "Delimiters",
+        scope: "client",
+        config: false,
+        type: Boolean,
+        default: false,
+        onChange: (value) => {
+            if (!canvas?.ready || !game.user.isGM) {
+                return;
+            }
+
+            canvas.perception.schedule({ lighting: { refresh: true } });
+
+            if (ui.controls.control.name === "lighting") {
+                ui.controls.control.tools.find(tool => tool.name === "perfect-vision.delimiters").active = value;
+                ui.controls.render();
             }
         }
     });

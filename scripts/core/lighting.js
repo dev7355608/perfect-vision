@@ -337,6 +337,8 @@ Hooks.once("init", () => {
 
             ilm._pv_filter.brightness = gmVision ? 0.25 * darkness : 0.0;
             ilm._pv_filter.enabled = ilm._pv_filter === ilm.filter || gmVision;
+
+            this._pv_delimiter.visible = game.settings.get("perfect-vision", "delimiters");
         }
 
         this._animatedSources = [];
@@ -478,9 +480,12 @@ Hooks.once("init", () => {
     });
 });
 
+LightingLayer.prototype._pv_toggleGMVision = function (toggled) {
+    game.settings.set("perfect-vision", "improvedGMVision", toggled ?? !game.settings.get("perfect-vision", "improvedGMVision"));
+};
+
 LightingLayer.prototype._pv_toggleDelimiters = function (toggled) {
-    this._pv_delimiter.visible = toggled;
-    this.refresh();
+    game.settings.set("perfect-vision", "delimiters", toggled ?? !game.settings.get("perfect-vision", "delimiters"));
 };
 
 LightingLayer.prototype._pv_drawDelimiterContainer = function () {

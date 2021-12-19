@@ -1,7 +1,7 @@
 import { MaskFilter } from "../utils/mask-filter.js";
 import { srgb2rgb } from "../utils/color.js";
 
-Hooks.on("sightRefresh", () => {
+Hooks.on("lightingRefresh", () => {
     let tint;
     let defaultTint;
 
