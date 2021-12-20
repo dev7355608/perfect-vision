@@ -305,11 +305,18 @@ Hooks.once("init", () => {
         const z1 = this.getTokenLOSheight(sourceToken) * unitsToPixel;
         const z2 = this.getTokenLOSheight(token) * unitsToPixel;
         const dz = z2 - z1;
+        const rdx = Math.round(dx);
+        const rdy = Math.round(dy);
+
+        if (rdx === 0 && rdy === 0) {
+            return Math.abs(dz) - adjust <= Math.min(range, sourceToken.vision._pv_area._pv_sightLimit);
+        }
+
         const t = canvas._pv_raySystem.castRay(
             Math.round(x1),
             Math.round(y1),
-            Math.round(dx),
-            Math.round(dy),
+            rdx,
+            rdy,
             Math.round(dz),
             sourceToken.vision._pv_minRadius,
             dist

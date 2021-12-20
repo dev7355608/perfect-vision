@@ -512,11 +512,6 @@ class RaySystem {
         const rpx = 1 / rdx;
         const rpy = 1 / rdy;
 
-        if (rdx === 0 && rdy === 0) {
-            // TODO
-            return 0;
-        }
-
         let c = 0;
 
         for (let i = 0, k = 0; i < n; i++) {
