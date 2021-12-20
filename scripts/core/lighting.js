@@ -88,6 +88,8 @@ Hooks.once("init", () => {
         this._pv_losPoints = null;
         this._pv_bounds = canvas.dimensions.rect.clone().pad(1);
 
+        canvas._pv_raySystem.update();
+
         await PlaceablesLayer.prototype.draw.call(this);
 
         this.globalLight = canvas.scene.data.globalLight;
