@@ -519,7 +519,7 @@ class RaySystem {
             const j1 = K[i1];
             const j2 = K[i1 + 1];
 
-            let s = (j2 !== 0) << 2 | 1;
+            let s = (j2 !== 0) << 1 | 1;
 
             if (j1 > 16 || j2 !== 0) {
                 const tx1 = (E[k++] - rax) * rpx;
