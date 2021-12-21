@@ -22,7 +22,7 @@ Hooks.once("init", () => {
 
     patch("ClockwiseSweepPolygon.prototype.initialize", "WRAPPER", function (wrapped, origin, config, ...args) {
         if (config.type === "sight") {
-            config.density = config.density ?? 60;
+            config.density = Math.max(config.density ?? 0, 60);
             config._pv_paddingDensity = Math.PI / config.density;
             config._pv_precision = Math.ceil(canvas.dimensions.size / 5);
             config._pv_minRadius = config.source?._pv_minRadius ?? 0;
