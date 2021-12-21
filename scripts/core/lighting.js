@@ -713,9 +713,8 @@ LightingLayer.prototype._pv_updateArea = function (area) {
         area._pv_fov = new TransformedShape(area._pv_getShape(), transform);
         area._pv_fovPoints = area._pv_fov.generateContour({ maxZoomLevel: 0.25 });
 
-        // TODO: take care of zero length edges
         for (let i = 0; i < area._pv_fovPoints.length; i++) {
-            area._pv_fovPoints[i] = Math.round(area._pv_fovPoints[i]);
+            area._pv_fovPoints[i] = Math.round(area._pv_fovPoints[i] * 256) * (1 / 256);
         }
     }
 
@@ -724,9 +723,8 @@ LightingLayer.prototype._pv_updateArea = function (area) {
             area._pv_los = new TransformedShape(CONFIG.Canvas.losBackend.create(area._pv_origin, { type: "light" }));
             area._pv_losPoints = area._pv_los.generateContour({ maxZoomLevel: 0.25 });
 
-            // TODO: take care of zero length edges
             for (let i = 0; i < area._pv_losPoints.length; i++) {
-                area._pv_losPoints[i] = Math.round(area._pv_losPoints[i]);
+                area._pv_losPoints[i] = Math.round(area._pv_losPoints[i] * 256) * (1 / 256);
             }
         } else {
             if (!area._pv_los) {

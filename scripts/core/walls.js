@@ -27,8 +27,8 @@ Hooks.once("init", () => {
             config._pv_precision = Math.ceil(canvas.dimensions.size / 5);
             config._pv_minRadius = config.source?._pv_minRadius ?? 0;
             config._pv_limits = canvas._pv_raySystem.estimateRayLimits(
-                Math.round(origin.x),
-                Math.round(origin.y),
+                Math.round(origin.x * 256) * (1 / 256),
+                Math.round(origin.y * 256) * (1 / 256),
                 config._pv_minRadius,
                 Math.min(config.radius ?? Infinity, config.source?._pv_sightLimit ?? Infinity)
             );
@@ -92,8 +92,8 @@ Hooks.once("init", () => {
             const rs = canvas._pv_raySystem;
             const ox = this.origin.x;
             const oy = this.origin.y;
-            const rox = Math.round(ox);
-            const roy = Math.round(oy);
+            const rox = Math.round(this.origin.x * 256) * (1 / 256);
+            const roy = Math.round(this.origin.y * 256) * (1 / 256);
             const rmin = this.config._pv_minRadius;
             const [lmin, rmax] = this.config._pv_limits;
             const lmin2 = lmin * lmin;
@@ -134,7 +134,9 @@ Hooks.once("init", () => {
                     const dy = Math.sin(a1);
                     const x = ox + rmax * dx;
                     const y = oy + rmax * dy;
-                    const t = rs.castRay(rox, roy, Math.round(x) - rox, Math.round(y) - roy, 0, rmin, rmax);
+                    const rbx = Math.round(x * 256) * (1 / 256);
+                    const rby = Math.round(y * 256) * (1 / 256);
+                    const t = rs.castRay(rox, roy, rbx - rox, rby - roy, 0, rmin, rmax);
                     const x1 = ox + t * (x - ox);
                     const y1 = oy + t * (y - oy);
 
@@ -231,7 +233,9 @@ Hooks.once("init", () => {
                     const dist = ndd / (ndx * dx + ndy * dy);
                     const x = ox + dist * dx;
                     const y = oy + dist * dy;
-                    const t = rs.castRay(rox, roy, Math.round(x) - rox, Math.round(y) - roy, 0, rmin);
+                    const rbx = Math.round(x * 256) * (1 / 256);
+                    const rby = Math.round(y * 256) * (1 / 256);
+                    const t = rs.castRay(rox, roy, rbx - rox, rby - roy, 0, rmin);
                     const x1 = ox + t * (x - ox);
                     const y1 = oy + t * (y - oy);
 
@@ -254,8 +258,8 @@ Hooks.once("init", () => {
             };
 
             processRay = ray => {
-                const rbx = Math.round(ray.B.x);
-                const rby = Math.round(ray.B.y);
+                const rbx = Math.round(ray.B.x * 256) * (1 / 256);
+                const rby = Math.round(ray.B.y * 256) * (1 / 256);
                 const rdx = rbx - rox;
                 const rdy = rby - roy;
                 const rmax = Math.sqrt(rdx * rdx + rdy * rdy);
