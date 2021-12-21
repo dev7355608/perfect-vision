@@ -4,7 +4,7 @@ import { presets } from "./settings.js";
 const renderConfigTemplate = Handlebars.compile(`\
     {{#*inline "settingPartial"}}
     <div class="form-group">
-        <label>{{this.name}}:</label>
+        <label>{{this.name}}</label>
         {{#if this.isCheckbox}}
         <input type="checkbox" name="flags.{{this.namespace}}.{{this.key}}" data-dtype="Boolean" {{checked this.value}}/>
 
@@ -36,7 +36,7 @@ const renderConfigTemplate = Handlebars.compile(`\
 const renderConfigTemplate2 = Handlebars.compile(`\
     {{#*inline "settingPartial"}}
     <div class="form-group">
-        <label>{{this.name}}{{#if this.units}} <span class="units">({{ this.units }})</span>{{/if}}:</label>
+        <label>{{this.name}}{{#if this.units}} <span class="units">({{ this.units }})</span>{{/if}}</label>
         <input type="number" step="0.1" name="flags.{{this.namespace}}.{{this.key}}" value="{{this.value}}"/>
     </div>
     {{/inline}}
@@ -396,7 +396,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
                 </div>
             </div>
             <div class="form-group">
-                <label>Sight Limit</label>
+                <label>Sight Limit <span class="units">(Grid Units)</span></label>
                 <div class="form-fields">
                     <input type="number" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
                     &nbsp;&nbsp;&nbsp;
