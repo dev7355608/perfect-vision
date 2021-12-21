@@ -213,6 +213,15 @@ export class TransformedShape {
             }
         }
 
+        if (shape.type === PIXI.SHAPES.POLY) {
+            const points = shape.points;
+            const m = points.length;
+
+            if (m >= 2 && points[0] === points[m - 2] && points[1] === points[m - 1]) {
+                points.length -= 2;
+            }
+        }
+
         const bounds = this.bounds = new PIXI.Rectangle();
 
         {
