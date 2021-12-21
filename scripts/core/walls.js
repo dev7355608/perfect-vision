@@ -170,7 +170,7 @@ Hooks.once("init", () => {
             };
 
             processEdge = (r0, r1, t0, x0, y0, x1, y1) => {
-                const c0 = r0.result.collisions.at(-1);
+                const c0 = r0.result.collisions[r0.result.collisions.length - 1];
                 const c1 = r1.result.collisions[0];
                 const c0dx = c0.x - ox;
                 const c0dy = c0.y - oy;
