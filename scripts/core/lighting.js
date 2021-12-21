@@ -711,17 +711,36 @@ LightingLayer.prototype._pv_updateArea = function (area) {
 
     if (updateFOV) {
         area._pv_fov = new TransformedShape(area._pv_getShape(), transform);
-        area._pv_fovPoints = area._pv_fov.generateContour({ maxZoomLevel: 0.25 });
 
-        for (let i = 0; i < area._pv_fovPoints.length; i++) {
-            area._pv_fovPoints[i] = Math.round(area._pv_fovPoints[i] * 256) * (1 / 256);
+        // TODO: move somewhere else
+        const shape = area._pv_fov.shape;
+
+        if (shape.type === PIXI.SHAPES.CIRC || shape.type === PIXI.SHAPES.ELIP) {
+            const matrix = shape.matrix?.clone() ?? new PIXI.Matrix();
+
+            matrix.invert();
+            matrix.translate(-shape.x, -shape.y);
+
+            if (shape.type === PIXI.SHAPES.CIRC) {
+                matrix.scale(1 / shape.radius, 1 / shape.radius);
+            } else {
+                matrix.scale(1 / shape.width, 1 / shape.height);
+            }
+
+            area._pv_fovPoints = matrix;
+        } else {
+            area._pv_fovPoints = area._pv_fov.generateContour({ maxZoomLevel: 0.25 });
+
+            for (let i = 0; i < area._pv_fovPoints.length; i++) {
+                area._pv_fovPoints[i] = Math.round(area._pv_fovPoints[i] * 256) * (1 / 256);
+            }
         }
     }
 
     if (updateLOS) {
         if (area._pv_walls) {
             area._pv_los = new TransformedShape(CONFIG.Canvas.losBackend.create(area._pv_origin, { type: "light" }));
-            area._pv_losPoints = area._pv_los.generateContour({ maxZoomLevel: 0.25 });
+            area._pv_losPoints = area._pv_los.generateContour();
 
             for (let i = 0; i < area._pv_losPoints.length; i++) {
                 area._pv_losPoints[i] = Math.round(area._pv_losPoints[i] * 256) * (1 / 256);

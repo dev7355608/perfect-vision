@@ -397,8 +397,6 @@ class RaySystem {
         const n = this.n = areas.length + 1;
         let m = 0;
 
-        // TODO: circle/ellipse type
-
         const scanArea = area => {
             const p1 = area._pv_fovPoints;
             const p2 = area._pv_losPoints;
@@ -408,7 +406,7 @@ class RaySystem {
             console.assert(m1 !== 0);
 
             m += 4;
-            m += m1;
+            m += m1 !== undefined ? m1 : 6;
             m += m2;
         };
 
@@ -440,7 +438,7 @@ class RaySystem {
             rmax = Math.max(rmax, d);
 
             D[i] = 1 / d;
-            K[(i << 1)] = m1;
+            K[(i << 1)] = m1 !== undefined ? m1 : 1;
             K[(i << 1) + 1] = m2;
 
             const b = area._pv_bounds;
@@ -450,9 +448,18 @@ class RaySystem {
             E[k++] = b.top;
             E[k++] = b.bottom;
 
-            for (let j = 0; j < m1;) {
-                E[k++] = p1[j++];
-                E[k++] = p1[j++];
+            if (m1 !== undefined) {
+                for (let j = 0; j < m1;) {
+                    E[k++] = p1[j++];
+                    E[k++] = p1[j++];
+                }
+            } else {
+                E[k++] = p1.a;
+                E[k++] = p1.b;
+                E[k++] = p1.c;
+                E[k++] = p1.d;
+                E[k++] = p1.tx;
+                E[k++] = p1.ty;
             }
 
             for (let j = 0; j < m2;) {
@@ -518,12 +525,12 @@ class RaySystem {
 
         for (let i = 0, k = 0; i < n; i++) {
             const i1 = i << 1;
-            const j1 = K[i1];
-            const j2 = K[i1 + 1];
+            const m1 = K[i1];
+            const m2 = K[i1 + 1];
 
-            let s = (j2 !== 0) << 1 | 1;
+            let s = (m2 !== 0) << 1 | 1;
 
-            if (j1 > 16 || j2 !== 0) {
+            if (m1 > 16 || m1 === 1 || m2 !== 0) {
                 const tx1 = (E[k++] - rax) * rpx;
                 const tx2 = (E[k++] - rax) * rpx;
 
@@ -537,7 +544,7 @@ class RaySystem {
                 tmax = Math.min(tmax, Math.max(ty1, ty2));
 
                 if (tmin >= 1 || tmax <= Math.max(0, tmin)) {
-                    k += j1 + j2;
+                    k += (m1 !== 1 ? m1 : 6) + m2;
                     S[i] = s;
 
                     continue;
@@ -553,42 +560,108 @@ class RaySystem {
                     continue;
                 }
 
-                let eax = E[k + m - 2];
-                let eay = E[k + m - 1];
+                if (m !== 1) {
+                    let eax = E[k + m - 2];
+                    let eay = E[k + m - 1];
 
-                do {
-                    const ebx = E[k++];
-                    const eby = E[k++];
+                    do {
+                        const ebx = E[k++];
+                        const eby = E[k++];
 
-                    const edx = ebx - eax;
-                    const edy = eby - eay;
-                    const q = rdx * edy - rdy * edx;
+                        const edx = ebx - eax;
+                        const edy = eby - eay;
+                        const q = rdx * edy - rdy * edx;
 
-                    while (q !== 0) {
-                        const dax = eax - rax;
-                        const day = eay - ray;
-                        const u = (dax * rdy - day * rdx) / q;
+                        while (q !== 0) {
+                            const dax = eax - rax;
+                            const day = eay - ray;
+                            const u = (dax * rdy - day * rdx) / q;
 
-                        if (u < 0 || u > 1 || u === 0 && q > 0 || u === 1 && q < 0) {
+                            if (u < 0 || u > 1 || u === 0 && q > 0 || u === 1 && q < 0) {
+                                break;
+                            }
+
+                            const t = (dax * edy - day * edx) / q;
+
+                            if (t <= 0) {
+                                break;
+                            }
+
+                            s ^= j;
+
+                            if (t < 1) {
+                                Ci[(c << 2) + 1] = i << 2 | j;
+                                Ct[Ci[c << 2] = (c << 1) + 1] = t;
+
+                                c++;
+
+                                if (c << 1 === Ct.length) {
+                                    const ct = Ct;
+
+                                    Ct = this.Ct = new Float64Array(Ct.length << 1);
+                                    Ci = this.Ci = new Int32Array(Ct.buffer);
+
+                                    Ct.set(ct);
+                                }
+                            }
+
                             break;
                         }
 
-                        const t = (dax * edy - day * edx) / q;
+                        eax = ebx;
+                        eay = eby;
+                    } while ((m -= 2) !== 0);
+                } else {
+                    let t1, t2;
 
-                        if (t <= 0) {
-                            break;
+                    {
+                        const ea = E[k++];
+                        const eb = E[k++];
+                        const ec = E[k++];
+                        const ed = E[k++];
+                        const ex = E[k++];
+                        const ey = E[k++];
+
+                        const x = ea * rax + ec * ray + ex;
+                        const y = eb * rax + ed * ray + ey;
+                        const dx = ea * rdx + ec * rdy;
+                        const dy = eb * rdx + ed * rdy;
+                        const a = dx * dx + dy * dy;
+                        const b = dx * x + dy * y;
+                        const c = x * x + y * y - 1;
+
+                        if (c !== 0) {
+                            const d = b * b - a * c;
+
+                            if (d <= 0) {
+                                continue;
+                            }
+
+                            const f = Math.sqrt(d);
+
+                            if (b !== 0) {
+                                t1 = (-b - Math.sign(b) * f) / a;
+                                t2 = c / (a * t1);
+                            } else {
+                                t1 = f / a;
+                                t2 = -t1;
+                            }
+                        } else {
+                            t1 = 0;
+                            t2 = -b / a;
                         }
+                    }
 
+                    if (t1 > 0) {
                         s ^= j;
 
-                        if (t < 1) {
+                        if (t1 < 1) {
                             Ci[(c << 2) + 1] = i << 2 | j;
-                            Ct[Ci[c << 2] = (c << 1) + 1] = t;
+                            Ct[Ci[c << 2] = (c << 1) + 1] = t1;
 
                             c++;
 
-                            if ((c - 1 & c) === 0 /* TODO */
-                                && c << 1 === Ct.length) {
+                            if (c << 1 === Ct.length) {
                                 const ct = Ct;
 
                                 Ct = this.Ct = new Float64Array(Ct.length << 1);
@@ -597,13 +670,28 @@ class RaySystem {
                                 Ct.set(ct);
                             }
                         }
-
-                        break;
                     }
 
-                    eax = ebx;
-                    eay = eby;
-                } while ((m -= 2) !== 0);
+                    if (t2 > 0) {
+                        s ^= j;
+
+                        if (t2 < 1) {
+                            Ci[(c << 2) + 1] = i << 2 | j;
+                            Ct[Ci[c << 2] = (c << 1) + 1] = t2;
+
+                            c++;
+
+                            if (c << 1 === Ct.length) {
+                                const ct = Ct;
+
+                                Ct = this.Ct = new Float64Array(Ct.length << 1);
+                                Ci = this.Ci = new Int32Array(Ct.buffer);
+
+                                Ct.set(ct);
+                            }
+                        }
+                    }
+                }
             }
 
             S[i] = s;
