@@ -22,17 +22,15 @@ Hooks.once("init", () => {
 
     patch("ClockwiseSweepPolygon.prototype.initialize", "WRAPPER", function (wrapped, origin, config, ...args) {
         if (config.type === "sight") {
-            const source = config.source;
-
             config.density = config.density ?? 60;
             config._pv_paddingDensity = Math.PI / config.density;
             config._pv_precision = Math.ceil(canvas.dimensions.size / 5);
-            config._pv_minRadius = source._pv_minRadius ?? 0;
+            config._pv_minRadius = config.source?._pv_minRadius ?? 0;
             config._pv_limits = canvas._pv_raySystem.estimateRayLimits(
                 Math.round(origin.x),
                 Math.round(origin.y),
                 config._pv_minRadius,
-                Math.min(config.radius ?? Infinity, source._pv_sightLimit ?? Infinity)
+                Math.min(config.radius ?? Infinity, config.source?._pv_sightLimit ?? Infinity)
             );
             config._pv_castRays = config._pv_limits[0] < config._pv_limits[1];
 
