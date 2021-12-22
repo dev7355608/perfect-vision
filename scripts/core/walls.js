@@ -119,7 +119,11 @@ Hooks.once("init", () => {
 
                 let s = t0 === 1 ? 1 : 0;
 
-                const recur = (i0, x0, y0, i2, x2, y2) => {
+                if (d === 0) {
+                    return s;
+                }
+
+                const recur = (i0, x0, y0, i2, x2, y2, p2) => {
                     if (i2 - i0 <= 1) {
                         return;
                     }
@@ -127,7 +131,7 @@ Hooks.once("init", () => {
                     const dx02 = x0 - x2;
                     const dy02 = y0 - y2;
 
-                    if (dx02 * dx02 + dy02 * dy02 <= precision2) {
+                    if (dx02 * dx02 + dy02 * dy02 <= p2) {
                         return;
                     }
 
@@ -143,7 +147,7 @@ Hooks.once("init", () => {
                     const x1 = ox + t * (x - ox);
                     const y1 = oy + t * (y - oy);
 
-                    recur(i0, x0, y0, i1, x1, y1);
+                    recur(i0, x0, y0, i1, x1, y1, precision2);
 
                     if (t === 1 && s === 2) {
                         this.points.length -= 2;
@@ -164,10 +168,10 @@ Hooks.once("init", () => {
                         s = 2;
                     }
 
-                    recur(i1, x1, y1, i2, x2, y2);
+                    recur(i1, x1, y1, i2, x2, y2, precision2);
                 };
 
-                recur(0, x0, y0, nPad, x1, y1);
+                recur(0, x0, y0, nPad, x1, y1, -1);
 
                 return s;
             };
