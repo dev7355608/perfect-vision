@@ -397,6 +397,8 @@ Hooks.once("init", () => {
             type: "sight",
             angle: this.data.angle,
             rotation: this.data.rotation,
+            radius: this._pv_sightLimit,
+            radiusMin: this._pv_minRadius,
             source: this
         });
 

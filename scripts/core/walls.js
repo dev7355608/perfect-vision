@@ -24,20 +24,22 @@ Hooks.once("init", () => {
     patch("ClockwiseSweepPolygon.prototype.initialize", "WRAPPER", function (wrapped, origin, config, ...args) {
         if (config.type === "sight") {
             config.density = Math.max(config.density ?? 0, 60);
+            config.radiusMin = config.radiusMin ?? 0;
             config._pv_paddingDensity = Math.PI / config.density;
             config._pv_precision = Math.ceil(canvas.dimensions.size / 5);
-            config._pv_minRadius = config.source?._pv_minRadius ?? 0;
             config._pv_limits = canvas._pv_raySystem.estimateRayLimits(
                 RaySystem.round(origin.x),
                 RaySystem.round(origin.y),
-                config._pv_minRadius,
-                Math.min(config.radius ?? Infinity, config.source?._pv_sightLimit ?? Infinity)
+                config.radiusMin,
+                config.radius ?? Infinity
             );
             config._pv_castRays = config._pv_limits[0] < config._pv_limits[1];
 
             if (Number.isFinite(config._pv_limits[1])) {
                 config.radius = config._pv_limits[1];
                 config._pv_density = Math.min(config._pv_paddingDensity, Math.asin(Math.min(0.5 * config._pv_precision / config.radius, 1)) * 2);
+            } else {
+                config.radius = undefined;
             }
         }
 
@@ -95,7 +97,7 @@ Hooks.once("init", () => {
             const oy = this.origin.y;
             const rox = RaySystem.round(this.origin.x);
             const roy = RaySystem.round(this.origin.y);
-            const rmin = this.config._pv_minRadius;
+            const rmin = this.config.radiusMin;
             const [lmin, rmax] = this.config._pv_limits;
             const lmin2 = lmin * lmin;
             const precision = this.config._pv_precision;
