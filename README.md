@@ -8,7 +8,7 @@ Perfect Vision ...
 - ... accurately renders vision like *darkvision*, *low-light vision*, and *devil's sight*; presets for most major systems are included.
 - ... adds a togglable GM vision mode that helps the GM to see clearly even if the scene is very dark.
 - ... adds a togglable overlay that helps to distinguish between dim, bright, and no light easily.
-- ... adds the ability to restrict the maximum distance a token can see, configurable per token, globally, or locally; you can use this feature to simply blind tokens and to create areas (magical darkness, fog, tall grass, or dense foliage, for example) that restrict vision to a certain distance.
+- ... adds the ability to restrict the maximum distance a token can see, configurable per token, globally, or locally; you can use this feature to simply blind tokens and to create areas (magical darkness, fog, tall grass, or dense foliage, for example) that restrict vision to a certain distance. These areas can be defined by drawings, templates, or light sources.
 - ... adds the ability to change daylight and darkness colors.
 - ... adds the ability to change all lighting settings [locally](#drawing-configuration); that makes it possible to enable *Unrestricted Vision Range* outside, but disable it indoors, for example.
 - ... renders the grid, drawings, token borders & auras, and turn markers in such away that these elements are not affected by lighting, and therefore remain clearly visible and colorful in dark scenes.
@@ -83,6 +83,24 @@ You find these settings in the *Vision* tab.
 - **Monochrome Vision Color**: Same setting as in the [module settings](#module-settings). Defaults to the module settings' *Monochrome Vision Color*, if not set.
 - **Sight Limit**: Same setting as in the [scene configuration](#module-settings).
 
+## Ambient Light Configuration
+
+You find these settings in the *Advanced Options* tab.
+
+- **Sight Limit**: Same setting as in the [scene configuration](#module-settings).
+
+### Ambient Light Example: Magical Darkness
+
+Create a light source and open the configuration and go to the *Advanced Options* tab. Check the *Enable* box next to *Sight Limit* and set *Sight Limit* to 0. Now tokens won't be able to see though or inside the area of this light source. You probably want to uncheck *Constrained By Walls* as well if you are creating magical darkness according the D&D 5e rules. Now set luminosity to a negative value. Done!
+
+## Measured Template Configuration
+
+- **Sight Limit**: Same setting as in the [scene configuration](#module-settings).
+
+### Measured Template Example: Fog Cloud
+
+Create a circle-shaped template and open the configuration. Check the *Enable* box next to *Sight Limit* and set *Sight Limit* to 0. Now tokens won't be able to see though or inside the area of this template. Done!
+
 ## Drawing Configuration
 
 You find these settings in the *Lighting* tab.
@@ -110,5 +128,7 @@ If you check the *Active* checkbox, lighting and vision of the area below the dr
 Assume you have a map with indoor and outdoor areas, and with daylight outside, but indoors it's dark. So outdoors everyone should be able to see everything in line-of-sight, but indoors only with light or darkvision. To set this up first go to the scene configuration and enabled *Unrestricted Vision Range*. Then select the polygon drawing tool (or any other tool) and draw over the indoors areas. You might need to create multiple drawings. I recommend to choose one of those drawings and set the parent of all other drawings to this drawing. This way you only have to configure the settings of the parent drawing, but not the children's except checking the *Active* checkbox and assigning the parent. In particular, I recommend create a drawing with the text tool, set the text to *Indoor Lighting*, move it to the padding of the scene so that your players can't see it, and choose this to be the parent; that makes it very easy to remember, which drawing is the parent that controls the indoor lighting settings. When you have finished creating your drawings, open the parent drawings settings, and check the *Override* box next to *Unrestricted Vision Range*; but leave the box next *Unrestricted Vision Range* unchecked, otherwise you enable it. You might want to change the *Darkness Level* as well: check the *Override* box next to *Darkness Level* and choose your preferred darkness for the indoor areas. Last but not least you probably want to make the drawings itself invisible to your players. Now, what if the time of changes and we want it to be nighttime outside? Simply go to the scene configuration, adjust the *Darkness Level* and disable *Unrestricted Vision Range*. If you want to change the lighting of the indoor areas, simply go to the parent drawing and make your changes.
 
 ### Drawing Example 2: Magical Darkness / Fog Cloud
+
+> If you prefer, you can create magical darkness with a [light source](#ambient-light-example-magical-darkness) and a fog cloud with a [template](#measured-template-example-fog-cloud) instead.
 
 Draw a circle with the ellipse tool (or any other shape). Open the drawings configuration, go to the *Lighting* tab, and check the *Active* checkbox. Then check the *Override* box next to *Sight Limit* and set *Sight Limit* to 0. Done! Tokens won't be able to see though or inside this area.
