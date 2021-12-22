@@ -180,9 +180,7 @@ function renderConfig(sheet, html, data) {
         const inputMonochromeVisionColor = html.find(`input[name="${prefix}.monoVisionColor"]`);
         inputMonochromeVisionColor.next().val(inputMonochromeVisionColor.val() || game.settings.get("perfect-vision", "monoVisionColor") || "#ffffff");
 
-        if (!sheet._minimized) {
-            sheet.setPosition(sheet.position);
-        }
+        sheet.setPosition();
     };
 
     update();
@@ -251,9 +249,42 @@ Hooks.on("renderSceneConfig", (sheet, html, data) => {
     addColorSetting("daylightColor", "Daylight Color");
     addColorSetting("darknessColor", "Darkness Color");
 
-    if (!sheet._minimized) {
-        sheet.setPosition(sheet.position);
+    sheet.setPosition();
+});
+
+Hooks.on("renderAmbientLightConfig", (sheet, html, data) => {
+    if (!game.user.isGM) {
+        return;
     }
+
+    const document = sheet.object;
+
+    if (!document) {
+        return;
+    }
+
+    const scene = document.parent;
+
+    if (!scene) {
+        return;
+    }
+
+    html.find(`input[name="vision"]`).parent().after(`\
+        <div class="form-group">
+            <label>Sight Limit <span class="units">(Grid Units)</span></label>
+            <div class="form-fields">
+                <label class="checkbox">Enable <input type="checkbox" id="perfect-vision.overrideSightLimit"></label>
+                <input type="number" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
+            </div>
+            <p class="hint">Limit the maximum sight range of tokens in the area of the light source.</p>
+        </div>`);
+
+    html.find(`input[id="perfect-vision.overrideSightLimit"]`)
+        .attr("checked", document.getFlag("perfect-vision", "sightLimit") !== undefined);
+    html.find(`input[name="flags.perfect-vision.sightLimit"]`)
+        .attr("value", document.getFlag("perfect-vision", "sightLimit"));
+
+    sheet.setPosition();
 });
 
 Hooks.on("renderDrawingConfig", (sheet, html, data) => {
@@ -328,6 +359,8 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
         });
     }
 
+    const flex = "1.5";
+
     const nav = html.find("nav.sheet-tabs.tabs");
 
     nav.append(`<a class="item" data-tab="perfect-vision.lighting" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 10px; padding-right: 10px; margin-left: -10px; margin-right: -10px;"><i class="fas fa-lightbulb"></i> Lighting</a>`);
@@ -335,7 +368,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
         <div class="tab" data-tab="perfect-vision.lighting">
             <p class="notes">Adjust lighting and vision of the area below the Drawing. Drawings with a higher Z-Index override lighting settings of overlapping Drawings with a lower Z-Index.</p>
             <div class="form-group">
-                <label>Active</label>
+                <label style="flex:${flex};">Active</label>
                 <div class="form-fields">
                     <label id="perfect-vision.id" style="flex: 1; font-family: monospace;">${drawing.id}</label>
                     <button type="button" style="flex: 1;" id="perfect-vision.resetDefaults"><i class="fas fa-undo"></i> Reset Defaults</button>
@@ -346,7 +379,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
                 <p class="notes">If enabled, lighting and vision of the area below is controlled by the following settings.</p>
             </div>
             <div class="form-group">
-                <label>Parent</label>
+                <label style="flex:${flex};">Parent</label>
                 <div class="form-fields">
                     <select name="flags.perfect-vision.parent" style="font-family: monospace;" data-dtype="String">
                         <option value=""></option>
@@ -357,7 +390,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
                 <p class="notes">If left blank, the scene is the parent. The settings below default to the parent's setting if <i>Override</i> is unchecked.</p>
             </div>
             <div class="form-group">
-                <label>Origin</label>
+                <label style="flex:${flex};">Origin</label>
                 <div class="form-fields">
                     <label class="grid-label">x</label>
                     <input type="number" name="flags.perfect-vision.origin.x" placeholder="0.5" step="any">
@@ -372,7 +405,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
                 </div>
             </div>
             <div class="form-group">
-                <label>Constrained By Walls</label>
+                <label style="flex:${flex};">Constrained By Walls</label>
                 <div class="form-fields">
                     <input type="checkbox" name="flags.perfect-vision.walls" />
                     &nbsp;&nbsp;&nbsp;
@@ -380,7 +413,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
                 </div>
             </div>
             <div class="form-group">
-                <label>Provides Vision</label>
+                <label style="flex:${flex};">Provides Vision</label>
                 <div class="form-fields">
                     <input type="checkbox" name="flags.perfect-vision.vision" />
                     &nbsp;&nbsp;&nbsp;
@@ -388,7 +421,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
                 </div>
             </div>
             <div class="form-group">
-                <label>Unrestricted Vision Range</label>
+                <label style="flex:${flex};">Unrestricted Vision Range</label>
                 <div class="form-fields">
                     <input type="checkbox" name="flags.perfect-vision.globalLight" />
                     &nbsp;&nbsp;&nbsp;
@@ -396,7 +429,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
                 </div>
             </div>
             <div class="form-group">
-                <label>Sight Limit <span class="units">(Grid Units)</span></label>
+                <label style="flex:${flex};">Sight Limit <span class="units">(Grid Units)</span></label>
                 <div class="form-fields">
                     <input type="number" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
                     &nbsp;&nbsp;&nbsp;
@@ -404,7 +437,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
                 </div>
             </div>
             <div class="form-group">
-                <label>Darkness Level</label>
+                <label style="flex:${flex};">Darkness Level</label>
                 <div class="form-fields">
                     <input type="range" name="flags.perfect-vision.darkness" min="0" max="1" step="0.05">
                     <span class="range-value">0</span>
@@ -413,7 +446,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
                 </div>
             </div>
             <div class="form-group">
-                <label>Saturation Level</label>
+                <label style="flex:${flex};">Saturation Level</label>
                 <div class="form-fields">
                     <label class="checkbox">
                         <input type="checkbox" id="perfect-vision.hasSaturation">
@@ -425,7 +458,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
                 </div>
             </div>
             <div class="form-group">
-                <label>Vision Limitation Threshold</label>
+                <label style="flex:${flex};">Vision Limitation Threshold</label>
                 <div class="form-fields">
                     <label class="checkbox">
                         <input type="checkbox" id="perfect-vision.hasGlobalThreshold">
@@ -522,7 +555,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
 
         html.find(`input[name="flags.perfect-vision.darkness"]`).parent().parent().before(`\
             <div class="form-group">
-                <label>${label}</label>
+                <label style="flex:${flex};">${label}</label>
                 <div class="form-fields">
                     <input type="text" name="flags.perfect-vision.${name}" placeholder="Default (${defaultColor})" data-dtype="String">
                     <input type="color" data-edit="flags.perfect-vision.${name}">
@@ -546,11 +579,10 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
         sheet._tabs[0].activate("perfect-vision.lighting");
     }
 
-    if (!sheet._minimized) {
-        sheet.position.width = Math.max(sheet.position.width, 680);
-        sheet.position.height = Math.max(sheet.position.height, 560);
-        sheet.setPosition(sheet.position);
-    }
+    sheet.options.height = "auto";
+    sheet.position.width = Math.max(sheet.position.width, 600);
+    sheet.position.height = "auto";
+    sheet.setPosition(sheet.position);
 });
 
 Hooks.on("renderDrawingHUD", (hud, html, data) => {
@@ -952,5 +984,31 @@ Hooks.once("init", () => {
             lighting: { initialize: true, refresh: true },
             sight: { initialize: true, refresh: true }
         });
+    });
+
+    patch("AmbientLightConfig.prototype._getSubmitData", "POST", function (data) {
+        if (!game.user.isGM) {
+            return data;
+        }
+
+        const document = this.object;
+
+        if (!document) {
+            return data;
+        }
+
+        const scene = document.parent;
+
+        if (!scene) {
+            return data;
+        }
+
+        if (!this.form.elements["perfect-vision.overrideSightLimit"].checked) {
+            delete data["flags.perfect-vision.sightLimit"];
+
+            data["flags.perfect-vision.-=sightLimit"] = null;
+        }
+
+        return data;
     });
 });
