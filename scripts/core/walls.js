@@ -6,7 +6,7 @@ Hooks.once("init", () => {
         // Boundaries are padded outwards by the grid size to allow lighting effects to be cleanly masked at the edges
         let { width, height, size } = canvas.dimensions;
 
-        size /= 10;
+        size = Math.ceil(size / 10);
 
         const coords = [-size, -size, width + size, -size, width + size, height + size, -size, height + size, -size, -size];
 
@@ -876,7 +876,7 @@ export class RaySystem {
 
                     t0 = t;
                     w0 = w;
-                    d0 = i0 >= 0 ? D[i0] * dmul : 0;
+                    d0 = i0 >= 0 ? D[i0] * dmul : Infinity;
 
                     break;
                 }

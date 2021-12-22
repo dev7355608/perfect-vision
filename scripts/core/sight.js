@@ -4,6 +4,8 @@ import { TransformedShape } from "../utils/transformed-shape.js";
 
 Hooks.once("init", () => {
     patch("SightLayer.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
+        this._pv_bgRect = canvas.dimensions.rect.clone().pad(CONFIG.Canvas.blurStrength * 2);
+
         await wrapped(...args);
 
         this.pending.filters = null;
@@ -31,7 +33,7 @@ Hooks.once("init", () => {
 
         c._pv_fov = c.addChild(new StencilMask());
         c._pv_los = c.addChild(new StencilMask());
-        c._pv_rect = c.addChild(new PIXI.LegacyGraphics().beginFill(0xFFFFFF).drawShape(canvas.dimensions.rect).endFill());
+        c._pv_rect = c.addChild(new PIXI.LegacyGraphics().beginFill(0xFFFFFF).drawShape(this._pv_bgRect).endFill());
         c._pv_rect.mask = new StencilMaskData(c._pv_fov);
         c.mask = new StencilMaskData(c._pv_los);
 

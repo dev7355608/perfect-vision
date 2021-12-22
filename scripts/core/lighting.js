@@ -76,13 +76,15 @@ Hooks.once("init", () => {
             });
         }
 
+        this._pv_bgRect = canvas.dimensions.rect.clone().pad(canvas.dimensions.size / 10);
+
         if (this._pv_active === undefined) {
             this._pv_initializeArea(this);
             this._pv_areas = [];
         }
 
         this._pv_active = true;
-        this._pv_fov = new TransformedShape(canvas.dimensions.rect);
+        this._pv_fov = new TransformedShape(this._pv_bgRect);
         this._pv_los = null;
         this._pv_flags_updateArea = true;
 
@@ -139,12 +141,10 @@ Hooks.once("init", () => {
         this._pv_delimiter = canvas._pv_highlights_overhead.delimiter.addChild(new ObjectHUD(this)).addChild(this._pv_drawDelimiterContainer());
 
         // Draw the background
-        const bgRect = canvas.dimensions.rect;
-
-        this.illumination.background.x = bgRect.x;
-        this.illumination.background.y = bgRect.y;
-        this.illumination.background.width = bgRect.width;
-        this.illumination.background.height = bgRect.height;
+        this.illumination.background.x = this._pv_bgRect.x;
+        this.illumination.background.y = this._pv_bgRect.y;
+        this.illumination.background.width = this._pv_bgRect.width;
+        this.illumination.background.height = this._pv_bgRect.height;
 
         // Activate animation
         this.activateAnimation();
@@ -592,7 +592,7 @@ LightingLayer.prototype._pv_refreshAreas = function () {
     if (this._pv_flags_updateArea) {
         this._pv_flags_updateArea = false;
 
-        canvas._pv_raySystem.addArea("Scene", this._pv_fov, undefined, this._pv_sightLimit);
+        canvas._pv_raySystem.addArea("Scene", canvas.dimensions.rect.clone().pad(canvas.dimensions.size), undefined, this._pv_sightLimit);
 
         if (!canvas._pv_raySystem.uniformlyLimited) {
             this._pv_initializeVision = true;
