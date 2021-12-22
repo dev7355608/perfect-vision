@@ -83,10 +83,8 @@ Hooks.once("init", () => {
 
         this._pv_active = true;
         this._pv_fov = new TransformedShape(canvas.dimensions.rect);
-        this._pv_fovPoints = this._pv_fov.generateContour();
         this._pv_los = null;
-        this._pv_losPoints = null;
-        this._pv_bounds = canvas.dimensions.rect.clone().pad(1);
+        this._pv_flags_updateArea = true;
 
         canvas._pv_raySystem.update();
 
@@ -266,6 +264,7 @@ Hooks.once("init", () => {
 
         if (this._pv_sightLimit !== sightLimit) {
             this._pv_sightLimit = sightLimit;
+            this._pv_flags_updateArea = true;
 
             this._pv_initializeVision = true;
         }
@@ -361,6 +360,8 @@ Hooks.once("init", () => {
             canvas._pv_raySystem.update();
 
             canvas.sight.initializeSources();
+
+            refreshVision = true;
         }
 
         // Render light sources
@@ -470,6 +471,8 @@ Hooks.once("init", () => {
 
         this._pv_destroyArea(this);
         this._pv_areas.length = 0;
+
+        canvas._pv_raySystem.reset();
 
         return await wrapped(...args);
     });
@@ -586,14 +589,44 @@ LightingLayer.prototype._pv_refreshAreas = function () {
 
     this._pv_index = -1;
 
+    if (this._pv_flags_updateArea) {
+        this._pv_flags_updateArea = false;
+
+        canvas._pv_raySystem.addArea("Scene", this._pv_fov, undefined, this._pv_sightLimit);
+
+        if (!canvas._pv_raySystem.uniformlyLimited) {
+            this._pv_initializeVision = true;
+        }
+
+        this._pv_refreshVision = true;
+    }
+
     for (let i = 0; i < this._pv_areas.length; i++) {
-        this._pv_areas[i]._pv_index = i;
+        const area = this._pv_areas[i];
+
+        if (area._pv_index) {
+            area._pv_index = i;
+
+            this._pv_initializeVision = true;
+            this._pv_refreshVision = true;
+        }
+
+        if (area._pv_flags_updateArea) {
+            area._pv_flags_updateArea = false;
+
+            canvas._pv_raySystem.addArea(`Drawing.${area.document.id}`, area._pv_fov, area._pv_los, area._pv_sightLimit, 1, area._pv_index);
+
+            if (!canvas._pv_raySystem.uniformlyLimited) {
+                this._pv_initializeVision = true;
+            }
+
+            this._pv_refreshVision = true;
+        }
     }
 
     this._pv_parentIndex = -1;
     this._pv_uniformVision = true;
     this._pv_uniformGlobalLight = true;
-    this._pv_uniformSightLimit = true;
 
     for (const area of this._pv_areas) {
         area._pv_parentIndex = area._pv_parent._pv_index;
@@ -604,10 +637,6 @@ LightingLayer.prototype._pv_refreshAreas = function () {
 
         if (this._pv_globalLight !== area._pv_globalLight) {
             this._pv_uniformGlobalLight = false;
-        }
-
-        if (this._pv_sightLimit !== area._pv_sightLimit) {
-            this._pv_uniformSightLimit = false;
         }
     }
 }
@@ -711,68 +740,23 @@ LightingLayer.prototype._pv_updateArea = function (area) {
 
     if (updateFOV) {
         area._pv_fov = new TransformedShape(area._pv_getShape(), transform);
-
-        // TODO: move somewhere else
-        const shape = area._pv_fov.shape;
-
-        if (shape.type === PIXI.SHAPES.CIRC || shape.type === PIXI.SHAPES.ELIP) {
-            const matrix = shape.matrix?.clone() ?? new PIXI.Matrix();
-
-            matrix.invert();
-            matrix.translate(-shape.x, -shape.y);
-
-            if (shape.type === PIXI.SHAPES.CIRC) {
-                matrix.scale(1 / shape.radius, 1 / shape.radius);
-            } else {
-                matrix.scale(1 / shape.width, 1 / shape.height);
-            }
-
-            area._pv_fovPoints = matrix;
-        } else {
-            area._pv_fovPoints = area._pv_fov.generateContour({ maxZoomLevel: 0.25 });
-
-            for (let i = 0; i < area._pv_fovPoints.length; i++) {
-                area._pv_fovPoints[i] = Math.round(area._pv_fovPoints[i] * 256) * (1 / 256);
-            }
-        }
     }
 
     if (updateLOS) {
         if (area._pv_walls) {
             area._pv_los = new TransformedShape(CONFIG.Canvas.losBackend.create(area._pv_origin, { type: "light" }));
-            area._pv_losPoints = area._pv_los.generateContour();
-
-            for (let i = 0; i < area._pv_losPoints.length; i++) {
-                area._pv_losPoints[i] = Math.round(area._pv_losPoints[i] * 256) * (1 / 256);
-            }
         } else {
             if (!area._pv_los) {
                 updateLOS = false;
+            } else {
+                area._pv_los = null;
             }
-
-            area._pv_los = null;
-            area._pv_losPoints = null;
         }
     }
 
     if (updateFOV || updateLOS) {
         area._pv_geometry = new PointSourceGeometry(area._pv_fov, area._pv_los, canvas.dimensions.size / 10);
-
-        if (!area._pv_bounds) {
-            area._pv_bounds = new PIXI.Rectangle();
-        }
-
-        area._pv_bounds.copyFrom(area._pv_fov.bounds);
-
-        if (area._pv_los) {
-            area._pv_bounds.fit(area._pv_los.bounds);
-        }
-
-        area._pv_bounds.ceil().pad(1);
-
-        if (!this._pv_uniformSightLimit) {
-            this._pv_initializeVision = true;
-        }
+        area._pv_flags_updateArea = true;
 
         this._pv_refreshVision = true;
     }
@@ -817,6 +801,7 @@ LightingLayer.prototype._pv_updateArea = function (area) {
 
     if (area._pv_sightLimit !== sightLimit) {
         area._pv_sightLimit = sightLimit;
+        area._pv_flags_updateArea = true;
 
         this._pv_initializeVision = true;
         this._pv_refreshVision = true;
@@ -940,7 +925,11 @@ LightingLayer.prototype._pv_updateArea = function (area) {
         area._pv_channels = configureChannels({ darkness, backgroundColor, daylightColor, darknessColor });
     }
 
-    area._pv_zIndex = area.data.z;
+    if (area._pv_zIndex !== area.data.z) {
+        area._pv_zIndex = area.data.z;
+
+        this._pv_refreshVision = true;
+    }
 };
 
 LightingLayer.prototype._pv_initializeArea = LightingLayer.prototype._pv_destroyArea = function (area) {
@@ -952,10 +941,7 @@ LightingLayer.prototype._pv_initializeArea = LightingLayer.prototype._pv_destroy
     area._pv_walls = false;
     area._pv_vision = false;
     area._pv_fov = null;
-    area._pv_fovPoints = null;
     area._pv_los = null;
-    area._pv_losPoints = null;
-    area._pv_bounds = null;
     area._pv_geometry = null;
 
     if (area._pv_shader) {
@@ -982,6 +968,7 @@ LightingLayer.prototype._pv_initializeArea = LightingLayer.prototype._pv_destroy
     area._pv_data_globalLightThreshold = null;
     area._pv_flags_updateFOV = true;
     area._pv_flags_updateLOS = true;
+    area._pv_flags_updateArea = true;
 };
 
 function invalidateBuffer(baseTexture) {

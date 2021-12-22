@@ -45,7 +45,7 @@ Hooks.once("ready", () => {
                 <p>If you haven't heard, Perfect Vision makes it possible to adjust all lighting settings locally; this includes <i>Sight Limit</i> now as well. To learn how to setup mixed indoor/outdoor scenes or to create magical darkness click <a href="https://github.com/dev7355608/perfect-vision/blob/main/README.md#drawing-configuration">here</a>.</p>
                 <p><strong>Minor breaking changes:</strong>
                     <ul>
-                        <li>The <i>Local (Unrestricted)</i> light type as been removed, because it's a core setting now (<i>Advanved Options -> Constrained By Walls</i>). Any existing lights of this type are <i>not</i> automatically migrated.</p></li>
+                        <li>The <i>Local (Unrestricted)</i> light type as been removed, because it's a core setting now (<i>Advanced Options -> Constrained By Walls</i>). Any existing lights of this type are <i>not</i> automatically migrated.</p></li>
                         <li>The token's <i>Sight Limit</i> no longer overrides the scene's <i>Sight Limit</i>: for example, if the scene's limit is set to 30 units and the token's limit is set to 60, the token's vision range is 30; in v8 it would have been 60.
                     </ul>`,
             buttons: {

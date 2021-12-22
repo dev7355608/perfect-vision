@@ -77,7 +77,12 @@ Hooks.once("init", () => {
         return mesh;
     });
 
+    const updateAreaKeys = ["x", "y", "z", "angle", "rotation", "walls"];
+
     patch("LightSource.prototype.initialize", "WRAPPER", function (wrapped, data, ...args) {
+        const oldData = foundry.utils.deepClone(this.data);
+        const oldRadius = this.radius;
+
         wrapped(data, ...args);
 
         this._pv_los = this.los ? new TransformedShape(this.los) : null;
@@ -91,6 +96,44 @@ Hooks.once("init", () => {
 
         this._flags.useFov = false;
         this._flags.renderFOV = false;
+
+        if (!this.object._original) {
+            let updateArea = false;
+
+            let sightLimit = this.object.document.getFlag("perfect-vision", "sightLimit");
+
+            if (sightLimit !== undefined) {
+                sightLimit = (sightLimit ?? Infinity) / canvas.dimensions.distance * canvas.dimensions.size;
+            }
+
+            if (this._pv_sightLimit !== sightLimit) {
+                this._pv_sightLimit = sightLimit;
+
+                updateArea = true;
+            }
+
+            if (!updateArea && sightLimit !== undefined) {
+                if (this.radius !== oldRadius) {
+                    updateArea = true;
+                }
+
+                if (!updateArea) {
+                    const changes = foundry.utils.flattenObject(foundry.utils.diffObject(oldData, data));
+
+                    updateArea = updateAreaKeys.some(k => k in changes);
+                }
+            }
+
+            if (updateArea) {
+                if (sightLimit !== undefined) {
+                    canvas._pv_raySystem.addArea(`Light.${this.object.document.id}`, this._pv_los, undefined, this._pv_sightLimit, 2, this.data.z ?? (this.isDarkness ? 10 : 0));
+                } else {
+                    canvas._pv_raySystem.deleteArea(`Light.${this.object.document.id}`);
+                }
+
+                canvas.lighting._pv_initializeVision = true;
+            }
+        }
 
         return this;
     });

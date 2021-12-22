@@ -1,4 +1,5 @@
 import { patch } from "../utils/patch.js";
+import { TransformedShape } from "../utils/transformed-shape.js";
 
 Hooks.once("init", () => {
     patch("WallsLayer.prototype._createBoundaries", "OVERRIDE", function () {
@@ -27,8 +28,8 @@ Hooks.once("init", () => {
             config._pv_precision = Math.ceil(canvas.dimensions.size / 5);
             config._pv_minRadius = config.source?._pv_minRadius ?? 0;
             config._pv_limits = canvas._pv_raySystem.estimateRayLimits(
-                Math.round(origin.x * 256) * (1 / 256),
-                Math.round(origin.y * 256) * (1 / 256),
+                RaySystem.round(origin.x),
+                RaySystem.round(origin.y),
                 config._pv_minRadius,
                 Math.min(config.radius ?? Infinity, config.source?._pv_sightLimit ?? Infinity)
             );
@@ -92,8 +93,8 @@ Hooks.once("init", () => {
             const rs = canvas._pv_raySystem;
             const ox = this.origin.x;
             const oy = this.origin.y;
-            const rox = Math.round(this.origin.x * 256) * (1 / 256);
-            const roy = Math.round(this.origin.y * 256) * (1 / 256);
+            const rox = RaySystem.round(this.origin.x);
+            const roy = RaySystem.round(this.origin.y);
             const rmin = this.config._pv_minRadius;
             const [lmin, rmax] = this.config._pv_limits;
             const lmin2 = lmin * lmin;
@@ -134,8 +135,8 @@ Hooks.once("init", () => {
                     const dy = Math.sin(a1);
                     const x = ox + rmax * dx;
                     const y = oy + rmax * dy;
-                    const rbx = Math.round(x * 256) * (1 / 256);
-                    const rby = Math.round(y * 256) * (1 / 256);
+                    const rbx = RaySystem.round(x);
+                    const rby = RaySystem.round(y);
                     const t = rs.castRay(rox, roy, rbx - rox, rby - roy, 0, rmin, rmax);
                     const x1 = ox + t * (x - ox);
                     const y1 = oy + t * (y - oy);
@@ -233,8 +234,8 @@ Hooks.once("init", () => {
                     const dist = ndd / (ndx * dx + ndy * dy);
                     const x = ox + dist * dx;
                     const y = oy + dist * dy;
-                    const rbx = Math.round(x * 256) * (1 / 256);
-                    const rby = Math.round(y * 256) * (1 / 256);
+                    const rbx = RaySystem.round(x);
+                    const rby = RaySystem.round(y);
                     const t = rs.castRay(rox, roy, rbx - rox, rby - roy, 0, rmin);
                     const x1 = ox + t * (x - ox);
                     const y1 = oy + t * (y - oy);
@@ -258,8 +259,8 @@ Hooks.once("init", () => {
             };
 
             processRay = ray => {
-                const rbx = Math.round(ray.B.x * 256) * (1 / 256);
-                const rby = Math.round(ray.B.y * 256) * (1 / 256);
+                const rbx = RaySystem.round(ray.B.x);
+                const rby = RaySystem.round(ray.B.y);
                 const rdx = rbx - rox;
                 const rdy = rby - roy;
                 const rmax = Math.sqrt(rdx * rdx + rdy * rdy);
@@ -379,8 +380,13 @@ Hooks.once("init", () => {
     });
 });
 
-class RaySystem {
+export class RaySystem {
+    static round(x) {
+        return Math.round(x * 256) * (1 / 256);
+    }
+
     constructor() {
+        this.A = {};
         this.n = 0;
         this.D = null;
         this.E = null;
@@ -392,29 +398,88 @@ class RaySystem {
         this.rmax = NaN;
     }
 
+    addArea(id, fov, los = undefined, limit = Infinity, layer = 0, index = 0) {
+        if (!(fov instanceof TransformedShape)) {
+            fov = new TransformedShape(fov);
+        }
+
+        if (los && !(los instanceof TransformedShape)) {
+            los = new TransformedShape(los);
+        }
+
+        const createData = fov => {
+            if (!fov) {
+                return;
+            }
+
+            const shape = fov.shape;
+
+            let data;
+
+            if (shape.type === PIXI.SHAPES.CIRC || shape.type === PIXI.SHAPES.ELIP) {
+                data = shape.matrix?.clone().invert() ?? new PIXI.Matrix();
+
+                data.translate(-shape.x, -shape.y);
+
+                if (shape.type === PIXI.SHAPES.CIRC) {
+                    data.scale(1 / shape.radius, 1 / shape.radius);
+                } else {
+                    data.scale(1 / shape.width, 1 / shape.height);
+                }
+            } else {
+                data = fov.generateContour();
+
+                for (let i = 0; i < data.length; i++) {
+                    data[i] = RaySystem.round(data[i]);
+                }
+
+                console.assert(data.length !== 0);
+            }
+
+            return data;
+        }
+
+        const bounds = fov.bounds.clone();
+
+        if (los) {
+            bounds.fit(los.bounds);
+        }
+
+        bounds.ceil();
+
+        this.A[id] = { fov: createData(fov), los: createData(los), bounds, limit, layer, index };
+    }
+
+    deleteArea(id) {
+        delete this.A[id];
+    }
+
+    reset() {
+        this.A = {};
+    }
+
     update() {
-        const areas = canvas.lighting._pv_areas;
-        const n = this.n = areas.length + 1;
+        const A = Object.entries(this.A)
+            .sort(([id1, a1], [id2, a2]) => a1.layer - a2.layer || a1.index - a2.index || id1.localeCompare(id2, "en"))
+            .map(e => e[1]);
+
+        let n = 1;
         let m = 0;
 
-        const scanArea = area => {
-            const p1 = area._pv_fovPoints;
-            const p2 = area._pv_losPoints;
+        for (const a of A) {
+            const p1 = a.fov;
+            const p2 = a.los;
             const m1 = p1.length;
             const m2 = p2 ? p2.length : 0;
-
-            console.assert(m1 !== 0);
 
             m += 4;
             m += m1 !== undefined ? m1 : 6;
             m += m2;
-        };
 
-        scanArea(canvas.lighting, 0);
-
-        for (let i = 0; i < areas.length; i++) {
-            scanArea(areas[i]);
+            n++;
         }
+
+        this.n = n;
 
         const D = this.D = new Float32Array(new ArrayBuffer(n * 13 + m * 4), 0, n);
         const E = this.E = new Float32Array(D.buffer, D.byteOffset + D.byteLength, m);
@@ -423,16 +488,17 @@ class RaySystem {
         this.Ct = this.Ct ?? new Float64Array(8);
         this.Ci = this.Ci ?? new Int32Array(this.Ct.buffer);
 
+        let i = 0;
         let k = 0;
         let rmin = Infinity;
         let rmax = 0;
 
-        const packArea = (area, i) => {
-            const p1 = area._pv_fovPoints;
-            const p2 = area._pv_losPoints;
+        for (const a of A) {
+            const p1 = a.fov;
+            const p2 = a.los;
             const m1 = p1.length;
             const m2 = p2 ? p2.length : 0;
-            const d = area._pv_sightLimit ?? Infinity;
+            const d = a.limit;
 
             rmin = Math.min(rmin, d);
             rmax = Math.max(rmax, d);
@@ -441,7 +507,7 @@ class RaySystem {
             K[(i << 1)] = m1 !== undefined ? m1 : 1;
             K[(i << 1) + 1] = m2;
 
-            const b = area._pv_bounds;
+            const b = a.bounds;
 
             E[k++] = b.left;
             E[k++] = b.right;
@@ -466,16 +532,16 @@ class RaySystem {
                 E[k++] = p2[j++];
                 E[k++] = p2[j++];
             }
-        };
 
-        packArea(canvas.lighting, 0);
-
-        for (let i = 0; i < areas.length; i++) {
-            packArea(areas[i], i + 1);
+            i++;
         }
 
-        this.rmin = rmin;
+        this.rmin = Math.min(rmin, rmax);
         this.rmax = rmax;
+    }
+
+    get uniformlyLimited() {
+        return this.rmin === this.rmax;
     }
 
     // TODO: return limits for all four quadrants
