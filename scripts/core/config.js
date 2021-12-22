@@ -105,7 +105,7 @@ function renderConfig(sheet, html, data) {
             allowProtoPropertiesByDefault: true
         });
 
-        html.find(`input[name="sightAngle"]`).parent().parent().before(config2);
+        html.find(`input[name="vision"]`).parent().parent().append(config2);
     } else {
         console.assert(sheet instanceof SettingsConfig);
     }
