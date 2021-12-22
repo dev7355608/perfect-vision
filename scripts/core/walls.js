@@ -36,7 +36,7 @@ Hooks.once("init", () => {
             config._pv_castRays = config._pv_limits[0] < config._pv_limits[1];
 
             if (Number.isFinite(config._pv_limits[1])) {
-                config.radius = config._pv_limits[1];
+                config.radius = Math.max(config._pv_limits[1], 1);
                 config._pv_density = Math.min(config._pv_paddingDensity, Math.asin(Math.min(0.5 * config._pv_precision / config.radius, 1)) * 2);
             } else {
                 config.radius = undefined;
@@ -469,7 +469,7 @@ export class RaySystem {
             .sort(([id1, a1], [id2, a2]) => a1.layer - a2.layer || a1.index - a2.index || id1.localeCompare(id2, "en"))
             .map(e => e[1]);
 
-        let n = 1;
+        let n = 0;
         let m = 0;
 
         for (const a of A) {
@@ -486,6 +486,19 @@ export class RaySystem {
         }
 
         this.n = n;
+
+        if (n === 0) {
+            this.D = null;
+            this.E = null;
+            this.K = null;
+            this.S = null;
+            this.Ct = null;
+            this.Ci = null;
+            this.rmin = NaN;
+            this.rmax = NaN;
+
+            return;
+        }
 
         const D = this.D = new Float32Array(new ArrayBuffer(n * 13 + m * 4), 0, n);
         const E = this.E = new Float32Array(D.buffer, D.byteOffset + D.byteLength, m);
