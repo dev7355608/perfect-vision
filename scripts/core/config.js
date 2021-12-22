@@ -33,19 +33,6 @@ const renderConfigTemplate = Handlebars.compile(`\
     {{/each}}`
 );
 
-const renderConfigTemplate2 = Handlebars.compile(`\
-    {{#*inline "settingPartial"}}
-    <div class="form-group">
-        <label>{{this.name}}{{#if this.units}} <span class="units">({{ this.units }})</span>{{/if}}</label>
-        <input type="number" step="0.1" name="flags.{{this.namespace}}.{{this.key}}" value="{{this.value}}"/>
-    </div>
-    {{/inline}}
-
-    {{#each settings}}
-    {{> settingPartial}}
-    {{/each}}`
-);
-
 function renderConfig(sheet, html, data) {
     let document;
     let prefix = "perfect-vision";
@@ -91,21 +78,11 @@ function renderConfig(sheet, html, data) {
         });
 
         html.find(`input[name="vision"]`).parent().after(config);
-
-        const config2 = renderConfigTemplate2({
-            settings: [{
-                namespace: "perfect-vision",
-                key: "sightLimit",
-                value: document.getFlag("perfect-vision", "sightLimit"),
-                name: "Sight Limit",
-                units: "Grid Units"
-            }]
-        }, {
-            allowProtoMethodsByDefault: true,
-            allowProtoPropertiesByDefault: true
-        });
-
-        html.find(`input[name="vision"]`).parent().parent().append(config2);
+        html.find(`input[name="vision"]`).parent().parent().append(`\
+            <div class="form-group">
+                <label>Sight Limit <span class="units">(Grid Units)</span></label>
+                <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
+            </div>`);
     } else {
         console.assert(sheet instanceof SettingsConfig);
     }
@@ -200,7 +177,7 @@ Hooks.on("renderSceneConfig", (sheet, html, data) => {
         <div class="form-group">
             <label>Sight Limit <span class="units">(Grid Units)</span></label>
             <div class="form-fields">
-                <input type="number" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
+                <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
             </div>
             <p class="notes">Limit the sight of all controlled Tokens. This limit is in effect even if Unrestricted Vision Range is enabled. The limit can be set for each token individually in the token configuration under the Vision tab.</p>
         </div>`);
@@ -274,7 +251,7 @@ Hooks.on("renderAmbientLightConfig", (sheet, html, data) => {
             <label>Sight Limit <span class="units">(Grid Units)</span></label>
             <div class="form-fields">
                 <label class="checkbox">Enable <input type="checkbox" id="perfect-vision.overrideSightLimit"></label>
-                <input type="number" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
+                <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
             </div>
             <p class="hint">Limit the maximum sight range of tokens in the area of the light source.</p>
         </div>`);
@@ -431,7 +408,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
             <div class="form-group">
                 <label style="flex:${flex};">Sight Limit <span class="units">(Grid Units)</span></label>
                 <div class="form-fields">
-                    <input type="number" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
+                    <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
                     &nbsp;&nbsp;&nbsp;
                     <label class="checkbox">Override <input type="checkbox" id="perfect-vision.overrideSightLimit"></label>
                 </div>

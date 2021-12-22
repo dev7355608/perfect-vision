@@ -103,7 +103,7 @@ Hooks.once("init", () => {
             let sightLimit = this.object.document.getFlag("perfect-vision", "sightLimit");
 
             if (sightLimit !== undefined) {
-                sightLimit = (sightLimit ?? Infinity) / canvas.dimensions.distance * canvas.dimensions.size;
+                sightLimit = Math.max(sightLimit ?? Infinity, 0) / canvas.dimensions.distance * canvas.dimensions.size;
             }
 
             if (this._pv_sightLimit !== sightLimit) {
@@ -336,7 +336,7 @@ Hooks.once("init", () => {
         let sightLimit = parseFloat(document.getFlag("perfect-vision", "sightLimit"));
 
         if (!Number.isNaN(sightLimit)) {
-            sightLimit = Math.max(getLightRadius(token, Math.abs(sightLimit)), Math.min(token.w, token.h) * 0.5);
+            sightLimit = Math.max(getLightRadius(token, Math.max(sightLimit, 0)), Math.min(token.w, token.h) * 0.5);
         } else {
             sightLimit = undefined;
         }

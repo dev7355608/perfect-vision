@@ -109,7 +109,7 @@ Hooks.once("init", () => {
 
         this._pv_globalLight = this.globalLight;
 
-        this._pv_sightLimit = (canvas.scene.getFlag("perfect-vision", "sightLimit") ?? Infinity) / canvas.dimensions.distance * canvas.dimensions.size;
+        this._pv_sightLimit = Math.max(canvas.scene.getFlag("perfect-vision", "sightLimit") ?? Infinity, 0) / canvas.dimensions.distance * canvas.dimensions.size;
 
         let daylightColor = canvas.scene.getFlag("perfect-vision", "daylightColor") ?? "";
 
@@ -260,7 +260,7 @@ Hooks.once("init", () => {
             sightLimit = canvas.scene.getFlag("perfect-vision", "sightLimit");
         }
 
-        sightLimit = (sightLimit ?? Infinity) / canvas.dimensions.distance * canvas.dimensions.size;
+        sightLimit = Math.max(sightLimit ?? Infinity, 0) / canvas.dimensions.distance * canvas.dimensions.size;
 
         if (this._pv_sightLimit !== sightLimit) {
             this._pv_sightLimit = sightLimit;
@@ -794,7 +794,7 @@ LightingLayer.prototype._pv_updateArea = function (area) {
     }
 
     if (sightLimit !== undefined) {
-        sightLimit = (sightLimit ?? Infinity) / canvas.dimensions.distance * canvas.dimensions.size;
+        sightLimit = Math.max(sightLimit ?? Infinity, 0) / canvas.dimensions.distance * canvas.dimensions.size;
     } else {
         sightLimit = area._pv_parent._pv_sightLimit;
     }
