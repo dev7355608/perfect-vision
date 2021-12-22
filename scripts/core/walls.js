@@ -574,10 +574,10 @@ export class RaySystem {
         const ymin = ray - rmax;
         const ymax = ray + rmax;
 
-        let dmin = D[0];
-        let dmax = dmin;
+        let dmin = Infinity;
+        let dmax = 0;
 
-        for (let i = 1, k = 4 + K[0] + K[1]; i < n; i++) {
+        for (let i = 0, k = 0; i < n; i++) {
             const x1 = E[k++];
             const x2 = E[k++];
             const y1 = E[k++];
@@ -843,7 +843,7 @@ export class RaySystem {
 
         while (--i0 >= 0 && S[i0] !== 0);
 
-        let d0 = i0 >= 0 ? D[i0] * dmul : 0;
+        let d0 = i0 >= 0 ? D[i0] * dmul : Infinity;
         let t0 = 0;
 
         if (c !== 0) {
