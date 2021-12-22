@@ -7,6 +7,7 @@ import "./foreground.js";
 import "./point-source/index.js";
 import "./lighting.js";
 import "./sight.js";
+import "./templates.js";
 import "./tiles.js";
 import "./tokens.js";
 import "./walls.js";

@@ -99,7 +99,6 @@ Hooks.once("init", () => {
 
         if (!this.object._original) {
             let updateArea = false;
-
             let sightLimit = this.object.document.getFlag("perfect-vision", "sightLimit");
 
             if (sightLimit !== undefined) {
@@ -126,7 +125,7 @@ Hooks.once("init", () => {
 
             if (updateArea) {
                 if (sightLimit !== undefined) {
-                    canvas._pv_raySystem.addArea(`Light.${this.object.document.id}`, this._pv_los, undefined, this._pv_sightLimit, 2, this.data.z ?? (this.isDarkness ? 10 : 0));
+                    canvas._pv_raySystem.addArea(`Light.${this.object.document.id}`, this._pv_los, undefined, this._pv_sightLimit, 3, this.data.z ?? (this.isDarkness ? 10 : 0));
                 } else {
                     canvas._pv_raySystem.deleteArea(`Light.${this.object.document.id}`);
                 }
