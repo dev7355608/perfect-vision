@@ -18,9 +18,12 @@ Hooks.once("init", () => {
         canvas.weather._pv_weatherblock_mask.filterArea = canvas.app.renderer.screen;
 
         if (inverted) {
-            if (canvas.weather._pv_weatherblock_mask?.geometry?.graphicsData?.length > 0) {
-                canvas.weather._pv_stage.masks.addChild(canvas.weather._pv_weatherblock_mask);
+            if (!canvas.weather._pv_weatherblock_mask?.geometry?.graphicsData?.length) {
+                canvas.weather._pv_weatherblock_mask.destroy(true);
+                canvas.weather._pv_weatherblock_mask = new PIXI.LegacyGraphics().beginFill().drawShape(canvas.dimensions.rect).endFill();
             }
+
+            canvas.weather._pv_stage.masks.addChild(canvas.weather._pv_weatherblock_mask);
         } else {
             if (canvas.weather._pv_weatherblock_mask?.geometry?.graphicsData?.[0]?.holes?.length > 0) {
                 canvas.weather._pv_stage.masks.addChild(canvas.weather._pv_weatherblock_mask);

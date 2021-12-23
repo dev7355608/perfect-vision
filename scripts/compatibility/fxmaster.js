@@ -30,9 +30,7 @@ Hooks.once("setup", () => {
         this._pv_mask = inverted ? this._createMask() : this._createInvertedMask();
 
         if (inverted) {
-            if (this._pv_mask?.geometry?.graphicsData?.[0]?.holes?.length > 0) {
-                canvas.weather._pv_stage.masks.addChild(this._pv_mask);
-            }
+            canvas.weather._pv_stage.masks.addChild(this._pv_mask);
         } else {
             if (this._pv_mask?.geometry?.graphicsData?.length > 0) {
                 canvas.weather._pv_stage.masks.addChild(this._pv_mask);
