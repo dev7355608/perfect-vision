@@ -89,6 +89,16 @@ WeatherLayer.prototype._pv_updateMask = function (visible) {
             this.weather.mask = null;
         }
 
+        if (this.mask) {
+            this.mask.destroy(true);
+        }
+
+        if (visible && canvas.scene.img) {
+            this.mask = this.addChild(new PIXI.LegacyGraphics().beginFill().drawShape(canvas.dimensions.sceneRect).endFill());
+        } else {
+            this.mask = null;
+        }
+
         this.weather.visible = visible;
 
         if (this._pv_visible !== visible) {

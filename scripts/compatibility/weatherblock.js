@@ -17,8 +17,14 @@ Hooks.once("init", () => {
         canvas.weather._pv_weatherblock_mask.filters = [new InvertMaskFilter()];
         canvas.weather._pv_weatherblock_mask.filterArea = canvas.app.renderer.screen;
 
-        if (canvas.weather._pv_weatherblock_mask.geometry.graphicsData.length > (inverted ? 0 : 1)) {
-            canvas.weather._pv_stage.masks.addChild(canvas.weather._pv_weatherblock_mask);
+        if (inverted) {
+            if (canvas.weather._pv_weatherblock_mask?.geometry?.graphicsData?.length > 0) {
+                canvas.weather._pv_stage.masks.addChild(canvas.weather._pv_weatherblock_mask);
+            }
+        } else {
+            if (canvas.weather._pv_weatherblock_mask?.geometry?.graphicsData?.[0]?.holes?.length > 0) {
+                canvas.weather._pv_stage.masks.addChild(canvas.weather._pv_weatherblock_mask);
+            }
         }
 
         canvas.weather._pv_refreshBuffer();
