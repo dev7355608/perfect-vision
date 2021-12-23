@@ -165,8 +165,8 @@ export class StencilMask extends PIXI.DisplayObject {
         return this;
     }
 
-    drawFill() {
-        return this.draw(false, quad, quad.drawMode, 4, 0);
+    drawFill(hole) {
+        return this.draw(hole, quad, quad.drawMode, 4, 0);
     }
 
     pushMask(hole, geometry, drawMode, size, start, texture, threshold) {

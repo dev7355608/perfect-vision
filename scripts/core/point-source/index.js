@@ -416,11 +416,9 @@ Hooks.once("init", () => {
         }
 
         if (this.radius !== radiusSight) {
-            this._pv_fovGeometry = new PIXI.Geometry()
-                .addAttribute("aVertexPosition", new PIXI.Buffer(this._pv_fov.generateContour(canvas.sight._pv_contourOptions), true, false), 2, false, PIXI.TYPES.FLOAT);
-            this._pv_fovGeometry.drawMode = PIXI.DRAW_MODES.TRIANGLE_FAN;
+            this._pv_geometrySight = new PointSourceGeometry(this._pv_fov, this._pv_los, canvas.dimensions.size / 10);
         } else {
-            this._pv_fovGeometry = null;
+            this._pv_geometrySight = this._pv_geometry;
         }
 
         this._pv_radiusColor = radiusColor;

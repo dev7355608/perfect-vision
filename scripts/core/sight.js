@@ -19,6 +19,7 @@ Hooks.once("init", () => {
 
         for (let i = 0; i < this._pv_circle.length; i++) {
             this._pv_circle[i] /= canvas.dimensions.size;
+            this._pv_circle[i] *= 8 / 10;
         }
 
         return this;
@@ -95,21 +96,33 @@ Hooks.once("init", () => {
             const geometry = area._pv_geometry;
             const drawMode = geometry.drawMode;
             const { size: fovSize, start: fovStart } = geometry.segments.fov;
+            const { size: edgesSize, start: edgesStart } = geometry.segments.edges;
+
+            vision._pv_fov.pushMask(false, geometry, drawMode, fovSize, fovStart);
+
+            if (area._pv_vision || area._pv_globalLight) {
+                vision._pv_fov.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+            }
+
+            vision._pv_los.pushMask(false, geometry, drawMode, fovSize, fovStart);
+
+            if (area._pv_vision) {
+                vision._pv_los.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+            }
 
             if (area._pv_los) {
                 const { size: losSize, start: losStart } = geometry.segments.los;
 
-                vision._pv_fov.pushMask(false, geometry, drawMode, losSize, losStart);
-                vision._pv_los.pushMask(false, geometry, drawMode, losSize, losStart);
+                vision._pv_fov.draw(!area._pv_vision && !area._pv_globalLight, geometry, drawMode, losSize, losStart);
+                vision._pv_los.draw(!area._pv_vision, geometry, drawMode, losSize, losStart);
+            } else {
+                // TODO: optimize
+                vision._pv_fov.drawFill(!area._pv_vision && !area._pv_globalLight);
+                vision._pv_los.drawFill(!area._pv_vision);
             }
 
-            vision._pv_fov.draw(!area._pv_vision && !area._pv_globalLight, geometry, drawMode, fovSize, fovStart);
-            vision._pv_los.draw(!area._pv_vision, geometry, drawMode, fovSize, fovStart);
-
-            if (area._pv_los) {
-                vision._pv_fov.popMasks();
-                vision._pv_los.popMasks();
-            }
+            vision._pv_fov.popMasks();
+            vision._pv_los.popMasks();
         }
 
         // Draw field-of-vision for lighting sources
@@ -118,8 +131,20 @@ Hooks.once("init", () => {
                 continue;
             }
 
+            const geometry = source._pv_geometry;
+            const drawMode = geometry.drawMode;
+            const { size: losSize, start: losStart } = geometry.segments.los;
+            const { size: edgesSize, start: edgesStart } = geometry.segments.edges;
+
+            vision._pv_fov.pushMask(false, geometry, drawMode, losSize, losStart);
+            vision._pv_fov.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+
+            if (source.data.vision) {
+                vision._pv_los.pushMask(false, geometry, drawMode, losSize, losStart);
+                vision._pv_los.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+            }
+
             if (source._pv_occlusionTiles && source.data.walls) {
-                let occluded = false;
 
                 for (const occlusionTile of source._pv_occlusionTiles) {
                     if (occlusionTile.destroyed || !occlusionTile.visible || !occlusionTile.renderable || occlusionTile.worldAlpha <= 0) {
@@ -128,16 +153,6 @@ Hooks.once("init", () => {
 
                     if (!occlusionTile.geometry.bounds.intersects(source._pv_geometry.bounds)) {
                         continue;
-                    }
-
-                    if (!occluded) {
-                        occluded = true;
-
-                        vision._pv_fov.pushMaskFill();
-
-                        if (source.data.vision) {
-                            vision._pv_los.pushMaskFill();
-                        }
                     }
 
                     const geometry = occlusionTile.geometry;
@@ -153,16 +168,12 @@ Hooks.once("init", () => {
                 }
             }
 
-            const geometry = source._pv_geometry;
-            const drawMode = geometry.drawMode;
-            const { size, start } = geometry.segments.los;
-
-            vision._pv_fov.draw(false, geometry, drawMode, size, start);
+            vision._pv_fov.drawFill();
             vision._pv_fov.popMasks();
 
             // Some ambient lights provide vision
             if (source.data.vision) {
-                vision._pv_los.draw(false, geometry, drawMode, size, start);
+                vision._pv_fov.drawFill();
                 vision._pv_los.popMasks();
             }
         }
@@ -222,25 +233,26 @@ Hooks.once("init", () => {
                 inBuffer = true;
             }
 
-            const geometry = source._pv_geometry;
+            const geometry = source._pv_geometrySight;
             const drawMode = geometry.drawMode;
             const { size: losSize, start: losStart } = geometry.segments.los;
 
-            if (source.fov.radius > source.radius) {
-                const fovGeometry = source._pv_fovGeometry;
-
-                vision._pv_fov.pushMask(false, fovGeometry, fovGeometry.drawMode, fovGeometry.size, fovGeometry.start);
-                vision._pv_fov.draw(false, geometry, drawMode, losSize, losStart);
-                vision._pv_fov.popMasks();
-            } else if (source.radius > 0) { // Token FOV radius
+            if (source.fov.radius > 0) { // Token FOV radius
                 const { size: fovSize, start: fovStart } = geometry.segments.fov;
+                const { size: edgesSize, start: edgesStart } = geometry.segments.edges;
 
                 vision._pv_fov.pushMask(false, geometry, drawMode, fovSize, fovStart);
+                vision._pv_fov.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
                 vision._pv_fov.draw(false, geometry, drawMode, losSize, losStart);
                 vision._pv_fov.popMasks();
             }
 
-            vision._pv_los.draw(false, geometry, drawMode, losSize, losStart); // Token LOS mask
+            const { size: edgesSize, start: edgesStart } = geometry.segments.edges.los;
+
+            vision._pv_los.pushMask(false, geometry, drawMode, losSize, losStart);
+            vision._pv_los.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+            vision._pv_los.drawFill();
+            vision._pv_los.popMasks();
 
             if (!skipUpdateFog) { // Update fog exploration
                 this.updateFog(source, forceUpdateFog);
