@@ -89,7 +89,7 @@ WeatherLayer.prototype._pv_updateMask = function (visible) {
             this.weather.mask = null;
         }
 
-        if (this.mask) {
+        if (this.mask && !this.mask.destroyed) {
             this.mask.destroy(true);
         }
 
