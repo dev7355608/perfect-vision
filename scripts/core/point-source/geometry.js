@@ -4,16 +4,20 @@ import { TransformedShape } from "../../utils/transformed-shape.js";
 export class PointSourceGeometry extends PIXI.Geometry {
     static EMPTY = new PointSourceGeometry(new TransformedShape(new PIXI.Polygon())).retain();
 
+    fov;
+    los;
+    inset;
+    bounds = null;
+    segments = null;
+    drawCalls = null;
+    drawMode = PIXI.DRAW_MODES.TRIANGLES;
+
     constructor(fov, los, inset = 0) {
         super();
 
-        this.fov = fov ?? null;
-        this.los = los ?? null;
-        this.inset = inset;
-        this.bounds = null;
-        this.segments = null;
-        this.drawCalls = null;
-        this.drawMode = PIXI.DRAW_MODES.TRIANGLES;
+        this.fov = fov ? TransformedShape.from(fov) : null;
+        this.los = los ? TransformedShape.from(los) : null;
+        this.inset = inset || 0;
 
         this._calculateBounds();
         this._buildGeometry();
@@ -266,7 +270,5 @@ export class PointSourceGeometry extends PIXI.Geometry {
         this.bounds = null;
         this.segments = null;
         this.drawCalls = null;
-        this.drawMode = null;
-        this.inset = null;
     }
 }

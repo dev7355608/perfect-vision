@@ -1,4 +1,4 @@
-export class PointSourcePrepassShader extends PIXI.Shader {
+class PointSourcePrepassShader extends PIXI.Shader {
     static vertexSrc = `\
         #version 300 es
 
@@ -49,12 +49,13 @@ const tempRect = new PIXI.Rectangle();
 const occlusionMaskStatePool = [];
 
 export class PointSourceMesh extends PIXI.Mesh {
+    _blendColor = null;
+    _colorMask = null;
+    _drawMask = null;
+
     constructor(geometry, shader, state) {
         super(geometry, shader, state);
 
-        this._blendColor = null;
-        this._colorMask = null;
-        this._drawMask = null;
         this.state.depthTest = true;
         this.state.depthMask = true;
     }
@@ -96,6 +97,7 @@ export class PointSourceMesh extends PIXI.Mesh {
     destroy(options) {
         this._blendColor = null;
         this._colorMask = null;
+        this._drawMask = null;
 
         super.destroy(options);
     }
