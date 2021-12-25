@@ -1,9 +1,13 @@
 export class TransformedShape {
-    constructor(shape, matrix) {
-        this.shape = null;
-        this.matrix = null;
-        this.bounds = null;
+    static from(shape, matrix) {
+        return shape instanceof this ? shape : new this(shape, matrix);
+    }
 
+    shape = null;
+    matrix = null;
+    bounds = null;
+
+    constructor(shape, matrix) {
         const originalShape = shape;
 
         {

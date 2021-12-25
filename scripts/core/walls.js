@@ -411,13 +411,8 @@ export class RaySystem {
     }
 
     addArea(id, fov, los = undefined, limit = Infinity, layer = 0, index = 0) {
-        if (!(fov instanceof TransformedShape)) {
-            fov = new TransformedShape(fov);
-        }
-
-        if (los && !(los instanceof TransformedShape)) {
-            los = new TransformedShape(los);
-        }
+        fov = fov ? TransformedShape.from(fov) : null;
+        los = los ? TransformedShape.from(los) : null;
 
         const createData = fov => {
             if (!fov) {
