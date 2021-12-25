@@ -58,8 +58,9 @@ Hooks.once("init", () => {
             child._parentID = -1;
         }
 
-        this._pv_weather = false;
         this._pv_buffer.dispose();
+
+        this.mask = null;
 
         return await wrapped(...args);
     });
@@ -89,7 +90,7 @@ WeatherLayer.prototype._pv_updateMask = function (visible) {
             this.weather.mask = null;
         }
 
-        if (this.mask && !this.mask.destroyed) {
+        if (this.mask) {
             this.mask.destroy(true);
         }
 
