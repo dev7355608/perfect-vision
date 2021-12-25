@@ -544,6 +544,53 @@ LightSource.prototype._pv_drawMesh = function () {
     return mesh;
 };
 
+LightSource.prototype._pv_drawMask = function(fov, los) {
+    const geometry = this._pv_geometry;
+    const segments = geometry.segments;
+    const drawMode = geometry.drawMode;
+    const { size: losSize, start: losStart } = segments.los;
+    const { size: edgesSize, start: edgesStart } = segments.edges;
+
+    fov.pushMask(false, geometry, drawMode, losSize, losStart);
+    fov.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+
+    if (this.data.vision) {
+        los.pushMask(false, geometry, drawMode, losSize, losStart);
+        los.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+    }
+
+    if (this._pv_occlusionTiles && this.data.walls) {
+        for (const occlusionTile of this._pv_occlusionTiles) {
+            if (occlusionTile.destroyed || !occlusionTile.visible || !occlusionTile.renderable || occlusionTile.worldAlpha <= 0) {
+                continue;
+            }
+
+            if (!occlusionTile.geometry.bounds.intersects(geometry.bounds)) {
+                continue;
+            }
+
+            const geometry = occlusionTile.geometry;
+            const drawMode = geometry.drawMode;
+            const texture = occlusionTile.texture;
+            const threshold = 0.75;
+
+            fov.pushMask(true, geometry, drawMode, 4, 0, texture, threshold);
+
+            if (this.data.vision) {
+                los.pushMask(true, geometry, drawMode, 4, 0, texture, threshold);
+            }
+        }
+    }
+
+    fov.drawFill(false);
+    fov.popMasks();
+
+    if (this.data.vision) {
+        los.drawFill(false);
+        los.popMasks();
+    }
+};
+
 VisionSource.prototype._pv_drawMesh = function () {
     const mesh = this._pv_mesh;
     const uniforms = this._pv_shader.uniforms;
@@ -562,6 +609,30 @@ VisionSource.prototype._pv_drawMesh = function () {
     uniforms.uSmoothness = mesh.geometry.inset;
 
     return mesh;
+};
+
+VisionSource.prototype._pv_drawMask = function(fov, los) {
+    const geometry = this._pv_geometrySight;
+    const segments = geometry.segments;
+    const drawMode = geometry.drawMode;
+    const { size: losSize, start: losStart } = segments.los;
+
+    if (this.fov.radius > 0) {
+        const { size: fovSize, start: fovStart } = segments.fov;
+        const { size: edgesSize, start: edgesStart } = segments.edges;
+
+        fov.pushMask(false, geometry, drawMode, fovSize, fovStart);
+        fov.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+        fov.draw(false, geometry, drawMode, losSize, losStart);
+        fov.popMasks();
+    }
+
+    const { size: edgesSize, start: edgesStart } = segments.edges.los;
+
+    los.pushMask(false, geometry, drawMode, losSize, losStart);
+    los.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+    los.drawFill(false);
+    los.popMasks();
 };
 
 class LightSourceShader extends PIXI.Shader {

@@ -1087,6 +1087,11 @@ LightingLayer.prototype._pv_refreshBuffer = function () {
     buffer.invalidate();
 };
 
+LightingLayer.prototype._pv_drawMask = function(fov, los) {
+    fov.drawFill(!this._pv_vision && !this._pv_globalLight);
+    los.drawFill(!this._pv_vision);
+};
+
 Drawing.prototype._pv_drawMesh = function () {
     const mesh = this._pv_mesh;
     const uniforms = this._pv_shader.uniforms;
@@ -1102,6 +1107,39 @@ Drawing.prototype._pv_drawMesh = function () {
     uniforms.uColorBackground.set(channels.background.rgb);
 
     return mesh;
+};
+
+Drawing.prototype._pv_drawMask = function(fov, los) {
+    const geometry = this._pv_geometry;
+    const segments = geometry.segments;
+    const drawMode = geometry.drawMode;
+    const { size: fovSize, start: fovStart } = segments.fov;
+    const { size: edgesSize, start: edgesStart } = segments.edges;
+
+    fov.pushMask(false, geometry, drawMode, fovSize, fovStart);
+
+    if (this._pv_vision || this._pv_globalLight) {
+        fov.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+    }
+
+    los.pushMask(false, geometry, drawMode, fovSize, fovStart);
+
+    if (this._pv_vision) {
+        los.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+    }
+
+    if (this._pv_los) {
+        const { size: losSize, start: losStart } = segments.los;
+
+        fov.draw(!this._pv_vision && !this._pv_globalLight, geometry, drawMode, losSize, losStart);
+        los.draw(!this._pv_vision, geometry, drawMode, losSize, losStart);
+    } else {
+        fov.drawFill(!this._pv_vision && !this._pv_globalLight);
+        los.drawFill(!this._pv_vision);
+    }
+
+    fov.popMasks();
+    los.popMasks();
 };
 
 function configureChannels({

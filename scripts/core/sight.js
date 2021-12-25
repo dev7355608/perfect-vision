@@ -83,46 +83,10 @@ Hooks.once("init", () => {
         // Draw standard vision sources
         let inBuffer = canvas.scene.data.padding === 0;
 
-        {
-            const geometry = canvas.lighting._pv_geometry;
-            const drawMode = geometry.drawMode;
-            const { size: fovSize, start: fovStart } = geometry.segments.fov;
-
-            vision._pv_fov.draw(!canvas.lighting._pv_vision && !canvas.lighting._pv_globalLight, geometry, drawMode, fovSize, fovStart);
-            vision._pv_los.draw(!canvas.lighting._pv_vision, geometry, drawMode, fovSize, fovStart);
-        }
+        canvas.lighting._pv_drawMask(vision._pv_fov, vision._pv_los);
 
         for (const area of canvas.lighting._pv_areas) {
-            const geometry = area._pv_geometry;
-            const drawMode = geometry.drawMode;
-            const { size: fovSize, start: fovStart } = geometry.segments.fov;
-            const { size: edgesSize, start: edgesStart } = geometry.segments.edges;
-
-            vision._pv_fov.pushMask(false, geometry, drawMode, fovSize, fovStart);
-
-            if (area._pv_vision || area._pv_globalLight) {
-                vision._pv_fov.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
-            }
-
-            vision._pv_los.pushMask(false, geometry, drawMode, fovSize, fovStart);
-
-            if (area._pv_vision) {
-                vision._pv_los.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
-            }
-
-            if (area._pv_los) {
-                const { size: losSize, start: losStart } = geometry.segments.los;
-
-                vision._pv_fov.draw(!area._pv_vision && !area._pv_globalLight, geometry, drawMode, losSize, losStart);
-                vision._pv_los.draw(!area._pv_vision, geometry, drawMode, losSize, losStart);
-            } else {
-                // TODO: optimize
-                vision._pv_fov.drawFill(!area._pv_vision && !area._pv_globalLight);
-                vision._pv_los.drawFill(!area._pv_vision);
-            }
-
-            vision._pv_fov.popMasks();
-            vision._pv_los.popMasks();
+            area._pv_drawMask(vision._pv_fov, vision._pv_los);
         }
 
         // Draw field-of-vision for lighting sources
@@ -131,99 +95,10 @@ Hooks.once("init", () => {
                 continue;
             }
 
-            const geometry = source._pv_geometry;
-            const drawMode = geometry.drawMode;
-            const { size: losSize, start: losStart } = geometry.segments.los;
-            const { size: edgesSize, start: edgesStart } = geometry.segments.edges;
-
-            vision._pv_fov.pushMask(false, geometry, drawMode, losSize, losStart);
-            vision._pv_fov.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
-
-            if (source.data.vision) {
-                vision._pv_los.pushMask(false, geometry, drawMode, losSize, losStart);
-                vision._pv_los.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
-            }
-
-            if (source._pv_occlusionTiles && source.data.walls) {
-
-                for (const occlusionTile of source._pv_occlusionTiles) {
-                    if (occlusionTile.destroyed || !occlusionTile.visible || !occlusionTile.renderable || occlusionTile.worldAlpha <= 0) {
-                        continue;
-                    }
-
-                    if (!occlusionTile.geometry.bounds.intersects(source._pv_geometry.bounds)) {
-                        continue;
-                    }
-
-                    const geometry = occlusionTile.geometry;
-                    const drawMode = geometry.drawMode;
-                    const texture = occlusionTile.texture;
-                    const alphaThreshold = 0.75;
-
-                    vision._pv_fov.pushMask(true, geometry, drawMode, 4, 0, texture, alphaThreshold);
-
-                    if (source.data.vision) {
-                        vision._pv_los.pushMask(true, geometry, drawMode, 4, 0, texture, alphaThreshold);
-                    }
-                }
-            }
-
-            vision._pv_fov.drawFill();
-            vision._pv_fov.popMasks();
-
-            // Some ambient lights provide vision
-            if (source.data.vision) {
-                vision._pv_los.drawFill();
-                vision._pv_los.popMasks();
-            }
+            source._pv_drawMask(vision._pv_fov, vision._pv_los);
         }
 
-        if (this.sources.size) {
-            // TODO: draw instanced
-            const c = this._pv_circle;
-            const m = c.length;
-            const n = m >>> 1;
-            const s = this.sources.size;
-
-            let i = 0;
-            let j = s;
-
-            const vertices = new Float32Array(j * (m + 4) - 4);
-
-            for (const source of this.sources) {
-                const { x, y } = source.data;
-                const r = source._pv_minRadius;
-
-                if (j < s) {
-                    vertices[i++] = x + c[0] * r;
-                    vertices[i++] = y + c[1] * r;
-                }
-
-                for (let k = 0; k < n; k += 2) {
-                    vertices[i++] = x + c[k] * r;
-                    vertices[i++] = y + c[k + 1] * r;
-                    vertices[i++] = x + c[m - 2 - k] * r;
-                    vertices[i++] = y + c[m - 1 - k] * r;
-                }
-
-                if (m % 2) {
-                    vertices[i++] = x + c[n] * r;
-                    vertices[i++] = y + c[n + 1] * r;
-                }
-
-                if (--j) {
-                    const k = i;
-
-                    vertices[i++] = vertices[k - 2];
-                    vertices[i++] = vertices[k - 1];
-                }
-            }
-
-            const geometry = new PIXI.Geometry().addAttribute("aVertexPosition", new PIXI.Buffer(vertices, true, false), 2, false, PIXI.TYPES.FLOAT);
-            const drawMode = PIXI.DRAW_MODES.TRIANGLE_STRIP;
-
-            vision._pv_fov.draw(false, geometry, drawMode)
-        }
+        this._pv_drawMinFOV(vision._pv_fov);
 
         // Draw sight-based visibility for each vision source
         for (const source of this.sources) {
@@ -233,26 +108,7 @@ Hooks.once("init", () => {
                 inBuffer = true;
             }
 
-            const geometry = source._pv_geometrySight;
-            const drawMode = geometry.drawMode;
-            const { size: losSize, start: losStart } = geometry.segments.los;
-
-            if (source.fov.radius > 0) { // Token FOV radius
-                const { size: fovSize, start: fovStart } = geometry.segments.fov;
-                const { size: edgesSize, start: edgesStart } = geometry.segments.edges;
-
-                vision._pv_fov.pushMask(false, geometry, drawMode, fovSize, fovStart);
-                vision._pv_fov.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
-                vision._pv_fov.draw(false, geometry, drawMode, losSize, losStart);
-                vision._pv_fov.popMasks();
-            }
-
-            const { size: edgesSize, start: edgesStart } = geometry.segments.edges.los;
-
-            vision._pv_los.pushMask(false, geometry, drawMode, losSize, losStart);
-            vision._pv_los.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
-            vision._pv_los.drawFill();
-            vision._pv_los.popMasks();
+            source._pv_drawMask(vision._pv_fov, vision._pv_los);
 
             if (!skipUpdateFog) { // Update fog exploration
                 this.updateFog(source, forceUpdateFog);
@@ -404,3 +260,54 @@ Hooks.once("init", () => {
         return true;
     });
 });
+
+SightLayer.prototype._pv_drawMinFOV = function (fov) {
+    if (this.sources.size === 0) {
+        return;
+    }
+
+    // TODO: draw instanced
+    const c = this._pv_circle;
+    const m = c.length;
+    const n = m >>> 1;
+    const s = this.sources.size;
+
+    let i = 0;
+    let j = s;
+
+    const vertices = new Float32Array(j * (m + 4) - 4);
+
+    for (const source of this.sources) {
+        const { x, y } = source.data;
+        const r = source._pv_minRadius;
+
+        if (j < s) {
+            vertices[i++] = x + c[0] * r;
+            vertices[i++] = y + c[1] * r;
+        }
+
+        for (let k = 0; k < n; k += 2) {
+            vertices[i++] = x + c[k] * r;
+            vertices[i++] = y + c[k + 1] * r;
+            vertices[i++] = x + c[m - 2 - k] * r;
+            vertices[i++] = y + c[m - 1 - k] * r;
+        }
+
+        if (m % 2) {
+            vertices[i++] = x + c[n] * r;
+            vertices[i++] = y + c[n + 1] * r;
+        }
+
+        if (--j) {
+            const k = i;
+
+            vertices[i++] = vertices[k - 2];
+            vertices[i++] = vertices[k - 1];
+        }
+    }
+
+    const geometry = new PIXI.Geometry().addAttribute("aVertexPosition", new PIXI.Buffer(vertices, true, false), 2, false, PIXI.TYPES.FLOAT);
+    const drawMode = PIXI.DRAW_MODES.TRIANGLE_STRIP;
+
+    fov.draw(false, geometry, drawMode);
+};
