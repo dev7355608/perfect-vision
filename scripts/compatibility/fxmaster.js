@@ -18,8 +18,6 @@ Hooks.once("setup", () => {
     });
 
     patch("Canvas.layers.fxmaster.layerClass.prototype.updateMask", "OVERRIDE", function () {
-        this.visible = true;
-
         if (this._pv_mask) {
             this._pv_mask.destroy(true);
             this._pv_mask = null;
@@ -39,6 +37,8 @@ Hooks.once("setup", () => {
 
         canvas.weather._pv_refreshBuffer();
     });
+
+    patch("Canvas.layers.fxmaster.layerClass.prototype._setLayerMask", "OVERRIDE", function () { });
 
     let filters = [];
 
