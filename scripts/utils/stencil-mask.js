@@ -7,7 +7,7 @@ export class StencilMaskData extends PIXI.MaskData {
     }
 }
 
-export class StencilMaskShader extends PIXI.Shader {
+class StencilMaskShader extends PIXI.Shader {
     static vertexSrc = `\
         #version 300 es
 
@@ -51,7 +51,7 @@ export class StencilMaskShader extends PIXI.Shader {
     }
 }
 
-export class StencilMaskTexturedShader extends PIXI.Shader {
+class StencilMaskTexturedShader extends PIXI.Shader {
     static vertexSrc = `\
         #version 300 es
 
@@ -126,6 +126,11 @@ state.depthTest = false;
 state.depthMask = false;
 
 export class StencilMask extends PIXI.DisplayObject {
+    _currentDrawGroup = null;
+    _drawGroups = [];
+    _maskStack = [];
+    _updateID = -1;
+
     constructor() {
         super();
 
@@ -133,33 +138,118 @@ export class StencilMask extends PIXI.DisplayObject {
         this.interactiveChildren = false;
         this.accessible = false;
         this.accessibleChildren = false;
-
-        this._drawCalls = [];
-        this._currentDrawCall = null;
-        this._maskStack = [];
-        this._updateID = -1;
     }
 
     draw(hole, geometry, drawMode, size, start, texture, threshold) {
         hole = !!hole;
 
-        if (!hole || this._drawCalls.length !== 0) {
-            if (this._currentDrawCall?.hole !== hole) {
-                this._currentDrawCall = { hole, fills: [] };
-                this._drawCalls.push(this._currentDrawCall);
+        if (!hole || this._drawGroups.length !== 0) {
+            let currentDrawGroup = this._currentDrawGroup;
 
-                if (this._maskStack.length > 0) {
-                    this._currentDrawCall.masks = Array.from(this._maskStack);
+            if (currentDrawGroup?.hole !== hole) {
+                currentDrawGroup = this._currentDrawGroup = new StencilMaskDrawGroup(hole);
 
-                    for (const { geometry } of this._currentDrawCall.masks) {
-                        geometry.refCount++;
+                this._drawGroups.push(currentDrawGroup);
+
+                let filled = false;
+
+                for (const mask of this._maskStack) {
+                    if (mask.geometry === quad) {
+                        currentDrawGroup.masks.length = 0;
+
+                        if (!mask.hole) {
+                            currentDrawGroup.masks.push(mask);
+
+                            filled = true;
+                        } else {
+                            filled = false;
+                        }
+
+                    } else if (!filled || mask.hole && currentDrawGroup.masks.length !== 0) {
+                        currentDrawGroup.masks.push(mask);
+
+                        filled = false;
                     }
+                }
+
+                if (filled) {
+                    currentDrawGroup.masks.length = 0;
+                }
+
+                for (const { geometry } of currentDrawGroup.masks) {
+                    geometry.refCount++;
                 }
             }
 
-            geometry.refCount++;
+            if (!currentDrawGroup.complete) {
+                if (geometry === quad) {
+                    for (const { geometry } of currentDrawGroup.fills) {
+                        geometry.refCount--;
 
-            this._currentDrawCall.fills.push({ geometry, drawMode, size, start, texture, threshold });
+                        if (geometry.refCount === 0) {
+                            geometry.dispose();
+                        }
+                    }
+
+                    currentDrawGroup.fills.length = 0;
+                    currentDrawGroup.complete = true;
+
+                    if (currentDrawGroup.masks.length !== 0) {
+                        let holes = false;
+
+                        for (const mask of currentDrawGroup.masks) {
+                            if (mask.hole) {
+                                holes = true;
+
+                                break;
+                            }
+                        }
+
+                        if (!holes) {
+                            if (this._drawGroups.length > 1) {
+                                const lastDrawGroup = this._drawGroups[this._drawGroups.length - 2];
+
+                                if (lastDrawGroup.hole === hole && lastDrawGroup.masks.length === 0) {
+                                    lastDrawGroup.fills.push(...currentDrawGroup.masks);
+                                    currentDrawGroup = this._currentDrawGroup = null;
+                                    this._drawGroups.length -= 1;
+                                }
+                            }
+
+                            if (currentDrawGroup !== null) {
+                                currentDrawGroup.fills = currentDrawGroup.masks;
+                                currentDrawGroup.masks = [];
+                                currentDrawGroup = null;
+                            }
+                        }
+                    }
+
+                    if (currentDrawGroup !== null && currentDrawGroup.masks.length === 0) {
+                        const maskStack = this._maskStack;
+
+                        this._maskStack = [];
+
+                        if (hole) {
+                            this.clear();
+
+                            currentDrawGroup = null;
+                        } else {
+                            this._drawGroups.length -= 1;
+                            this.clear();
+                            this._drawGroups.push(currentDrawGroup);
+                            this._currentDrawGroup = currentDrawGroup;
+                        }
+
+                        this._maskStack = maskStack;
+                    }
+                }
+
+                if (currentDrawGroup) {
+                    geometry.refCount++;
+
+                    currentDrawGroup.fills.push(new StencilMaskDrawCall(hole, geometry, drawMode, size, start, texture, threshold));
+                }
+            }
         }
 
         return this;
@@ -173,8 +263,8 @@ export class StencilMask extends PIXI.DisplayObject {
         hole = !!hole;
 
         if (!hole || this._maskStack.length !== 0) {
-            this._currentDrawCall = null;
-            this._maskStack.push({ hole, geometry, drawMode, size, start, texture, threshold });
+            this._currentDrawGroup = null;
+            this._maskStack.push(new StencilMaskDrawCall(hole, geometry, drawMode, size, start, texture, threshold));
         }
 
         return this;
@@ -185,31 +275,27 @@ export class StencilMask extends PIXI.DisplayObject {
     }
 
     popMask() {
-        this._currentDrawCall = null;
+        this._currentDrawGroup = null;
         this._maskStack.pop();
 
         return this;
     }
 
     popMasks(count) {
-        this._currentDrawCall = count !== 0 ? null : this._currentDrawCall;
+        this._currentDrawGroup = count !== 0 ? null : this._currentDrawGroup;
         this._maskStack.length = count !== undefined ? Math.max(this._maskStack.length - count, 0) : 0;
 
         return this;
     }
 
     clear() {
-        for (const { fills, masks } of this._drawCalls) {
+        for (const { fills, masks } of this._drawGroups) {
             for (const { geometry } of fills) {
                 geometry.refCount--;
 
                 if (geometry.refCount === 0) {
                     geometry.dispose();
                 }
-            }
-
-            if (!masks) {
-                continue;
             }
 
             for (const { geometry } of masks) {
@@ -221,16 +307,16 @@ export class StencilMask extends PIXI.DisplayObject {
             }
         }
 
-        this._drawCalls.length = 0;
-        this._currentDrawCall = null;
+        this._currentDrawGroup = null;
+        this._drawGroups.length = 0;
         this._maskStack.length = 0;
     }
 
     destroy() {
         this.clear();
 
-        this._drawCalls = null;
-        this._currentDrawCall = null;
+        this._currentDrawGroup = null;
+        this._drawGroups = null;
         this._maskStack = null;
 
         return super.destroy();
@@ -245,9 +331,9 @@ export class StencilMask extends PIXI.DisplayObject {
             return;
         }
 
-        const drawCalls = this._drawCalls;
+        const drawGroups = this._drawGroups;
 
-        if (drawCalls.length === 0) {
+        if (drawGroups.length === 0) {
             return;
         }
 
@@ -303,9 +389,9 @@ export class StencilMask extends PIXI.DisplayObject {
         let lifted = false;
         let textured = false;
 
-        for (let j = 0, m = drawCalls.length; j < m; j++) {
-            const { hole, fills, masks } = drawCalls[j];
-            const maskCount = masks?.length;
+        for (let j = 0, m = drawGroups.length; j < m; j++) {
+            const { hole, fills, masks } = drawGroups[j];
+            const maskCount = masks.length;
 
             if (maskCount) {
                 if (j !== 0) {
@@ -448,5 +534,36 @@ export class StencilMask extends PIXI.DisplayObject {
             renderer.geometry.bind(quad, shaderDefault);
             renderer.geometry.draw(quad.drawMode, 4, 0);
         }
+    }
+}
+
+class StencilMaskDrawGroup {
+    hole;
+    fills = [];
+    masks = [];
+    complete = false;
+
+    constructor(hole) {
+        this.hole = hole;
+    }
+}
+
+class StencilMaskDrawCall {
+    hole;
+    geometry;
+    drawMode;
+    size;
+    start;
+    texture;
+    threshold;
+
+    constructor(hole, geometry, drawMode, size = undefined, start = undefined, texture = null, threshold = 0) {
+        this.hole = hole;
+        this.geometry = geometry;
+        this.drawMode = drawMode;
+        this.size = size;
+        this.start = start;
+        this.texture = texture;
+        this.threshold = threshold;
     }
 }
