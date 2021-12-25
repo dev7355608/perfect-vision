@@ -5,10 +5,10 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
     static buffers = {};
     static debug = false;
 
-    static create(name, textureOptions = {}, framebufferOptions = {}, updateOptions = {}) {
+    static create(name, texturesOptions = {}, framebufferOptions = {}, updateOptions = {}) {
         console.assert(typeof name === "string" && !(name in this.buffers));
 
-        const buffer = new Framebuffer(textureOptions, framebufferOptions);
+        const buffer = new Framebuffer(texturesOptions, framebufferOptions);
 
         buffer.name = name;
         buffer.dependencies = updateOptions.dependencies ? Object.assign(...Array.from(updateOptions.dependencies, v => ({ [v]: null }))) : {};
@@ -122,13 +122,22 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
         }
     }
 
-    constructor(textureOptions, framebufferOptions) {
+    name;
+    texturesOptions;
+    framebufferOptions;
+    textures;
+    sprites;
+    framebuffer;
+    drawBuffers;
+    dirty;
+
+    constructor(texturesOptions, framebufferOptions) {
         super();
 
-        this.reset(textureOptions, framebufferOptions);
+        this.reset(texturesOptions, framebufferOptions);
     }
 
-    reset(textureOptions = [], framebufferOptions = {}) {
+    reset(texturesOptions = [], framebufferOptions = {}) {
         this.framebufferOptions = framebufferOptions = Object.assign(this.framebufferOptions ?? {
             multisample: PIXI.MSAA_QUALITY.NONE,
             depth: false,
@@ -137,10 +146,10 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
             clearStencil: 0
         }, framebufferOptions);
 
-        this.textureOptions = this.textureOptions ?? [];
+        this.texturesOptions = this.texturesOptions ?? [];
 
-        for (let i = 0, n = textureOptions.length; i < n; i++) {
-            this.textureOptions[i] = Object.assign(this.textureOptions[i] ?? {
+        for (let i = 0, n = texturesOptions.length; i < n; i++) {
+            this.texturesOptions[i] = Object.assign(this.texturesOptions[i] ?? {
                 wrapMode: PIXI.WRAP_MODES.CLAMP,
                 scaleMode: PIXI.SCALE_MODES.NEAREST,
                 format: PIXI.FORMATS.RED,
@@ -149,9 +158,9 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
                 alphaMode: PIXI.ALPHA_MODES.PMA,
                 multisample: framebufferOptions.multisample,
                 clearColor: [0, 0, 0, 0],
-            }, textureOptions[i] ?? {});
+            }, texturesOptions[i] ?? {});
 
-            const options = this.textureOptions[i];
+            const options = this.texturesOptions[i];
 
             options.mipmap = PIXI.MIPMAP_MODES.OFF;
             options.anisotropicLevel = 0;
@@ -169,16 +178,16 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
             }
         }
 
-        textureOptions = this.textureOptions;
+        texturesOptions = this.texturesOptions;
 
         if (!this.textures) {
             this.textures = [];
             this.sprites = [];
             this.drawBuffers = [];
 
-            for (let i = 0; i < textureOptions.length; i++) {
+            for (let i = 0; i < texturesOptions.length; i++) {
                 const options = {
-                    ...textureOptions[i],
+                    ...texturesOptions[i],
                     width: 1,
                     height: 1,
                     resolution: 1,
@@ -245,7 +254,7 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
 
             for (let i = 0; i < textures.length; i++) {
                 const baseTexture = textures[i].baseTexture;
-                const options = textureOptions[i];
+                const options = texturesOptions[i];
 
                 baseTexture.dispose();
                 baseTexture.mipmap = options.mipmap;
@@ -301,12 +310,15 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
         }
 
         this.textures = null;
-        this.framebuffer = null;
         this.sprites = null;
+        this.framebuffer = null;
+        this.drawBuffers = null;
 
         if (this.constructor.debug) {
             Logger.debug("Framebuffer | Destroyed | %s", this.name);
         }
+
+        delete this.constructor.buffers[this.name];
     }
 
     render(renderer, displayObject, clear = true, transform = null, skipUpdateTransform = false) {
@@ -412,7 +424,7 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
         }
     }
 
-    show(index = 0, channel = 0, alpha = 1.0) {
+    show(stage, index = 0, channel = 0, alpha = 1.0) {
         if (this.dirty === undefined) {
             return;
         }
@@ -426,7 +438,7 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
             container.zIndex = Infinity;
             container.addChild(this.sprites[index]);
 
-            canvas.stage.addChild(container);
+            stage.addChild(container);
         }
     }
 
@@ -449,7 +461,7 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
     }
 }
 
-export class FramebufferSprite extends SpriteMesh {
+class FramebufferSprite extends SpriteMesh {
     constructor(shader) {
         super(shader);
     }
@@ -466,32 +478,6 @@ export class FramebufferSprite extends SpriteMesh {
         this.worldAlpha = this.alpha;
     }
 }
-
-function onTick() {
-    if (canvas?.ready) {
-        Framebuffer.updateAll();
-    }
-}
-
-function onResize() {
-    Framebuffer.invalidateAll(true);
-}
-
-Hooks.on("canvasInit", () => {
-    canvas.app.renderer.off("resize", onResize);
-    canvas.app.renderer.on("resize", onResize);
-
-    canvas.app.ticker.remove(onTick);
-    canvas.app.ticker.add(onTick, undefined, PIXI.UPDATE_PRIORITY.LOW + 1);
-});
-
-Hooks.on("canvasReady", () => {
-    Framebuffer.invalidateAll(true);
-});
-
-Hooks.on("canvasPan", () => {
-    Framebuffer.invalidateAll(true);
-});
 
 class FramebufferSpriteFilter extends PIXI.Filter {
     static vertexSrc = `\
