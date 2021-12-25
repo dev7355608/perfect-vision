@@ -173,7 +173,7 @@ Hooks.once("init", () => {
 
             // Some ambient lights provide vision
             if (source.data.vision) {
-                vision._pv_fov.drawFill();
+                vision._pv_los.drawFill();
                 vision._pv_los.popMasks();
             }
         }
