@@ -38,7 +38,15 @@ Hooks.once("setup", () => {
         canvas.weather._pv_refreshBuffer();
     });
 
-    patch("Canvas.layers.fxmaster.layerClass.prototype._setLayerMask", "OVERRIDE", function () { });
+    patch("Canvas.layers.fxmaster.layerClass.prototype.shouldMaskToScene", "OVERRIDE", function () {
+        return false;
+    });
+
+    patch("Canvas.layers.fxmaster.layerClass.prototype.tearDown", "WRAPPER", async function (wrapped, ...args) {
+        this.mask = null;
+
+        return await wrapped(...args);
+    });
 
     let filters = [];
 
