@@ -288,11 +288,6 @@ Hooks.once("init", () => {
             this.explored.msk.visible = !noMask;
         }
 
-        // Alter visibility of the lighting layer
-        canvas.lighting.illumination.primary.mask = this.visible ? this.los : null;
-        canvas.lighting.coloration.mask = this.visible ? this.los : null;
-        canvas.lighting.background.mask = this.visible ? this.los : null;
-
         // Restrict the visibility of other canvas objects
         this._inBuffer = inBuffer;
         this.restrictVisibility();
