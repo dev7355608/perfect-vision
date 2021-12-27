@@ -97,7 +97,7 @@ Hooks.once("init", () => {
         this._flags.useFov = false;
         this._flags.renderFOV = false;
 
-        if (!this.object._original) {
+        if (this.object instanceof AmbientLight && !this.object._original) {
             let updateArea = false;
             let sightLimit = this.object.document.getFlag("perfect-vision", "sightLimit");
 
