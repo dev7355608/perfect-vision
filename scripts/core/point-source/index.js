@@ -59,7 +59,7 @@ Hooks.once("init", () => {
 
         mesh.geometry = geometry;
 
-        if (this.object.data.walls) {
+        if (this.data.walls) {
             mesh.occlusionObjects = this._pv_occlusionTiles;
         } else {
             mesh.occlusionObjects = null;
@@ -529,9 +529,9 @@ LightSource.prototype._pv_drawMesh = function () {
 
     mesh.geometry = this._pv_geometry;
     mesh.shader = this._pv_shader;
-    mesh.colorMask.red = this.object.data.vision;
+    mesh.colorMask.red = this.data.vision;
 
-    if (this.object.data.walls) {
+    if (this.data.walls) {
         mesh.occlusionObjects = this._pv_occlusionTiles;
     } else {
         mesh.occlusionObjects = null;
