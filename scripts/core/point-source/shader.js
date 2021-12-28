@@ -165,7 +165,6 @@ export class DelimiterShader extends AdaptiveLightingShader {
     uniform ${PIXI.settings.PRECISION_VERTEX} mat3 translationMatrix;
     uniform ${PIXI.settings.PRECISION_VERTEX} mat3 translationMatrixInverse;
 
-    uniform bool pv_mask;
     uniform vec2 pv_origin;
     uniform float pv_radius;
     uniform float pv_smoothness;
@@ -202,21 +201,18 @@ export class DelimiterShader extends AdaptiveLightingShader {
                 dist
             );
 
+            vec4 v = texture(pv_sampler1, vSamplerUvs);
+
             if (!pv_sight) {
                 brightness = max(brightness, texture(pv_sampler2, vSamplerUvs).a);
             } else {
-                alpha = min(alpha, 1.0 - texture(pv_sampler1, vSamplerUvs).b);
+                alpha = min(alpha, 1.0 - v.b);
             }
 
             vec2 point = (translationMatrix * vec3(localPosition.xy, 0.0)).xy / 3.0;
 
             alpha = min(alpha, (sin(point.x) * sin(point.y)) * 4.0 - mix(3.0, 2.0, brightness));
-
-            if (pv_mask) {
-                vec4 v = texture(pv_sampler1, vSamplerUvs);
-
-                alpha = min(alpha, min(v.r, v.g));
-            }
+            alpha = min(alpha, min(v.r, v.g));
 
             pv_fragColor = vec4(brightness * 0.5 + 0.5) * alpha;
         } else {
@@ -618,9 +614,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                         pv_alpha = min(pv_alpha, pv_occlusionMaskAlpha(worldPosition.xy));
                         #endif
 
-                        if (pv_mask) {
-                            pv_alpha = min(pv_alpha, min(pv_lflc.r, pv_lflc.g));
-                        }
+                        pv_alpha = min(pv_alpha, min(pv_lflc.r, pv_lflc.g));
 
                         %wrapped%();
 
@@ -643,7 +637,6 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                 this.fragmentShader = `#version 300 es\n
                     /* Patched by Perfect Vision */
                     precision ${PIXI.settings.PRECISION_FRAGMENT} float;
-                    uniform bool pv_mask;
                     uniform vec2 pv_origin;
                     uniform float pv_radius;
                     uniform float pv_smoothness;
@@ -678,7 +671,6 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
 
     const shader = create.call(this, defaultUniforms);
 
-    shader.uniforms.pv_mask = false;
     shader.uniforms.pv_origin = [0, 0];
     shader.uniforms.pv_radius = 0;
     shader.uniforms.pv_smoothness = 0;

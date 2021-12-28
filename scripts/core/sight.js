@@ -268,18 +268,6 @@ Hooks.once("init", () => {
         this.visible = this.sources.size || !game.user.isGM;
         this.unexplored.tint = CONFIG.Canvas.unexploredColor;
 
-        for (const source of canvas.lighting.sources) {
-            source.illumination.shader.uniforms.pv_mask = this.visible;
-            source.coloration.shader.uniforms.pv_mask = this.visible;
-            source.background.shader.uniforms.pv_mask = this.visible;
-            source._pv_delimiter.shader.uniforms.pv_mask = this.visible;
-        }
-
-        for (const source of this.sources) {
-            source.illumination.shader.uniforms.pv_mask = this.visible;
-            source._pv_delimiter.shader.uniforms.pv_mask = this.visible;
-        }
-
         // Apply a mask to the exploration container
         if (this.explored.msk) {
             const noMask = this.sources.size && inBuffer;
