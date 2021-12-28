@@ -1,6 +1,7 @@
 import { StencilMask, StencilMaskData } from "../utils/stencil-mask.js";
 import { patch } from "../utils/patch.js";
 import { TransformedShape } from "../utils/transformed-shape.js";
+import { SpriteMesh } from "../utils/sprite-mesh.js";
 
 Hooks.once("init", () => {
     patch("SightLayer.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
@@ -19,8 +20,17 @@ Hooks.once("init", () => {
 
         for (let i = 0; i < this._pv_circle.length; i++) {
             this._pv_circle[i] /= canvas.dimensions.size;
-            this._pv_circle[i] *= 8 / 10;
+            this._pv_circle[i] *= 9 / 10;
         }
+
+        this._pv_vision = this.explored.addChild(new SpriteMesh(SightMaskShader.instance));
+        this._pv_vision.x = this._pv_bgRect.x;
+        this._pv_vision.y = this._pv_bgRect.y;
+        this._pv_vision.width = this._pv_bgRect.width;
+        this._pv_vision.height = this._pv_bgRect.height;
+        this._pv_vision.visible = false;
+
+        this.vision.visible = false;
 
         return this;
     });
@@ -67,6 +77,7 @@ Hooks.once("init", () => {
             const exploredColor = CONFIG.Canvas.exploredColor;
 
             prior._pv_rect.tint = exploredColor;
+            prior.visible = true;
 
             this.pending.addChild(prior);
 
@@ -75,8 +86,12 @@ Hooks.once("init", () => {
             prior.destroy({ children: true });
         }
 
+        this._pv_vision.visible = !this.fogExploration;
+
         // Create a new vision container for this frame
         const vision = this._createVisionContainer();
+
+        vision.visible = this.fogExploration;
 
         this.explored.addChild(vision);
 
@@ -89,16 +104,18 @@ Hooks.once("init", () => {
             area._pv_drawMask(vision._pv_fov, vision._pv_los);
         }
 
-        // Draw field-of-vision for lighting sources
-        for (const source of canvas.lighting.sources) {
-            if (!this.sources.size || !source.active) {
-                continue;
+        if (this.fogExploration) {
+            // Draw field-of-vision for lighting sources
+            for (const source of canvas.lighting.sources) {
+                if (!this.sources.size || !source.active) {
+                    continue;
+                }
+
+                source._pv_drawMask(vision._pv_fov, vision._pv_los);
             }
 
-            source._pv_drawMask(vision._pv_fov, vision._pv_los);
+            this._pv_drawMinFOV(vision._pv_fov);
         }
-
-        this._pv_drawMinFOV(vision._pv_fov);
 
         // Draw sight-based visibility for each vision source
         for (const source of this.sources) {
@@ -108,10 +125,12 @@ Hooks.once("init", () => {
                 inBuffer = true;
             }
 
-            source._pv_drawMask(vision._pv_fov, vision._pv_los);
+            if (this.fogExploration) {
+                source._pv_drawMask(vision._pv_fov, vision._pv_los);
 
-            if (!skipUpdateFog) { // Update fog exploration
-                this.updateFog(source, forceUpdateFog);
+                if (!skipUpdateFog) { // Update fog exploration
+                    this.updateFog(source, forceUpdateFog);
+                }
             }
         }
 
@@ -311,3 +330,70 @@ SightLayer.prototype._pv_drawMinFOV = function (fov) {
 
     fov.draw(false, geometry, drawMode);
 };
+
+class SightMaskShader extends PIXI.Shader {
+    static vertexSrc = `\
+        #version 100
+
+        precision ${PIXI.settings.PRECISION_VERTEX} float;
+
+        attribute vec2 aVertexPosition;
+
+        uniform mat3 projectionMatrix;
+        uniform vec2 screenDimensions;
+
+        varying vec2 vScreenCoord;
+
+        void main() {
+            gl_Position = vec4((projectionMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
+
+            vScreenCoord = aVertexPosition / screenDimensions;
+        }`;
+
+    static fragmentSrc = `\
+        #version 100
+
+        precision ${PIXI.settings.PRECISION_FRAGMENT} float;
+
+        varying vec2 vScreenCoord;
+
+        uniform sampler2D uSampler;
+
+        void main() {
+            vec4 mask = texture2D(uSampler, vScreenCoord);
+
+            gl_FragColor = vec4(min(mask.r, mask.g));
+        }`;
+
+    static get program() {
+        if (!this._program) {
+            this._program = PIXI.Program.from(this.vertexSrc, this.fragmentSrc);
+        }
+
+        return this._program;
+    }
+
+    static get instance() {
+        if (!this._instance) {
+            this._instance = new this();
+        }
+
+        return this._instance;
+    }
+
+    constructor() {
+        super(SightMaskShader.program, {
+            screenDimensions: new Float32Array(2)
+        });
+    }
+
+    update() {
+        const { width, height } = canvas.app.renderer.screen;
+        const screenDimensions = this.uniforms.screenDimensions;
+
+        screenDimensions[0] = width;
+        screenDimensions[1] = height;
+
+        this.uniforms.uSampler = canvas.lighting._pv_buffer.textures[0];
+    }
+}

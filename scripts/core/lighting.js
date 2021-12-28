@@ -45,6 +45,16 @@ Hooks.once("init", () => {
                 WebGL2RenderingContext.COLOR_ATTACHMENT0
             ));
 
+            const geometry = new PIXI.Geometry()
+                .addAttribute("aVertexPosition", new PIXI.Buffer(new Float32Array([-1, -1, +1, -1, +1, +1, -1, +1]), true, false), 2, false, PIXI.TYPES.FLOAT)
+                .addAttribute("aCenterRadius", new PIXI.Buffer(new Float32Array([]), false, false), 3, false, PIXI.TYPES.FLOAT, undefined, undefined, true);
+            const shader = MinFOVShader.instance;
+
+            stage.minFOV = container.addChild(new PIXI.Mesh(geometry, shader, undefined, PIXI.DRAW_MODES.TRIANGLE_FAN));
+            stage.minFOV.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
+            stage.minFOV.visible = false;
+            stage.minFOV.geometry.instanceCount = 0;
+
             stage.lights = container.addChild(new PIXI.Container());
             stage.roofs = container.addChild(new ColorMaskContainer(true, false, false, false));
             stage.baseTextures = [];
@@ -1035,8 +1045,21 @@ LightingLayer.prototype._pv_refreshBuffer = function () {
         areas.addChild(area._pv_drawMesh());
     }
 
-    for (const source of canvas.sight.sources) {
-        visions.addChild(source._pv_drawMesh());
+    {
+        const minFOV = [];
+
+        for (const source of canvas.sight.sources) {
+            visions.addChild(source._pv_drawMesh());
+
+            minFOV.push(source.x, source.y, source._pv_minRadius);
+        }
+
+        const minFOVMesh = stage.minFOV;
+        const minFOVGeometry = minFOVMesh.geometry;
+
+        minFOVGeometry.buffers[1].update(minFOV);
+        minFOVGeometry.instanceCount = minFOV.length / 3;
+        minFOVMesh.visible = minFOVGeometry.instanceCount > 0;
     }
 
     for (const source of this.sources) {
@@ -1087,7 +1110,7 @@ LightingLayer.prototype._pv_refreshBuffer = function () {
     buffer.invalidate();
 };
 
-LightingLayer.prototype._pv_drawMask = function(fov, los) {
+LightingLayer.prototype._pv_drawMask = function (fov, los) {
     fov.drawFill(!this._pv_vision && !this._pv_globalLight);
     los.drawFill(!this._pv_vision);
 };
@@ -1109,7 +1132,7 @@ Drawing.prototype._pv_drawMesh = function () {
     return mesh;
 };
 
-Drawing.prototype._pv_drawMask = function(fov, los) {
+Drawing.prototype._pv_drawMask = function (fov, los, inset = false) {
     const geometry = this._pv_geometry;
     const segments = geometry.segments;
     const drawMode = geometry.drawMode;
@@ -1118,13 +1141,13 @@ Drawing.prototype._pv_drawMask = function(fov, los) {
 
     fov.pushMask(false, geometry, drawMode, fovSize, fovStart);
 
-    if (this._pv_vision || this._pv_globalLight) {
+    if (inset && (this._pv_vision || this._pv_globalLight)) {
         fov.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
     }
 
     los.pushMask(false, geometry, drawMode, fovSize, fovStart);
 
-    if (this._pv_vision) {
+    if (inset && this._pv_vision) {
         los.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
     }
 
@@ -1470,5 +1493,67 @@ class DrawBuffersContainer extends PIXI.Container {
         super.render(renderer);
 
         renderer.batch.flush();
+    }
+}
+
+class MinFOVShader extends PIXI.Shader {
+    static vertexSrc = `\
+        #version 100
+
+        precision ${PIXI.settings.PRECISION_VERTEX} float;
+
+        attribute vec2 aVertexPosition;
+        attribute vec3 aCenterRadius;
+
+        uniform mat3 projectionMatrix;
+        uniform mat3 translationMatrix;
+
+        varying vec3 vCoord;
+
+        void main() {
+            vec2 center = aCenterRadius.xy;
+            float radius = aCenterRadius.z;
+            vec2 local = aVertexPosition * radius;
+
+            gl_Position = vec4((projectionMatrix * (translationMatrix * vec3(center + local, 1.0))).xy, 0.0, 1.0);
+
+            vCoord = vec3(local, radius);
+        }`;
+
+    static fragmentSrc = `\
+        #version 100
+
+        precision ${PIXI.settings.PRECISION_FRAGMENT} float;
+
+        uniform float uSmoothness;
+
+        varying vec3 vCoord;
+
+        void main() {
+            gl_FragColor = vec4(0.0, 1.0 - smoothstep(vCoord.z - uSmoothness, vCoord.z, length(vCoord.xy)), 0.0, 0.0);
+        }`;
+
+    static get program() {
+        if (!this._program) {
+            this._program = PIXI.Program.from(this.vertexSrc, this.fragmentSrc);
+        }
+
+        return this._program;
+    }
+
+    static get instance() {
+        if (!this._instance) {
+            this._instance = new this();
+        }
+
+        return this._instance;
+    }
+
+    constructor() {
+        super(MinFOVShader.program, { uSmoothness: 0 });
+    }
+
+    update() {
+        this.uniforms.uSmoothness = canvas.dimensions.size / 10;
     }
 }

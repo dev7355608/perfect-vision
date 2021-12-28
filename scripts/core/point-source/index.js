@@ -544,7 +544,7 @@ LightSource.prototype._pv_drawMesh = function () {
     return mesh;
 };
 
-LightSource.prototype._pv_drawMask = function(fov, los) {
+LightSource.prototype._pv_drawMask = function (fov, los, inset = false) {
     const geometry = this._pv_geometry;
     const segments = geometry.segments;
     const drawMode = geometry.drawMode;
@@ -552,11 +552,17 @@ LightSource.prototype._pv_drawMask = function(fov, los) {
     const { size: edgesSize, start: edgesStart } = segments.edges;
 
     fov.pushMask(false, geometry, drawMode, losSize, losStart);
-    fov.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+
+    if (inset) {
+        fov.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+    }
 
     if (this.data.vision) {
         los.pushMask(false, geometry, drawMode, losSize, losStart);
-        los.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+
+        if (inset) {
+            los.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+        }
     }
 
     if (this._pv_occlusionTiles && this.data.walls) {
@@ -611,7 +617,7 @@ VisionSource.prototype._pv_drawMesh = function () {
     return mesh;
 };
 
-VisionSource.prototype._pv_drawMask = function(fov, los) {
+VisionSource.prototype._pv_drawMask = function (fov, los, inset = false) {
     const geometry = this._pv_geometrySight;
     const segments = geometry.segments;
     const drawMode = geometry.drawMode;
@@ -619,18 +625,27 @@ VisionSource.prototype._pv_drawMask = function(fov, los) {
 
     if (this.fov.radius > 0) {
         const { size: fovSize, start: fovStart } = segments.fov;
-        const { size: edgesSize, start: edgesStart } = segments.edges;
 
         fov.pushMask(false, geometry, drawMode, fovSize, fovStart);
-        fov.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+
+        if (inset) {
+            const { size: edgesSize, start: edgesStart } = segments.edges;
+
+            fov.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+        }
+
         fov.draw(false, geometry, drawMode, losSize, losStart);
         fov.popMasks();
     }
 
-    const { size: edgesSize, start: edgesStart } = segments.edges.los;
-
     los.pushMask(false, geometry, drawMode, losSize, losStart);
-    los.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+
+    if (inset) {
+        const { size: edgesSize, start: edgesStart } = segments.edges.los;
+
+        los.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+    }
+
     los.drawFill(false);
     los.popMasks();
 };
