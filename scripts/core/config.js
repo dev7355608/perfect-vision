@@ -238,7 +238,7 @@ Hooks.on("renderAmbientLightConfig", (sheet, html, data) => {
 
     const document = sheet.object;
 
-    if (!document) {
+    if (!document?.parent) {
         return;
     }
 
@@ -267,7 +267,7 @@ Hooks.on("renderMeasuredTemplateConfig", (sheet, html, data) => {
 
     const document = sheet.object;
 
-    if (!document) {
+    if (!document?.parent) {
         return;
     }
 
@@ -296,7 +296,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
 
     const document = sheet.object;
 
-    if (!document) {
+    if (!document?.parent) {
         return;
     }
 
@@ -828,7 +828,7 @@ Hooks.once("init", () => {
 
         const document = this.object;
 
-        if (!document) {
+        if (!document?.parent) {
             return data;
         }
 
