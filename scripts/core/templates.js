@@ -31,10 +31,10 @@ Hooks.once("init", () => {
         if (this._pv_sightLimit !== undefined) {
             this._pv_sightLimit = undefined;
 
-            canvas._pv_raySystem.deleteArea(`Template.${this.document.id}`);
-
-            canvas.lighting._pv_initializeVision = true;
-            canvas.perception.schedule({ lighting: { refresh: true } });
+            if (canvas._pv_raySystem.deleteArea(`Template.${this.document.id}`)) {
+                canvas.lighting._pv_initializeVision = true;
+                canvas.perception.schedule({ lighting: { refresh: true } });
+            }
         }
 
         wrapped(options);

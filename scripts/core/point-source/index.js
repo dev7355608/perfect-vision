@@ -123,18 +123,22 @@ Hooks.once("init", () => {
                 }
             }
 
-            if (updateArea) {
-                if (sightLimit !== undefined) {
-                    canvas._pv_raySystem.addArea(`Light.${this.object.document.id}`, this._pv_los, undefined, this._pv_sightLimit, 3, this.data.z ?? (this.isDarkness ? 10 : 0));
-                } else {
-                    canvas._pv_raySystem.deleteArea(`Light.${this.object.document.id}`);
-                }
-
-                canvas.lighting._pv_initializeVision = true;
-            }
+            this._pv_flags_updateArea = this._pv_flags_updateArea || updateArea;
         }
 
         return this;
+    });
+
+    patch("AmbientLight.prototype.updateSource", "WRAPPER", function (wrapped, ...args) {
+        wrapped(...args);
+
+        if (!canvas.lighting.sources.has(this.sourceId)) {
+            if (canvas._pv_raySystem.deleteArea(`Light.${this.document.id}`)) {
+                canvas.lighting._pv_initializeVision = true;
+            }
+
+            this.source.active = false;
+        }
     });
 
     patch("LightSource.prototype._initializeShaders", "OVERRIDE", function () {

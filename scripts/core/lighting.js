@@ -354,16 +354,6 @@ Hooks.once("init", () => {
 
         this._pv_refreshAreas();
 
-        if (this._pv_initializeVision) {
-            this._pv_initializeVision = false;
-
-            canvas._pv_raySystem.update();
-
-            canvas.sight.initializeSources();
-
-            refreshVision = true;
-        }
-
         // Render light sources
         for (const source of this.sources) {
             const area = this._pv_getArea(source);
@@ -379,8 +369,25 @@ Hooks.once("init", () => {
 
             if (source.active !== active) {
                 source.active = active;
+                source._pv_flags_updateArea = source._pv_flags_updateArea || active === !canvas._pv_raySystem.hasArea(`Light.${source.object.document.id}`);
 
                 refreshVision = true;
+            }
+
+            if (source._pv_flags_updateArea) {
+                source._pv_flags_updateArea = false;
+
+                const sourceId = `Light.${source.object.document.id}`;
+
+                if (source.active && source._pv_sightLimit !== undefined) {
+                    canvas._pv_raySystem.addArea(sourceId, source._pv_los, undefined, source._pv_sightLimit, 3, source.data.z ?? (source.isDarkness ? 10 : 0));
+
+                    this._pv_initializeVision = true;
+                } else {
+                    if (canvas._pv_raySystem.deleteArea(sourceId)) {
+                        this._pv_initializeVision = true;
+                    }
+                }
             }
 
             if (!source.active) {
@@ -409,6 +416,16 @@ Hooks.once("init", () => {
             if (source.data.animation?.type) {
                 this._animatedSources.push(source);
             }
+        }
+
+        if (this._pv_initializeVision) {
+            this._pv_initializeVision = false;
+
+            canvas._pv_raySystem.update();
+
+            canvas.sight.initializeSources();
+
+            refreshVision = true;
         }
 
         // Render sight from vision sources
@@ -969,6 +986,16 @@ LightingLayer.prototype._pv_initializeArea = LightingLayer.prototype._pv_destroy
     area._pv_flags_updateFOV = true;
     area._pv_flags_updateLOS = true;
     area._pv_flags_updateArea = true;
+
+    if (area === canvas.lighting) {
+        if (canvas._pv_raySystem.deleteArea("Scene")) {
+            canvas.lighting._pv_initializeVision = true;
+        }
+    } else {
+        if (canvas._pv_raySystem.deleteArea(`Drawing.${area.document.id}`)) {
+            canvas.lighting._pv_initializeVision = true;
+        }
+    }
 };
 
 function invalidateBuffer(baseTexture) {

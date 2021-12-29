@@ -463,7 +463,15 @@ export class RaySystem {
     }
 
     deleteArea(id) {
+        const deleted = id in this.A;
+
         delete this.A[id];
+
+        return deleted;
+    }
+
+    hasArea(id) {
+        return id in this.A;
     }
 
     reset() {

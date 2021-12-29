@@ -2,11 +2,9 @@ import { patch } from "../utils/patch.js";
 
 Hooks.once("init", () => {
     patch("Drawing.prototype.destroy", "PRE", function () {
-        const refresh = this._pv_active;
+        if (this._pv_active) {
+            canvas.lighting._pv_destroyArea(this);
 
-        canvas.lighting._pv_destroyArea(this);
-
-        if (refresh) {
             canvas.perception.schedule({ lighting: { refresh: true } });
         }
 
