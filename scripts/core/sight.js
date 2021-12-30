@@ -23,14 +23,11 @@ Hooks.once("init", () => {
             this._pv_circle[i] *= 9 / 10;
         }
 
-        this._pv_vision = this.explored.addChild(new SpriteMesh(SightMaskShader.instance));
+        this._pv_vision = new SpriteMesh(SightMaskShader.instance);
         this._pv_vision.x = this._pv_bgRect.x;
         this._pv_vision.y = this._pv_bgRect.y;
         this._pv_vision.width = this._pv_bgRect.width;
         this._pv_vision.height = this._pv_bgRect.height;
-        this._pv_vision.visible = false;
-
-        this.vision.visible = false;
 
         return this;
     });
@@ -71,13 +68,14 @@ Hooks.once("init", () => {
         let commitFog = false;
 
         // Stage the prior vision container to be saved to the FOW texture
-        const prior = this.explored.removeChild(this.vision);
+        const prior = this.vision;
+
+        this.explored.removeChild(prior);
 
         if (prior._explored && !skipUpdateFog) {
             const exploredColor = CONFIG.Canvas.exploredColor;
 
             prior._pv_rect.tint = exploredColor;
-            prior.visible = true;
 
             this.pending.addChild(prior);
 
@@ -86,14 +84,15 @@ Hooks.once("init", () => {
             prior.destroy({ children: true });
         }
 
-        this._pv_vision.visible = !this.fogExploration;
-
         // Create a new vision container for this frame
         const vision = this._createVisionContainer();
 
-        vision.visible = this.fogExploration;
-
-        this.explored.addChild(vision);
+        if (this.fogExploration) {
+            this.explored.removeChild(this._pv_vision);
+            this.explored.addChild(vision);
+        } else {
+            this.explored.addChild(this._pv_vision);
+        }
 
         // Draw standard vision sources
         let inBuffer = canvas.scene.data.padding === 0;

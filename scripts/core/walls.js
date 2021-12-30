@@ -53,7 +53,7 @@ Hooks.once("init", () => {
     });
 
     patch("ClockwiseSweepPolygon.prototype._constructPolygonPoints", "OVERRIDE", function () {
-        const { hasLimitedAngle, hasLimitedRadius, type } = this.config;
+        const { hasLimitedAngle, hasLimitedRadius } = this.config;
         this.points = [];
 
         // Open a limited shape

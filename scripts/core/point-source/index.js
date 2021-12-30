@@ -575,15 +575,17 @@ LightSource.prototype._pv_drawMask = function (fov, los, inset = false) {
                 continue;
             }
 
-            const geometry = occlusionTile.geometry;
-            const drawMode = geometry.drawMode;
-            const texture = occlusionTile.texture;
-            const threshold = 0.75;
+            {
+                const geometry = occlusionTile.geometry;
+                const drawMode = geometry.drawMode;
+                const texture = occlusionTile.texture;
+                const threshold = 0.75;
 
-            fov.pushMask(true, geometry, drawMode, 4, 0, texture, threshold);
+                fov.pushMask(true, geometry, drawMode, 4, 0, texture, threshold);
 
-            if (this.data.vision) {
-                los.pushMask(true, geometry, drawMode, 4, 0, texture, threshold);
+                if (this.data.vision) {
+                    los.pushMask(true, geometry, drawMode, 4, 0, texture, threshold);
+                }
             }
         }
     }
