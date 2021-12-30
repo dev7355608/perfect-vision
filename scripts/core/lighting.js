@@ -602,8 +602,8 @@ LightingLayer.prototype._pv_refreshAreas = function () {
         sorted.push(area);
     }
 
-    for (const drawing of canvas.drawings.placeables) {
-        visit(drawing);
+    for (const drawing of canvas.scene.drawings) {
+        visit(drawing.object);
     }
 
     this._pv_areas.length = 0;

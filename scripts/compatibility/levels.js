@@ -224,7 +224,7 @@ Hooks.once("init", () => {
         const tElev = cToken.losHeight;
         let refresh = false;
 
-        for (const drawing of canvas.drawings.placeables) {
+        for (const drawing of canvas.scene.drawings.map(document => document.object)) {
             const { rangeBottom, rangeTop } = this.getFlagsForObject(drawing);
 
             if (!rangeBottom && rangeBottom != 0) {

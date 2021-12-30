@@ -470,7 +470,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
     const select = html.find(`select[name="flags.perfect-vision.parent"]`);
     const black = select.css("color") || "black";
 
-    for (const area of canvas.drawings.placeables.filter(a => a !== drawing).sort((a, b) => a.id.localeCompare(b.id))) {
+    for (const area of canvas.scene.drawings.map(document => document.object).filter(a => a !== drawing).sort((a, b) => a.id.localeCompare(b.id))) {
         let current = area.id;
         let disabled = false;
 
