@@ -86,9 +86,11 @@ Hooks.once("init", () => {
 
         // Create a new vision container for this frame
         const vision = this._createVisionContainer();
+        const smooth = !this.fogExploration && canvas.foreground.roofs.length === 0;
 
-        if (this.fogExploration) {
-            this.explored.removeChild(this._pv_vision);
+        this.explored.removeChild(this._pv_vision);
+
+        if (!smooth) {
             this.explored.addChild(vision);
         } else {
             this.explored.addChild(this._pv_vision);
@@ -103,7 +105,7 @@ Hooks.once("init", () => {
             area._pv_drawMask(vision._pv_fov, vision._pv_los);
         }
 
-        if (this.fogExploration) {
+        if (!smooth) {
             // Draw field-of-vision for lighting sources
             for (const source of canvas.lighting.sources) {
                 if (!this.sources.size || !source.active) {
@@ -124,7 +126,7 @@ Hooks.once("init", () => {
                 inBuffer = true;
             }
 
-            if (this.fogExploration) {
+            if (!smooth) {
                 source._pv_drawMask(vision._pv_fov, vision._pv_los);
 
                 if (!skipUpdateFog) { // Update fog exploration
