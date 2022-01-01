@@ -360,7 +360,7 @@ Hooks.once("init", () => {
         // Tint the background color
         canvas.app.renderer.backgroundColor = this.channels.canvas.hex;
 
-        this._pv_vision = canvas.sight.sources.size === 0 && game.user.isGM;
+        this._pv_vision = !canvas.sight.tokenVision || canvas.sight.sources.size === 0 && game.user.isGM;
 
         this._pv_refreshAreas();
 
