@@ -16,6 +16,7 @@ Perfect Vision ...
 - ... improves the quality of [FXMaster's](https://foundryvtt.com/packages/fxmaster) & [Weather Blocker's](https://github.com/theripper93/Weather-Blocker) weather masks and [Better Roofs](https://foundryvtt.com/packages/betterroofs) masks.
 - ... makes [FXMaster's](https://foundryvtt.com/packages/fxmaster) weather effects interact with roof tiles just like core weather effects.
 - ... is 100% compatible with [Levels](https://foundryvtt.com/packages/levels).
+- ... is compatible with the Pathfinder 2e system's *rules-based vision*.
 
 ![Screenshot](images/screenshot.png)
 

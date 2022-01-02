@@ -35,7 +35,7 @@ Hooks.once("ready", () => {
         config: false,
     });
 
-    if (game.user.isGM && game.settings.get("perfect-vision", "popup") < 2) {
+    if (game.user.isGM && game.settings.get("perfect-vision", "popup") < 3) {
         new Dialog({
             title: "Perfect Vision",
             content: `\
@@ -44,6 +44,16 @@ Hooks.once("ready", () => {
                 </large>
                 <hr>
                 <p>If you haven't heard, Perfect Vision makes it possible to adjust all lighting settings locally; this includes <i>Sight Limit</i> now as well. To learn how to setup mixed indoor/outdoor scenes or to create magical darkness click <a href="https://github.com/dev7355608/perfect-vision/blob/main/README.md#drawing-configuration">here</a>.</p>
+                <hr>
+                <h3><strong>v3.3 (PF2e rules-based vision compatibility)</strong></h3>
+                <i>All of these changes concern only the PF2e system's rules-based vision.</i>
+                <ul>
+                    <li>Fixed darkvision not working in lighting areas.</li>
+                    <li>Darkvision of fetchlings is no longer monochrome.</li>
+                    <li>Low-light vision and darkvision are no longer abruptly toggled on once the <i>Darkness Level</i> exceeds 0.25. The brightness now smoothly increases as the <i>Darkness Level</i> increases; maximum brightness is attained at 0.75 <i>Darkness Level</i>.</li>
+                    <li>Automatic <i>Saturation Level</i> behaves a little bit different now: saturation starts to decrease at 0.25 <i>Darkness Level</i> and reaches maximum desaturation at 0.75 <i>Darkness Level</i>.</li>
+                    <li>A token is now truely blind if it has the blinded condition: the token's <i>Sight Limit</i> automatically set according to the blinded condition.</li>
+                </ul>
                 <hr>
                 <h3><strong>v3.2</strong></h3>
                 <ul>
@@ -64,7 +74,7 @@ Hooks.once("ready", () => {
                 dont_remind: {
                     icon: '<i class="fas fa-times"></i>',
                     label: "Don't remind me again",
-                    callback: () => game.settings.set("perfect-vision", "popup", 2),
+                    callback: () => game.settings.set("perfect-vision", "popup", 3),
                 },
             },
         }).render(true);

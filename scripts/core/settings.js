@@ -29,6 +29,12 @@ export const presets = {
         brightVisionInDarkness: "bright_mono",
         brightVisionInDimLight: "bright"
     },
+    "pf2e_fetchling": {
+        dimVisionInDarkness: "darkness",
+        dimVisionInDimLight: "bright",
+        brightVisionInDarkness: "bright",
+        brightVisionInDimLight: "bright"
+    },
     "sf": {
         dimVisionInDarkness: "darkness",
         dimVisionInDimLight: "bright",

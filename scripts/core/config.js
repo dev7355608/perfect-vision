@@ -111,13 +111,33 @@ function renderConfig(sheet, html, data) {
 
     if (sheet instanceof TokenConfig) {
         html.find(`input[name="${prefix}.sightLimit"]`).attr("placeholder", "Unlimited");
+
+        if (game.system.id === "pf2e" && game.settings.get("pf2e", "automation.rulesBasedVision") && ["character", "familiar"].includes(sheet.token.actor?.type ?? "")) {
+            html.find(`select[name="${prefix}.visionRules"]`).val("pf2e").prop("disabled", true);
+            html.find(`input[name="flags.perfect-vision.sightLimit"]`).prop("disabled", true);
+        }
+    } else {
+        const managedBy = $("<strong>")
+            .addClass("managed-by-rbv")
+            .html(" ".concat(game.i18n.localize("PF2E.SETTINGS.Automation.RulesBasedVision.ManagedBy")));
+
+        managedBy.find("a").on("click", () => {
+            const menu = game.settings.menus.get("pf2e.automation");
+            if (!menu) throw Error("Automation Settings application not found");
+            const app = new menu.type();
+            app.render(true);
+        }).css("color", "var(--primary)").css("text-decoration", "underline");
+
+        html.find(`select[name="${prefix}.visionRules"]`).val("pf2e").prop("disabled", true);
+        html.find(`select[name="${prefix}.visionRules"]`).closest(".form-group").find("p.notes").append(managedBy);
     }
 
     const update = () => {
         let visionRules = html.find(`select[name="${prefix}.visionRules"]`).val();
 
-        if (!visionRules)
+        if (!visionRules) {
             return;
+        }
 
         html.find(`select[name="${prefix}.dimVisionInDarkness"]`).prop("disabled", visionRules !== "custom");
         html.find(`select[name="${prefix}.dimVisionInDimLight"]`).prop("disabled", visionRules !== "custom");

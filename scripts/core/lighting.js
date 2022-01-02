@@ -137,7 +137,8 @@ Hooks.once("init", () => {
 
         this._pv_darknessColor = sanitizeLightColor(darknessColor);
         this._pv_darknessLevel = this.darknessLevel;
-        this._pv_saturationLevel = Math.clamped(canvas.scene.getFlag("perfect-vision", "saturation") ?? (1 - this.darknessLevel), 0, 1);
+        this._pv_saturationLevel = Math.clamped(canvas.scene.getFlag("perfect-vision", "saturation") ?? (
+            game.system.id === "pf2e" && canvas.sight.rulesBasedVision ? Math.clamped((0.75 - this.darknessLevel) / 0.5, 0, 1) : 1 - this.darknessLevel), 0, 1);
         this._pv_channels = this.channels;
         this._pv_version = this.version;
         this._pv_zIndex = -Infinity;
@@ -257,7 +258,11 @@ Hooks.once("init", () => {
         }
 
         if (saturation === null) {
-            saturation = 1 - darkness;
+            if (game.system.id === "pf2e" && canvas.sight.rulesBasedVision) {
+                saturation = (0.75 - darkness) / 0.5;
+            } else {
+                saturation = 1 - darkness;
+            }
         }
 
         this._pv_saturationLevel = saturation = Math.clamped(saturation, 0, 1);
@@ -915,7 +920,11 @@ LightingLayer.prototype._pv_updateArea = function (area) {
 
     if (saturation !== undefined) {
         if (saturation === null) {
-            saturation = 1 - area._pv_darknessLevel;
+            if (game.system.id === "pf2e" && canvas.sight.rulesBasedVision) {
+                saturation = (0.75 - darkness) / 0.5;
+            } else {
+                saturation = 1 - darkness;
+            }
         }
     } else {
         saturation = area._pv_parent._pv_saturationLevel;

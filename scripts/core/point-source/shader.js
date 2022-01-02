@@ -180,6 +180,8 @@ export class DelimiterShader extends AdaptiveLightingShader {
     %LIGHT_MASK%
     ${SHAPES_AND_DISTANCE}
 
+    %PF2E_RULES_BASED_VISION%
+
     void main() {
         ${PIXI.settings.PRECISION_VERTEX} vec3 worldPosition = projectionMatrixInverse * vec3(((gl_FragCoord.xy - viewportFrame.xy) / viewportFrame.zw) * 2.0 - 1.0, 1.0);
         ${PIXI.settings.PRECISION_VERTEX} vec2 localPosition = (translationMatrixInverse * worldPosition).xy;
@@ -203,10 +205,25 @@ export class DelimiterShader extends AdaptiveLightingShader {
 
             vec4 v = texture(pv_sampler1, vSamplerUvs);
 
+            #ifdef PF2E_RULES_BASED_VISION
+            vec4 w = texture(pv_sampler2, vSamplerUvs);
+            float darknessLevel = w.r;
+            #endif
+
             if (!pv_sight) {
-                brightness = max(brightness, texture(pv_sampler2, vSamplerUvs).a);
+                #ifdef PF2E_RULES_BASED_VISION
+                float boost = min(w.a, clamp((darknessLevel - 0.25) / 0.5, 0.0, 1.0));
+                #else
+                float boost = texture(pv_sampler2, vSamplerUvs).a;
+                #endif
+
+                brightness = max(brightness, boost);
             } else {
                 alpha = min(alpha, 1.0 - v.b);
+
+                #ifdef PF2E_RULES_BASED_VISION
+                alpha = min(alpha, clamp((darknessLevel - 0.25) / 0.5, 0.0, 1.0));
+                #endif
             }
 
             vec2 point = (translationMatrix * vec3(localPosition.xy, 0.0)).xy / 3.0;
@@ -502,8 +519,6 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
 
                             if (!darkness) {
                                 vec4 dsvb = texture2D(pv_sampler2, vSamplerUvs);
-                                float vision = dsvb.b;
-                                float boost = dsvb.a;
 
                                 float luminosity = pv_luminosity;
                                 float darknessLevel = dsvb.r;
@@ -515,6 +530,14 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                                 colorDim = mix(colorBackground, colorBright, pv_lightLevels.y);
 
                                 if (!pv_sight) {
+                                    float vision = dsvb.b;
+                                    float boost = dsvb.a;
+
+                                    #ifdef PF2E_RULES_BASED_VISION
+                                    vision = min(vision, clamp((darknessLevel - 0.25) / 0.5, 0.0, 1.0));
+                                    boost = min(boost, clamp((darknessLevel - 0.25) / 0.5, 0.0, 1.0));
+                                    #endif
+
                                     colorBackground = colorVision(pv_cb, darknessLevel, min(vision, mix(0.5, 1.0, boost)));
                                     colorBright = max(colorBright, colorBackground);
                                     colorDim = max(colorDim, colorBackground);
@@ -552,6 +575,10 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
 
                                     pv_alpha = min(pv_alpha, smoothstep(0.0, 1.0, gl_FragCoord.z));
                                     pv_alpha = min(pv_alpha, 1.0 - light);
+
+                                    #ifdef PF2E_RULES_BASED_VISION
+                                    pv_alpha = min(pv_alpha, clamp((darknessLevel - 0.25) / 0.5, 0.0, 1.0));
+                                    #endif
                                 }
                             } else {
                                 ratio = %ratio%;
@@ -654,6 +681,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                     ${OCCLUSION_MASK}
                     %LIGHT_MASK%
                     ${SHAPES_AND_DISTANCE}
+                    %PF2E_RULES_BASED_VISION%
                     vec4 pv_unpremultiply(vec4 color) { return color.a > 0.0 ? vec4(color.rgb / color.a, color.a) : vec4(0.0); }
                     /* ------------------------- */\n\n\
                     ${this.fragmentShader}`;
@@ -661,7 +689,8 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
 
             this.fragmentShader = this.fragmentShader
                 .replace(/%OCCLUSION_MASK%/gm, game.modules.get("levels")?.active ? "#define PV_OCCLUSION_MASK" : "")
-                .replace(/%LIGHT_MASK%/gm, game.modules.get("lightmask")?.active ? "#define PV_LIGHT_MASK" : "");
+                .replace(/%LIGHT_MASK%/gm, game.modules.get("lightmask")?.active ? "#define PV_LIGHT_MASK" : "")
+                .replace(/%PF2E_RULES_BASED_VISION%/gm, game.system.id === "pf2e" && game.settings.get("pf2e", "automation.rulesBasedVision") ? "#define PF2E_RULES_BASED_VISION" : "");
         }
     }
 
