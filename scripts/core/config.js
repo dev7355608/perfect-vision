@@ -117,19 +117,21 @@ function renderConfig(sheet, html, data) {
             html.find(`input[name="flags.perfect-vision.sightLimit"]`).prop("disabled", true);
         }
     } else {
-        const managedBy = $("<strong>")
-            .addClass("managed-by-rbv")
-            .html(" ".concat(game.i18n.localize("PF2E.SETTINGS.Automation.RulesBasedVision.ManagedBy")));
+        if (game.system.id === "pf2e" && game.settings.get("pf2e", "automation.rulesBasedVision")) {
+            const managedBy = $("<strong>")
+                .addClass("managed-by-rbv")
+                .html(" ".concat(game.i18n.localize("PF2E.SETTINGS.Automation.RulesBasedVision.ManagedBy")));
 
-        managedBy.find("a").on("click", () => {
-            const menu = game.settings.menus.get("pf2e.automation");
-            if (!menu) throw Error("Automation Settings application not found");
-            const app = new menu.type();
-            app.render(true);
-        }).css("color", "var(--primary)").css("text-decoration", "underline");
+            managedBy.find("a").on("click", () => {
+                const menu = game.settings.menus.get("pf2e.automation");
+                if (!menu) throw Error("Automation Settings application not found");
+                const app = new menu.type();
+                app.render(true);
+            }).css("color", "var(--primary)").css("text-decoration", "underline");
 
-        html.find(`select[name="${prefix}.visionRules"]`).val("pf2e").prop("disabled", true);
-        html.find(`select[name="${prefix}.visionRules"]`).closest(".form-group").find("p.notes").append(managedBy);
+            html.find(`select[name="${prefix}.visionRules"]`).val("pf2e").prop("disabled", true);
+            html.find(`select[name="${prefix}.visionRules"]`).closest(".form-group").find("p.notes").append(managedBy);
+        }
     }
 
     const update = () => {

@@ -52,7 +52,7 @@ Hooks.once("ready", () => {
                     <li>Darkvision of fetchlings is no longer monochrome.</li>
                     <li>Low-light vision and darkvision are no longer abruptly toggled on once the <i>Darkness Level</i> exceeds 0.25. The brightness now smoothly increases as the <i>Darkness Level</i> increases; maximum brightness is attained at 0.75 <i>Darkness Level</i>.</li>
                     <li>Automatic <i>Saturation Level</i> behaves a little bit different now: saturation starts to decrease at 0.25 <i>Darkness Level</i> and reaches maximum desaturation at 0.75 <i>Darkness Level</i>.</li>
-                    <li>A token is now truely blind if it has the blinded condition: the token's <i>Sight Limit</i> automatically set according to the blinded condition.</li>
+                    <li>A token is now truly blind if it has the blinded condition: the token's <i>Sight Limit</i> is automatically set according to the blinded condition.</li>
                 </ul>
                 <hr>
                 <h3><strong>v3.2</strong></h3>
