@@ -1051,14 +1051,26 @@ LightingLayer.prototype._pv_refreshBuffer = function () {
     baseTextures.length = 0;
 
     for (const area of this._pv_areas) {
-        areas.addChild(area._pv_drawMesh());
+        const mesh = area._pv_drawMesh();
+
+        if (!mesh) {
+            continue;
+        }
+
+        areas.addChild(mesh);
     }
 
     {
         const minFOV = [];
 
         for (const source of canvas.sight.sources) {
-            visions.addChild(source._pv_drawMesh());
+            const mesh = source._pv_drawMesh();
+
+            if (!mesh) {
+                continue;
+            }
+
+            visions.addChild(mesh);
 
             minFOV.push(source.x, source.y, source._pv_minRadius);
         }
@@ -1076,10 +1088,16 @@ LightingLayer.prototype._pv_refreshBuffer = function () {
             continue;
         }
 
-        const light = lights.addChild(source._pv_drawMesh());
+        const mesh = source._pv_drawMesh();
 
-        if (light.occlusionObjects) {
-            for (const occlusionTile of light.occlusionObjects) {
+        if (!mesh) {
+            continue;
+        }
+
+        lights.addChild(mesh);
+
+        if (mesh.occlusionObjects) {
+            for (const occlusionTile of mesh.occlusionObjects) {
                 if (occlusionTile.destroyed || !occlusionTile.visible || !occlusionTile.renderable || occlusionTile.worldAlpha <= 0) {
                     continue;
                 }
@@ -1126,11 +1144,17 @@ LightingLayer.prototype._pv_drawMask = function (fov, los) {
 
 Drawing.prototype._pv_drawMesh = function () {
     const mesh = this._pv_mesh;
-    const uniforms = this._pv_shader.uniforms;
+    const shader = this._pv_shader;
+
+    if (!shader) {
+        return null;
+    }
+
+    const uniforms = shader.uniforms;
     const channels = this._pv_channels;
 
     mesh.geometry = this._pv_geometry;
-    mesh.shader = this._pv_shader;
+    mesh.shader = shader;
 
     uniforms.uLos = this._pv_vision ? 1 : 0;
     uniforms.uFov = this._pv_vision || this._pv_globalLight ? 1 : 0;

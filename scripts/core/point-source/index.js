@@ -536,9 +536,14 @@ LightSource.prototype._pv_updateDelimiterUniforms = VisionSource.prototype._pv_u
 
 LightSource.prototype._pv_drawMesh = function () {
     const mesh = this._pv_mesh;
+    const shader = this._pv_shader;
+
+    if (!shader) {
+        return null;
+    }
 
     mesh.geometry = this._pv_geometry;
-    mesh.shader = this._pv_shader;
+    mesh.shader = shader;
     mesh.colorMask.red = this.data.vision;
 
     if (this.data.walls) {
@@ -607,11 +612,17 @@ LightSource.prototype._pv_drawMask = function (fov, los, inset = false) {
 
 VisionSource.prototype._pv_drawMesh = function () {
     const mesh = this._pv_mesh;
-    const uniforms = this._pv_shader.uniforms;
+    const shader = this._pv_shader;
+
+    if (!shader) {
+        return null;
+    }
+
+    const uniforms = shader.uniforms;
     const { x, y } = this.data;
 
     mesh.geometry = this._pv_geometry;
-    mesh.shader = this._pv_shader;
+    mesh.shader = shader;
 
     uniforms.uOrigin[0] = x;
     uniforms.uOrigin[1] = y;
