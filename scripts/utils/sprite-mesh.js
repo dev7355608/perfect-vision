@@ -320,14 +320,18 @@ export class SpriteMesh extends PIXI.Mesh {
 
     getLocalBounds(rect) {
         if (this.children.length === 0) {
-            const bounds = this._bounds;
             const texture = this.texture;
             const anchor = this._anchor;
+            let localBounds = this._localBounds;
 
-            bounds.minX = texture.orig.width * -anchor._x;
-            bounds.minY = texture.orig.height * -anchor._y;
-            bounds.maxX = texture.orig.width * (1 - anchor._x);
-            bounds.maxY = texture.orig.height * (1 - anchor._y);
+            if (!localBounds) {
+                localBounds = this._localBounds = new PIXI.Bounds();
+            }
+
+            localBounds.minX = texture.orig.width * -anchor._x;
+            localBounds.minY = texture.orig.height * -anchor._y;
+            localBounds.maxX = texture.orig.width * (1 - anchor._x);
+            localBounds.maxY = texture.orig.height * (1 - anchor._y);
 
             if (!rect) {
                 if (!this._localBoundsRect) {
@@ -337,7 +341,7 @@ export class SpriteMesh extends PIXI.Mesh {
                 rect = this._localBoundsRect;
             }
 
-            return bounds.getRectangle(rect);
+            return localBounds.getRectangle(rect);
         }
 
         return super.getLocalBounds(rect);

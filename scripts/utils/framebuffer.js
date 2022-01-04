@@ -464,6 +464,11 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
 class FramebufferSprite extends SpriteMesh {
     constructor(shader) {
         super(shader);
+
+        this.interactive = false;
+        this.interactiveChildren = false;
+        this.accessible = false;
+        this.accessibleChildren = false;
     }
 
     get renderable() {
@@ -476,6 +481,14 @@ class FramebufferSprite extends SpriteMesh {
         this._boundsID++;
         this.transform.updateTransform(PIXI.Transform.IDENTITY);
         this.worldAlpha = this.alpha;
+        this.filterArea = this.getLocalBounds();
+    }
+
+    _calculateBounds() {
+        this._bounds.minX = -Infinity;
+        this._bounds.minY = -Infinity;
+        this._bounds.maxX = +Infinity;
+        this._bounds.maxY = +Infinity;
     }
 }
 
