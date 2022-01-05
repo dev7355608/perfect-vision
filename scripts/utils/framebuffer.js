@@ -485,10 +485,10 @@ class FramebufferSprite extends SpriteMesh {
     }
 
     _calculateBounds() {
-        this._bounds.minX = -Infinity;
-        this._bounds.minY = -Infinity;
-        this._bounds.maxX = +Infinity;
-        this._bounds.maxY = +Infinity;
+        const bounds = this._bounds;
+
+        bounds.minX = bounds.minY = -Number.MAX_SAFE_INTEGER;
+        bounds.maxX = bounds.maxY = +Number.MAX_SAFE_INTEGER;
     }
 }
 
