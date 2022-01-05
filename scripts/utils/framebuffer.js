@@ -481,14 +481,6 @@ class FramebufferSprite extends SpriteMesh {
         this._boundsID++;
         this.transform.updateTransform(PIXI.Transform.IDENTITY);
         this.worldAlpha = this.alpha;
-        this.filterArea = this.getLocalBounds();
-    }
-
-    _calculateBounds() {
-        const bounds = this._bounds;
-
-        bounds.minX = bounds.minY = -Number.MAX_SAFE_INTEGER;
-        bounds.maxX = bounds.maxY = +Number.MAX_SAFE_INTEGER;
     }
 }
 
