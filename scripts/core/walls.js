@@ -44,8 +44,12 @@ Hooks.once("init", () => {
             if (Number.isFinite(config._pv_limits[1])) {
                 config.radius = Math.max(config._pv_limits[1], 1);
                 config._pv_density = Math.min(config._pv_paddingDensity, Math.asin(Math.min(0.5 * config._pv_precision / config.radius, 1)) * 2);
+
+                this._pv_limited = true;
             } else {
                 config.radius = undefined;
+
+                this._pv_limited = config._pv_castRays; // TODO
             }
         }
 

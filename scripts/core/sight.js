@@ -250,9 +250,9 @@ Hooks.once("init", () => {
 
     patch("FogExploration.prototype.explore", "OVERRIDE", function (source, force = false) {
         const globalLight = canvas.lighting._pv_uniformGlobalLight ? canvas.lighting._pv_globalLight : undefined;
-        const r = globalLight ? canvas.dimensions.maxR : source.fov.radius;
+        const radius = Math.min(globalLight ? canvas.dimensions.maxR : source.fov.radius, source.los.config.radius);
 
-        if (r < 0) {
+        if (radius < 0) {
             return false;
         }
 
@@ -260,11 +260,13 @@ Hooks.once("init", () => {
         const position = this.data.positions[coords];
 
         // Check whether the position has already been explored
-        let explored = position && (position.limit !== true) && (position.radius >= r);
+        const explored = position && position.limit !== true && position.radius >= radius;
 
         if (explored && !force) {
             return false;
         }
+
+        const limit = source.limited || source.los._pv_limited === true || globalLight === undefined;
 
         // Update explored positions
         if (CONFIG.debug.fog) {
@@ -273,7 +275,7 @@ Hooks.once("init", () => {
 
         this.data.update({
             positions: {
-                [coords]: { radius: source.radius, limit: source.limited || globalLight === undefined }
+                [coords]: { radius, limit }
             }
         });
 
