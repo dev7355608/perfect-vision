@@ -6,6 +6,7 @@ export class TransformedShape {
     shape = null;
     matrix = null;
     bounds = null;
+    _contour = null;
 
     constructor(shape, matrix) {
         const originalShape = shape;
@@ -350,6 +351,16 @@ export class TransformedShape {
         this.matrix = matrix ? matrix.clone() : null;
     }
 
+    get contour() {
+        let contour = this._contour;
+
+        if (!contour) {
+            contour = this._contour = this.generateContour();
+        }
+
+        return contour;
+    }
+
     containsPoint(point) {
         const shape = this.shape;
         let matrix;
@@ -370,6 +381,190 @@ export class TransformedShape {
         }
 
         return shape.contains(x, y);
+    }
+
+    containsCircle(point, radius) {
+        if (!(radius > 0)) {
+            return this.containsPoint(point);
+        }
+
+        const shape = this.shape;
+        const type = shape.type;
+        let { x, y } = point;
+        const radius2 = radius * radius;
+
+        if (this.matrix || type === PIXI.SHAPES.POLY || type === PIXI.SHAPES.ELIP || type === PIXI.SHAPES.RREC) {
+            const bounds = this.bounds;
+            const xmin = bounds.x;
+            const ymin = bounds.y;
+            const xmax = xmin + bounds.width;
+            const ymax = ymin + bounds.height;
+
+            if (x < xmin + radius || x > xmax - radius || y < ymin + radius || y > ymax - radius) {
+                return false;
+            }
+
+            if (type === PIXI.SHAPES.POLY) {
+                if (!shape.contains(x, y)) {
+                    return false;
+                }
+            } else {
+                if (!this.containsPoint(point)) {
+                    return false;
+                }
+            }
+
+            const points = shape.points ?? this.contour;
+            const m = points.length;
+
+            for (let i = 0, x1 = points[m - 2], y1 = points[m - 1]; i < m; i += 2) {
+                const x2 = points[i];
+                const y2 = points[i + 1];
+
+                const dx = x - x1;
+                const dy = y - y1;
+                const nx = x2 - x1;
+                const ny = y2 - y1;
+                const t = Math.min(Math.max((dx * nx + dy * ny) / (nx * nx + ny * ny), 0), 1);
+                const x3 = t * nx - dx;
+                const y3 = t * ny - dy;
+
+                if (x3 * x3 + y3 * y3 < radius2) {
+                    return false;
+                }
+
+                x1 = x2;
+                y1 = y2;
+            }
+
+            return true;
+        }
+
+        if (type === PIXI.SHAPES.RECT) {
+            const xmin = shape.x;
+            const ymin = shape.y;
+            const xmax = xmin + shape.width;
+            const ymax = ymin + shape.height;
+
+            return x >= xmin + radius && x <= xmax - radius && y >= ymin + radius && y <= ymax - radius;
+        } else { // type === PIXI.SHAPES.CIRC
+            const dx = x - shape.x;
+            const dy = y - shape.y;
+            const r = shape.radius;
+
+            if (r < radius) {
+                return false;
+            }
+
+            return dx * dx + dy * dy <= radius2 + (r - 2 * radius) * r;
+        }
+    }
+
+    intersectsCircle(point, radius) {
+        if (!(radius > 0)) {
+            return this.containsPoint(point);
+        }
+
+        const shape = this.shape;
+        const type = shape.type;
+        let { x, y } = point;
+        const radius2 = radius * radius;
+
+        if (this.matrix || type === PIXI.SHAPES.POLY || type === PIXI.SHAPES.ELIP || type === PIXI.SHAPES.RREC) {
+            const bounds = this.bounds;
+            const xmin = bounds.x;
+            const ymin = bounds.y;
+            const xmax = xmin + bounds.width;
+            const ymax = ymin + bounds.height;
+
+            if (x <= xmin - radius || x >= xmax + radius || y <= ymin - radius || y >= ymax + radius) {
+                return false;
+            }
+
+            if (type === PIXI.SHAPES.POLY) {
+                if (bounds.contains(x, y) && shape.contains(x, y)) {
+                    return true;
+                }
+            } else {
+                if (this.containsPoint(point)) {
+                    return true;
+                }
+            }
+
+            const points = shape.points ?? this.contour;
+            const m = points.length;
+
+            for (let i = 0, x1 = points[m - 2], y1 = points[m - 1]; i < m; i += 2) {
+                const x2 = points[i];
+                const y2 = points[i + 1];
+
+                const dx = x - x1;
+                const dy = y - y1;
+                const nx = x2 - x1;
+                const ny = y2 - y1;
+                const t = Math.min(Math.max((dx * nx + dy * ny) / (nx * nx + ny * ny), 0), 1);
+                const x3 = t * nx - dx;
+                const y3 = t * ny - dy;
+
+                if (x3 * x3 + y3 * y3 < radius2) {
+                    return true;
+                }
+
+                x1 = x2;
+                y1 = y2;
+            }
+
+            return false;
+        }
+
+        if (type === PIXI.SHAPES.RECT) {
+            const xmin = shape.x;
+            const ymin = shape.y;
+            const xmax = xmin + shape.width;
+            const ymax = ymin + shape.height;
+
+            if (x <= xmin - radius || x >= xmax + radius || y <= ymin - radius || y >= ymax + radius) {
+                return false;
+            }
+
+            let x1;
+            let y1;
+
+            if (x < xmin) {
+                if (y < ymin) {
+                    x1 = xmin;
+                    y1 = ymin;
+                } else if (y > ymax) {
+                    x1 = xmin;
+                    y1 = ymax;
+                } else {
+                    return true;
+                }
+            } else if (x > xmax) {
+                if (y < ymin) {
+                    x1 = xmax;
+                    y1 = ymin;
+                } else if (y > ymax) {
+                    x1 = xmax;
+                    y1 = ymax;
+                } else {
+                    return true;
+                }
+            } else {
+                return true;
+            }
+
+            const dx = x - x1;
+            const dy = y - y1;
+
+            return dx * dx + dy * dy < radius2;
+        } else { // type === PIXI.SHAPES.CIRC
+            const dx = x - shape.x;
+            const dy = y - shape.y;
+            const r = shape.radius;
+
+            return dx * dx + dy * dy < radius2 + (r + 2 * radius) * r;
+        }
     }
 
     generateContour({ maxZoomLevel = 1, maxEdgeLength = undefined, maxAngleStep = undefined, arrayType = Array } = {}) {

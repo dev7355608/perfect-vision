@@ -3,6 +3,7 @@ import { SpriteMesh } from "../utils/sprite-mesh.js";
 import { RenderTargetMixin } from "../utils/render-target.js";
 import { MonoFilter } from "./mono.js";
 import { Logger } from "../utils/logger.js";
+import { TransformedShape } from "../utils/transformed-shape.js";
 
 class OverlaysCanvasGroup extends PIXI.Container {
     constructor() {
@@ -291,6 +292,14 @@ CONFIG.Canvas.layers._pv_highlights_overhead = {
 };
 
 Hooks.once("init", () => {
+    patch("Canvas.getDimensions", "WRAPPER", function (wrapped, ...args) {
+        const d = wrapped(...args);
+
+        d._pv_sceneRect = new TransformedShape(d.sceneRect);
+
+        return d;
+    });
+
     patch("Canvas.prototype._createGroups", "OVERRIDE", function () {
         this.stage._pv_scene_with_overlays = this.stage.addChild(new PIXI.Container());
         this.stage._pv_scene_with_overlays.filters = [];

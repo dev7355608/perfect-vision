@@ -264,6 +264,19 @@ Hooks.once("init", () => {
         }
     });
 
+    const offsets = [
+        [0, 0],
+        [-1, 0],
+        [+1, 0],
+        [0, -1],
+        [0, +1],
+        [-Math.SQRT1_2, -Math.SQRT1_2],
+        [-Math.SQRT1_2, +Math.SQRT1_2],
+        [+Math.SQRT1_2, +Math.SQRT1_2],
+        [+Math.SQRT1_2, -Math.SQRT1_2]
+    ].map(args => new PIXI.Point(...args));
+    const tempPoint = new PIXI.Point();
+
     patch("Levels.prototype.tokenInRange", "OVERRIDE", function (sourceToken, token) {
         let range = sourceToken.vision.fov.radius;
 
@@ -273,12 +286,17 @@ Hooks.once("init", () => {
             }
         } else {
             const point = token.center;
-            const t = Math.min(token.w, token.h) / 4;
-            const offsets = t > 0 ? [[0, 0], [-t, 0], [t, 0], [0, -t], [0, t], [-t, -t], [-t, t], [t, t], [t, -t]] : [[0, 0]];
-            const points = offsets.map(o => new PIXI.Point(point.x + o[0], point.y + o[1]));
+            const tolerance = Math.min(token.w, token.h) * 0.475;
 
-            if (points.some(p => canvas.lighting._pv_getArea(p)._pv_globalLight)) {
-                range = Infinity;
+            for (const offset of offsets) {
+                const p = tempPoint.set(point.x + tolerance * offset.x, point.y + tolerance * offset.y);
+                const area = canvas.lighting._pv_getArea(p);
+
+                if (area._pv_globalLight) {
+                    range = Infinity;
+
+                    break;
+                }
             }
         }
 
@@ -297,9 +315,9 @@ Hooks.once("init", () => {
         const dy = y2 - y1;
         const dist2 = dx * dx + dy * dy;
         const dist = Math.sqrt(dist2);
-        const adjust = Math.min(token.w, token.h) * 0.49;
+        const adjust = Math.min(token.w, token.h) * 0.495;
 
-        if (dist - adjust > range) {
+        if (dist - adjust >= range) {
             return false;
         }
 
@@ -325,6 +343,6 @@ Hooks.once("init", () => {
 
         const distance = Math.sqrt(dist2 + dz * dz);
 
-        return distance - adjust <= Math.min(range, distance * t);
+        return distance - adjust < Math.min(range, distance * t);
     });
 });

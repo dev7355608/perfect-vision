@@ -40,8 +40,8 @@ export class PointSourceGeometry extends PIXI.Geometry {
         const fovBounds = this.fov?.bounds;
         const losBounds = this.los?.bounds;
 
-        const fovPoints = this.fov?.generateContour();
-        const losPoints = this.los?.generateContour();
+        const fovPoints = this.fov?.contour;
+        const losPoints = this.los?.contour;
 
         const s = this.segments = {};
 

@@ -157,6 +157,19 @@ Hooks.once("init", () => {
         this.restrictVisibility();
     });
 
+    const offsets = [
+        [0, 0],
+        [-1, 0],
+        [+1, 0],
+        [0, -1],
+        [0, +1],
+        [-Math.SQRT1_2, -Math.SQRT1_2],
+        [-Math.SQRT1_2, +Math.SQRT1_2],
+        [+Math.SQRT1_2, +Math.SQRT1_2],
+        [+Math.SQRT1_2, -Math.SQRT1_2]
+    ].map(args => new PIXI.Point(...args));
+    const tempPoint = new PIXI.Point();
+
     patch("SightLayer.prototype.testVisibility", "OVERRIDE", function (point, { tolerance = 2, object = null } = {}) {
         const visionSources = this.sources;
         const lightSources = canvas.lighting.sources;
@@ -165,58 +178,71 @@ Hooks.once("init", () => {
             return game.user.isGM;
         }
 
-        // Determine the array of offset points to test
-        const t = tolerance;
-        const offsets = t > 0 ? [[0, 0], [-t, 0], [t, 0], [0, -t], [0, t], [-t, -t], [-t, t], [t, t], [t, -t]] : [[0, 0]];
-        const points = offsets.map(o => new PIXI.Point(point.x + o[0], point.y + o[1]));
+        let radius;
 
-        // If the point is inside the buffer region, it may be hidden from view
+        if (object instanceof Token) {
+            radius = Math.min(object.w, object.h) / 2;
+            tolerance = radius * 0.95;
+        } else {
+            radius = tolerance;
+        }
+
         if (!this._inBuffer) {
-            const sceneRect = canvas.dimensions.sceneRect;
+            const sceneRect = canvas.dimensions._pv_sceneRect;
 
-            if (points.every(p => !sceneRect.contains(p.x, p.y))) {
+            if (!sceneRect.intersectsCircle(point, radius)) {
                 return false;
             }
         }
 
-        let areas;
+        const uniformVision = canvas.lighting._pv_uniformVision;
+        const uniformGlobalLight = canvas.lighting._pv_uniformGlobalLight;
 
-        if (canvas.lighting._pv_uniformVision) {
+        let hasLOS = false;
+        let hasFOV = false;
+
+        if (uniformVision && uniformGlobalLight) {
             if (canvas.lighting._pv_vision) {
                 return true;
             }
-        } else {
-            areas = [];
 
-            if (points.some(p => {
-                const a = canvas.lighting._pv_getArea(p);
-                areas.push(a);
-                return a._pv_vision;
-            })) {
+            hasFOV = canvas.lighting._pv_globalLight;
+        } else {
+            if (uniformVision && canvas.lighting._pv_vision) {
                 return true;
+            }
+
+            for (const offset of offsets) {
+                const p = tempPoint.set(point.x + tolerance * offset.x, point.y + tolerance * offset.y);
+                const area = canvas.lighting._pv_getArea(p);
+
+                if (area._pv_vision) {
+                    return true;
+                }
+
+                if (area._pv_globalLight) {
+                    hasFOV = true;
+
+                    if (uniformVision) {
+                        break;
+                    }
+                }
+
+                if (!(tolerance > 0)) {
+                    break;
+                }
             }
         }
 
-        // We require both LOS and FOV membership for a point to be visible
-        let hasLOS = false;
-        let hasFOV;
-
-        if (canvas.lighting._pv_uniformGlobalLight) {
-            hasFOV = canvas.lighting._pv_globalLight;
-        } else {
-            hasFOV = areas ? areas.some(a => a._pv_globalLight) : points.some(p => canvas.lighting._pv_getArea(p)._pv_globalLight);
-        }
-
-        // Check vision sources
         for (const source of visionSources.values()) {
             if (!source.active) {
                 continue;
             }
 
-            if ((!hasLOS || !hasFOV) && points.some(p => source._pv_los.containsPoint(p))) {
+            if ((!hasLOS || !hasFOV) && source._pv_los.intersectsCircle(point, radius)) {
                 hasLOS = true;
 
-                if (!hasFOV && points.some(p => source._pv_fov.containsPoint(p))) {
+                if (!hasFOV && source._pv_fov.intersectsCircle(point, radius)) {
                     hasFOV = true;
                 }
             }
@@ -226,13 +252,12 @@ Hooks.once("init", () => {
             }
         }
 
-        // Check light sources
         for (const source of lightSources.values()) {
             if (!source.active) {
                 continue;
             }
 
-            if ((!hasFOV || !hasLOS && source.data.vision) && points.some(p => source._pv_los.containsPoint(p))) {
+            if ((!hasFOV || !hasLOS && source.data.vision) && source._pv_los.intersectsCircle(point, radius)) {
                 if (source.data.vision) {
                     hasLOS = true;
                 }
