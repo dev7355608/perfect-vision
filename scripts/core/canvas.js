@@ -273,6 +273,10 @@ for (const name in groups) {
     }
 }
 
+Logger.debug("Patching CONFIG.Canvas.cullingBackend (OVERRIDE)");
+
+CONFIG.Canvas.cullingBackend = null;
+
 Logger.debug("Patching CONFIG.Canvas.layers.weather.group (OVERRIDE)");
 Logger.debug("Patching CONFIG.Canvas.layers.grid.group (OVERRIDE)");
 Logger.debug("Patching CONFIG.Canvas.layers.drawings.group (OVERRIDE)");
