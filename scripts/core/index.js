@@ -17,13 +17,6 @@ Hooks.once("canvasInit", () => {
     if (canvas.app.renderer.context.webGLVersion !== 2) {
         ui.notifications.error("Perfect Vision requires WebGL 2!", { permanent: true });
     }
-
-    const electronMatch = navigator.userAgent.match(/Electron\/([0-9]+)\.\S+/);
-    const electronVersion = electronMatch ? parseInt(electronMatch[1], 10) : undefined;
-
-    if (electronVersion < 15) {
-        ui.notifications.warn(`Detected an outdated Foundry VTT installation: ${electronMatch[0]}. Please uninstall and then reinstall Foundry VTT.`);
-    }
 });
 
 Hooks.once("ready", () => {
