@@ -436,7 +436,7 @@ Hooks.once("init", () => {
 
         if (token._original?.vision) {
             this._pv_tintMono = token._original.vision._pv_tintMono;
-        } else if (this.radius > 0) {
+        } else if (radiusSight > 0) {
             this._pv_tintMono = foundry.utils.colorStringToHex(
                 document.getFlag("perfect-vision", "monoVisionColor") || game.settings.get("perfect-vision", "monoVisionColor") || "#ffffff"
             );
