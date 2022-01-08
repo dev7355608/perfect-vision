@@ -395,7 +395,7 @@ Hooks.once("init", () => {
                 const sourceId = `Light.${source.object.document.id}`;
 
                 if (source.active && source._pv_sightLimit !== undefined) {
-                    canvas._pv_raySystem.addArea(sourceId, source._pv_los, undefined, source._pv_sightLimit, 3, source.data.z ?? (source.isDarkness ? 10 : 0));
+                    canvas._pv_raySystem.addArea(sourceId, source._pv_los, undefined, source._pv_sightLimit, 3, source.data.z ?? (source.isDarkness ? 10 : 0), -source._pv_sightLimit);
 
                     this._pv_initializeVision = true;
                 } else {

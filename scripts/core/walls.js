@@ -414,7 +414,7 @@ export class RaySystem {
         this.rmax = NaN;
     }
 
-    addArea(id, fov, los = undefined, limit = Infinity, layer = 0, index = 0) {
+    addArea(id, fov, los = undefined, limit = Infinity, ...index) {
         fov = fov ? TransformedShape.from(fov) : null;
         los = los ? TransformedShape.from(los) : null;
 
@@ -458,7 +458,7 @@ export class RaySystem {
 
         bounds.ceil();
 
-        this.A[id] = { fov: createData(fov), los: createData(los), bounds, limit, layer, index };
+        this.A[id] = { fov: createData(fov), los: createData(los), bounds, limit, index };
     }
 
     deleteArea(id) {
@@ -479,8 +479,15 @@ export class RaySystem {
 
     update() {
         const A = Object.entries(this.A)
-            .sort(([id1, a1], [id2, a2]) => a1.layer - a2.layer || a1.index - a2.index || id1.localeCompare(id2, "en"))
-            .map(e => e[1]);
+            .sort(([id1, { index: index1 }], [id2, { index: index2 }]) => {
+                let d = 0;
+
+                for (let i = 0, n = Math.min(index1.length, index2.length); d === 0 && i < n; i++) {
+                    d = index1[i] - index2[i];
+                }
+
+                return d || index1.length - index2.length || id1.localeCompare(id2, "en");
+            }).map(e => e[1]);
 
         let n = 0;
         let m = 0;

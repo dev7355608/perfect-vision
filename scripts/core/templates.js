@@ -7,21 +7,23 @@ Hooks.once("init", () => {
     patch("MeasuredTemplate.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
         await wrapped(...args);
 
-        let sightLimit = this.document.getFlag("perfect-vision", "sightLimit");
+        if (!this._original) {
+            let sightLimit = this.document.getFlag("perfect-vision", "sightLimit");
 
-        if (sightLimit !== undefined) {
-            sightLimit = Math.max(sightLimit ?? Infinity, 0) / canvas.dimensions.distance * canvas.dimensions.size;
-        }
+            if (sightLimit !== undefined) {
+                sightLimit = Math.max(sightLimit ?? Infinity, 0) / canvas.dimensions.distance * canvas.dimensions.size;
+            }
 
-        this._pv_sightLimit = sightLimit;
+            this._pv_sightLimit = sightLimit;
 
-        if (sightLimit !== undefined) {
-            const fov = new TransformedShape(this.shape, new PIXI.Matrix().translate(this.data.x, this.data.y));
+            if (sightLimit !== undefined) {
+                const fov = new TransformedShape(this.shape, new PIXI.Matrix().translate(this.data.x, this.data.y));
 
-            canvas._pv_raySystem.addArea(`Template.${this.document.id}`, fov, undefined, this._pv_sightLimit, 2);
+                canvas._pv_raySystem.addArea(`Template.${this.document.id}`, fov, undefined, this._pv_sightLimit, 2, -this._pv_sightLimit);
 
-            canvas.lighting._pv_initializeVision = true;
-            canvas.perception.schedule({ lighting: { refresh: true } });
+                canvas.lighting._pv_initializeVision = true;
+                canvas.perception.schedule({ lighting: { refresh: true } });
+            }
         }
 
         return this;
@@ -72,7 +74,7 @@ Hooks.on("updateMeasuredTemplate", (document, change, options, userId, arg) => {
             if (sightLimit !== undefined) {
                 const fov = new TransformedShape(template.shape, new PIXI.Matrix().translate(template.data.x, template.data.y));
 
-                canvas._pv_raySystem.addArea(`Template.${document.id}`, fov, undefined, template._pv_sightLimit, 2);
+                canvas._pv_raySystem.addArea(`Template.${document.id}`, fov, undefined, template._pv_sightLimit, 2, -template._pv_sightLimit);
             } else {
                 canvas._pv_raySystem.deleteArea(`Template.${document.id}`);
             }
