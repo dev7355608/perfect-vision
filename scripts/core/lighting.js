@@ -354,7 +354,7 @@ Hooks.once("init", () => {
         if (game.user.isGM) {
             const gmVision = game.settings.get("perfect-vision", "improvedGMVision") && canvas.sight.sources.size === 0;
 
-            ilm._pv_filter.brightness = gmVision ? 0.25 * darkness : 0.0;
+            ilm._pv_filter.toggled = gmVision;
             ilm._pv_filter.enabled = ilm._pv_filter === ilm.filter || gmVision;
 
             this._pv_delimiter.visible = game.settings.get("perfect-vision", "delimiters");
@@ -1288,8 +1288,10 @@ class IlluminationContainerFilter extends PIXI.Filter {
         uniform mat3 projectionMatrix;
         uniform vec4 inputSize;
         uniform vec4 outputFrame;
+        uniform vec2 screenDimensions;
 
         varying vec2 vTextureCoord;
+        varying vec2 vScreenCoord;
 
         void main() {
             vec3 position = vec3(aVertexPosition * max(outputFrame.zw, vec2(0.0)) + outputFrame.xy, 1.0);
@@ -1297,6 +1299,7 @@ class IlluminationContainerFilter extends PIXI.Filter {
             gl_Position = vec4((projectionMatrix * position).xy, 0.0, 1.0);
 
             vTextureCoord = aVertexPosition * (outputFrame.zw * inputSize.zw);
+            vScreenCoord = position.xy / screenDimensions;
         }`;
 
     static fragmentSrc = `\
@@ -1305,19 +1308,27 @@ class IlluminationContainerFilter extends PIXI.Filter {
         precision ${PIXI.settings.PRECISION_FRAGMENT} float;
 
         varying vec2 vTextureCoord;
+        varying vec2 vScreenCoord;
 
         uniform sampler2D uSampler;
+        uniform sampler2D uDarknessLevel;
         uniform float uAlpha;
+        uniform bool uToggled;
         uniform float uBrightness;
 
         void main() {
-            gl_FragColor = vec4(texture2D(uSampler, vTextureCoord).rgb * (1.0 - uBrightness) + uBrightness, 1.0) * uAlpha;
+            float darkness = texture2D(uDarknessLevel, vScreenCoord).r;
+            float brightness = uToggled ? uBrightness * darkness : 0.0;
+
+            gl_FragColor = vec4(texture2D(uSampler, vTextureCoord).rgb * (1.0 - brightness) + brightness, 1.0) * uAlpha;
         }`;
 
-    constructor(alpha = 1, brightness = 0) {
+    constructor(alpha = 1) {
         super(IlluminationContainerFilter.vertexSrc, IlluminationContainerFilter.fragmentSrc, {
+            screenDimensions: new Float32Array(2),
             uAlpha: alpha,
-            uBrightness: brightness
+            uToggled: false,
+            uBrightness: 0.25
         });
     }
 
@@ -1329,12 +1340,24 @@ class IlluminationContainerFilter extends PIXI.Filter {
         this.uniforms.uAlpha = value;
     }
 
-    get brightness() {
-        return this.uniforms.uBrightness;
+    get toggled() {
+        return this.uniforms.uToggled;
     }
 
-    set brightness(value) {
-        this.uniforms.uBrightness = value;
+    set toggled(value) {
+        this.uniforms.uToggled = value;
+    }
+
+    apply(filterManager, input, output, clearMode, currentState) {
+        const { width, height } = canvas.app.renderer.screen;
+        const screenDimensions = this.uniforms.screenDimensions;
+
+        screenDimensions[0] = width;
+        screenDimensions[1] = height;
+
+        this.uniforms.uDarknessLevel = canvas.lighting._pv_buffer.textures[1];
+
+        super.apply(filterManager, input, output, clearMode, currentState);
     }
 }
 
