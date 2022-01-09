@@ -51,7 +51,7 @@ Hooks.once("ready", () => {
                 <p>In case you didn't know: you can toggle <i>GM Vision</i> with CTRL+G (default).</p> 
                 <ul>
                     <li>The brightness of <i>GM Vision</i> is now adjustable: hover with the cursor over the eye icon in the scene controls and scroll up/down to adjust the brightness.</li>
-                    <li>Fixed <i>GM Vision</i> not working properly in lighting areas.
+                    <li>Fixed <i>GM Vision</i> not working properly in lighting areas.</li>
                 </ul>`);
 
         content += templates[current < 3]
