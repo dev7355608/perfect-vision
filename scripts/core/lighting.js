@@ -356,6 +356,7 @@ Hooks.once("init", () => {
 
             ilm._pv_filter.toggled = gmVision;
             ilm._pv_filter.enabled = ilm._pv_filter === ilm.filter || gmVision;
+            ilm._pv_filter.brightness = Math.clamped(game.settings.get("perfect-vision", "improvedGMVisionBrightness") ?? 0.25, 0.05, 0.95);
 
             this._pv_delimiter.visible = game.settings.get("perfect-vision", "delimiters");
         }
@@ -1346,6 +1347,14 @@ class IlluminationContainerFilter extends PIXI.Filter {
 
     set toggled(value) {
         this.uniforms.uToggled = value;
+    }
+
+    get brightness() {
+        return this.uniforms.uBrightness;
+    }
+
+    set brightness(value) {
+        this.uniforms.uBrightness = value;
     }
 
     apply(filterManager, input, output, clearMode, currentState) {

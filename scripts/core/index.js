@@ -28,46 +28,72 @@ Hooks.once("ready", () => {
         config: false,
     });
 
-    if (game.user.isGM && game.settings.get("perfect-vision", "popup") < 3) {
-        new Dialog({
-            title: "Perfect Vision",
-            content: `\
-                <large>
-                <p><strong>Please read the <a href="https://github.com/dev7355608/perfect-vision/blob/main/README.md#perfect-vision-foundry-vtt-module">documention</a>.</strong></p>
-                </large>
-                <hr>
-                <p>If you haven't heard, Perfect Vision makes it possible to adjust all lighting settings locally; this includes <i>Sight Limit</i> now as well. To learn how to setup mixed indoor/outdoor scenes or to create magical darkness click <a href="https://github.com/dev7355608/perfect-vision/blob/main/README.md#drawing-configuration">here</a>.</p>
-                <hr>
-                <h3><strong>v3.3 (PF2e rules-based vision compatibility)</strong></h3>
-                <i>All of these changes concern only the PF2e system's rules-based vision.</i>
+    const next = 4;
+    let current = game.settings.get("perfect-vision", "popup");
+
+    if (game.user.isGM && current < next) {
+        const templates = {
+            false: `<details><summary><strong>%HEAD%</strong></summary>%BODY%</details><hr>`,
+            true: `<h3><strong>%HEAD%</strong></h3>%BODY%<hr>`,
+        };
+
+        let content = `\
+            <large>
+            <p><strong>Please read the <a href="https://github.com/dev7355608/perfect-vision/blob/main/README.md#perfect-vision-foundry-vtt-module">documention</a>.</strong></p>
+            </large>
+            <hr>
+            <p>If you haven't heard, Perfect Vision makes it possible to adjust all lighting settings locally; this includes <i>Sight Limit</i> as well. To learn how to setup mixed indoor/outdoor scenes or how to create magical darkness click <a href="https://github.com/dev7355608/perfect-vision/blob/main/README.md#drawing-configuration">here</a>.</p>
+            <hr>`;
+
+        content += templates[current < 4]
+            .replace("%HEAD%", "v3.4 (GM Vision Improvements)")
+            .replace("%BODY%", `\
+                <p>In case you didn't know: you can toggle <i>GM Vision</i> with CTRL+G (default).</p> 
+                <ul>
+                    <li>The brightness of <i>GM Vision</i> is now adjustable: hover with the cursor over the eye icon in the scene controls and scroll up/down to adjust the brightness.</li>
+                    <li>Fixed <i>GM Vision</i> not working properly in lighting areas.
+                </ul>`);
+
+        content += templates[current < 3]
+            .replace("%HEAD%", "v3.3 (PF2e Rules-Based Vision Compatibility)")
+            .replace("%BODY%", `\
+                <p><i>All of these changes concern only the PF2e system's rules-based vision.</i></p>
                 <ul>
                     <li>Fixed darkvision not working in lighting areas.</li>
                     <li>Darkvision of fetchlings is no longer monochrome.</li>
                     <li>Low-light vision and darkvision are no longer abruptly toggled on once the <i>Darkness Level</i> exceeds 0.25. The brightness now smoothly increases as the <i>Darkness Level</i> increases; maximum brightness is attained at 0.75 <i>Darkness Level</i>.</li>
                     <li>Automatic <i>Saturation Level</i> behaves a little bit different now: saturation starts to decrease at 0.25 <i>Darkness Level</i> and reaches maximum desaturation at 0.75 <i>Darkness Level</i>.</li>
                     <li>A token is now truly blind if it has the blinded condition: the token's <i>Sight Limit</i> is automatically set according to the blinded condition.</li>
-                </ul>
-                <hr>
-                <h3><strong>v3.2</strong></h3>
+                </ul>`);
+
+        content += templates[current < 2]
+            .replace("%HEAD%", "v3.2 (Sight Limit: Lights and Templates)")
+            .replace("%BODY%", `\
                 <ul>
-                    <li>You can restrict sight with templates and light sources now as well. Look for <i>Sight Limit</i> in the template and light configuration.</li>
-                </ul>
-                <hr>
-                <h3><strong>v3.0/v3.1</strong></h3>
-                <ul>
-                    <li>Added the <i>Sight Limit</i> setting to the drawings configuration.</li>
-                </ul>
-                <p><strong>Minor breaking changes:</strong></p>
-                <ul>
-                    <li>The <i>Local (Unrestricted)</i> light type as been removed, because it's a core setting now (<i>Advanced Options -> Constrained By Walls</i>). Any existing lights of this type are <i>not</i> automatically migrated.</li>
-                    <li>The token's <i>Sight Limit</i> no longer overrides the scene's <i>Sight Limit</i>: for example, if the scene's limit is set to 30 units and the token's limit is set to 60, the token's vision range is 30; in v8 it would have been 60.
-                </ul>`,
+                    <li>Added the <i>Sight Limit</i> setting to templates and light sources.</li>
+                </ul>`);
+
+        content += templates[current < 1]
+            .replace("%HEAD%", "v3.0/v3.1 (Sight Limit: Drawings)")
+            .replace("%BODY%", `\
+                    <ul>
+                        <li>Added the <i>Sight Limit</i> setting to the drawings configuration.</li>
+                    </ul>
+                    <p><strong>Minor breaking changes:</strong></p>
+                    <ul>
+                        <li>The <i>Local (Unrestricted)</i> light type as been removed, because it's a core setting now (<i>Advanced Options -> Constrained By Walls</i>). Any existing lights of this type are <i>not</i> automatically migrated.</li>
+                        <li>The token's <i>Sight Limit</i> no longer overrides the scene's <i>Sight Limit</i>: for example, if the scene's limit is set to 30 units and the token's limit is set to 60, the token's vision range is 30; in v8 it would have been 60.
+                    </ul>`);
+
+        new Dialog({
+            title: "Perfect Vision",
+            content,
             buttons: {
                 ok: { icon: '<i class="fas fa-check"></i>', label: "Understood" },
                 dont_remind: {
                     icon: '<i class="fas fa-times"></i>',
                     label: "Don't remind me again",
-                    callback: () => game.settings.set("perfect-vision", "popup", 3),
+                    callback: () => game.settings.set("perfect-vision", "popup", next),
                 },
             },
         }).render(true);

@@ -48,7 +48,7 @@ Let's give a token *devil's sight*. Go to the *Vision* tab of the token configur
 
 ![Scene Controls](images/controls.png)
 
-- **Toggle GM Vision**: If enabled, brightens the scene and disables desaturation for the GM, but doesn't change anything while a token is controlled; so the GM still sees exactly what a player would see if they select a token that has vision. Default keybinding is *CTRL+G*.
+- **Toggle GM Vision**: If enabled, brightens the scene and disables desaturation for the GM, but doesn't change anything while a token is controlled; so the GM still sees exactly what a player would see if they select a token that has vision. You can hover over the eye icon and scroll up/down to you adjust the brightness. Default keybinding is *CTRL+G*.
 - **Toggle Delimiters**: Toggles an overlay that makes it easy to distinguish between dim, bright, and no light. Default keybinding is *CTRL+H*.
 
 ![Delimiter](images/delimiter.png)

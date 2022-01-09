@@ -81,6 +81,23 @@ Hooks.once("init", () => {
         }
     });
 
+    game.settings.register("perfect-vision", "improvedGMVisionBrightness", {
+        name: "Improved GM Vision Brightness",
+        scope: "client",
+        config: false,
+        type: Number,
+        default: 0.25,
+        onChange: (value) => {
+            if (!canvas?.ready || !game.user.isGM) {
+                return;
+            }
+
+            if (game.settings.get("perfect-vision", "improvedGMVision")) {
+                canvas.perception.schedule({ lighting: { refresh: true } });
+            }
+        }
+    });
+
     game.settings.register("perfect-vision", "delimiters", {
         name: "Delimiters",
         scope: "client",
