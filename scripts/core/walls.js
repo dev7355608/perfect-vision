@@ -397,6 +397,8 @@ Hooks.once("init", () => {
 });
 
 export class RaySystem {
+    static MODES = Object.freeze({ OVERRIDE: 0, MINIMUM: 1, MAXIMUM: 2 });
+
     static round(x) {
         return Math.round(x * 256) * (1 / 256);
     }
@@ -414,7 +416,7 @@ export class RaySystem {
         this.rmax = NaN;
     }
 
-    addArea(id, fov, los = undefined, limit = Infinity, ...index) {
+    addArea(id, fov, los = undefined, limit = Infinity, mode = 0, ...index) {
         fov = fov ? TransformedShape.from(fov) : null;
         los = los ? TransformedShape.from(los) : null;
 
@@ -458,7 +460,7 @@ export class RaySystem {
 
         bounds.ceil();
 
-        this.A[id] = { fov: createData(fov), los: createData(los), bounds, limit, index };
+        this.A[id] = { fov: createData(fov), los: createData(los), bounds, limit, mode, index };
     }
 
     deleteArea(id) {
@@ -523,7 +525,7 @@ export class RaySystem {
         const D = this.D = new Float32Array(new ArrayBuffer(n * 13 + m * 4), 0, n);
         const E = this.E = new Float32Array(D.buffer, D.byteOffset + D.byteLength, m);
         const K = this.K = new Uint32Array(E.buffer, E.byteOffset + E.byteLength, n * 2);
-        this.S = new Uint8Array(K.buffer, K.byteOffset + K.byteLength, n);
+        const S = this.S = new Uint8Array(K.buffer, K.byteOffset + K.byteLength, n);
         this.Ct = this.Ct ?? new Float64Array(8);
         this.Ci = this.Ci ?? new Int32Array(this.Ct.buffer);
 
@@ -543,6 +545,7 @@ export class RaySystem {
             rmax = Math.max(rmax, d);
 
             D[i] = 1 / d;
+            S[i] = a.mode << 2;
             K[(i << 1)] = m1 !== undefined ? m1 : 1;
             K[(i << 1) + 1] = m2;
 
@@ -650,7 +653,7 @@ export class RaySystem {
 
                 if (tmin >= 1 || tmax <= Math.max(0, tmin)) {
                     k += (m1 !== 1 ? m1 : 6) + m2;
-                    S[i] = s;
+                    S[i] = S[i] & ~3 | s;
 
                     continue;
                 }
@@ -799,7 +802,7 @@ export class RaySystem {
                 }
             }
 
-            S[i] = s;
+            S[i] = S[i] & ~3 | s;
         }
 
         for (let h = c - 2; h >= 0; h--) {
@@ -861,10 +864,32 @@ export class RaySystem {
 
         let i0 = n;
 
-        while (--i0 >= 0 && S[i0] !== 0);
+        while (--i0 >= 0 && (S[i0] & 3) !== 0);
 
-        let d0 = i0 >= 0 ? D[i0] * dmul : Infinity;
         let t0 = 0;
+        let d0 = 0;
+
+        for (let i = 0; i <= i0; i++) {
+            const s = S[i];
+
+            if ((s & 3) !== 0) {
+                continue;
+            }
+
+            switch (s >> 2) {
+                case 0:
+                    d0 = D[i];
+                    break;
+                case 1:
+                    d0 = Math.max(d0, D[i]);
+                    break;
+                case 2:
+                    d0 = Math.min(d0, D[i]);
+                    break;
+            }
+        }
+
+        d0 *= dmul;
 
         if (c !== 0) {
             trace: for (; ;) {
@@ -875,16 +900,12 @@ export class RaySystem {
                 const s = S[i] ^= is & 3;
 
                 for (; ;) {
-                    if (s === 0) {
+                    if ((s & 3) === 0) {
                         if (i0 < i) {
                             i0 = i;
-                        } else {
-                            break;
                         }
                     } else if (i0 === i) {
-                        while (--i0 >= 0 && S[i0] !== 0);
-                    } else {
-                        break;
+                        while (--i0 >= 0 && (S[i0] & 3) !== 0);
                     }
 
                     const dt = t - Math.max(t0, tmin);
@@ -896,7 +917,29 @@ export class RaySystem {
 
                     t0 = t;
                     w0 = w;
-                    d0 = i0 >= 0 ? D[i0] * dmul : Infinity;
+                    d0 = 0;
+
+                    for (let i = 0; i <= i0; i++) {
+                        const s = S[i];
+
+                        if ((s & 3) !== 0) {
+                            continue;
+                        }
+
+                        switch (s >> 2) {
+                            case 0:
+                                d0 = D[i];
+                                break;
+                            case 1:
+                                d0 = Math.max(d0, D[i]);
+                                break;
+                            case 2:
+                                d0 = Math.min(d0, D[i]);
+                                break;
+                        }
+                    }
+
+                    d0 *= dmul;
 
                     break;
                 }

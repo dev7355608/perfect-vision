@@ -396,7 +396,7 @@ Hooks.once("init", () => {
                 const sourceId = `Light.${source.object.document.id}`;
 
                 if (source.active && source._pv_sightLimit !== undefined) {
-                    canvas._pv_raySystem.addArea(sourceId, source._pv_los, undefined, source._pv_sightLimit, 3, source.data.z ?? (source.isDarkness ? 10 : 0), -source._pv_sightLimit);
+                    canvas._pv_raySystem.addArea(sourceId, source._pv_los, undefined, source._pv_sightLimit, source.isDarkness ? 1 : 2, 3, source.data.z ?? (source.isDarkness ? 10 : 0), source.isDarkness);
 
                     this._pv_initializeVision = true;
                 } else {
@@ -625,7 +625,7 @@ LightingLayer.prototype._pv_refreshAreas = function () {
     if (this._pv_flags_updateArea) {
         this._pv_flags_updateArea = false;
 
-        canvas._pv_raySystem.addArea("Scene", canvas.dimensions.rect.clone().pad(canvas.dimensions.size), undefined, this._pv_sightLimit);
+        canvas._pv_raySystem.addArea("Scene", canvas.dimensions.rect.clone().pad(canvas.dimensions.size), undefined, this._pv_sightLimit, 0);
 
         if (!canvas._pv_raySystem.uniformlyLimited) {
             this._pv_initializeVision = true;
@@ -647,7 +647,7 @@ LightingLayer.prototype._pv_refreshAreas = function () {
         if (area._pv_flags_updateArea) {
             area._pv_flags_updateArea = false;
 
-            canvas._pv_raySystem.addArea(`Drawing.${area.document.id}`, area._pv_fov, area._pv_los, area._pv_sightLimit, 1, area._pv_index);
+            canvas._pv_raySystem.addArea(`Drawing.${area.document.id}`, area._pv_fov, area._pv_los, area._pv_sightLimit, 0, 1, area._pv_index);
 
             if (!canvas._pv_raySystem.uniformlyLimited) {
                 this._pv_initializeVision = true;

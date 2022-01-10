@@ -271,7 +271,7 @@ Hooks.on("renderAmbientLightConfig", (sheet, html, data) => {
                 <label class="checkbox">Enable <input type="checkbox" id="perfect-vision.overrideSightLimit"></label>
                 <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
             </div>
-            <p class="hint">Limit the maximum sight range of tokens in the area of the light source.</p>
+            <p class="hint">If enabled, in the area of the light source tokens can see at least as far as the limit if the luminosity is greater or equal to zero, and can see at most as far as the limit if the luminosity is less than zero. Higher priority light sources that overlap with this light source can change the sight limit.</p>
         </div>`);
 
     html.find(`input[id="perfect-vision.overrideSightLimit"]`)

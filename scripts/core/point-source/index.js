@@ -77,7 +77,7 @@ Hooks.once("init", () => {
         return mesh;
     });
 
-    const updateAreaKeys = ["x", "y", "z", "angle", "rotation", "walls"];
+    const updateAreaKeys = ["x", "y", "z", "angle", "rotation", "walls", "luminosity"];
 
     patch("LightSource.prototype.initialize", "WRAPPER", function (wrapped, data, ...args) {
         const oldData = foundry.utils.deepClone(this.data);
