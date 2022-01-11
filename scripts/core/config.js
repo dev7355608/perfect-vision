@@ -116,6 +116,19 @@ function renderConfig(sheet, html, data) {
             html.find(`select[name="${prefix}.visionRules"]`).val("pf2e").prop("disabled", true);
             html.find(`input[name="flags.perfect-vision.sightLimit"]`).prop("disabled", true);
         }
+
+        html.find(`div[data-tab="advanced"]`).append(`\
+            <div class="form-group">
+                <label>Priority</label>
+                <div class="form-fields">
+                    <input type="number" name="flags.core.priority" placeholder="0" data-dtype="Number">
+                </div>
+                <p class="hint">Higher priority light sources are rendered above lower priority light sources. The default value is 0 for light source with luminosity greater or equal to zero and 10 for light sources with luminosity below zero.</p>
+            </div>`);
+
+        html.find(`input[name="flags.core.priority"]`)
+            .attr("value", document.getFlag("core", "priority") || null)
+            .attr("placeholder", document.data.light.luminosity >= 0 ? 0 : 10);
     } else {
         if (game.system.id === "pf2e" && game.settings.get("pf2e", "automation.rulesBasedVision")) {
             const managedBy = $("<strong>")
@@ -264,7 +277,20 @@ Hooks.on("renderAmbientLightConfig", (sheet, html, data) => {
         return;
     }
 
-    html.find(`input[name="vision"]`).parent().after(`\
+    html.find(`div[data-tab="advanced"]`).append(`\
+        <div class="form-group">
+            <label>Priority</label>
+            <div class="form-fields">
+                <input type="number" name="flags.core.priority" placeholder="0" data-dtype="Number">
+            </div>
+            <p class="hint">Higher priority light sources are rendered above lower priority light sources. The default value is 0 for light source with luminosity greater or equal to zero and 10 for light sources with luminosity below zero.</p>
+        </div>`);
+
+    html.find(`input[name="flags.core.priority"]`)
+        .attr("value", document.getFlag("core", "priority") || null)
+        .attr("placeholder", document.data.config.luminosity >= 0 ? 0 : 10);
+
+    html.find(`div[data-tab="advanced"]`).append(`\
         <div class="form-group">
             <label>Sight Limit <span class="units">(Grid Units)</span></label>
             <div class="form-fields">
@@ -986,7 +1012,55 @@ Hooks.once("init", () => {
         });
     });
 
+    patch("TokenConfig.prototype._getSubmitData", "POST", function (data) {
+        if (!data["flags.core.priority"]) {
+            delete data["flags.core.priority"];
+
+            data["flags.core.-=priority"] = null;
+        }
+
+        return data;
+    });
+
+    patch("TokenConfig.prototype._onChangeInput", "WRAPPER", async function (wrapped, event, ...args) {
+        const target = event.target;
+        const name = target.name || target.id;
+
+        if (name === "light.luminosity") {
+            target.form.elements["flags.core.priority"].placeholder = target.value >= 0 ? 0 : 10;
+        }
+
+        return wrapped(event, ...args);
+    });
+
+    patch("AmbientLightConfig.prototype._onChangeInput", "WRAPPER", async function (wrapped, event, ...args) {
+        const target = event.target;
+        const name = target.name || target.id;
+
+        if (name === "config.luminosity") {
+            target.form.elements["flags.core.priority"].placeholder = target.value >= 0 ? 0 : 10;
+        }
+
+        return wrapped(event, ...args);
+    });
+
+    patch("AmbientLightConfig.prototype._onResetForm", "WRAPPER", function (wrapped, event, ...args) {
+        foundry.utils.mergeObject(this.document.data, {
+            vision: false, walls: true,
+            "flags.core.-=priority": null,
+            "flags.perfect-vision.-=sightLimit": null
+        }, { inplace: true });
+
+        return wrapped(event, ...args);
+    });
+
     patch("AmbientLightConfig.prototype._getSubmitData", "POST", function (data) {
+        if (!data["flags.core.priority"]) {
+            delete data["flags.core.priority"];
+
+            data["flags.core.-=priority"] = null;
+        }
+
         if (!this.form.elements["perfect-vision.overrideSightLimit"].checked) {
             delete data["flags.perfect-vision.sightLimit"];
 
