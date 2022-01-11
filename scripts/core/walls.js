@@ -624,6 +624,11 @@ export class RaySystem {
 
     // if rmax is passed, it must be equal to sqrt(rdx * rdx + rdy * rdy)
     castRay(rax, ray, rdx, rdy, rdz = 0, rmin = 0, rmax) {
+        if (rdx === 0 && rdy === 0) {
+            rdx = rdy = 1;
+            rmax = 0;
+        }
+
         const { n, D, E, K, S } = this;
         let { Ct, Ci } = this;
         const rpx = 1 / rdx;
@@ -857,11 +862,6 @@ export class RaySystem {
             Ci[k << 2] = j;
         }
 
-        let w0 = 1 / (rmax ?? Math.sqrt(rdx * rdx + rdy * rdy));
-
-        const tmin = w0 * rmin;
-        const dmul = rdz !== 0 ? Math.sqrt((w0 * rdz) * (w0 * rdz) + 1) : 1;
-
         let i0 = n;
 
         while (--i0 >= 0 && (S[i0] & 3) !== 0);
@@ -889,60 +889,66 @@ export class RaySystem {
             }
         }
 
+        if (rmax === 0) {
+            return rdz !== 0 ? Math.min((rmin + 1 / d0) / Math.abs(rdz), 1) : 1;
+        }
+
+        rmax = rmax ?? Math.sqrt(rdx * rdx + rdy * rdy);
+
+        let w0 = 1 / rmax;
+        const tmin = w0 * rmin;
+        const dmul = rdz !== 0 ? Math.sqrt((w0 * rdz) * (w0 * rdz) + 1) : 1;
+
         d0 *= dmul;
 
         if (c !== 0) {
-            trace: for (; ;) {
+            for (; ;) {
                 const j = Ci[0];
                 const t = Ct[j];
                 const is = Ci[(j - 1 << 1) + 1];
                 const i = is >> 2;
                 const s = S[i] ^= is & 3;
 
-                for (; ;) {
-                    if ((s & 3) === 0) {
-                        if (i0 < i) {
-                            i0 = i;
-                        }
-                    } else if (i0 === i) {
-                        while (--i0 >= 0 && (S[i0] & 3) !== 0);
+                if ((s & 3) === 0) {
+                    if (i0 < i) {
+                        i0 = i;
                     }
+                } else if (i0 === i) {
+                    while (--i0 >= 0 && (S[i0] & 3) !== 0);
+                }
 
-                    const dt = t - Math.max(t0, tmin);
-                    const w = dt > 0 ? w0 - dt * d0 : w0;
+                const dt = t - Math.max(t0, tmin);
+                const w = dt > 0 ? w0 - dt * d0 : w0;
 
-                    if (w <= 0) {
-                        break trace;
-                    }
-
-                    t0 = t;
-                    w0 = w;
-                    d0 = 0;
-
-                    for (let i = 0; i <= i0; i++) {
-                        const s = S[i];
-
-                        if ((s & 3) !== 0) {
-                            continue;
-                        }
-
-                        switch (s >> 2) {
-                            case 0:
-                                d0 = D[i];
-                                break;
-                            case 1:
-                                d0 = Math.max(d0, D[i]);
-                                break;
-                            case 2:
-                                d0 = Math.min(d0, D[i]);
-                                break;
-                        }
-                    }
-
-                    d0 *= dmul;
-
+                if (w <= 0) {
                     break;
                 }
+
+                t0 = t;
+                w0 = w;
+                d0 = 0;
+
+                for (let i = 0; i <= i0; i++) {
+                    const s = S[i];
+
+                    if ((s & 3) !== 0) {
+                        continue;
+                    }
+
+                    switch (s >> 2) {
+                        case 0:
+                            d0 = D[i];
+                            break;
+                        case 1:
+                            d0 = Math.max(d0, D[i]);
+                            break;
+                        case 2:
+                            d0 = Math.min(d0, D[i]);
+                            break;
+                    }
+                }
+
+                d0 *= dmul;
 
                 if (--c !== 0) {
                     const j = Ci[c << 2];
@@ -995,7 +1001,7 @@ export class RaySystem {
 
                     Ci[k << 2] = j;
                 } else {
-                    break trace;
+                    break;
                 }
             }
         }
@@ -1007,24 +1013,5 @@ export class RaySystem {
         }
 
         return t0;
-    }
-
-    // TODO
-    visualize(clear = true) {
-        const { ax, ay, dx, dy, t } = this;
-        const bx = ax + t * dx;
-        const by = ay + t * dy;
-        const cx = bx + (1 - t) * dx;
-        const cy = by + (1 - t) * dy;
-
-        const dg = canvas.controls.debug;
-
-        if (clear) {
-            dg.clear();
-        }
-
-        dg.lineStyle(2, 0x00FF00, 1.0).moveTo(ax, ay).lineTo(bx, by);
-        dg.lineStyle(2, 0xFF0000, 1.0).moveTo(bx, by).lineTo(cx, cy);
-        dg.lineStyle(1, 0x000000).beginFill(0x0000FF).drawCircle(bx, by, 6).endFill();
     }
 }

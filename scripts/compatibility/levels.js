@@ -247,23 +247,6 @@ Hooks.once("init", () => {
         return result;
     });
 
-    patch("Levels.prototype.overrideVisibilityTest", "OVERRIDE", function (sourceToken, token) {
-        if (canvas.lighting._pv_uniformVision) {
-            if (canvas.lighting._pv_vision) {
-                return true;
-            }
-        } else {
-            const point = token.center;
-            const t = Math.min(token.w, token.h) / 4;
-            const offsets = t > 0 ? [[0, 0], [-t, 0], [t, 0], [0, -t], [0, t], [-t, -t], [-t, t], [t, t], [t, -t]] : [[0, 0]];
-            const points = offsets.map(o => new PIXI.Point(point.x + o[0], point.y + o[1]));
-
-            if (points.some(p => canvas.lighting._pv_getArea(p)._pv_vision)) {
-                return true;
-            }
-        }
-    });
-
     const offsets = [
         [0, 0],
         [-1, 0],
@@ -277,12 +260,30 @@ Hooks.once("init", () => {
     ].map(args => new PIXI.Point(...args));
     const tempPoint = new PIXI.Point();
 
-    patch("Levels.prototype.tokenInRange", "OVERRIDE", function (sourceToken, token) {
-        let range = sourceToken.vision.fov.radius;
+    patch("Levels.prototype.overrideVisibilityTest", "OVERRIDE", function (sourceToken, token) {
+        if (canvas.lighting._pv_uniformVision) {
+            if (canvas.lighting._pv_vision) {
+                return true;
+            }
+        } else {
+            const point = token.center;
+            const tolerance = Math.min(token.w, token.h) * 0.475;
 
+            for (const offset of offsets) {
+                const p = tempPoint.set(point.x + tolerance * offset.x, point.y + tolerance * offset.y);
+                const area = canvas.lighting._pv_getArea(p);
+
+                if (area._pv_vision) {
+                    return true;
+                }
+            }
+        }
+    });
+
+    patch("Levels.prototype.tokenInRange", "OVERRIDE", function (sourceToken, token) {
         if (canvas.lighting._pv_uniformGlobalLight) {
             if (canvas.lighting._pv_globalLight) {
-                range = Infinity;
+                return true;
             }
         } else {
             const point = token.center;
@@ -293,56 +294,63 @@ Hooks.once("init", () => {
                 const area = canvas.lighting._pv_getArea(p);
 
                 if (area._pv_globalLight) {
-                    range = Infinity;
-
-                    break;
+                    return true;
                 }
             }
         }
 
-        range = Math.min(range, sourceToken.vision._pv_sightLimit);
+        const range = sourceToken.vision.fov.radius;
 
         if (range === 0) {
             return false;
         }
 
         const unitsToPixel = canvas.dimensions.size / canvas.dimensions.distance;
-        const x1 = sourceToken.center.x;
-        const y1 = sourceToken.center.y;
-        const x2 = token.center.x;
-        const y2 = token.center.y;
-        const dx = x2 - x1;
-        const dy = y2 - y1;
-        const dist2 = dx * dx + dy * dy;
-        const dist = Math.sqrt(dist2);
+        const x0 = sourceToken.center.x;
+        const y0 = sourceToken.center.y;
+        const z0 = this.getTokenLOSheight(sourceToken) * unitsToPixel;
+        const x1 = token.center.x;
+        const y1 = token.center.y;
+        const z1 = this.getTokenLOSheight(token) * unitsToPixel;
+        const dx = x1 - x0;
+        const dy = y1 - y0;
+        const dz = z1 - z0;
+        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
         const adjust = Math.min(token.w, token.h) * 0.495;
 
-        if (dist - adjust >= range) {
-            return false;
+        return distance - adjust <= range;
+    });
+
+    patch("Levels.prototype.testCollision", "WRAPPER", function (wrapped, p0, p1, type = "sight", token) {
+        const collision = wrapped(p0, p1, type, token);
+
+        if (type !== "sight") {
+            return collision;
         }
 
-        const z1 = this.getTokenLOSheight(sourceToken) * unitsToPixel;
-        const z2 = this.getTokenLOSheight(token) * unitsToPixel;
-        const dz = z2 - z1;
-        const rdx = RaySystem.round(dx);
-        const rdy = RaySystem.round(dy);
-
-        if (rdx === 0 && rdy === 0) {
-            return Math.abs(dz) - adjust <= Math.min(range, sourceToken.vision._pv_area._pv_sightLimit);
+        if (collision) {
+            p1 = collision;
         }
 
+        const unitsToPixel = canvas.dimensions.size / canvas.dimensions.distance;
+        const x0 = p0.x;
+        const y0 = p0.y;
+        const z0 = p0.z * unitsToPixel;
+        const x1 = p1.x;
+        const y1 = p1.y;
+        const z1 = p1.z * unitsToPixel;
+        const dx = x1 - x0;
+        const dy = y1 - y0;
+        const dz = z1 - z0;
         const t = canvas._pv_raySystem.castRay(
-            RaySystem.round(x1),
-            RaySystem.round(y1),
-            rdx,
-            rdy,
+            RaySystem.round(x0),
+            RaySystem.round(y0),
+            RaySystem.round(dx),
+            RaySystem.round(dy),
             RaySystem.round(dz),
-            sourceToken.vision._pv_minRadius,
-            dist
+            token?.vision._pv_minRadius ?? 0
         );
 
-        const distance = Math.sqrt(dist2 + dz * dz);
-
-        return distance - adjust < Math.min(range, distance * t);
+        return t < 1 ? { x: x0 + dx * t, y: y0 + dy * t, z: z0 + dz * t } : collision;
     });
 });
