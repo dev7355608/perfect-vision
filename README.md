@@ -90,9 +90,13 @@ You find these settings in the *Advanced Options* tab.
 
 - **Sight Limit**: Same setting as in the [scene configuration](#module-settings). If enabled, in the area of the light source tokens can see at least as far as the limit if the luminosity is greater or equal to zero, and can see at most as far as the limit if the luminosity is less than zero. Higher priority light sources that overlap with this light source can change the sight limit.
 
-### Ambient Light Example: Magical Darkness
+### Ambient Light Example 1: Magical Darkness
 
 Create a light source and open the configuration and go to the *Advanced Options* tab. Set *Luminosity* to value below zero to create a dark light source. Then check the *Enable* box next to *Sight Limit* and set *Sight Limit* to 0. Now tokens won't be able to see though or inside the area of this light source. You probably want to uncheck *Constrained By Walls* as well if you are creating magical darkness according the D&D 5e rules. Done!
+
+### Ambient Light Example 2: Daylight Spell
+
+Create a light source and open the configuration and go to the *Advanced Options* tab. Check the *Enable* box next to *Sight Limit* and leave *Sight Limit* at *Unlimited*. Then set *Priority* to 20. This light sources removes the sight restrictions of the magical darkness light we created in the first example.
 
 ## Measured Template Configuration
 
@@ -130,6 +134,6 @@ Assume you have a map with indoor and outdoor areas, and with daylight outside, 
 
 ### Drawing Example 2: Magical Darkness / Fog Cloud
 
-> If you prefer, you can create magical darkness with a [light source](#ambient-light-example-magical-darkness) and a fog cloud with a [template](#measured-template-example-fog-cloud) instead.
+> If you prefer, you can create magical darkness with a [light source](#ambient-light-example-1-magical-darkness) and a fog cloud with a [template](#measured-template-example-fog-cloud) instead.
 
 Draw a circle with the ellipse tool (or any other shape). Open the drawings configuration, go to the *Lighting* tab, and check the *Active* checkbox. Then check the *Override* box next to *Sight Limit* and set *Sight Limit* to 0. Done! Tokens won't be able to see though or inside this area.

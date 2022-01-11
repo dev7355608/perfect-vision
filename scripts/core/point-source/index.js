@@ -97,9 +97,11 @@ Hooks.once("init", () => {
         this._flags.useFov = false;
         this._flags.renderFOV = false;
 
-        if (this.object instanceof AmbientLight && !this.object._original) {
+        const object = this.object;
+
+        if ((object instanceof AmbientLight || object instanceof Token) && !this.object._original) {
             let updateArea = false;
-            let sightLimit = this.object.document.getFlag("perfect-vision", "sightLimit");
+            let sightLimit = object.document.getFlag("perfect-vision", object instanceof AmbientLight ? "sightLimit" : "light.sightLimit");
 
             if (sightLimit !== undefined) {
                 sightLimit = Math.max(sightLimit ?? Infinity, 0) / canvas.dimensions.distance * canvas.dimensions.size;

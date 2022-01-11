@@ -28,7 +28,7 @@ Hooks.once("ready", () => {
         config: false,
     });
 
-    const next = 4;
+    const next = 5;
     let current = game.settings.get("perfect-vision", "popup");
 
     if (game.user.isGM && current < next) {
@@ -45,10 +45,27 @@ Hooks.once("ready", () => {
             <p>If you haven't heard, Perfect Vision makes it possible to adjust all lighting settings locally; this includes <i>Sight Limit</i> as well. To learn how to setup mixed indoor/outdoor scenes or how to create magical darkness click <a href="https://github.com/dev7355608/perfect-vision/blob/main/README.md#drawing-configuration">here</a>.</p>
             <hr>`;
 
+        content += templates[current < 5]
+            .replace("%HEAD%", "v3.5 (Sight Limit Changes)")
+            .replace("%BODY%", `\
+                <p>Some of these <i>Sight Limit</i> changes are technically minor breaking changes, but in most cases that shouldn't change anything unless you have overlapping sight limited areas in your scene.</p>
+                <ul>
+                    <li>The <i>Sight Limit</i> of templates no longer overrides limits of underlying areas that are lower than the limit of the template.</li>
+                    <li>The <i>Sight Limit</i> behavior of light sources changed:
+                        <ul>
+                            <li>Dark light sources (<i>Luminosity</i> < 0) limit sight, but don't override limits of underlying areas that are lower than the limit of the light anymore.</i>
+                            <li>Normal light sources (<i>Luminosity</i> &#8805; 0) un-limit sight, which means that in the area of such a light source tokens can see at least as far as the limit unless changed by a light with higher <i>Priority</i>.</i>
+                        </ul>
+                    </li>
+                    <li>It is now possible to set the <i>Sight Limit</i> of token light sources as well.</i>
+                    <li><i>Sight Limit</i> wasn't working properly with <i>Levels</i>. This has been corrected.</li>
+                    <li>Exposed the core light setting <i>Priority</i>, that allows you to change the order (z-index) of light sources; for example, a normal light source that is rendered above a dark light source would remove the darkness; in combination with <i>Sight Limit</i> it would remove the sight restrictions of the dark light source as well (<i>Daylight</i> vs. <i>Darkness</i> spell).</li>
+                </ul>`);
+
         content += templates[current < 4]
             .replace("%HEAD%", "v3.4 (GM Vision Improvements)")
             .replace("%BODY%", `\
-                <p>In case you didn't know: you can toggle <i>GM Vision</i> with CTRL+G (default).</p> 
+                <p>In case you didn't know: you can toggle <i>GM Vision</i> with CTRL+G (default).</p>
                 <ul>
                     <li>The brightness of <i>GM Vision</i> is now adjustable: hover with the cursor over the eye icon in the scene controls and scroll up/down to adjust the brightness.</li>
                     <li>Fixed <i>GM Vision</i> not working properly in lighting areas.</li>
