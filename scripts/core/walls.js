@@ -414,6 +414,7 @@ export class RaySystem {
         this.Ci = null;
         this.rmin = NaN;
         this.rmax = NaN;
+        this.dirty = true;
     }
 
     addArea(id, fov, los = undefined, limit = Infinity, mode = 0, ...index) {
@@ -460,12 +461,17 @@ export class RaySystem {
         bounds.ceil();
 
         this.A[id] = { fov: createData(fov), los: createData(los), bounds, limit, mode, index };
+        this.dirty = true;
     }
 
     deleteArea(id) {
         const deleted = id in this.A;
 
         delete this.A[id];
+
+        if (deleted) {
+            this.dirty = true;
+        }
 
         return deleted;
     }
@@ -476,9 +482,14 @@ export class RaySystem {
 
     reset() {
         this.A = {};
+        this.dirty = true;
     }
 
     update() {
+        if (!this.dirty) {
+            return false;
+        }
+
         const A = Object.entries(this.A)
             .sort(([id1, { index: index1 }], [id2, { index: index2 }]) => {
                 let d = 0;
@@ -579,6 +590,9 @@ export class RaySystem {
 
         this.rmin = Math.min(rmin, rmax);
         this.rmax = rmax;
+        this.dirty = false;
+
+        return true;
     }
 
     get uniformlyLimited() {
