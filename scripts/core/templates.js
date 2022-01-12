@@ -1,5 +1,6 @@
 import { patch } from "../utils/patch.js";
 import { TransformedShape } from "../utils/transformed-shape.js";
+import { RaySystem } from "./walls.js";
 
 const updateAreaKeys = ["t", "x", "y", "direction", "angle", "distance", "width"];
 
@@ -19,7 +20,12 @@ Hooks.once("init", () => {
             if (sightLimit !== undefined) {
                 const fov = new TransformedShape(this.shape, new PIXI.Matrix().translate(this.data.x, this.data.y));
 
-                canvas._pv_raySystem.addArea(`Template.${this.document.id}`, fov, undefined, this._pv_sightLimit, 1, 2);
+                canvas._pv_raySystem.addArea(`Template.${this.document.id}`, {
+                    shape: fov,
+                    limit: this._pv_sightLimit,
+                    mode: RaySystem.MODES.MIN,
+                    index: [2]
+                });
 
                 canvas.lighting._pv_initializeVision = true;
                 canvas.perception.schedule({ lighting: { refresh: true } });
@@ -74,7 +80,12 @@ Hooks.on("updateMeasuredTemplate", (document, change, options, userId, arg) => {
             if (sightLimit !== undefined) {
                 const fov = new TransformedShape(template.shape, new PIXI.Matrix().translate(template.data.x, template.data.y));
 
-                canvas._pv_raySystem.addArea(`Template.${document.id}`, fov, undefined, template._pv_sightLimit, 1, 2);
+                canvas._pv_raySystem.addArea(`Template.${document.id}`, {
+                    shape: fov,
+                    limit: template._pv_sightLimit,
+                    mode: RaySystem.MODES.MIN,
+                    index: [2]
+                });
             } else {
                 canvas._pv_raySystem.deleteArea(`Template.${document.id}`);
             }

@@ -417,16 +417,19 @@ export class RaySystem {
         this.dirty = true;
     }
 
-    addArea(id, fov, los = undefined, limit = Infinity, mode = 0, ...index) {
-        fov = fov ? TransformedShape.from(fov) : null;
-        los = los ? TransformedShape.from(los) : null;
 
-        const createData = fov => {
-            if (!fov) {
-                return;
+    addArea(id, { shape, mask = undefined, limit = Infinity, mode = RaySystem.MODES.SET, index = [] }) {
+        shape = TransformedShape.from(shape);
+        mask = mask ? TransformedShape.from(mask) : null;
+        limit = Math.max(limit, 0);
+        index = index.map(x => Number(x));
+
+        const createShapeData = s => {
+            if (!s) {
+                return null;
             }
 
-            const shape = fov.shape;
+            const shape = s.shape;
 
             let data;
 
@@ -440,7 +443,7 @@ export class RaySystem {
                     data.scale(1 / shape.width, 1 / shape.height);
                 }
             } else {
-                data = fov.generateContour();
+                data = s.generateContour();
 
                 for (let i = 0; i < data.length; i++) {
                     data[i] = RaySystem.round(data[i]);
@@ -452,15 +455,15 @@ export class RaySystem {
             return data;
         }
 
-        const bounds = fov.bounds.clone();
+        const bounds = shape.bounds.clone();
 
-        if (los) {
-            bounds.fit(los.bounds);
+        if (mask) {
+            bounds.fit(mask.bounds);
         }
 
         bounds.ceil();
 
-        this.A[id] = { fov: createData(fov), los: createData(los), bounds, limit, mode, index };
+        this.A[id] = { shape: createShapeData(shape), mask: createShapeData(mask), bounds, limit, mode, index };
         this.dirty = true;
     }
 
@@ -505,8 +508,8 @@ export class RaySystem {
         let m = 0;
 
         for (const a of A) {
-            const p1 = a.fov;
-            const p2 = a.los;
+            const p1 = a.shape;
+            const p2 = a.mask;
             const m1 = p1.length;
             const m2 = p2 ? p2.length : 0;
 
@@ -545,8 +548,8 @@ export class RaySystem {
         let rmax = 0;
 
         for (const a of A) {
-            const p1 = a.fov;
-            const p2 = a.los;
+            const p1 = a.shape;
+            const p2 = a.mask;
             const m1 = p1.length;
             const m2 = p2 ? p2.length : 0;
             const d = a.limit;

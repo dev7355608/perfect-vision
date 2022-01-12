@@ -4,6 +4,7 @@ import { PointSourceGeometry } from "./point-source/geometry.js";
 import { PointSourceMesh } from "./point-source/mesh.js";
 import { Framebuffer } from "../utils/framebuffer.js";
 import { TransformedShape } from "../utils/transformed-shape.js";
+import { RaySystem } from "./walls.js";
 
 Hooks.once("init", () => {
     patch("LightingLayer.prototype._configureChannels", "OVERRIDE", function ({ darkness, backgroundColor } = {}) {
@@ -396,7 +397,12 @@ Hooks.once("init", () => {
                 const sourceId = source.object.sourceId;
 
                 if (source.active && source._pv_sightLimit !== undefined) {
-                    canvas._pv_raySystem.addArea(sourceId, source._pv_los, undefined, source._pv_sightLimit, source.isDarkness ? 1 : 2, 3, source.data.z ?? (source.isDarkness ? 10 : 0), source.isDarkness);
+                    canvas._pv_raySystem.addArea(sourceId, {
+                        shape: source._pv_los,
+                        limit: source._pv_sightLimit,
+                        mode: source.isDarkness ? RaySystem.MODES.MIN : RaySystem.MODES.MAX,
+                        index: [3, source.data.z ?? (source.isDarkness ? 10 : 0), source.isDarkness]
+                    });
 
                     this._pv_initializeVision = true;
                 } else {
@@ -625,7 +631,10 @@ LightingLayer.prototype._pv_refreshAreas = function () {
     if (this._pv_flags_updateArea) {
         this._pv_flags_updateArea = false;
 
-        canvas._pv_raySystem.addArea("Scene", canvas.dimensions.rect.clone().pad(canvas.dimensions.size), undefined, this._pv_sightLimit, 0);
+        canvas._pv_raySystem.addArea("Scene", {
+            shape: canvas.dimensions.rect.clone().pad(canvas.dimensions.size),
+            limit: this._pv_sightLimit
+        });
 
         if (!canvas._pv_raySystem.uniformlyLimited) {
             this._pv_initializeVision = true;
@@ -647,7 +656,12 @@ LightingLayer.prototype._pv_refreshAreas = function () {
         if (area._pv_flags_updateArea) {
             area._pv_flags_updateArea = false;
 
-            canvas._pv_raySystem.addArea(`Drawing.${area.document.id}`, area._pv_fov, area._pv_los, area._pv_sightLimit, 0, 1, area._pv_index);
+            canvas._pv_raySystem.addArea(`Drawing.${area.document.id}`, {
+                shape: area._pv_fov,
+                mask: area._pv_los,
+                limit: area._pv_sightLimit,
+                index: [1, area._pv_index]
+            });
 
             if (!canvas._pv_raySystem.uniformlyLimited) {
                 this._pv_initializeVision = true;
