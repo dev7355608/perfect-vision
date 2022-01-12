@@ -385,7 +385,7 @@ Hooks.once("init", () => {
 
             if (source.active !== active) {
                 source.active = active;
-                source._pv_flags_updateArea = source._pv_flags_updateArea || active === !canvas._pv_raySystem.hasArea(`Light.${source.object.document.id}`);
+                source._pv_flags_updateArea = source._pv_flags_updateArea || active === !canvas._pv_raySystem.hasArea(source.object.sourceId);
 
                 refreshVision = true;
             }
@@ -393,7 +393,7 @@ Hooks.once("init", () => {
             if (source._pv_flags_updateArea) {
                 source._pv_flags_updateArea = false;
 
-                const sourceId = `Light.${source.object.document.id}`;
+                const sourceId = source.object.sourceId;
 
                 if (source.active && source._pv_sightLimit !== undefined) {
                     canvas._pv_raySystem.addArea(sourceId, source._pv_los, undefined, source._pv_sightLimit, source.isDarkness ? 1 : 2, 3, source.data.z ?? (source.isDarkness ? 10 : 0), source.isDarkness);

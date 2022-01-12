@@ -7,7 +7,13 @@ import { TransformedShape } from "../../utils/transformed-shape.js";
 import { DelimiterShader } from "./shader.js";
 
 Hooks.once("init", () => {
-    patch("PointSource.prototype.destroy", "POST", function () {
+    patch("PointSource.prototype.destroy", "WRAPPER", function (wrapped, ...args) {
+        if (canvas._pv_raySystem.deleteArea(this.object.sourceId)) {
+            canvas.lighting._pv_initializeVision = true;
+        }
+
+        wrapped(...args);
+
         if (this.background && !this.background.destroyed) {
             this.background.destroy({ children: true });
         }
@@ -135,11 +141,23 @@ Hooks.once("init", () => {
         wrapped(...args);
 
         if (!canvas.lighting.sources.has(this.sourceId)) {
-            if (canvas._pv_raySystem.deleteArea(`Light.${this.document.id}`)) {
+            if (canvas._pv_raySystem.deleteArea(this.sourceId)) {
                 canvas.lighting._pv_initializeVision = true;
             }
 
             this.source.active = false;
+        }
+    });
+
+    patch("Token.prototype.updateLightSource", "WRAPPER", function (wrapped, ...args) {
+        wrapped(...args);
+
+        if (!canvas.lighting.sources.has(this.sourceId)) {
+            if (canvas._pv_raySystem.deleteArea(this.sourceId)) {
+                canvas.lighting._pv_initializeVision = true;
+            }
+
+            this.light.active = false;
         }
     });
 
