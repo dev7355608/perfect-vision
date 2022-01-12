@@ -386,7 +386,7 @@ Hooks.once("init", () => {
 
             if (source.active !== active) {
                 source.active = active;
-                source._pv_flags_updateArea = source._pv_flags_updateArea || active === !canvas._pv_raySystem.hasArea(source.object.sourceId);
+                source._pv_flags_updateArea = source._pv_flags_updateArea || active === !canvas._pv_raySystem.hasRegion(source.object.sourceId);
 
                 refreshVision = true;
             }
@@ -397,7 +397,7 @@ Hooks.once("init", () => {
                 const sourceId = source.object.sourceId;
 
                 if (source.active && source._pv_sightLimit !== undefined) {
-                    canvas._pv_raySystem.addArea(sourceId, {
+                    canvas._pv_raySystem.addRegion(sourceId, {
                         shape: source._pv_los,
                         limit: source._pv_sightLimit,
                         mode: source.isDarkness ? RaySystem.MODES.MIN : RaySystem.MODES.MAX,
@@ -406,7 +406,7 @@ Hooks.once("init", () => {
 
                     this._pv_initializeVision = true;
                 } else {
-                    if (canvas._pv_raySystem.deleteArea(sourceId)) {
+                    if (canvas._pv_raySystem.deleteRegion(sourceId)) {
                         this._pv_initializeVision = true;
                     }
                 }
@@ -631,7 +631,7 @@ LightingLayer.prototype._pv_refreshAreas = function () {
     if (this._pv_flags_updateArea) {
         this._pv_flags_updateArea = false;
 
-        canvas._pv_raySystem.addArea("Scene", {
+        canvas._pv_raySystem.addRegion("Scene", {
             shape: canvas.dimensions.rect.clone().pad(canvas.dimensions.size),
             limit: this._pv_sightLimit
         });
@@ -656,7 +656,7 @@ LightingLayer.prototype._pv_refreshAreas = function () {
         if (area._pv_flags_updateArea) {
             area._pv_flags_updateArea = false;
 
-            canvas._pv_raySystem.addArea(`Drawing.${area.document.id}`, {
+            canvas._pv_raySystem.addRegion(`Drawing.${area.document.id}`, {
                 shape: area._pv_fov,
                 mask: area._pv_los,
                 limit: area._pv_sightLimit,
@@ -1022,11 +1022,11 @@ LightingLayer.prototype._pv_initializeArea = LightingLayer.prototype._pv_destroy
     area._pv_flags_updateArea = true;
 
     if (area === canvas.lighting) {
-        if (canvas._pv_raySystem.deleteArea("Scene")) {
+        if (canvas._pv_raySystem.deleteRegion("Scene")) {
             canvas.lighting._pv_initializeVision = true;
         }
     } else {
-        if (canvas._pv_raySystem.deleteArea(`Drawing.${area.document.id}`)) {
+        if (canvas._pv_raySystem.deleteRegion(`Drawing.${area.document.id}`)) {
             canvas.lighting._pv_initializeVision = true;
         }
     }

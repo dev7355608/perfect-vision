@@ -20,7 +20,7 @@ Hooks.once("init", () => {
             if (sightLimit !== undefined) {
                 const fov = new TransformedShape(this.shape, new PIXI.Matrix().translate(this.data.x, this.data.y));
 
-                canvas._pv_raySystem.addArea(`Template.${this.document.id}`, {
+                canvas._pv_raySystem.addRegion(`Template.${this.document.id}`, {
                     shape: fov,
                     limit: this._pv_sightLimit,
                     mode: RaySystem.MODES.MIN,
@@ -39,7 +39,7 @@ Hooks.once("init", () => {
         if (this._pv_sightLimit !== undefined) {
             this._pv_sightLimit = undefined;
 
-            if (canvas._pv_raySystem.deleteArea(`Template.${this.document.id}`)) {
+            if (canvas._pv_raySystem.deleteRegion(`Template.${this.document.id}`)) {
                 canvas.lighting._pv_initializeVision = true;
                 canvas.perception.schedule({ lighting: { refresh: true } });
             }
@@ -80,14 +80,14 @@ Hooks.on("updateMeasuredTemplate", (document, change, options, userId, arg) => {
             if (sightLimit !== undefined) {
                 const fov = new TransformedShape(template.shape, new PIXI.Matrix().translate(template.data.x, template.data.y));
 
-                canvas._pv_raySystem.addArea(`Template.${document.id}`, {
+                canvas._pv_raySystem.addRegion(`Template.${document.id}`, {
                     shape: fov,
                     limit: template._pv_sightLimit,
                     mode: RaySystem.MODES.MIN,
                     index: [2]
                 });
             } else {
-                canvas._pv_raySystem.deleteArea(`Template.${document.id}`);
+                canvas._pv_raySystem.deleteRegion(`Template.${document.id}`);
             }
 
             canvas.lighting._pv_initializeVision = true;

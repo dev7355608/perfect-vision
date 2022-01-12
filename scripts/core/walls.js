@@ -404,7 +404,7 @@ export class RaySystem {
     }
 
     constructor() {
-        this.A = {};
+        this.regions = {};
         this.n = 0;
         this.D = null;
         this.E = null;
@@ -417,11 +417,10 @@ export class RaySystem {
         this.dirty = true;
     }
 
-
-    addArea(id, { shape, mask = undefined, limit = Infinity, mode = RaySystem.MODES.SET, index = [] }) {
+    addRegion(id, { shape, mask = undefined, limit = Infinity, mode = RaySystem.MODES.SET, index = [] }) {
         shape = TransformedShape.from(shape);
         mask = mask ? TransformedShape.from(mask) : null;
-        limit = Math.max(limit, 0);
+        limit = Math.round(Math.max(limit, 0));
         index = index.map(x => Number(x));
 
         const createShapeData = s => {
@@ -463,14 +462,14 @@ export class RaySystem {
 
         bounds.ceil();
 
-        this.A[id] = { shape: createShapeData(shape), mask: createShapeData(mask), bounds, limit, mode, index };
+        this.regions[id] = { shape: createShapeData(shape), mask: createShapeData(mask), bounds, limit, mode, index };
         this.dirty = true;
     }
 
-    deleteArea(id) {
-        const deleted = id in this.A;
+    deleteRegion(id) {
+        const deleted = id in this.regions;
 
-        delete this.A[id];
+        delete this.regions[id];
 
         if (deleted) {
             this.dirty = true;
@@ -479,12 +478,12 @@ export class RaySystem {
         return deleted;
     }
 
-    hasArea(id) {
-        return id in this.A;
+    hasRegion(id) {
+        return id in this.regions;
     }
 
     reset() {
-        this.A = {};
+        this.regions = {};
         this.dirty = true;
     }
 
@@ -493,7 +492,7 @@ export class RaySystem {
             return false;
         }
 
-        const A = Object.entries(this.A)
+        const A = Object.entries(this.regions)
             .sort(([id1, { index: index1 }], [id2, { index: index2 }]) => {
                 let d = 0;
 
