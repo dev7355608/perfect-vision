@@ -397,7 +397,7 @@ Hooks.once("init", () => {
 });
 
 export class RaySystem {
-    static MODES = Object.freeze({ OVERRIDE: 0, MINIMUM: 1, MAXIMUM: 2 });
+    static MODES = Object.freeze({ SET: 0, MIN: 1, MAX: 2, ADD: 3, SUB: 4 });
 
     static round(x) {
         return Math.round(x * 256) * (1 / 256);
@@ -431,7 +431,6 @@ export class RaySystem {
 
             if (shape.type === PIXI.SHAPES.CIRC || shape.type === PIXI.SHAPES.ELIP) {
                 data = shape.matrix?.clone().invert() ?? new PIXI.Matrix();
-
                 data.translate(-shape.x, -shape.y);
 
                 if (shape.type === PIXI.SHAPES.CIRC) {
@@ -588,7 +587,7 @@ export class RaySystem {
 
     // TODO: return limits for all four quadrants
     estimateRayLimits(rax, ray, rmin = 0, rmax = Infinity) {
-        const { n, D, E, K } = this;
+        const { n, D, E, K, S } = this;
 
         rmax = Math.min(rmax, this.rmax);
 
@@ -599,6 +598,8 @@ export class RaySystem {
 
         let dmin = Infinity;
         let dmax = 0;
+        let dadd = 0;
+        let dsub = 0;
 
         for (let i = 0, k = 0; i < n; i++) {
             const x1 = E[k++];
@@ -609,15 +610,27 @@ export class RaySystem {
             if (x1 < xmax && x2 > xmin && y1 < ymax && y2 > ymin) {
                 const d = D[i];
 
-                dmin = Math.min(dmin, d);
-                dmax = Math.max(dmax, d);
+                switch (S[i] >> 2) {
+                    case 0:
+                    case 1:
+                    case 2:
+                        dmin = Math.min(dmin, d);
+                        dmax = Math.max(dmax, d);
+                        break;
+                    case 3:
+                        dadd += d;
+                        break;
+                    case 4:
+                        dsub += d;
+                        break;
+                }
             }
 
             k += K[i << 1] + K[(i << 1) + 1];
         }
 
-        const lmax = Math.min(rmin + Math.round(1 / dmin), rmax);
-        const lmin = Math.min(rmin + Math.round(1 / dmax), lmax);
+        const lmax = Math.min(rmin + Math.round(1 / Math.max(dmin - dsub, 0)), rmax);
+        const lmin = Math.min(rmin + Math.round(1 / (dmax + dadd)), lmax);
 
         return [lmin, lmax];
     }
@@ -886,6 +899,12 @@ export class RaySystem {
                 case 2:
                     d0 = Math.min(d0, D[i]);
                     break;
+                case 3:
+                    d0 += D[i];
+                    break;
+                case 4:
+                    d0 = Math.max(d0 - D[i], 0);
+                    break;
             }
         }
 
@@ -944,6 +963,12 @@ export class RaySystem {
                             break;
                         case 2:
                             d0 = Math.min(d0, D[i]);
+                            break;
+                        case 3:
+                            d0 += D[i];
+                            break;
+                        case 4:
+                            d0 = Math.max(d0 - D[i], 0);
                             break;
                     }
                 }
