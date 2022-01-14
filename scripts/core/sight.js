@@ -181,8 +181,15 @@ Hooks.once("init", () => {
         let radius;
 
         if (object instanceof Token) {
-            radius = Math.min(object.w, object.h) / 2;
+            radius = object.w / 2 - 1.5;
             tolerance = radius * 0.95;
+
+            const v = object._velocity;
+
+            point = {
+                x: point.x - v.sx,
+                y: point.y - v.sy
+            };
         } else {
             radius = tolerance;
         }

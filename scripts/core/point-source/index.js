@@ -365,7 +365,7 @@ Hooks.once("init", () => {
         let sightLimit = parseFloat(document.getFlag("perfect-vision", "sightLimit"));
 
         if (!Number.isNaN(sightLimit)) {
-            sightLimit = Math.max(getLightRadius(token, Math.max(sightLimit, 0)), Math.min(token.w, token.h) * 0.5);
+            sightLimit = getLightRadius(token, Math.max(sightLimit, 0));
         } else {
             sightLimit = undefined;
         }
@@ -390,7 +390,7 @@ Hooks.once("init", () => {
         // Initialize new input data
         const changes = this._initializeData(data);
 
-        this._pv_minRadius = token.w / 2;
+        this._pv_minRadius = token.w / 2 - 1.5;
         this._pv_sightLimit = sightLimit ?? Infinity;
 
         // Compute derived data attributes

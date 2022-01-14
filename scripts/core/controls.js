@@ -59,13 +59,13 @@ Hooks.on("getSceneControlButtons", controls => {
 });
 
 Hooks.on("renderSceneControls", (sheet, html, data) => {
-    html.find(`li[data-tool="perfect-vision.improvedGMVision"]`).on("wheel", event => {
+    html[0].querySelector(`li[data-tool="perfect-vision.improvedGMVision"]`).addEventListener("wheel", event => {
         event.preventDefault();
         event.stopPropagation();
 
         if (game.settings.get("perfect-vision", "improvedGMVision")) {
             game.settings.set("perfect-vision", "improvedGMVisionBrightness",
-                Math.clamped((Math.round((game.settings.get("perfect-vision", "improvedGMVisionBrightness") ?? 0.25) / 0.05) - Math.sign(event.originalEvent.deltaY)) * 0.05, 0.05, 0.95))
+                Math.clamped((Math.round((game.settings.get("perfect-vision", "improvedGMVisionBrightness") ?? 0.25) / 0.05) - Math.sign(event.deltaY)) * 0.05, 0.05, 0.95))
         }
-    });
+    }, { passive: false });
 });

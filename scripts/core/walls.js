@@ -391,6 +391,8 @@ Hooks.once("init", () => {
         }
     });
 
+    // TODO: ClockwisePolygon.prototype.getRayCollisions
+
     Hooks.on("canvasInit", () => {
         canvas._pv_raySystem = new RaySystem();
     });

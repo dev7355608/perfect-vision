@@ -267,7 +267,7 @@ Hooks.once("init", () => {
             }
         } else {
             const point = token.center;
-            const tolerance = Math.min(token.w, token.h) * 0.475;
+            const tolerance = token.w * 0.475;
 
             for (const offset of offsets) {
                 const p = tempPoint.set(point.x + tolerance * offset.x, point.y + tolerance * offset.y);
@@ -287,7 +287,7 @@ Hooks.once("init", () => {
             }
         } else {
             const point = token.center;
-            const tolerance = Math.min(token.w, token.h) * 0.475;
+            const tolerance = token.w * 0.475;
 
             for (const offset of offsets) {
                 const p = tempPoint.set(point.x + tolerance * offset.x, point.y + tolerance * offset.y);
@@ -316,7 +316,7 @@ Hooks.once("init", () => {
         const dy = y1 - y0;
         const dz = z1 - z0;
         const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        const adjust = Math.min(token.w, token.h) * 0.495;
+        const adjust = token.w * 0.495;
 
         return distance - adjust <= range;
     });
