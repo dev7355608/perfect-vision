@@ -60,11 +60,6 @@ Hooks.once("init", () => {
         const { hasLimitedAngle, hasLimitedRadius } = this.config;
         this.points = [];
 
-        // Open a limited shape
-        if (hasLimitedAngle) {
-            this.points.push(this.origin.x, this.origin.y);
-        }
-
         // We must have at least 2 rays with collision points, otherwise supplementary rays are needed
         if (hasLimitedRadius) {
 
@@ -88,6 +83,7 @@ Hooks.once("init", () => {
                 this.rays.push(rMax);
             }
         }
+
         // We need padding points before a ray if the prior ray reached its termination and has no clockwise edges
         const needsPadding = lastRay => {
             if (!hasLimitedRadius || !lastRay) return false;
@@ -370,6 +366,8 @@ Hooks.once("init", () => {
         // Close the limited shape
         if (hasLimitedAngle) {
             this.points.push(this.origin.x, this.origin.y);
+
+            t = s = 0;
         }
         // Final padding rays, if necessary
         else if (needsPadding(lastRay)) {
@@ -444,7 +442,7 @@ export class RaySystem {
                     data.scale(1 / shape.width, 1 / shape.height);
                 }
             } else {
-                data = s.generateContour();
+                data = Array.from(s.contour);
 
                 for (let i = 0; i < data.length; i++) {
                     data[i] = RaySystem.round(data[i]);
