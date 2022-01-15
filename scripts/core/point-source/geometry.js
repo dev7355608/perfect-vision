@@ -1,5 +1,6 @@
 import { PointSourceMesh } from "./mesh.js";
 import { TransformedShape } from "../../utils/transformed-shape.js";
+import { GeometrySegment } from "../../utils/geometry-segment.js";
 
 export class PointSourceGeometry extends PIXI.Geometry {
     static EMPTY = new PointSourceGeometry(new TransformedShape(new PIXI.Polygon())).retain();
@@ -51,7 +52,7 @@ export class PointSourceGeometry extends PIXI.Geometry {
         s.bounds = {};
         s.bounds.fov = this._addBounds(fovBounds, vertices, indices);
 
-        s.edges = {};
+        s.edges = new GeometrySegment(this);
         s.edges.fov = this._addEdges(fovPoints, vertices, indices);
         s.edges.los = this._addEdges(losPoints, vertices, indices);
 
@@ -132,7 +133,7 @@ export class PointSourceGeometry extends PIXI.Geometry {
             indices.push(first + triangles[i]);
         }
 
-        return { start, size };
+        return new GeometrySegment(this, PIXI.DRAW_MODES.TRIANGLES, size, start);
     }
 
     _addEdges(points, vertices, indices) {
@@ -204,7 +205,7 @@ export class PointSourceGeometry extends PIXI.Geometry {
         indices[end - 1] = first;
         indices[start] = last;
 
-        return { start, size: end - start };
+        return new GeometrySegment(this, PIXI.DRAW_MODES.TRIANGLES, end - start, start);
     }
 
     _addBounds(bounds, vertices, indices) {
@@ -223,7 +224,7 @@ export class PointSourceGeometry extends PIXI.Geometry {
         vertices.push(x1, y1, +1, x2, y1, +1, x2, y2, +1, x1, y2, +1);
         indices.push(first, first + 1, first + 2, first, first + 2, first + 3);
 
-        return { start, size: 6 };
+        return new GeometrySegment(this, PIXI.DRAW_MODES.TRIANGLES, 6, start);
     }
 
     containsPoint(point) {

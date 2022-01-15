@@ -3,7 +3,7 @@ import { presets } from "../settings.js";
 import { PointSourceGeometry } from "./geometry.js";
 import { PointSourceMesh } from "./mesh.js";
 import { TransformedShape } from "../../utils/transformed-shape.js";
-
+import { GeometrySegment } from "../../utils/geometry-segment.js";
 import { DelimiterShader } from "./shader.js";
 
 Hooks.once("init", () => {
@@ -578,21 +578,18 @@ LightSource.prototype._pv_drawMesh = function () {
 LightSource.prototype._pv_drawMask = function (fov, los, inset = false) {
     const geometry = this._pv_geometry;
     const segments = geometry.segments;
-    const drawMode = geometry.drawMode;
-    const { size: losSize, start: losStart } = segments.los;
-    const { size: edgesSize, start: edgesStart } = segments.edges;
 
-    fov.pushMask(false, geometry, drawMode, losSize, losStart);
+    fov.pushMask({ geometry: segments.los });
 
     if (inset) {
-        fov.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+        fov.pushMask({ geometry: segments.edges, hole: true });
     }
 
     if (this.data.vision) {
-        los.pushMask(false, geometry, drawMode, losSize, losStart);
+        los.pushMask({ geometry: segments.los });
 
         if (inset) {
-            los.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+            los.pushMask({ geometry: segments.edges, hole: true });
         }
     }
 
@@ -608,24 +605,27 @@ LightSource.prototype._pv_drawMask = function (fov, los, inset = false) {
 
             {
                 const geometry = occlusionTile.geometry;
-                const drawMode = geometry.drawMode;
-                const texture = occlusionTile.texture;
-                const threshold = 0.75;
+                const mask = {
+                    geometry: new GeometrySegment(geometry, geometry.drawMode, 4, 0),
+                    texture: occlusionTile.texture,
+                    threshold: 0.75,
+                    hole: true
+                };
 
-                fov.pushMask(true, geometry, drawMode, 4, 0, texture, threshold);
+                fov.pushMask(mask);
 
                 if (this.data.vision) {
-                    los.pushMask(true, geometry, drawMode, 4, 0, texture, threshold);
+                    los.pushMask(mask);
                 }
             }
         }
     }
 
-    fov.drawFill(false);
+    fov.draw({ hole: false });
     fov.popMasks();
 
     if (this.data.vision) {
-        los.drawFill(false);
+        los.draw({ hole: false });
         los.popMasks();
     }
 };
@@ -659,33 +659,25 @@ VisionSource.prototype._pv_drawMesh = function () {
 VisionSource.prototype._pv_drawMask = function (fov, los, inset = false) {
     const geometry = this._pv_geometrySight;
     const segments = geometry.segments;
-    const drawMode = geometry.drawMode;
-    const { size: losSize, start: losStart } = segments.los;
 
     if (this.fov.radius > 0) {
-        const { size: fovSize, start: fovStart } = segments.fov;
-
-        fov.pushMask(false, geometry, drawMode, fovSize, fovStart);
+        fov.pushMask({ geometry: segments.fov });
 
         if (inset) {
-            const { size: edgesSize, start: edgesStart } = segments.edges;
-
-            fov.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+            fov.pushMask({ geometry: segments.edges, hole: true });
         }
 
-        fov.draw(false, geometry, drawMode, losSize, losStart);
+        fov.draw({ geometry: segments.los });
         fov.popMasks();
     }
 
-    los.pushMask(false, geometry, drawMode, losSize, losStart);
+    los.pushMask({ geometry: segments.los });
 
     if (inset) {
-        const { size: edgesSize, start: edgesStart } = segments.edges.los;
-
-        los.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+        los.pushMask({ geometry: segments.edges, hole: true });
     }
 
-    los.drawFill(false);
+    los.draw({ hole: false });
     los.popMasks();
 };
 

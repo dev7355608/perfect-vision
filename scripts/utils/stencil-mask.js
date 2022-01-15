@@ -1,3 +1,5 @@
+import { GeometrySegment } from "./geometry-segment.js";
+
 export class StencilMaskData extends PIXI.MaskData {
     constructor(maskObject) {
         super(maskObject);
@@ -118,6 +120,8 @@ const quad = new PIXI.Geometry()
 quad.drawMode = PIXI.DRAW_MODES.TRIANGLE_STRIP;
 quad.refCount++;
 
+const QUAD = new GeometrySegment(quad, quad.drawMode, 4, 0);
+
 const shaderDefault = StencilMaskShader.instance;
 const shaderTextured = StencilMaskTexturedShader.instance;
 const state = new PIXI.State();
@@ -140,8 +144,9 @@ export class StencilMask extends PIXI.DisplayObject {
         this.accessibleChildren = false;
     }
 
-    draw(hole, geometry, drawMode, size, start, texture, threshold) {
+    draw({ hole = false, geometry = null, texture = null, threshold = 0 }) {
         hole = !!hole;
+        geometry = (geometry = geometry ?? QUAD) instanceof GeometrySegment ? geometry : new GeometrySegment(geometry);
 
         if (!hole || this._drawGroups.length !== 0) {
             let currentDrawGroup = this._currentDrawGroup;
@@ -154,7 +159,7 @@ export class StencilMask extends PIXI.DisplayObject {
                 let filled = false;
 
                 for (const mask of this._maskStack) {
-                    if (mask.geometry === quad) {
+                    if (mask.geometry === QUAD) {
                         currentDrawGroup.masks.length = 0;
 
                         if (!mask.hole) {
@@ -177,18 +182,14 @@ export class StencilMask extends PIXI.DisplayObject {
                 }
 
                 for (const { geometry } of currentDrawGroup.masks) {
-                    geometry.refCount++;
+                    geometry.retain();
                 }
             }
 
             if (!currentDrawGroup.complete) {
-                if (geometry === quad) {
+                if (geometry === QUAD) {
                     for (const { geometry } of currentDrawGroup.fills) {
-                        geometry.refCount--;
-
-                        if (geometry.refCount === 0) {
-                            geometry.dispose();
-                        }
+                        geometry.release();
                     }
 
                     currentDrawGroup.fills.length = 0;
@@ -245,9 +246,9 @@ export class StencilMask extends PIXI.DisplayObject {
                 }
 
                 if (currentDrawGroup) {
-                    geometry.refCount++;
+                    geometry.retain();
 
-                    currentDrawGroup.fills.push(new StencilMaskDrawCall(hole, geometry, drawMode, size, start, texture, threshold));
+                    currentDrawGroup.fills.push(new StencilMaskDrawCall(hole, geometry, texture, threshold));
                 }
             }
         }
@@ -255,23 +256,16 @@ export class StencilMask extends PIXI.DisplayObject {
         return this;
     }
 
-    drawFill(hole) {
-        return this.draw(hole, quad, quad.drawMode, 4, 0);
-    }
-
-    pushMask(hole, geometry, drawMode, size, start, texture, threshold) {
+    pushMask({ hole = false, geometry = null, texture = null, threshold = 0 }) {
         hole = !!hole;
+        geometry = (geometry = geometry ?? QUAD) instanceof GeometrySegment ? geometry : new GeometrySegment(geometry);
 
         if (!hole || this._maskStack.length !== 0) {
             this._currentDrawGroup = null;
-            this._maskStack.push(new StencilMaskDrawCall(hole, geometry, drawMode, size, start, texture, threshold));
+            this._maskStack.push(new StencilMaskDrawCall(hole, geometry, texture, threshold));
         }
 
         return this;
-    }
-
-    pushMaskFill() {
-        return this.pushMask(false, quad, quad.drawMode, 4, 0);
     }
 
     popMask() {
@@ -291,19 +285,11 @@ export class StencilMask extends PIXI.DisplayObject {
     clear() {
         for (const { fills, masks } of this._drawGroups) {
             for (const { geometry } of fills) {
-                geometry.refCount--;
-
-                if (geometry.refCount === 0) {
-                    geometry.dispose();
-                }
+                geometry.release();
             }
 
             for (const { geometry } of masks) {
-                geometry.refCount--;
-
-                if (geometry.refCount === 0) {
-                    geometry.dispose();
-                }
+                geometry.release();
             }
         }
 
@@ -418,7 +404,7 @@ export class StencilMask extends PIXI.DisplayObject {
                 let holing; // holed === hole || undefined
 
                 for (let i = 0; i < maskCount; i++) {
-                    const { hole: h, geometry, drawMode, size, start, texture, threshold } = masks[i];
+                    const { hole: h, geometry, texture, threshold } = masks[i];
 
                     if (holing !== h) {
                         holing = h;
@@ -442,8 +428,7 @@ export class StencilMask extends PIXI.DisplayObject {
                         }
                     }
 
-                    renderer.geometry.bind(geometry);
-                    renderer.geometry.draw(drawMode, size, start, geometry.instanceCount);
+                    geometry.draw(renderer);
                 }
 
                 if (!holing) {
@@ -493,7 +478,7 @@ export class StencilMask extends PIXI.DisplayObject {
             }
 
             for (let i = 0, n = fills.length; i < n; i++) {
-                const { geometry, drawMode, size, start, texture, threshold } = fills[i];
+                const { geometry, texture, threshold } = fills[i];
 
                 if (textured !== !!texture) {
                     textured = !!texture;
@@ -510,8 +495,7 @@ export class StencilMask extends PIXI.DisplayObject {
                     }
                 }
 
-                renderer.geometry.bind(geometry);
-                renderer.geometry.draw(drawMode, size, start, geometry.instanceCount);
+                geometry.draw(renderer);
             }
 
             holed = hole;
@@ -551,18 +535,12 @@ class StencilMaskDrawGroup {
 class StencilMaskDrawCall {
     hole;
     geometry;
-    drawMode;
-    size;
-    start;
     texture;
     threshold;
 
-    constructor(hole, geometry, drawMode, size = undefined, start = undefined, texture = null, threshold = 0) {
+    constructor(hole, geometry, texture, threshold) {
         this.hole = hole;
         this.geometry = geometry;
-        this.drawMode = drawMode;
-        this.size = size;
-        this.start = start;
         this.texture = texture;
         this.threshold = threshold;
     }

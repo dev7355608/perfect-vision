@@ -1153,8 +1153,8 @@ LightingLayer.prototype._pv_refreshBuffer = function () {
 };
 
 LightingLayer.prototype._pv_drawMask = function (fov, los) {
-    fov.drawFill(!this._pv_vision && !this._pv_globalLight);
-    los.drawFill(!this._pv_vision);
+    fov.draw({ hole: !this._pv_vision && !this._pv_globalLight });
+    los.draw({ hole: !this._pv_vision });
 };
 
 Drawing.prototype._pv_drawMesh = function () {
@@ -1183,30 +1183,25 @@ Drawing.prototype._pv_drawMesh = function () {
 Drawing.prototype._pv_drawMask = function (fov, los, inset = false) {
     const geometry = this._pv_geometry;
     const segments = geometry.segments;
-    const drawMode = geometry.drawMode;
-    const { size: fovSize, start: fovStart } = segments.fov;
-    const { size: edgesSize, start: edgesStart } = segments.edges;
 
-    fov.pushMask(false, geometry, drawMode, fovSize, fovStart);
+    fov.pushMask({ geometry: segments.fov });
 
     if (inset && (this._pv_vision || this._pv_globalLight)) {
-        fov.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+        fov.pushMask({ geometry: segments.edges, hole: true });
     }
 
-    los.pushMask(false, geometry, drawMode, fovSize, fovStart);
+    los.pushMask({ geometry: segments.fov });
 
     if (inset && this._pv_vision) {
-        los.pushMask(true, geometry, drawMode, edgesSize, edgesStart);
+        los.pushMask({ geometry: segments.edges, hole: true });
     }
 
     if (this._pv_los) {
-        const { size: losSize, start: losStart } = segments.los;
-
-        fov.draw(!this._pv_vision && !this._pv_globalLight, geometry, drawMode, losSize, losStart);
-        los.draw(!this._pv_vision, geometry, drawMode, losSize, losStart);
+        fov.draw({ geometry: segments.los, hole: !this._pv_vision && !this._pv_globalLight });
+        los.draw({ geometry: segments.los, hole: !this._pv_vision });
     } else {
-        fov.drawFill(!this._pv_vision && !this._pv_globalLight);
-        los.drawFill(!this._pv_vision);
+        fov.draw({ hole: !this._pv_vision && !this._pv_globalLight });
+        los.draw({ hole: !this._pv_vision });
     }
 
     fov.popMasks();

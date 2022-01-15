@@ -2,6 +2,7 @@ import { StencilMask, StencilMaskData } from "../utils/stencil-mask.js";
 import { patch } from "../utils/patch.js";
 import { TransformedShape } from "../utils/transformed-shape.js";
 import { SpriteMesh } from "../utils/sprite-mesh.js";
+import { GeometrySegment } from "../utils/geometry-segment.js";
 
 Hooks.once("init", () => {
     patch("SightLayer.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
@@ -360,9 +361,8 @@ SightLayer.prototype._pv_drawMinFOV = function (fov) {
     }
 
     const geometry = new PIXI.Geometry().addAttribute("aVertexPosition", new PIXI.Buffer(vertices, true, false), 2, false, PIXI.TYPES.FLOAT);
-    const drawMode = PIXI.DRAW_MODES.TRIANGLE_STRIP;
 
-    fov.draw(false, geometry, drawMode);
+    fov.draw({ geometry: new GeometrySegment(geometry, PIXI.DRAW_MODES.TRIANGLE_STRIP) });
 };
 
 class SightMaskShader extends PIXI.Shader {
