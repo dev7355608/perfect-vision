@@ -41,7 +41,7 @@ function renderConfig(sheet, html, data) {
         s => s.namespace === "perfect-vision");
 
     if (sheet instanceof TokenConfig) {
-        document = sheet.token;
+        document = sheet instanceof DefaultTokenConfig ? new TokenDocument(sheet.data, { actor: null }) : sheet.token;
         prefix = `flags.${prefix}`;
 
         const config = renderConfigTemplate({
@@ -139,7 +139,7 @@ function renderConfig(sheet, html, data) {
     if (sheet instanceof TokenConfig) {
         html.find(`input[name="${prefix}.sightLimit"]`).attr("placeholder", "Unlimited");
 
-        if (game.system.id === "pf2e" && game.settings.get("pf2e", "automation.rulesBasedVision") && ["character", "familiar"].includes(sheet.token.actor?.type ?? "")) {
+        if (game.system.id === "pf2e" && game.settings.get("pf2e", "automation.rulesBasedVision") && ["character", "familiar"].includes(document.actor?.type ?? "")) {
             html.find(`select[name="${prefix}.visionRules"]`).val("pf2e").prop("disabled", true);
             html.find(`input[name="flags.perfect-vision.sightLimit"]`).prop("disabled", true);
         }
