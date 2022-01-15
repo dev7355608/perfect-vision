@@ -1,6 +1,8 @@
 const framePool = [];
 
 export const RenderTargetMixin = Base => class extends Base {
+    renderTarget = null;
+
     render(renderer) {
         let renderTargetData = this.renderTarget;
         let renderTargetObject;
@@ -114,17 +116,19 @@ export const RenderTargetMixin = Base => class extends Base {
 };
 
 export class RenderTargetData {
+    isRenderTargetData = true;
+    renderTargetObject;
+    type = RENDER_TARGET_TYPES.NONE;
+    autoDetect = true;
+    enabled = true;
+    clearColor = undefined;
+    clearMask = PIXI.BUFFER_BITS.COLOR | PIXI.BUFFER_BITS.DEPTH;
+    sourceFrame = null;
+    destinationFrame = null;
+    texturePool = null;
+
     constructor(renderTargetObject) {
-        this.isRenderTargetData = true;
         this.renderTargetObject = renderTargetObject;
-        this.type = RENDER_TARGET_TYPES.NONE;
-        this.autoDetect = true;
-        this.enabled = true;
-        this.clearColor = undefined;
-        this.clearMask = PIXI.BUFFER_BITS.COLOR | PIXI.BUFFER_BITS.DEPTH;
-        this.sourceFrame = null;
-        this.destinationFrame = null;
-        this.texturePool = null;
     }
 }
 
