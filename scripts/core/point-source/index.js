@@ -8,7 +8,7 @@ import { DelimiterShader } from "./shader.js";
 
 Hooks.once("init", () => {
     patch("PointSource.prototype.destroy", "WRAPPER", function (wrapped, ...args) {
-        if (canvas._pv_raySystem.deleteRegion(this.object.sourceId)) {
+        if (canvas._pv_limits.deleteRegion(this.object.sourceId)) {
             canvas.lighting._pv_initializeVision = true;
         }
 
@@ -141,7 +141,7 @@ Hooks.once("init", () => {
         wrapped(...args);
 
         if (!canvas.lighting.sources.has(this.sourceId)) {
-            if (canvas._pv_raySystem.deleteRegion(this.sourceId)) {
+            if (canvas._pv_limits.deleteRegion(this.sourceId)) {
                 canvas.lighting._pv_initializeVision = true;
             }
 
@@ -153,7 +153,7 @@ Hooks.once("init", () => {
         wrapped(...args);
 
         if (!canvas.lighting.sources.has(this.sourceId)) {
-            if (canvas._pv_raySystem.deleteRegion(this.sourceId)) {
+            if (canvas._pv_limits.deleteRegion(this.sourceId)) {
                 canvas.lighting._pv_initializeVision = true;
             }
 

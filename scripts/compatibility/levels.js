@@ -1,5 +1,4 @@
 import { patch } from "../utils/patch.js";
-import { RaySystem } from "../core/walls.js";
 
 Hooks.once("init", () => {
     if (!game.modules.get("levels")?.active) {
@@ -342,14 +341,7 @@ Hooks.once("init", () => {
         const dx = x1 - x0;
         const dy = y1 - y0;
         const dz = z1 - z0;
-        const t = canvas._pv_raySystem.castRay(
-            RaySystem.round(x0),
-            RaySystem.round(y0),
-            RaySystem.round(dx),
-            RaySystem.round(dy),
-            RaySystem.round(dz),
-            token?.vision._pv_minRadius ?? 0
-        );
+        const t = canvas._pv_limits.castRaySafe(x0, y0, dx, dy, dz, token?.vision._pv_minRadius ?? 0);
 
         return t < 1 ? { x: x0 + dx * t, y: y0 + dy * t, z: z0 + dz * t } : collision;
     });

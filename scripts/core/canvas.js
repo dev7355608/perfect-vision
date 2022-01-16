@@ -4,6 +4,7 @@ import { RenderTargetMixin } from "../utils/render-target.js";
 import { MonoFilter } from "./mono.js";
 import { Logger } from "../utils/logger.js";
 import { TransformedShape } from "../utils/transformed-shape.js";
+import { LimitSystem } from "./walls.js";
 
 class OverlaysCanvasGroup extends PIXI.Container {
     constructor() {
@@ -355,6 +356,8 @@ Hooks.once("init", () => {
     });
 
     patch("Canvas.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
+        this._pv_limits = new LimitSystem();
+
         await wrapped(...args);
 
         if (this.scene === null) {
@@ -376,6 +379,8 @@ Hooks.once("init", () => {
     });
 
     patch("Canvas.prototype.tearDown", "WRAPPER", async function (wrapped, ...args) {
+        this._pv_limits.reset();
+
         if (this._pv_background) {
             this._pv_background.destroy();
             this._pv_background = null;

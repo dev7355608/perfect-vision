@@ -1,6 +1,5 @@
 import { patch } from "../utils/patch.js";
 import { TransformedShape } from "../utils/transformed-shape.js";
-import { RaySystem } from "./walls.js";
 
 const updateAreaKeys = ["t", "x", "y", "direction", "angle", "distance", "width"];
 
@@ -20,10 +19,10 @@ Hooks.once("init", () => {
             if (sightLimit !== undefined) {
                 const fov = new TransformedShape(this.shape, new PIXI.Matrix().translate(this.data.x, this.data.y));
 
-                canvas._pv_raySystem.addRegion(`Template.${this.document.id}`, {
+                canvas._pv_limits.addRegion(`Template.${this.document.id}`, {
                     shape: fov,
                     limit: this._pv_sightLimit,
-                    mode: RaySystem.MODES.MIN,
+                    mode: canvas._pv_limits.constructor.MODES.MIN,
                     index: [2]
                 });
 
@@ -39,7 +38,7 @@ Hooks.once("init", () => {
         if (this._pv_sightLimit !== undefined) {
             this._pv_sightLimit = undefined;
 
-            if (canvas._pv_raySystem.deleteRegion(`Template.${this.document.id}`)) {
+            if (canvas._pv_limits.deleteRegion(`Template.${this.document.id}`)) {
                 canvas.lighting._pv_initializeVision = true;
                 canvas.perception.schedule({ lighting: { refresh: true } });
             }
@@ -80,14 +79,14 @@ Hooks.on("updateMeasuredTemplate", (document, change, options, userId, arg) => {
             if (sightLimit !== undefined) {
                 const fov = new TransformedShape(template.shape, new PIXI.Matrix().translate(template.data.x, template.data.y));
 
-                canvas._pv_raySystem.addRegion(`Template.${document.id}`, {
+                canvas._pv_limits.addRegion(`Template.${document.id}`, {
                     shape: fov,
                     limit: template._pv_sightLimit,
-                    mode: RaySystem.MODES.MIN,
+                    mode: canvas._pv_limits.constructor.MODES.MIN,
                     index: [2]
                 });
             } else {
-                canvas._pv_raySystem.deleteRegion(`Template.${document.id}`);
+                canvas._pv_limits.deleteRegion(`Template.${document.id}`);
             }
 
             canvas.lighting._pv_initializeVision = true;

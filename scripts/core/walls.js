@@ -33,9 +33,9 @@ Hooks.once("init", () => {
             config.radiusMin = config.radiusMin ?? 0;
             config._pv_paddingDensity = Math.PI / config.density;
             config._pv_precision = Math.ceil(canvas.dimensions.size / 5);
-            config._pv_limits = canvas._pv_raySystem.estimateRayLimits(
-                RaySystem.round(origin.x),
-                RaySystem.round(origin.y),
+            config._pv_limits = canvas._pv_limits.estimateRayLimits(
+                LimitSystem.round(origin.x),
+                LimitSystem.round(origin.y),
                 config.radiusMin,
                 config.radius ?? Infinity
             );
@@ -98,11 +98,11 @@ Hooks.once("init", () => {
         let pointQueue;
 
         if (this.config._pv_castRays) {
-            const rs = canvas._pv_raySystem;
+            const rs = canvas._pv_limits;
             const ox = this.origin.x;
             const oy = this.origin.y;
-            const rox = RaySystem.round(this.origin.x);
-            const roy = RaySystem.round(this.origin.y);
+            const rox = LimitSystem.round(this.origin.x);
+            const roy = LimitSystem.round(this.origin.y);
             const rmin = this.config.radiusMin;
             const [lmin, rmax] = this.config._pv_limits;
             const lmin2 = lmin * lmin;
@@ -147,8 +147,8 @@ Hooks.once("init", () => {
                     const dy = Math.sin(a1);
                     const x = ox + rmax * dx;
                     const y = oy + rmax * dy;
-                    const rbx = RaySystem.round(x);
-                    const rby = RaySystem.round(y);
+                    const rbx = LimitSystem.round(x);
+                    const rby = LimitSystem.round(y);
                     const t = rs.castRay(rox, roy, rbx - rox, rby - roy, 0, rmin, rmax);
                     const x1 = ox + t * (x - ox);
                     const y1 = oy + t * (y - oy);
@@ -246,8 +246,8 @@ Hooks.once("init", () => {
                     const dist = ndd / (ndx * dx + ndy * dy);
                     const x = ox + dist * dx;
                     const y = oy + dist * dy;
-                    const rbx = RaySystem.round(x);
-                    const rby = RaySystem.round(y);
+                    const rbx = LimitSystem.round(x);
+                    const rby = LimitSystem.round(y);
                     const t = rs.castRay(rox, roy, rbx - rox, rby - roy, 0, rmin);
                     const x1 = ox + t * (x - ox);
                     const y1 = oy + t * (y - oy);
@@ -271,8 +271,8 @@ Hooks.once("init", () => {
             };
 
             processRay = ray => {
-                const rbx = RaySystem.round(ray.B.x);
-                const rby = RaySystem.round(ray.B.y);
+                const rbx = LimitSystem.round(ray.B.x);
+                const rby = LimitSystem.round(ray.B.y);
                 const rdx = rbx - rox;
                 const rdy = rby - roy;
                 const rmax = Math.sqrt(rdx * rdx + rdy * rdy);
@@ -390,13 +390,9 @@ Hooks.once("init", () => {
     });
 
     // TODO: ClockwisePolygon.prototype.getRayCollisions
-
-    Hooks.on("canvasInit", () => {
-        canvas._pv_raySystem = new RaySystem();
-    });
 });
 
-export class RaySystem {
+export class LimitSystem {
     static MODES = Object.freeze({ SET: 0, MIN: 1, MAX: 2, ADD: 3, SUB: 4 });
 
     static round(x) {
@@ -417,52 +413,8 @@ export class RaySystem {
         this.dirty = true;
     }
 
-    addRegion(id, { shape, mask = undefined, limit = Infinity, mode = RaySystem.MODES.SET, index = [] }) {
-        shape = TransformedShape.from(shape);
-        mask = mask ? TransformedShape.from(mask) : null;
-        limit = Math.round(Math.max(limit, 0));
-        index = index.map(x => Number(x));
-
-        const createShapeData = s => {
-            if (!s) {
-                return null;
-            }
-
-            const shape = s.shape;
-
-            let data;
-
-            if (shape.type === PIXI.SHAPES.CIRC || shape.type === PIXI.SHAPES.ELIP) {
-                data = shape.matrix?.clone().invert() ?? new PIXI.Matrix();
-                data.translate(-shape.x, -shape.y);
-
-                if (shape.type === PIXI.SHAPES.CIRC) {
-                    data.scale(1 / shape.radius, 1 / shape.radius);
-                } else {
-                    data.scale(1 / shape.width, 1 / shape.height);
-                }
-            } else {
-                data = Array.from(s.contour);
-
-                for (let i = 0; i < data.length; i++) {
-                    data[i] = RaySystem.round(data[i]);
-                }
-
-                console.assert(data.length !== 0);
-            }
-
-            return data;
-        }
-
-        const bounds = shape.bounds.clone();
-
-        if (mask) {
-            bounds.fit(mask.bounds);
-        }
-
-        bounds.ceil();
-
-        this.regions[id] = { shape: createShapeData(shape), mask: createShapeData(mask), bounds, limit, mode, index };
+    addRegion(id, { shape, mask = null, limit = Infinity, mode = LimitSystem.MODES.SET, index = [] }) {
+        this.regions[id] = new LimitSystemRegion(shape, mask, limit, mode, index);
         this.dirty = true;
     }
 
@@ -512,6 +464,10 @@ export class RaySystem {
             const m1 = p1.length;
             const m2 = p2 ? p2.length : 0;
 
+            if (m1 === 0 || p2?.length === 0) {
+                continue;
+            }
+
             m += 4;
             m += m1 !== undefined ? m1 : 6;
             m += m2;
@@ -552,6 +508,10 @@ export class RaySystem {
             const m1 = p1.length;
             const m2 = p2 ? p2.length : 0;
             const d = a.limit;
+
+            if (m1 === 0 || p2?.length === 0) {
+                continue;
+            }
 
             rmin = Math.min(rmin, d);
             rmax = Math.max(rmax, d);
@@ -649,6 +609,15 @@ export class RaySystem {
         const lmin = Math.min(rmin + Math.round(1 / (dmax + dadd)), lmax);
 
         return [lmin, lmax];
+    }
+
+    estimateRayLimitsSafe(rax, ray, rmin = 0, rmax = Infinity) {
+        rax = LimitSystem.round(rax);
+        ray = LimitSystem.round(ray);
+        rmin = Math.max(rmin, 0);
+        rmax = Math.max(rmax, 0);
+
+        return this.estimateRayLimits(rax, ray, rmin, rmax);
     }
 
     // if rmax is passed, it must be equal to sqrt(rdx * rdx + rdy * rdy)
@@ -1054,5 +1023,74 @@ export class RaySystem {
         }
 
         return t0;
+    }
+
+    castRaySafe(rax, ray, rdx, rdy, rdz = 0, rmin = 0) {
+        rax = LimitSystem.round(rax);
+        ray = LimitSystem.round(ray);
+        rdx = LimitSystem.round(rdx);
+        rdy = LimitSystem.round(rdy);
+        rmin = Math.max(rmin, 0);
+
+        return this.castRay(rax, ray, rdx, rdy, rdz, rmin);
+    }
+}
+
+class LimitSystemRegion {
+    shape;
+    mask;
+    bounds;
+    limit;
+    mode;
+    index;
+
+    constructor(shape, mask = null, limit = Infinity, mode = 0, index = []) {
+        shape = TransformedShape.from(shape);
+        mask = mask ? TransformedShape.from(mask) : null;
+
+        this.shape = this.constructor._processShape(shape);
+        this.mask = this.constructor._processShape(mask);
+        this.bounds = shape.bounds.clone();
+        this.limit = Math.round(Math.max(limit));
+        this.mode = mode;
+        this.index = index.map(x => Number(x));
+
+        if (mask) {
+            this.bounds.fit(mask.bounds);
+        }
+
+        this.bounds.ceil();
+    }
+
+    static _processShape(shape) {
+        if (!shape) {
+            return null;
+        }
+
+        const s = shape.shape;
+        let data;
+
+        if (s.type === PIXI.SHAPES.CIRC || s.type === PIXI.SHAPES.ELIP) {
+            data = shape.matrix?.clone().invert() ?? new PIXI.Matrix();
+            data.translate(-s.x, -s.y);
+
+            if (s.type === PIXI.SHAPES.CIRC) {
+                data.scale(1 / s.radius, 1 / s.radius);
+            } else {
+                data.scale(1 / s.width, 1 / s.height);
+            }
+        } else {
+            data = Array.from(shape.contour);
+
+            for (let i = 0; i < data.length; i++) {
+                data[i] = LimitSystem.round(data[i]);
+            }
+
+            if (data.length < 3) {
+                data.length = 0;
+            }
+        }
+
+        return data;
     }
 }
