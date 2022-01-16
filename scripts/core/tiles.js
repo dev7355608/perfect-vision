@@ -42,6 +42,20 @@ Hooks.once("init", () => {
             this.tile.mask = this._pv_getOcclusionMask();
         }
 
+        if (!this._pv_frame) {
+            this._pv_frame = new ObjectHUD(this);
+        } else {
+            this._pv_frame.removeChildren();
+        }
+
+        this._pv_frame.addChild(this.frame);
+
+        if (this.data.overhead) {
+            canvas._pv_highlights_overhead.borders.addChild(this._pv_frame);
+        } else {
+            canvas._pv_highlights_underfoot.borders.addChild(this._pv_frame);
+        }
+
         return this;
     });
 
@@ -51,6 +65,13 @@ Hooks.once("init", () => {
         }
 
         return sprite;
+    });
+
+    patch("Tile.prototype.destroy", "WRAPPER", function (wrapped, options) {
+        this._pv_frame?.destroy(options);
+        this._pv_frame = null;
+
+        wrapped(options);
     });
 });
 
