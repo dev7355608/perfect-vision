@@ -1,9 +1,9 @@
 import { PointSourceMesh } from "./mesh.js";
-import { TransformedShape } from "../../utils/transformed-shape.js";
+import { Region } from "../../utils/region.js";
 import { GeometrySegment } from "../../utils/geometry-segment.js";
 
 export class PointSourceGeometry extends PIXI.Geometry {
-    static EMPTY = new PointSourceGeometry(new TransformedShape(new PIXI.Polygon())).retain();
+    static EMPTY = new PointSourceGeometry(Region.from(new PIXI.Polygon())).retain();
 
     fov;
     los;
@@ -16,8 +16,8 @@ export class PointSourceGeometry extends PIXI.Geometry {
     constructor(fov, los, inset = 0) {
         super();
 
-        this.fov = fov ? TransformedShape.from(fov) : null;
-        this.los = los ? TransformedShape.from(los) : null;
+        this.fov = fov ? Region.from(fov) : null;
+        this.los = los ? Region.from(los) : null;
         this.inset = inset || 0;
 
         this._calculateBounds();

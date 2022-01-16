@@ -1,6 +1,6 @@
 import { StencilMask, StencilMaskData } from "../utils/stencil-mask.js";
 import { patch } from "../utils/patch.js";
-import { TransformedShape } from "../utils/transformed-shape.js";
+import { Region } from "../utils/region.js";
 import { SpriteMesh } from "../utils/sprite-mesh.js";
 import { GeometrySegment } from "../utils/geometry-segment.js";
 
@@ -16,7 +16,7 @@ Hooks.once("init", () => {
         this.filter.resolution = canvas.app.renderer.resolution;
         this.filterArea = canvas.app.renderer.screen;
 
-        this._pv_circle = Float32Array.from(new TransformedShape(new PIXI.Circle(0, 0, canvas.dimensions.size)).contour);
+        this._pv_circle = new Region(new PIXI.Circle(0, 0, canvas.dimensions.size)).contour;
 
         for (let i = 0; i < this._pv_circle.length; i++) {
             this._pv_circle[i] /= canvas.dimensions.size;

@@ -1,5 +1,5 @@
 import { patch } from "../utils/patch.js";
-import { TransformedShape } from "../utils/transformed-shape.js";
+import { Region } from "../utils/region.js";
 
 const updateAreaKeys = ["t", "x", "y", "direction", "angle", "distance", "width"];
 
@@ -17,10 +17,8 @@ Hooks.once("init", () => {
             this._pv_sightLimit = sightLimit;
 
             if (sightLimit !== undefined) {
-                const fov = new TransformedShape(this.shape, new PIXI.Matrix().translate(this.data.x, this.data.y));
-
                 canvas._pv_limits.addRegion(`Template.${this.document.id}`, {
-                    shape: fov,
+                    region: Region.from(this.shape, new PIXI.Matrix().translate(this.data.x, this.data.y)),
                     limit: this._pv_sightLimit,
                     mode: canvas._pv_limits.constructor.MODES.MIN,
                     index: [2]
@@ -77,10 +75,8 @@ Hooks.on("updateMeasuredTemplate", (document, change, options, userId, arg) => {
 
         if (updateArea) {
             if (sightLimit !== undefined) {
-                const fov = new TransformedShape(template.shape, new PIXI.Matrix().translate(template.data.x, template.data.y));
-
                 canvas._pv_limits.addRegion(`Template.${document.id}`, {
-                    shape: fov,
+                    region: Region.from(template.shape, new PIXI.Matrix().translate(template.data.x, template.data.y)),
                     limit: template._pv_sightLimit,
                     mode: canvas._pv_limits.constructor.MODES.MIN,
                     index: [2]

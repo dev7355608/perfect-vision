@@ -1,28 +1,28 @@
-export class TransformedShape {
-    static from(shape, matrix) {
-        if (shape instanceof TransformedShape) {
-            if (matrix && shape.matrix) {
-                matrix = matrix.clone().append(shape.matrix);
+export class Region {
+    static from(shape, transform) {
+        if (shape instanceof Region) {
+            if (transform && shape.transform) {
+                transform = transform.clone().append(shape.transform);
             } else {
-                matrix = matrix ?? shape.matrix;
+                transform = transform ?? shape.transform;
             }
 
-            if (!matrix) {
+            if (!transform) {
                 return shape;
             }
 
             shape = shape.shape;
         }
 
-        return new this(shape, matrix);
+        return new this(shape, transform);
     }
 
-    shape = null;
-    matrix = null;
+    shape;
+    transform;
     _bounds = null;
     _contour = null;
 
-    constructor(shape, matrix) {
+    constructor(shape, transform) {
         const originalShape = shape;
 
         {
@@ -46,28 +46,28 @@ export class TransformedShape {
         {
             const type = shape.type;
 
-            if (matrix && type !== PIXI.SHAPES.POLY) {
-                const { a, b, c, d, tx, ty } = matrix;
+            if (transform && type !== PIXI.SHAPES.POLY) {
+                const { a, b, c, d, tx, ty } = transform;
                 const bc0 = Math.abs(b) < 1e-4 && Math.abs(c) < 1e-4;
 
                 if (bc0 || Math.abs(a) < 1e-4 && Math.abs(d) < 1e-4) {
                     if (type === PIXI.SHAPES.RECT) {
                         shape = new PIXI.Rectangle(shape.x, shape.y, shape.width, shape.height);
-                        matrix = null;
+                        transform = null;
                     } else if (type === PIXI.SHAPES.RREC) {
                         if (bc0 && a === d || !bc0 && b === c) {
                             shape = new PIXI.RoundedRectangle(shape.x, shape.y, shape.width, shape.height, shape.radius);
-                            matrix = null;
+                            transform = null;
                         }
                     } else if (type === PIXI.SHAPES.CIRC) {
                         shape = new PIXI.Ellipse(shape.x, shape.y, shape.radius, shape.radius);
-                        matrix = null;
+                        transform = null;
                     } else if (type === PIXI.SHAPES.ELIP) {
                         shape = new PIXI.Ellipse(shape.x, shape.y, shape.width, shape.height);
-                        matrix = null;
+                        transform = null;
                     }
 
-                    if (!matrix) {
+                    if (!transform) {
                         const { x, y, width, height } = shape;
 
                         if (bc0) {
@@ -98,13 +98,13 @@ export class TransformedShape {
                         const radius = shape.radius;
 
                         shape = new PIXI.Ellipse(shape.x, shape.y, radius, radius);
-                        matrix = null;
+                        transform = null;
                     } else if (type === PIXI.SHAPES.ELIP) {
                         if (shape.width === shape.height) {
                             const radius = shape.width;
 
                             shape = new PIXI.Ellipse(shape.x, shape.y, radius, radius);
-                            matrix = null;
+                            transform = null;
                         }
                     } else if (type === PIXI.SHAPES.RREC) {
                         const { width, height } = shape;
@@ -113,11 +113,11 @@ export class TransformedShape {
                             const radius = Math.min(width, height) / 2;
 
                             shape = new PIXI.Ellipse(shape.x + width / 2, shape.y + height / 2, radius, radius);
-                            matrix = null;
+                            transform = null;
                         }
                     }
 
-                    if (!matrix) {
+                    if (!transform) {
                         const { x, y } = shape;
                         const radius = shape.width;
 
@@ -153,10 +153,10 @@ export class TransformedShape {
             } else if (type === PIXI.SHAPES.POLY) {
                 shape = new PIXI.Polygon(Array.from(shape.points));
 
-                if (matrix) {
+                if (transform) {
                     const points = shape.points;
                     const m = points.length;
-                    const { a, b, c, d, tx, ty } = matrix;
+                    const { a, b, c, d, tx, ty } = transform;
 
                     for (let i = 0; i < m; i += 2) {
                         const x = points[i];
@@ -166,10 +166,10 @@ export class TransformedShape {
                         points[i + 1] = b * x + d * y + ty;
                     }
 
-                    matrix = null;
+                    transform = null;
                 }
             } else if (type === PIXI.SHAPES.RECT) {
-                if (matrix) {
+                if (transform) {
                     const x1 = shape.x;
                     const y1 = shape.y
                     const x2 = x1 + shape.width;
@@ -178,7 +178,7 @@ export class TransformedShape {
                     shape = new PIXI.Polygon(x1, y1, x2, y1, x2, y2, x1, y2);
 
                     const points = shape.points;
-                    const { a, b, c, d, tx, ty } = matrix;
+                    const { a, b, c, d, tx, ty } = transform;
 
                     for (let i = 0; i < 8; i += 2) {
                         const x = points[i];
@@ -188,7 +188,7 @@ export class TransformedShape {
                         points[i + 1] = b * x + d * y + ty;
                     }
 
-                    matrix = null;
+                    transform = null;
                 }
             }
         }
@@ -254,7 +254,7 @@ export class TransformedShape {
         }
 
         this.shape = shape;
-        this.matrix = matrix ? matrix.clone() : null;
+        this.transform = transform ? transform.clone() : null;
     }
 
     get bounds() {
@@ -279,15 +279,15 @@ export class TransformedShape {
 
     containsPoint(point) {
         const shape = this.shape;
-        let matrix;
+        let transform;
         let { x, y } = point;
 
         if (shape.type === PIXI.SHAPES.POLY) {
             if (!this.bounds.contains(x, y)) {
                 return false;
             }
-        } else if (matrix = this.matrix) {
-            const { a, b, c, d, tx, ty } = matrix;
+        } else if (transform = this.transform) {
+            const { a, b, c, d, tx, ty } = transform;
             const id = a * d - b * c;
             const x2 = x - tx;
             const y2 = y - ty;
@@ -309,7 +309,7 @@ export class TransformedShape {
         let { x, y } = point;
         const radius2 = radius * radius;
 
-        if (this.matrix || type === PIXI.SHAPES.POLY || type === PIXI.SHAPES.ELIP || type === PIXI.SHAPES.RREC) {
+        if (this.transform || type === PIXI.SHAPES.POLY || type === PIXI.SHAPES.ELIP || type === PIXI.SHAPES.RREC) {
             const bounds = this.bounds;
             const xmin = bounds.x;
             const ymin = bounds.y;
@@ -386,7 +386,7 @@ export class TransformedShape {
         let { x, y } = point;
         const radius2 = radius * radius;
 
-        if (this.matrix || type === PIXI.SHAPES.POLY || type === PIXI.SHAPES.ELIP || type === PIXI.SHAPES.RREC) {
+        if (this.transform || type === PIXI.SHAPES.POLY || type === PIXI.SHAPES.ELIP || type === PIXI.SHAPES.RREC) {
             const bounds = this.bounds;
             const xmin = bounds.x;
             const ymin = bounds.y;
@@ -486,7 +486,7 @@ export class TransformedShape {
     _computeBounds() {
         const shape = this.shape;
         const type = shape.type;
-        const matrix = this.matrix;
+        const transform = this.transform;
         const bounds = new PIXI.Rectangle();
 
         if (type === PIXI.SHAPES.POLY) {
@@ -522,7 +522,7 @@ export class TransformedShape {
                 bounds.height = maxY - minY;
             }
         } else {
-            if (!matrix) {
+            if (!transform) {
                 if (type === PIXI.SHAPES.RECT) {
                     bounds.copyFrom(shape);
                 } else if (type === PIXI.SHAPES.RREC) {
@@ -546,7 +546,7 @@ export class TransformedShape {
                     bounds.height = height * 2;
                 }
             } else {
-                const { a, b, c, d, tx, ty } = matrix;
+                const { a, b, c, d, tx, ty } = transform;
 
                 if (shape.type === PIXI.SHAPES.RREC) {
                     const radius = shape.radius;
@@ -655,7 +655,7 @@ export class TransformedShape {
             return shape.points;
         }
 
-        const matrix = this.matrix;
+        const transform = this.transform;
 
         let x, y;
         let dx, dy;
@@ -688,8 +688,8 @@ export class TransformedShape {
         let sx = rx;
         let sy = ry;
 
-        if (matrix) {
-            const { a, b, c, d } = matrix;
+        if (transform) {
+            const { a, b, c, d } = transform;
 
             sx *= Math.sqrt(a * a + c * c);
             sy *= Math.sqrt(b * b + d * d);
@@ -767,8 +767,8 @@ export class TransformedShape {
             }
         }
 
-        if (matrix) {
-            const { a, b, c, d, tx, ty } = matrix;
+        if (transform) {
+            const { a, b, c, d, tx, ty } = transform;
 
             for (let i = 0; i < m; i += 2) {
                 const x = points[i];

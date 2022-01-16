@@ -3,7 +3,7 @@ import { SpriteMesh } from "../utils/sprite-mesh.js";
 import { RenderTargetMixin } from "../utils/render-target.js";
 import { MonoFilter } from "./mono.js";
 import { Logger } from "../utils/logger.js";
-import { TransformedShape } from "../utils/transformed-shape.js";
+import { Region } from "../utils/region.js";
 
 class OverlaysCanvasGroup extends PIXI.Container {
     constructor() {
@@ -299,7 +299,7 @@ Hooks.once("init", () => {
     patch("Canvas.getDimensions", "WRAPPER", function (wrapped, ...args) {
         const d = wrapped(...args);
 
-        d._pv_sceneRect = new TransformedShape(d.sceneRect);
+        d._pv_sceneRect = Region.from(d.sceneRect);
 
         return d;
     });

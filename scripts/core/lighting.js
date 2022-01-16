@@ -3,7 +3,7 @@ import { SpriteMesh } from "../utils/sprite-mesh.js";
 import { PointSourceGeometry } from "./point-source/geometry.js";
 import { PointSourceMesh } from "./point-source/mesh.js";
 import { Framebuffer } from "../utils/framebuffer.js";
-import { TransformedShape } from "../utils/transformed-shape.js";
+import { Region } from "../utils/region.js";
 
 Hooks.once("init", () => {
     patch("LightingLayer.prototype._configureChannels", "OVERRIDE", function ({ darkness, backgroundColor } = {}) {
@@ -94,7 +94,7 @@ Hooks.once("init", () => {
         }
 
         this._pv_active = true;
-        this._pv_fov = new TransformedShape(this._pv_bgRect);
+        this._pv_fov = Region.from(this._pv_bgRect);
         this._pv_los = null;
         this._pv_flags_updateArea = true;
 
@@ -397,7 +397,7 @@ Hooks.once("init", () => {
 
                 if (source.active && source._pv_sightLimit !== undefined) {
                     canvas._pv_limits.addRegion(sourceId, {
-                        shape: source._pv_los,
+                        region: source._pv_los,
                         limit: source._pv_sightLimit,
                         mode: source.isDarkness ? canvas._pv_limits.constructor.MODES.MIN : canvas._pv_limits.constructor.MODES.MAX,
                         index: [3, source.data.z ?? (source.isDarkness ? 10 : 0), source.isDarkness]
@@ -629,7 +629,7 @@ LightingLayer.prototype._pv_refreshAreas = function () {
         this._pv_flags_updateArea = false;
 
         canvas._pv_limits.addRegion("Scene", {
-            shape: canvas.dimensions.rect.clone().pad(canvas.dimensions.size),
+            region: canvas.dimensions.rect.clone().pad(canvas.dimensions.size),
             limit: this._pv_sightLimit
         });
 
@@ -654,7 +654,7 @@ LightingLayer.prototype._pv_refreshAreas = function () {
             area._pv_flags_updateArea = false;
 
             canvas._pv_limits.addRegion(`Drawing.${area.document.id}`, {
-                shape: area._pv_fov,
+                region: area._pv_fov,
                 mask: area._pv_los,
                 limit: area._pv_sightLimit,
                 index: [1, area._pv_index]
@@ -783,12 +783,12 @@ LightingLayer.prototype._pv_updateArea = function (area) {
     }
 
     if (updateFOV) {
-        area._pv_fov = new TransformedShape(area._pv_getShape(), transform);
+        area._pv_fov = Region.from(area._pv_getShape(), transform);
     }
 
     if (updateLOS) {
         if (area._pv_walls) {
-            area._pv_los = new TransformedShape(CONFIG.Canvas.losBackend.create(area._pv_origin, { type: "light" }));
+            area._pv_los = Region.from(CONFIG.Canvas.losBackend.create(area._pv_origin, { type: "light" }));
         } else {
             if (!area._pv_los) {
                 updateLOS = false;

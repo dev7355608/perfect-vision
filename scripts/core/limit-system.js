@@ -1,4 +1,4 @@
-import { TransformedShape } from "../utils/transformed-shape.js";
+import { Region } from "../utils/region.js";
 
 Hooks.on("canvasInit", () => {
     canvas._pv_limits = new LimitSystem();
@@ -25,8 +25,8 @@ export class LimitSystem {
         this.dirty = true;
     }
 
-    addRegion(id, { shape, mask = null, limit = Infinity, mode = LimitSystem.MODES.SET, index = [] }) {
-        this.regions[id] = new LimitSystemRegion(shape, mask, limit, mode, index);
+    addRegion(id, { region, mask = null, limit = Infinity, mode = LimitSystem.MODES.SET, index = [] }) {
+        this.regions[id] = new LimitSystemRegion(region, mask, limit, mode, index);
         this.dirty = true;
     }
 
@@ -71,7 +71,7 @@ export class LimitSystem {
         let m = 0;
 
         for (const a of A) {
-            const p1 = a.shape;
+            const p1 = a.object;
             const p2 = a.mask;
             const m1 = p1.length;
             const m2 = p2 ? p2.length : 0;
@@ -115,7 +115,7 @@ export class LimitSystem {
         let rmax = 0;
 
         for (const a of A) {
-            const p1 = a.shape;
+            const p1 = a.object;
             const p2 = a.mask;
             const m1 = p1.length;
             const m2 = p2 ? p2.length : 0;
@@ -649,20 +649,20 @@ export class LimitSystem {
 }
 
 class LimitSystemRegion {
-    shape;
+    object;
     mask;
     bounds;
     limit;
     mode;
     index;
 
-    constructor(shape, mask = null, limit = Infinity, mode = 0, index = []) {
-        shape = TransformedShape.from(shape);
-        mask = mask ? TransformedShape.from(mask) : null;
+    constructor(region, mask = null, limit = Infinity, mode = 0, index = []) {
+        region = Region.from(region);
+        mask = mask ? Region.from(mask) : null;
 
-        this.shape = this.constructor._processShape(shape);
-        this.mask = this.constructor._processShape(mask);
-        this.bounds = shape.bounds.clone();
+        this.object = this.constructor._processRegion(region);
+        this.mask = this.constructor._processRegion(mask);
+        this.bounds = region.bounds.clone();
         this.limit = Math.round(Math.max(limit));
         this.mode = mode;
         this.index = index.map(x => Number(x));
@@ -674,25 +674,25 @@ class LimitSystemRegion {
         this.bounds.ceil();
     }
 
-    static _processShape(shape) {
-        if (!shape) {
+    static _processRegion(region) {
+        if (!region) {
             return null;
         }
 
-        const s = shape.shape;
+        const shape = region.shape;
         let data;
 
-        if (s.type === PIXI.SHAPES.CIRC || s.type === PIXI.SHAPES.ELIP) {
-            data = shape.matrix?.clone().invert() ?? new PIXI.Matrix();
-            data.translate(-s.x, -s.y);
+        if (shape.type === PIXI.SHAPES.CIRC || shape.type === PIXI.SHAPES.ELIP) {
+            data = region.transform?.clone().invert() ?? new PIXI.Matrix();
+            data.translate(-shape.x, -shape.y);
 
-            if (s.type === PIXI.SHAPES.CIRC) {
-                data.scale(1 / s.radius, 1 / s.radius);
+            if (shape.type === PIXI.SHAPES.CIRC) {
+                data.scale(1 / shape.radius, 1 / shape.radius);
             } else {
-                data.scale(1 / s.width, 1 / s.height);
+                data.scale(1 / shape.width, 1 / shape.height);
             }
         } else {
-            data = Array.from(shape.contour);
+            data = Array.from(region.contour);
 
             for (let i = 0; i < data.length; i++) {
                 data[i] = LimitSystem.round(data[i]);

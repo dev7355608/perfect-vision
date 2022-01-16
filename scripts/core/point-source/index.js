@@ -2,7 +2,7 @@ import { patch } from "../../utils/patch.js";
 import { presets } from "../settings.js";
 import { PointSourceGeometry } from "./geometry.js";
 import { PointSourceMesh } from "./mesh.js";
-import { TransformedShape } from "../../utils/transformed-shape.js";
+import { Region } from "../../utils/region.js";
 import { GeometrySegment } from "../../utils/geometry-segment.js";
 import { DelimiterShader } from "./shader.js";
 
@@ -91,7 +91,7 @@ Hooks.once("init", () => {
 
         wrapped(data, ...args);
 
-        this._pv_los = this.los ? new TransformedShape(this.los) : null;
+        this._pv_los = this.los ? Region.from(this.los) : null;
         this._pv_geometry = new PointSourceGeometry(null, this._pv_los, canvas.dimensions.size / 10);
         this._pv_shader = new LightSourceShader(this);
 
@@ -434,9 +434,9 @@ Hooks.once("init", () => {
         // Store the FOV circle
         this.fov = new PIXI.Circle(origin.x, origin.y, radiusSight);
 
-        this._pv_fov = this.fov ? new TransformedShape(this.fov) : null;
-        this._pv_los = this.los ? new TransformedShape(this.los) : null;
-        this._pv_geometry = new PointSourceGeometry(this.radius === radiusSight ? this._pv_fov : new TransformedShape(new PIXI.Circle(origin.x, origin.y, this.radius)), this._pv_los, canvas.dimensions.size / 10);
+        this._pv_fov = this.fov ? Region.from(this.fov) : null;
+        this._pv_los = this.los ? Region.from(this.los) : null;
+        this._pv_geometry = new PointSourceGeometry(this.radius === radiusSight ? this._pv_fov : Region.from(new PIXI.Circle(origin.x, origin.y, this.radius)), this._pv_los, canvas.dimensions.size / 10);
         this._pv_shader = new VisionSourceShader(this);
 
         if (!this._pv_mesh) {
