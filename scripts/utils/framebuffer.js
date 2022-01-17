@@ -1,5 +1,5 @@
 import { Logger } from "./logger.js";
-import { SpriteMesh, SpriteMeshMaterial } from "./sprite-mesh.js";
+import { Sprite, SpriteMaterial } from "./sprite.js";
 
 export class Framebuffer extends PIXI.utils.EventEmitter {
     static buffers = {};
@@ -231,7 +231,7 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
                 }
 
                 this.textures.push(texture);
-                this.sprites.push(new FramebufferSprite(new SpriteMeshMaterial(this.textures[i])));
+                this.sprites.push(new FramebufferSprite(new SpriteMaterial(this.textures[i])));
                 this.drawBuffers.push(WebGL2RenderingContext.COLOR_ATTACHMENT0 + i);
 
                 const name = options.name;
@@ -461,7 +461,7 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
     }
 }
 
-class FramebufferSprite extends SpriteMesh {
+class FramebufferSprite extends Sprite {
     constructor(shader) {
         super(shader);
 

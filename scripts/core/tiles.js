@@ -1,5 +1,5 @@
 import { patch } from "../utils/patch.js";
-import { SpriteMesh } from "../utils/sprite-mesh.js";
+import { Sprite } from "../utils/sprite.js";
 import { MaskData, MaskFilter } from "../utils/mask-filter.js";
 
 Hooks.once("init", () => {
@@ -106,7 +106,7 @@ Tile.prototype._pv_createSprite = function ({ shader, blendMode, blendColor, col
     if (shader) {
         shader.texture = texture;
 
-        sprite = new SpriteMesh(shader);
+        sprite = new Sprite(shader);
     } else {
         sprite = new PIXI.Sprite(texture);
     }

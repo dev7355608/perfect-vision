@@ -1,5 +1,5 @@
 import { patch } from "../utils/patch.js";
-import { SpriteMesh } from "../utils/sprite-mesh.js";
+import { Sprite } from "../utils/sprite.js";
 import { RenderTargetMixin } from "../utils/render-target.js";
 import { MonoFilter } from "./mono.js";
 import { Logger } from "../utils/logger.js";
@@ -361,7 +361,7 @@ Hooks.once("init", () => {
             return this;
         }
 
-        this._pv_background = this.stage._pv_scene_without_overlays.addChildAt(new SpriteMesh(new BackgroundColorShader()), 0);
+        this._pv_background = this.stage._pv_scene_without_overlays.addChildAt(new Sprite(new BackgroundColorShader()), 0);
 
         const bgRect = this.dimensions.rect;
 

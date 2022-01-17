@@ -1,5 +1,5 @@
 import { patch } from "../utils/patch.js";
-import { SpriteMesh } from "../utils/sprite-mesh.js";
+import { Sprite } from "../utils/sprite.js";
 import { PointSourceGeometry } from "./point-source/geometry.js";
 import { PointSourceMesh } from "./point-source/mesh.js";
 import { Framebuffer } from "../utils/framebuffer.js";
@@ -180,7 +180,7 @@ Hooks.once("init", () => {
     patch("LightingLayer.prototype._drawIlluminationContainer", "OVERRIDE", function () {
         const c = new PointSourceContainer();
 
-        c.background = c.addChild(new SpriteMesh(IlluminationBackgroundShader.instance));
+        c.background = c.addChild(new Sprite(IlluminationBackgroundShader.instance));
         c.primary = c.addChild(new PIXI.Container());
         c.lights = c.primary.addChild(new PIXI.Container());
         c.lights.sortableChildren = true;

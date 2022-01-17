@@ -1,7 +1,7 @@
 import { StencilMask, StencilMaskData } from "../utils/stencil-mask.js";
 import { patch } from "../utils/patch.js";
 import { Region } from "../utils/region.js";
-import { SpriteMesh } from "../utils/sprite-mesh.js";
+import { Sprite } from "../utils/sprite.js";
 import { GeometrySegment } from "../utils/geometry-segment.js";
 
 Hooks.once("init", () => {
@@ -23,7 +23,7 @@ Hooks.once("init", () => {
             this._pv_circle[i] *= 9 / 10;
         }
 
-        this._pv_vision = new SpriteMesh(SightMaskShader.instance);
+        this._pv_vision = new Sprite(SightMaskShader.instance);
         this._pv_vision.x = this._pv_bgRect.x;
         this._pv_vision.y = this._pv_bgRect.y;
         this._pv_vision.width = this._pv_bgRect.width;

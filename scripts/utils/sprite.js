@@ -1,7 +1,7 @@
 const tempPoint = new PIXI.Point();
 const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
 
-export class SpriteMesh extends PIXI.Mesh {
+export class Sprite extends PIXI.Mesh {
     constructor(shader, state) {
         const geometry = new PIXI.Geometry()
             .addAttribute("aVertexPosition", new PIXI.Buffer(new Float32Array(8), false, false), 2, false, PIXI.TYPES.FLOAT)
@@ -129,8 +129,6 @@ export class SpriteMesh extends PIXI.Mesh {
 
     _render(renderer) {
         this.calculateVertices();
-
-        // TODO: check whether bounds intersect source frame?
 
         const gl = renderer.gl;
         const blendColor = this._blendColor;
@@ -380,7 +378,10 @@ export class SpriteMesh extends PIXI.Mesh {
         if (destroyTexture) {
             const destroyBaseTexture = typeof options === "boolean" ? options : options && options.baseTexture;
 
-            this.shader.texture.destroy(!!destroyBaseTexture);
+            if (this.shader.texture) {
+                this.shader.texture.destroy(!!destroyBaseTexture);
+                this.shader.texture = null;
+            }
         }
 
         this.vertexTrimmedData = null;
@@ -390,7 +391,7 @@ export class SpriteMesh extends PIXI.Mesh {
     }
 }
 
-export class SpriteMeshMaterial extends PIXI.Shader {
+export class SpriteMaterial extends PIXI.Shader {
     static vertexSrc = `\
         #version 100
 
@@ -448,7 +449,7 @@ export class SpriteMeshMaterial extends PIXI.Shader {
             Object.assign(uniforms, options.uniforms);
         }
 
-        super(options.program || SpriteMeshMaterial.program, uniforms);
+        super(options.program || SpriteMaterial.program, uniforms);
 
         this._colorDirty = false;
         this.batchable = options.program === undefined;
