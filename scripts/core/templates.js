@@ -20,7 +20,7 @@ Hooks.once("init", () => {
                 canvas._pv_limits.addRegion(`Template.${this.document.id}`, {
                     region: Region.from(this.shape, new PIXI.Matrix().translate(this.data.x, this.data.y)),
                     limit: this._pv_sightLimit,
-                    mode: canvas._pv_limits.constructor.MODES.MIN,
+                    mode: "min",
                     index: [2]
                 });
 
@@ -78,7 +78,7 @@ Hooks.on("updateMeasuredTemplate", (document, change, options, userId, arg) => {
                 canvas._pv_limits.addRegion(`Template.${document.id}`, {
                     region: Region.from(template.shape, new PIXI.Matrix().translate(template.data.x, template.data.y)),
                     limit: template._pv_sightLimit,
-                    mode: canvas._pv_limits.constructor.MODES.MIN,
+                    mode: "min",
                     index: [2]
                 });
             } else {

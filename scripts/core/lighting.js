@@ -399,7 +399,7 @@ Hooks.once("init", () => {
                     canvas._pv_limits.addRegion(sourceId, {
                         region: source._pv_los,
                         limit: source._pv_sightLimit,
-                        mode: source.isDarkness ? canvas._pv_limits.constructor.MODES.MIN : canvas._pv_limits.constructor.MODES.MAX,
+                        mode: source.isDarkness ? "min": "max",
                         index: [3, source.data.z ?? (source.isDarkness ? 10 : 0), source.isDarkness]
                     });
 
@@ -630,7 +630,8 @@ LightingLayer.prototype._pv_refreshAreas = function () {
 
         canvas._pv_limits.addRegion("Scene", {
             region: canvas.dimensions.rect.clone().pad(canvas.dimensions.size),
-            limit: this._pv_sightLimit
+            limit: this._pv_sightLimit,
+            mode: "set"
         });
 
         if (!canvas._pv_limits.uniformlyLimited) {
@@ -657,6 +658,7 @@ LightingLayer.prototype._pv_refreshAreas = function () {
                 region: area._pv_fov,
                 mask: area._pv_los,
                 limit: area._pv_sightLimit,
+                mode: "set",
                 index: [1, area._pv_index]
             });
 

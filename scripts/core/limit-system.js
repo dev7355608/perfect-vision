@@ -5,27 +5,23 @@ Hooks.on("canvasInit", () => {
 });
 
 export class LimitSystem {
-    static MODES = Object.freeze({ SET: 0, MIN: 1, MAX: 2, ADD: 3, SUB: 4 });
-
     static round(x) {
         return Math.round(x * 256) * (1 / 256);
     }
 
-    constructor() {
-        this.regions = {};
-        this.n = 0;
-        this.D = null;
-        this.E = null;
-        this.K = null;
-        this.S = null;
-        this.Ct = null;
-        this.Ci = null;
-        this.rmin = NaN;
-        this.rmax = NaN;
-        this.dirty = true;
-    }
+    regions = {};
+    dirty = false;
+    n = 0;
+    D = null;
+    E = null;
+    K = null;
+    S = null;
+    Ct = null;
+    Ci = null;
+    lmin = Infinity;
+    lmax = Infinity;
 
-    addRegion(id, { region, mask = null, limit = Infinity, mode = LimitSystem.MODES.SET, index = [] }) {
+    addRegion(id, { region, mask = null, limit = Infinity, mode = "sum", index = [] }) {
         this.regions[id] = new LimitSystemRegion(region, mask, limit, mode, index);
         this.dirty = true;
     }
@@ -56,7 +52,7 @@ export class LimitSystem {
             return false;
         }
 
-        const A = Object.entries(this.regions)
+        const regions = Object.entries(this.regions)
             .sort(([id1, { index: index1 }], [id2, { index: index2 }]) => {
                 let d = 0;
 
@@ -70,9 +66,9 @@ export class LimitSystem {
         let n = 0;
         let m = 0;
 
-        for (const a of A) {
-            const p1 = a.object;
-            const p2 = a.mask;
+        for (const region of regions) {
+            const p1 = region.object;
+            const p2 = region.mask;
             const m1 = p1.length;
             const m2 = p2 ? p2.length : 0;
 
@@ -96,8 +92,8 @@ export class LimitSystem {
             this.S = null;
             this.Ct = null;
             this.Ci = null;
-            this.rmin = NaN;
-            this.rmax = NaN;
+            this.lmin = Infinity;
+            this.lmax = Infinity;
 
             return;
         }
@@ -111,25 +107,50 @@ export class LimitSystem {
 
         let i = 0;
         let k = 0;
-        let rmin = Infinity;
-        let rmax = 0;
+        let dmin = Infinity;
+        let dmax = 0;
+        let dadd = 0;
 
-        for (const a of A) {
+        for (const a of regions) {
             const p1 = a.object;
             const p2 = a.mask;
             const m1 = p1.length;
             const m2 = p2 ? p2.length : 0;
-            const d = a.limit;
+            const d = 1 / a.limit;
 
             if (m1 === 0 || p2?.length === 0) {
                 continue;
             }
 
-            rmin = Math.min(rmin, d);
-            rmax = Math.max(rmax, d);
+            switch (a.mode) {
+                case "sum":
+                    s = 0;
+                    dadd += d;
+                    break;
+                default:
+                    dmin = Math.min(dmin, d);
+                    dmax = Math.max(dmax, d);
+            }
 
-            D[i] = 1 / d;
-            S[i] = a.mode << 2;
+            let s = 0;
+
+            switch (a.mode) {
+                case "sum":
+                    s = 0;
+                    break;
+                case "set":
+                    s = 1;
+                    break;
+                case "min":
+                    s = 2;
+                    break;
+                case "max":
+                    s = 3;
+                    break;
+            }
+
+            D[i] = d;
+            S[i] = s << 2;
             K[(i << 1)] = m1 !== undefined ? m1 : 1;
             K[(i << 1) + 1] = m2;
 
@@ -162,22 +183,22 @@ export class LimitSystem {
             i++;
         }
 
-        this.rmin = Math.min(rmin, rmax);
-        this.rmax = rmax;
+        this.lmax = Math.round(1 / Math.min(dmin, dmax));
+        this.lmin = dadd === 0 ? Math.round(1 / dmax) : Math.floor(1 / (dmax + dadd));
         this.dirty = false;
 
         return true;
     }
 
     get uniformlyLimited() {
-        return this.rmin === this.rmax;
+        return this.lmin === this.lmax;
     }
 
     // TODO: return limits for all four quadrants
     estimateRayLimits(rax, ray, rmin = 0, rmax = Infinity) {
         const { n, D, E, K, S } = this;
 
-        rmax = Math.min(rmax, this.rmax);
+        rmax = Math.min(rmax, this.lmax);
 
         const xmin = rax - rmax;
         const xmax = rax + rmax;
@@ -187,7 +208,6 @@ export class LimitSystem {
         let dmin = Infinity;
         let dmax = 0;
         let dadd = 0;
-        let dsub = 0;
 
         for (let i = 0, k = 0; i < n; i++) {
             const x1 = E[k++];
@@ -200,25 +220,19 @@ export class LimitSystem {
 
                 switch (S[i] >> 2) {
                     case 0:
-                    case 1:
-                    case 2:
-                        dmin = Math.min(dmin, d);
-                        dmax = Math.max(dmax, d);
-                        break;
-                    case 3:
                         dadd += d;
                         break;
-                    case 4:
-                        dsub += d;
-                        break;
+                    default:
+                        dmin = Math.min(dmin, d);
+                        dmax = Math.max(dmax, d);
                 }
             }
 
             k += K[i << 1] + K[(i << 1) + 1];
         }
 
-        const lmax = Math.min(rmin + Math.round(1 / Math.max(dmin - dsub, 0)), rmax);
-        const lmin = Math.min(rmin + Math.round(1 / (dmax + dadd)), lmax);
+        const lmax = Math.min(rmin + Math.round(1 / Math.min(dmin, dmax)), rmax);
+        const lmin = Math.min(rmin + (dadd === 0 ? Math.round(1 / dmax) : Math.floor(1 / (dmax + dadd))), lmax);
 
         return [lmin, lmax];
     }
@@ -488,19 +502,16 @@ export class LimitSystem {
 
             switch (s >> 2) {
                 case 0:
-                    d0 = D[i];
-                    break;
-                case 1:
-                    d0 = Math.max(d0, D[i]);
-                    break;
-                case 2:
-                    d0 = Math.min(d0, D[i]);
-                    break;
-                case 3:
                     d0 += D[i];
                     break;
-                case 4:
-                    d0 = Math.max(d0 - D[i], 0);
+                case 1:
+                    d0 = D[i];
+                    break;
+                case 2:
+                    d0 = Math.max(d0, D[i]);
+                    break;
+                case 3:
+                    d0 = Math.min(d0, D[i]);
                     break;
             }
         }
@@ -553,19 +564,16 @@ export class LimitSystem {
 
                     switch (s >> 2) {
                         case 0:
-                            d0 = D[i];
-                            break;
-                        case 1:
-                            d0 = Math.max(d0, D[i]);
-                            break;
-                        case 2:
-                            d0 = Math.min(d0, D[i]);
-                            break;
-                        case 3:
                             d0 += D[i];
                             break;
-                        case 4:
-                            d0 = Math.max(d0 - D[i], 0);
+                        case 1:
+                            d0 = D[i];
+                            break;
+                        case 2:
+                            d0 = Math.max(d0, D[i]);
+                            break;
+                        case 3:
+                            d0 = Math.min(d0, D[i]);
                             break;
                     }
                 }
@@ -656,7 +664,7 @@ class LimitSystemRegion {
     mode;
     index;
 
-    constructor(region, mask = null, limit = Infinity, mode = 0, index = []) {
+    constructor(region, mask = null, limit = Infinity, mode = "sum", index = []) {
         region = Region.from(region);
         mask = mask ? Region.from(mask) : null;
 
