@@ -86,7 +86,7 @@ Hooks.once("init", () => {
             });
         }
 
-        this._pv_bgRect = canvas.dimensions.rect.clone().pad(canvas.dimensions.size / 10);
+        this._pv_bgRect = canvas.dimensions.rect.clone().pad(canvas.dimensions.size);
 
         if (this._pv_active === undefined) {
             this._pv_initializeArea(this);
@@ -105,7 +105,7 @@ Hooks.once("init", () => {
         this.globalLight = canvas.scene.data.globalLight;
         this.darknessLevel = canvas.scene.data.darkness;
 
-        this._pv_geometry = new PointSourceGeometry(this._pv_fov, this._pv_los, canvas.dimensions.size / 10);
+        this._pv_geometry = new PointSourceGeometry(this._pv_fov, this._pv_los, canvas.dimensions._pv_inset);
         this._pv_shader = new LightingAreaShader(this);
 
         if (!this._pv_mesh) {
@@ -799,7 +799,7 @@ LightingLayer.prototype._pv_updateArea = function (area) {
     }
 
     if (updateFOV || updateLOS) {
-        area._pv_geometry = new PointSourceGeometry(area._pv_fov, area._pv_los, canvas.dimensions.size / 10);
+        area._pv_geometry = new PointSourceGeometry(area._pv_fov, area._pv_los, canvas.dimensions._pv_inset);
         area._pv_flags_updateArea = true;
 
         this._pv_refreshVision = true;
@@ -1625,6 +1625,6 @@ class MinFOVShader extends PIXI.Shader {
     }
 
     update() {
-        this.uniforms.uSmoothness = canvas.dimensions.size / 10;
+        this.uniforms.uSmoothness = canvas.dimensions._pv_inset;
     }
 }

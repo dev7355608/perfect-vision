@@ -92,7 +92,7 @@ Hooks.once("init", () => {
         wrapped(data, ...args);
 
         this._pv_los = this.los ? Region.from(this.los) : null;
-        this._pv_geometry = new PointSourceGeometry(null, this._pv_los, canvas.dimensions.size / 10);
+        this._pv_geometry = new PointSourceGeometry(null, this._pv_los, canvas.dimensions._pv_inset);
         this._pv_shader = new LightSourceShader(this);
 
         if (!this._pv_mesh) {
@@ -436,7 +436,7 @@ Hooks.once("init", () => {
 
         this._pv_fov = this.fov ? Region.from(this.fov) : null;
         this._pv_los = this.los ? Region.from(this.los) : null;
-        this._pv_geometry = new PointSourceGeometry(this.radius === radiusSight ? this._pv_fov : Region.from(new PIXI.Circle(origin.x, origin.y, this.radius)), this._pv_los, canvas.dimensions.size / 10);
+        this._pv_geometry = new PointSourceGeometry(this.radius === radiusSight ? this._pv_fov : Region.from(new PIXI.Circle(origin.x, origin.y, this.radius)), this._pv_los, canvas.dimensions._pv_inset);
         this._pv_shader = new VisionSourceShader(this);
 
         if (!this._pv_mesh) {
@@ -446,7 +446,7 @@ Hooks.once("init", () => {
         }
 
         if (this.radius !== radiusSight) {
-            this._pv_geometrySight = new PointSourceGeometry(this._pv_fov, this._pv_los, canvas.dimensions.size / 10);
+            this._pv_geometrySight = new PointSourceGeometry(this._pv_fov, this._pv_los, canvas.dimensions._pv_inset);
         } else {
             this._pv_geometrySight = this._pv_geometry;
         }

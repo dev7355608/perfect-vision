@@ -300,6 +300,7 @@ Hooks.once("init", () => {
         const d = wrapped(...args);
 
         d._pv_sceneRect = Region.from(d.sceneRect);
+        d._pv_inset = d.size / 10;
 
         return d;
     });

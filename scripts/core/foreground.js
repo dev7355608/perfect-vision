@@ -190,6 +190,6 @@ class RadialOcclusionShader extends PIXI.Shader {
     }
 
     update() {
-        this.uniforms.uSmoothness = canvas.dimensions.size / 10;
+        this.uniforms.uSmoothness = canvas.dimensions._pv_inset;
     }
 }
