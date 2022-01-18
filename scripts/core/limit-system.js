@@ -195,7 +195,7 @@ export class LimitSystem {
     }
 
     // TODO: return limits for all four quadrants
-    estimateRayLimits(rax, ray, rmin = 0, rmax = Infinity) {
+    estimateRayLimitsUnsafe(rax, ray, rmin = 0, rmax = Infinity) {
         const { n, D, E, K, S } = this;
 
         rmax = Math.min(rmax, this.lmax);
@@ -237,17 +237,17 @@ export class LimitSystem {
         return [lmin, lmax];
     }
 
-    estimateRayLimitsSafe(rax, ray, rmin = 0, rmax = Infinity) {
+    estimateRayLimits(rax, ray, rmin = 0, rmax = Infinity) {
         rax = LimitSystem.round(rax);
         ray = LimitSystem.round(ray);
         rmin = Math.max(rmin, 0);
         rmax = Math.max(rmax, 0);
 
-        return this.estimateRayLimits(rax, ray, rmin, rmax);
+        return this.estimateRayLimitsUnsafe(rax, ray, rmin, rmax);
     }
 
     // if rmax is passed, it must be equal to sqrt(rdx * rdx + rdy * rdy)
-    castRay(rax, ray, rdx, rdy, rdz = 0, rmin = 0, rmax) {
+    castRayUnsafe(rax, ray, rdx, rdy, rdz = 0, rmin = 0, rmax) {
         if (rdx === 0 && rdy === 0) {
             rdx = rdy = 1;
             rmax = 0;
@@ -645,14 +645,15 @@ export class LimitSystem {
         return t0;
     }
 
-    castRaySafe(rax, ray, rdx, rdy, rdz = 0, rmin = 0) {
+    castRay(rax, ray, rdx, rdy, rdz = 0, rmin = 0) {
         rax = LimitSystem.round(rax);
         ray = LimitSystem.round(ray);
         rdx = LimitSystem.round(rdx);
         rdy = LimitSystem.round(rdy);
+        rdz = LimitSystem.round(rdz);
         rmin = Math.max(rmin, 0);
 
-        return this.castRay(rax, ray, rdx, rdy, rdz, rmin);
+        return this.castRayUnsafe(rax, ray, rdx, rdy, rdz, rmin);
     }
 }
 

@@ -7,7 +7,7 @@ Hooks.once("init", () => {
             config.radiusMin = config.radiusMin ?? 0;
             config._pv_paddingDensity = Math.PI / config.density;
             config._pv_precision = Math.ceil(canvas.dimensions.size / 5);
-            config._pv_limits = canvas._pv_limits.estimateRayLimitsSafe(
+            config._pv_limits = canvas._pv_limits.estimateRayLimits(
                 origin.x,
                 origin.y,
                 config.radiusMin,
@@ -123,7 +123,7 @@ Hooks.once("init", () => {
                     const y = oy + rmax * dy;
                     const rbx = rs.constructor.round(x);
                     const rby = rs.constructor.round(y);
-                    const t = rs.castRay(rox, roy, rbx - rox, rby - roy, 0, rmin, rmax);
+                    const t = rs.castRayUnsafe(rox, roy, rbx - rox, rby - roy, 0, rmin, rmax);
                     const x1 = ox + t * (x - ox);
                     const y1 = oy + t * (y - oy);
 
@@ -222,7 +222,7 @@ Hooks.once("init", () => {
                     const y = oy + dist * dy;
                     const rbx = rs.constructor.round(x);
                     const rby = rs.constructor.round(y);
-                    const t = rs.castRay(rox, roy, rbx - rox, rby - roy, 0, rmin);
+                    const t = rs.castRayUnsafe(rox, roy, rbx - rox, rby - roy, 0, rmin);
                     const x1 = ox + t * (x - ox);
                     const y1 = oy + t * (y - oy);
 
@@ -250,7 +250,7 @@ Hooks.once("init", () => {
                 const rdx = rbx - rox;
                 const rdy = rby - roy;
                 const rmax = Math.sqrt(rdx * rdx + rdy * rdy);
-                const d = rs.castRay(rox, roy, rdx, rdy, 0, rmin, rmax) * rmax;
+                const d = rs.castRayUnsafe(rox, roy, rdx, rdy, 0, rmin, rmax) * rmax;
 
                 // Add collision points for the ray
                 let x0, y0;
