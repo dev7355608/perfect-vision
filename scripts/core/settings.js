@@ -81,6 +81,8 @@ Hooks.once("init", () => {
         }
     });
 
+    game.settings.set("perfect-vision", "improvedGMVision", false);
+
     game.settings.register("perfect-vision", "improvedGMVisionBrightness", {
         name: "Improved GM Vision Brightness",
         scope: "client",
@@ -117,6 +119,8 @@ Hooks.once("init", () => {
             }
         }
     });
+
+    game.settings.set("perfect-vision", "delimiters", false);
 
     game.settings.register("perfect-vision", "visionRules", {
         name: "Vision Rules",
