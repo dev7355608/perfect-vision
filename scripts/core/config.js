@@ -81,7 +81,7 @@ function renderConfig(sheet, html, data) {
         html.find(`div[data-tab="vision"]`).append(`\
             <div class="form-group">
                 <label>Sight Limit <span class="units">(Grid Units)</span></label>
-                <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
+                <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Infinity" data-dtype="Number">
             </div>`);
         html.find(`input[name="flags.perfect-vision.sightLimit"]`)
             .attr("value", document.getFlag("perfect-vision", "sightLimit"));
@@ -104,7 +104,7 @@ function renderConfig(sheet, html, data) {
                 <label>Sight Limit <span class="units">(Grid Units)</span></label>
                 <div class="form-fields">
                     <label class="checkbox">Enable <input type="checkbox" id="perfect-vision.light.overrideSightLimit"></label>
-                    <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.light.sightLimit" placeholder="Unlimited" data-dtype="Number">
+                    <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.light.sightLimit" placeholder="Infinity" data-dtype="Number">
                 </div>
                 <p class="hint">If enabled, in the area of the light source tokens can see at least as far as the limit if the luminosity is greater or equal to zero, and can see at most as far as the limit if the luminosity is less than zero. Higher priority light sources that overlap this light source can change the sight limit.</p>
             </div>`);
@@ -309,7 +309,7 @@ Hooks.on("renderAmbientLightConfig", (sheet, html, data) => {
             <label>Sight Limit <span class="units">(Grid Units)</span></label>
             <div class="form-fields">
                 <label class="checkbox">Enable <input type="checkbox" id="perfect-vision.overrideSightLimit"></label>
-                <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
+                <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Infinity" data-dtype="Number">
             </div>
             <p class="hint">If enabled, in the area of the light source tokens can see at least as far as the limit if the luminosity is greater or equal to zero, and can see at most as far as the limit if the luminosity is less than zero. Higher priority light sources that overlap this light source can change the sight limit.</p>
         </div>`);
@@ -338,7 +338,7 @@ Hooks.on("renderMeasuredTemplateConfig", (sheet, html, data) => {
             <label>Sight Limit <span class="units">(Grid Units)</span></label>
             <div class="form-fields">
                 <label class="checkbox">Enable <input type="checkbox" id="perfect-vision.overrideSightLimit"></label>
-                <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
+                <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Infinity" data-dtype="Number">
             </div>
         </div>`);
 
@@ -489,7 +489,7 @@ Hooks.on("renderDrawingConfig", (sheet, html, data) => {
             <div class="form-group">
                 <label style="flex:${flex};">Sight Limit <span class="units">(Grid Units)</span></label>
                 <div class="form-fields">
-                    <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
+                    <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Infinity" data-dtype="Number">
                     &nbsp;&nbsp;&nbsp;
                     <label class="checkbox">Override <input type="checkbox" id="perfect-vision.overrideSightLimit"></label>
                 </div>
