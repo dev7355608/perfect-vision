@@ -330,16 +330,19 @@ export class PointSourceMesh extends PIXI.Mesh {
         occlusionSourceFrame.fit(bounds);
         occlusionSourceFrame.ceil(resolution);
 
+        const padding = 1 / resolution;
         const occlusionDestinationFrame = occlusionMaskState.occlusionDestinationFrame;
 
-        occlusionDestinationFrame.x = 1 / resolution;
-        occlusionDestinationFrame.y = 1 / resolution;
-        occlusionDestinationFrame.width = occlusionSourceFrame.width + 2 / resolution;
-        occlusionDestinationFrame.height = occlusionSourceFrame.height + 2 / resolution;
+        occlusionDestinationFrame.x = padding;
+        occlusionDestinationFrame.y = padding;
+        occlusionDestinationFrame.width = occlusionSourceFrame.width;
+        occlusionDestinationFrame.height = occlusionSourceFrame.height;
+
+        occlusionSourceFrame.pad(padding);
 
         const occlusionTexture = occlusionMaskState.occlusionTexture = renderer.filter.texturePool.getOptimalTexture(
-            occlusionDestinationFrame.width,
-            occlusionDestinationFrame.height,
+            occlusionSourceFrame.width,
+            occlusionSourceFrame.height,
             resolution,
             multisample);
 
