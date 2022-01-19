@@ -644,10 +644,10 @@ LightingLayer.prototype._pv_refreshAreas = function () {
     for (let i = 0; i < this._pv_areas.length; i++) {
         const area = this._pv_areas[i];
 
-        if (area._pv_index) {
+        if (area._pv_index !== i) {
             area._pv_index = i;
+            area._pv_flags_updateArea = true;
 
-            this._pv_initializeVision = true;
             this._pv_refreshVision = true;
         }
 
