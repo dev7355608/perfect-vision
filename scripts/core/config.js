@@ -141,7 +141,6 @@ function renderConfig(sheet, html, data) {
 
         if (game.system.id === "pf2e" && game.settings.get("pf2e", "automation.rulesBasedVision") && ["character", "familiar"].includes(document.actor?.type ?? "")) {
             html.find(`select[name="${prefix}.visionRules"]`).val("pf2e").prop("disabled", true);
-            html.find(`input[name="flags.perfect-vision.sightLimit"]`).prop("disabled", true);
         }
     } else {
         if (game.system.id === "pf2e" && game.settings.get("pf2e", "automation.rulesBasedVision")) {

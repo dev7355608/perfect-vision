@@ -353,7 +353,16 @@ Hooks.once("init", () => {
 
         this._pv_minRadius = token.w / 2 - 1.5;
 
-        let sightLimit = parseFloat(document.getFlag("perfect-vision", "sightLimit"));
+        let sightLimit;
+
+        if (game.system.id === "pf2e"
+            && token.scene.rulesBasedVision
+            && (token.actor.type === "character" || token.actor.type === "familiar")
+            && token.actor.visionLevel === 0) {
+            sightLimit = 0;
+        } else {
+            sightLimit = parseFloat(document.getFlag("perfect-vision", "sightLimit"));
+        }
 
         if (!Number.isNaN(sightLimit)) {
             sightLimit = Math.max(sightLimit, 0) / canvas.dimensions.distance * canvas.dimensions.size + this._pv_minRadius;

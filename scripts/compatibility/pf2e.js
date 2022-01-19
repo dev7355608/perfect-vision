@@ -15,11 +15,6 @@ Hooks.once("init", () => {
         if (this.scene.rulesBasedVision && (this.actor.type === "character" || this.actor.type === "familiar")) {
             this.data.dimSight = this.data._source.dimSight = this.hasLowLightVision ? 10000 : 0;
             this.data.brightSight = this.data._source.brightSight = this.hasDarkvision ? 10000 : 0;
-
-            const isBlinded = this.actor.visionLevel === 0;
-
-            setProperty(this.data, "flags.perfect-vision.sightLimit", isBlinded ? 0 : null);
-            setProperty(this.data._source, "flags.perfect-vision.sightLimit", isBlinded ? 0 : null);
         }
     });
 
