@@ -312,17 +312,6 @@ Hooks.once("init", () => {
         u.pv_luminosity = this.data.luminosity;
     });
 
-    function getLightRadius(token, units) {
-        if (units === 0) {
-            return 0;
-        }
-
-        const u = Math.abs(units);
-        const hw = token.w / 2;
-
-        return (u / canvas.dimensions.distance * canvas.dimensions.size + hw) * Math.sign(units);
-    }
-
     patch("VisionSource.prototype.initialize", "OVERRIDE", function (data = {}) {
         const token = this.object;
         const document = token.document;
@@ -362,13 +351,17 @@ Hooks.once("init", () => {
         brightVisionInDarkness = brightVisionInDarkness || game.settings.get("perfect-vision", "brightVisionInDarkness");
         brightVisionInDimLight = brightVisionInDimLight || game.settings.get("perfect-vision", "brightVisionInDimLight");
 
+        this._pv_minRadius = token.w / 2 - 1.5;
+
         let sightLimit = parseFloat(document.getFlag("perfect-vision", "sightLimit"));
 
         if (!Number.isNaN(sightLimit)) {
-            sightLimit = getLightRadius(token, Math.max(sightLimit, 0));
+            sightLimit = Math.max(sightLimit, 0) / canvas.dimensions.distance * canvas.dimensions.size + this._pv_minRadius;
         } else {
             sightLimit = undefined;
         }
+
+        this._pv_sightLimit = sightLimit ?? Infinity;
 
         let { dim, bright } = data;
 
@@ -389,9 +382,6 @@ Hooks.once("init", () => {
 
         // Initialize new input data
         const changes = this._initializeData(data);
-
-        this._pv_minRadius = token.w / 2 - 1.5;
-        this._pv_sightLimit = sightLimit ?? Infinity;
 
         // Compute derived data attributes
         this.radius = Math.max(Math.abs(this.data.dim), Math.abs(this.data.bright));
