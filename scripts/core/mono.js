@@ -94,7 +94,7 @@ export class MonoFilter extends MaskFilter {
                 float y = rgb2y(rgb);
                 float s = min(v.r, v.g);
                 float t2 = max(min(s, v.a), w.g);
-                float t1 = max(1.0 - s, step(s, t2));
+                float t1 = 1.0 - s;
                 gl_FragColor = vec4(rgb2srgb(mix(mix(y2mono(y, uColor), vec3(y), t1), rgb, t2)), 1.0) * a;
             } else {
                 gl_FragColor = vec4(0.0);

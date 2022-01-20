@@ -515,7 +515,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                         void main() {
                             float light = pv_lflc.b;
 
-                            colorBackground = pv_cb = texture2D(pv_colorBackgroundSampler, vSamplerUvs).rgb;
+                            colorBackground = pv_alphaColor = texture2D(pv_colorBackgroundSampler, vSamplerUvs).rgb;
 
                             if (!darkness) {
                                 vec4 dsvb = texture2D(pv_sampler2, vSamplerUvs);
@@ -538,9 +538,19 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                                     boost = min(boost, clamp((darknessLevel - 0.25) / 0.5, 0.0, 1.0));
                                     #endif
 
-                                    colorBackground = colorVision(pv_cb, darknessLevel, min(vision, mix(0.5, 1.0, boost)));
+                                    colorBackground = colorVision(colorBackground, darknessLevel, min(vision, mix(0.5, 1.0, boost)));
                                     colorBright = max(colorBright, colorBackground);
                                     colorDim = max(colorDim, colorBackground);
+
+                                    if (gradual) {
+                                        float dist = pv_dist / pv_radius;
+
+                                        pv_alpha = min(pv_alpha, fade(dist * dist));
+                                    }
+
+                                    if (pv_alpha < 1.0) {
+                                        pv_alphaColor = mix(colorVision(pv_alphaColor, darknessLevel, vision), pv_alphaColor, clamp((light - pv_alpha) / (1.0 - pv_alpha), 0.0, 1.0));
+                                    }
 
                                     vec3 a = vec3(0.0);
                                     vec3 b = vec3(0.0);
@@ -562,32 +572,25 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                                     }
 
                                     finalColor = mix(a, b, boost);
-
-                                    if (gl_FragCoord.z < 1.0) {
-                                        float t = smoothstep(0.0, 1.0, gl_FragCoord.z);
-
-                                        finalColor = mix(mix(colorVision(pv_cb, darknessLevel, vision), pv_cb, clamp((light - t) / (1.0 - t), 0.0, 1.0)), finalColor, t);
-                                    }
                                 } else {
-                                    ratio = %ratio%;
-
-                                    %wrapped%();
-
-                                    pv_alpha = min(pv_alpha, smoothstep(0.0, 1.0, gl_FragCoord.z));
                                     pv_alpha = min(pv_alpha, 1.0 - light);
 
                                     #ifdef PF2E_RULES_BASED_VISION
                                     pv_alpha = min(pv_alpha, clamp((darknessLevel - 0.25) / 0.5, 0.0, 1.0));
                                     #endif
+
+                                    ratio = %ratio%;
+
+                                    %wrapped%();
                                 }
                             } else {
+                                pv_alphaColor = mix(pv_alphaColor, vec3(1.0), 1.0 - pv_alpha);
+
                                 ratio = %ratio%;
                                 colorDim = %colorDim%;
                                 colorBright = %colorBright%;
 
                                 %wrapped%();
-
-                                pv_alpha = min(pv_alpha, smoothstep(0.0, 1.0, gl_FragCoord.z));
                             }
                         }`
                     );
@@ -635,7 +638,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
 
                         pv_dist = pv_distance(localPosition, vec2(0.0));
                         pv_lflc = texture2D(pv_sampler1, vSamplerUvs);
-                        pv_alpha = ${type === AdaptiveIlluminationShader ? "1.0" : "smoothstep(0.0, 1.0, gl_FragCoord.z)"};
+                        pv_alpha = smoothstep(0.0, 1.0, gl_FragCoord.z);
 
                         #ifdef PV_OCCLUSION_MASK
                         pv_alpha = min(pv_alpha, pv_occlusionMaskAlpha(worldPosition.xy));
@@ -645,7 +648,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
 
                         %wrapped%();
 
-                        pv_fragColor = ${type === AdaptiveIlluminationShader ? "darkness ? vec4(mix(mix(pv_cb, vec3(1.0), 1.0 - pv_alpha), finalColor, pv_alpha), 1.0) : vec4(mix(pv_cb, finalColor, pv_alpha), 1.0)" : `vec4(finalColor, 1.0) * pv_alpha`};
+                        pv_fragColor = ${type === AdaptiveIlluminationShader ? "vec4(mix(pv_alphaColor, finalColor, pv_alpha), 1.0)" : `vec4(finalColor, 1.0) * pv_alpha`};
                     }`
                 );
 
@@ -673,7 +676,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                     vec4 pv_lflc;
                     float pv_dist;
                     float pv_alpha;
-                    vec3 pv_cb;
+                    vec3 pv_alphaColor;
                     vec3 finalColor;
                     vec4 baseColor;
                     #define PV_GRADUAL_SMOOTHNESS 0.2

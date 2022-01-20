@@ -561,6 +561,9 @@ LightSource.prototype._pv_drawMesh = function () {
         return null;
     }
 
+    const uniforms = shader.uniforms;
+    const { x, y } = this.data;
+
     mesh.geometry = this._pv_geometry;
     mesh.shader = shader;
     mesh.colorMask.red = this.data.vision;
@@ -570,6 +573,12 @@ LightSource.prototype._pv_drawMesh = function () {
     } else {
         mesh.occlusionObjects = null;
     }
+
+    uniforms.uOrigin[0] = x;
+    uniforms.uOrigin[1] = y;
+    uniforms.uRadius = this.radius;
+    uniforms.uGradual = this.data.gradual;
+    uniforms.uDarkness = this.isDarkness;
 
     return mesh;
 };
@@ -702,13 +711,18 @@ class LightSourceShader extends PIXI.Shader {
 
         precision ${PIXI.settings.PRECISION_FRAGMENT} float;
 
-        ${game.modules.get("levels")?.active ? "#define OCCLUSION_MASK" : ""}
-
-        #ifdef OCCLUSION_MASK
         uniform ${PIXI.settings.PRECISION_VERTEX} vec4 viewportFrame;
         uniform ${PIXI.settings.PRECISION_VERTEX} mat3 projectionMatrixInverse;
         uniform ${PIXI.settings.PRECISION_VERTEX} mat3 translationMatrixInverse;
 
+        uniform vec2 uOrigin;
+        uniform float uRadius;
+        uniform bool uGradual;
+        uniform bool uDarkness;
+
+        ${game.modules.get("levels")?.active ? "#define OCCLUSION_MASK" : ""}
+
+        #ifdef OCCLUSION_MASK
         uniform sampler2D uOcclusionMaskSampler;
         uniform vec4 uOcclusionMaskFrame;
 
@@ -719,16 +733,32 @@ class LightSourceShader extends PIXI.Shader {
 
         layout(location = 0) out vec4 textures[1];
 
+        float fade(in float dist) {
+            float ampdist = dist;
+            for (int i = 1; i < 3; i++) {
+                ampdist *= ampdist;
+            }
+            return 1.0 - (1.0 * ampdist * (4.0 - 3.0 * dist));
+        }
+
         void main() {
-            float alpha = smoothstep(0.0, 1.0, gl_FragCoord.z);
+            ${PIXI.settings.PRECISION_VERTEX} vec3 worldPosition = projectionMatrixInverse * vec3(((gl_FragCoord.xy - viewportFrame.xy) / viewportFrame.zw) * 2.0 - 1.0, 1.0);
+            ${PIXI.settings.PRECISION_VERTEX} vec2 localPosition = (translationMatrixInverse * worldPosition).xy - uOrigin;
+
+            float dist = length(localPosition) / uRadius;
+            float alpha1 = smoothstep(0.0, 1.0, gl_FragCoord.z);
 
             #ifdef OCCLUSION_MASK
-            ${PIXI.settings.PRECISION_VERTEX} vec3 worldPosition = projectionMatrixInverse * vec3(((gl_FragCoord.xy - viewportFrame.xy) / viewportFrame.zw) * 2.0 - 1.0, 1.0);
-
-            alpha = min(alpha, occlusionMaskAlpha(worldPosition.xy));
+            alpha1 = min(alpha1, occlusionMaskAlpha(worldPosition.xy));
             #endif
 
-            textures[0] = vec4(alpha);
+            float alpha2 = alpha1;
+
+            if (uGradual) {
+                alpha2 = min(alpha2, fade(dist * dist));
+            }
+
+            textures[0] = vec4(alpha1, alpha1, alpha2, alpha2);
         }`;
     }
 
@@ -746,6 +776,10 @@ class LightSourceShader extends PIXI.Shader {
 
     constructor(source) {
         super(LightSourceShader.program, {
+            uOrigin: new Float32Array(2),
+            uRadius: 0,
+            uGradual: false,
+            uDarkness: false,
             uOcclusionMaskSampler: PIXI.Texture.WHITE,
             uOcclusionMaskFrame: new Float32Array(4)
         });
@@ -761,7 +795,7 @@ class LightSourceShader extends PIXI.Shader {
         this.uniforms.uOcclusionMaskSampler = value ?? PIXI.Texture.EMPTY;
     }
 
-    _update(renderer, mesh) {
+    update(renderer, mesh) {
         const uniforms = this.uniforms;
 
         uniforms.translationMatrixInverse = mesh.worldTransformInverse.toArray(true);
