@@ -12,6 +12,18 @@ Hooks.once("init", () => {
     });
 });
 
+Hooks.on("createDrawing", (document, options, userId) => {
+    const scene = document.parent;
+
+    if (!scene?.isView) {
+        return;
+    }
+
+    if (document.getFlag("perfect-vision", "active")) {
+        canvas.perception.schedule({ lighting: { refresh: true } });
+    }
+});
+
 const fovOnlyUpdateKeys = ["type", "points", "bezierFactor"];
 const fovAndLosUpdateKeys = ["x", "y", "width", "height", "rotation"];
 
