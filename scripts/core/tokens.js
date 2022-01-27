@@ -25,13 +25,4 @@ Hooks.once("init", () => {
 
         wrapped(options);
     });
-
-    patch("Token.prototype._drawHUD", "WRAPPER", function (wrapped, ...args) {
-        const hud = wrapped(...args);
-
-        hud.removeChild(this.hud.nameplate);
-        hud.addChild(this.hud.nameplate);
-
-        return hud;
-    });
 });

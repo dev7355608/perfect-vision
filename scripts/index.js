@@ -1,3 +1,3 @@
-import "./patches/index.js";
+import "./pixi.js";
 import "./core/index.js";
 import "./compatibility/index.js";

@@ -10,8 +10,6 @@ Hooks.once("init", () => {
 
         await wrapped(...args);
 
-        this.pending.filters = null;
-
         this.filter.autoFit = true;
         this.filter.resolution = canvas.app.renderer.resolution;
         this.filterArea = canvas.app.renderer.screen;
@@ -73,10 +71,6 @@ Hooks.once("init", () => {
         this.explored.removeChild(prior);
 
         if (prior._explored && !skipUpdateFog) {
-            const exploredColor = CONFIG.Canvas.exploredColor;
-
-            prior._pv_rect.tint = exploredColor;
-
             this.pending.addChild(prior);
 
             commitFog = this.pending.children.length >= this.constructor.FOG_COMMIT_THRESHOLD;
@@ -142,7 +136,6 @@ Hooks.once("init", () => {
 
         // Alter visibility of the vision layer
         this.visible = this.sources.size || !game.user.isGM;
-        this.unexplored.tint = CONFIG.Canvas.unexploredColor;
 
         // Apply a mask to the exploration container
         if (this.explored.msk) {

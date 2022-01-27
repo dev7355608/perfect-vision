@@ -3,8 +3,8 @@
   "title": "Perfect Vision",
   "description": "Darkvision and other lighting/vision improvements.",
   "author": "dev7355608",
-  "version": "3.5.8",
-  "minimumCoreVersion": "9.238",
+  "version": "3.5.9",
+  "minimumCoreVersion": "9.245",
   "compatibleCoreVersion": "9",
   "esmodules": [
     "scripts/index.js"
@@ -16,7 +16,7 @@
   ],
   "url": "https://github.com/dev7355608/perfect-vision",
   "manifest": "https://raw.githubusercontent.com/dev7355608/perfect-vision/main/module.json",
-  "download": "https://github.com/dev7355608/perfect-vision/archive/v3.5.8.zip",
+  "download": "https://github.com/dev7355608/perfect-vision/archive/v3.5.9.zip",
   "bugs": "https://github.com/dev7355608/perfect-vision/issues",
   "readme": "https://raw.githubusercontent.com/dev7355608/perfect-vision/main/README.md"
 }

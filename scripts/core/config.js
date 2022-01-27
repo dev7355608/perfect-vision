@@ -41,7 +41,7 @@ function renderConfig(sheet, html, data) {
         s => s.namespace === "perfect-vision");
 
     if (sheet instanceof TokenConfig) {
-        document = sheet instanceof DefaultTokenConfig ? new TokenDocument(sheet.data, { actor: null }) : sheet.token;
+        document = sheet.token;
         prefix = `flags.${prefix}`;
 
         const config = renderConfigTemplate({
@@ -96,7 +96,7 @@ function renderConfig(sheet, html, data) {
             </div>`);
 
         html.find(`input[name="flags.core.priority"]`)
-            .attr("value", document.getFlag("core", "priority") || null)
+            .attr("value", document.getFlag("core", "priority") ?? null)
             .attr("placeholder", document.data.light.luminosity >= 0 ? 0 : 10);
 
         html.find(`div[data-tab="light"] > div[data-tab="advanced"]`).append(`\
@@ -300,7 +300,7 @@ Hooks.on("renderAmbientLightConfig", (sheet, html, data) => {
         </div>`);
 
     html.find(`input[name="flags.core.priority"]`)
-        .attr("value", document.getFlag("core", "priority") || null)
+        .attr("value", document.getFlag("core", "priority") ?? null)
         .attr("placeholder", document.data.config.luminosity >= 0 ? 0 : 10);
 
     html.find(`div[data-tab="advanced"]`).append(`\
@@ -1026,7 +1026,7 @@ Hooks.once("init", () => {
     });
 
     patch("TokenConfig.prototype._getSubmitData", "POST", function (data) {
-        if (!data["flags.core.priority"]) {
+        if (!Number.isFinite(data["flags.core.priority"])) {
             delete data["flags.core.priority"];
 
             data["flags.core.-=priority"] = null;
@@ -1065,16 +1065,15 @@ Hooks.once("init", () => {
 
     patch("AmbientLightConfig.prototype._onResetForm", "WRAPPER", function (wrapped, event, ...args) {
         foundry.utils.mergeObject(this.document.data, {
-            vision: false, walls: true,
             "flags.core.-=priority": null,
             "flags.perfect-vision.-=sightLimit": null
-        }, { inplace: true });
+        });
 
         return wrapped(event, ...args);
     });
 
     patch("AmbientLightConfig.prototype._getSubmitData", "POST", function (data) {
-        if (!data["flags.core.priority"]) {
+        if (!Number.isFinite(data["flags.core.priority"])) {
             delete data["flags.core.priority"];
 
             data["flags.core.-=priority"] = null;

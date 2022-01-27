@@ -362,9 +362,6 @@ Hooks.once("init", () => {
             return this;
         }
 
-        this.outline.destroy(true);
-        this.outline = new PIXI.Graphics();
-        this.background.drawOutline(this.outline);
         this.stage._pv_scene_without_overlays.addChildAt(this.outline, 0);
 
         this._pv_background = this.stage._pv_scene_without_overlays.addChildAt(new Sprite(new BackgroundColorShader()), 0);
