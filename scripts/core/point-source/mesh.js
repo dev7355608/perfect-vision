@@ -368,11 +368,6 @@ export class PointSourceMesh extends PIXI.Mesh {
 
         renderTextureSystem.bind(currentRenderTexture, currentSourceFrame, currentDestinationFrame);
 
-        occlusionSourceFrame.x -= occlusionDestinationFrame.x;
-        occlusionSourceFrame.y -= occlusionDestinationFrame.y;
-        occlusionSourceFrame.width = occlusionTexture.width;
-        occlusionSourceFrame.height = occlusionTexture.height;
-
         shader.occlusionMask = occlusionTexture;
     }
 
