@@ -1,5 +1,6 @@
 import { MaskFilter } from "../utils/mask-filter.js";
 import { srgb2rgb } from "../utils/color.js";
+import { LightingSystem } from "./lighting-system.js";
 
 function updateMonoFilter() {
     let tint;
@@ -28,7 +29,7 @@ function updateMonoFilter() {
     }
 
     MonoFilter.instance.tint = tint ?? defaultTint ?? 0xFFFFFF;
-    MonoFilter.instance.enabled = !canvas.lighting._pv_vision || !(game.user.isGM && game.settings.get("perfect-vision", "improvedGMVision"));
+    MonoFilter.instance.enabled = !LightingSystem.instance.getRegion("Scene").vision || !(game.user.isGM && game.settings.get("perfect-vision", "improvedGMVision"));
 }
 
 Hooks.on("lightingRefresh", () => {
