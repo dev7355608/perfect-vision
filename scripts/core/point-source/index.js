@@ -5,12 +5,11 @@ import { PointSourceMesh } from "./mesh.js";
 import { Region } from "../../utils/region.js";
 import { GeometrySegment } from "../../utils/geometry-segment.js";
 import { DelimiterShader } from "./shader.js";
+import { LimitSystem } from "../limit-system.js";
 
 Hooks.once("init", () => {
     patch("PointSource.prototype.destroy", "WRAPPER", function (wrapped, ...args) {
-        if (canvas._pv_limits.deleteRegion(this.object.sourceId)) {
-            canvas.lighting._pv_initializeVision = true;
-        }
+        LimitSystem.instance.deleteRegion(this.object.sourceId);
 
         wrapped(...args);
 
@@ -45,7 +44,7 @@ Hooks.once("init", () => {
         }
 
         this._pv_mesh = null;
-        this._pv_area = null;
+        this._pv_region = null;
         this._pv_occlusionTiles = null;
     });
 
@@ -83,12 +82,7 @@ Hooks.once("init", () => {
         return mesh;
     });
 
-    const updateAreaKeys = ["x", "y", "z", "angle", "rotation", "walls", "luminosity"];
-
     patch("LightSource.prototype.initialize", "WRAPPER", function (wrapped, data, ...args) {
-        const oldData = foundry.utils.deepClone(this.data);
-        const oldRadius = this.radius;
-
         wrapped(data, ...args);
 
         this._pv_los = this.los ? Region.from(this.los) : null;
@@ -106,32 +100,25 @@ Hooks.once("init", () => {
         const object = this.object;
 
         if ((object instanceof AmbientLight || object instanceof Token) && !this.object._original) {
-            let updateArea = false;
+            const sourceId = object.sourceId;
+
             let sightLimit = object.document.getFlag("perfect-vision", object instanceof AmbientLight ? "sightLimit" : "light.sightLimit");
 
             if (sightLimit !== undefined) {
                 sightLimit = Math.max(sightLimit ?? Infinity, 0) / canvas.dimensions.distance * canvas.dimensions.size;
             }
 
-            if (this._pv_sightLimit !== sightLimit) {
-                this._pv_sightLimit = sightLimit;
-
-                updateArea = true;
+            if (sightLimit !== undefined) {
+                LimitSystem.instance.addRegion(sourceId, {
+                    shape: this._pv_los,
+                    limit: sightLimit,
+                    mode: this.isDarkness ? "min" : "max",
+                    index: [3, this.data.z ?? (this.isDarkness ? 10 : 0), this.isDarkness],
+                    active: this.active
+                });
+            } else {
+                LimitSystem.instance.deleteRegion(sourceId);
             }
-
-            if (!updateArea && sightLimit !== undefined) {
-                if (this.radius !== oldRadius) {
-                    updateArea = true;
-                }
-
-                if (!updateArea) {
-                    const changes = foundry.utils.flattenObject(foundry.utils.diffObject(oldData, data));
-
-                    updateArea = updateAreaKeys.some(k => k in changes);
-                }
-            }
-
-            this._pv_flags_updateArea = this._pv_flags_updateArea || updateArea;
         }
 
         return this;
@@ -141,9 +128,7 @@ Hooks.once("init", () => {
         wrapped(...args);
 
         if (!canvas.lighting.sources.has(this.sourceId)) {
-            if (canvas._pv_limits.deleteRegion(this.sourceId)) {
-                canvas.lighting._pv_initializeVision = true;
-            }
+            LimitSystem.instance.deleteRegion(this.sourceId)
 
             this.source.active = false;
         }
@@ -153,9 +138,7 @@ Hooks.once("init", () => {
         wrapped(...args);
 
         if (!canvas.lighting.sources.has(this.sourceId)) {
-            if (canvas._pv_limits.deleteRegion(this.sourceId)) {
-                canvas.lighting._pv_initializeVision = true;
-            }
+            LimitSystem.instance.deleteRegion(this.sourceId);
 
             this.light.active = false;
         }
@@ -225,7 +208,7 @@ Hooks.once("init", () => {
 
         // Update illumination uniforms
         const ic = this.illumination;
-        const version = this._pv_area?._pv_version ?? canvas.lighting.version;
+        const version = this._pv_region.version;
         const updateChannels = !(this._flags.lightingVersion >= version);
 
         if (this._resetUniforms.illumination || updateChannels) {
@@ -247,10 +230,9 @@ Hooks.once("init", () => {
     });
 
     patch("LightSource.prototype._updateIlluminationUniforms", "OVERRIDE", function (shader) {
-        const area = this._pv_area;
         const u = shader.uniforms;
         const d = shader._defaults;
-        const c = area?._pv_channels ?? canvas.lighting.channels;
+        const c = this._pv_region.channels;
         const colorIntensity = this.data.alpha * 2;
         const blend = (rgb1, rgb2, w) => rgb1.map((x, i) => (w * x) + ((1 - w) * (rgb2[i]))); // linear interpolation
 
@@ -370,8 +352,6 @@ Hooks.once("init", () => {
             sightLimit = undefined;
         }
 
-        this._pv_sightLimit = sightLimit ?? Infinity;
-
         let { dim, bright } = data;
 
         if (sightLimit !== undefined) {
@@ -425,7 +405,7 @@ Hooks.once("init", () => {
             type: "sight",
             angle: this.data.angle,
             rotation: this.data.rotation,
-            radius: this._pv_sightLimit,
+            radius: sightLimit,
             radiusMin: this._pv_minRadius,
             source: this
         });
@@ -494,9 +474,8 @@ Hooks.once("init", () => {
     });
 
     patch("VisionSource.prototype._updateIlluminationUniforms", "OVERRIDE", function (shader) {
-        const area = this._pv_area;
         const u = shader.uniforms;
-        const c = area?._pv_channels ?? canvas.lighting.channels;
+        const c = this._pv_region.channels;
 
         // Determine light colors
         const ll = CONFIG.Canvas.lightLevels;

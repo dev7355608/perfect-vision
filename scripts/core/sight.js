@@ -3,6 +3,8 @@ import { patch } from "../utils/patch.js";
 import { Region } from "../utils/region.js";
 import { Sprite } from "../utils/sprite.js";
 import { GeometrySegment } from "../utils/geometry-segment.js";
+import { LightingSystem } from "./lighting-system.js";
+import { LimitSystem } from "./limit-system.js";
 
 Hooks.once("init", () => {
     patch("SightLayer.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
@@ -50,6 +52,12 @@ Hooks.once("init", () => {
         return c;
     });
 
+    patch("SightLayer.prototype.initializeSources", "WRAPPER", function (wrapped, ...args) {
+        LimitSystem.instance.update();
+
+        return wrapped(...args);
+    });
+
     patch("SightLayer.prototype.refresh", "OVERRIDE", function ({ forceUpdateFog = false, skipUpdateFog = false } = {}) {
         if (!this._initialized) {
             return;
@@ -80,6 +88,8 @@ Hooks.once("init", () => {
 
         // Create a new vision container for this frame
         const vision = this._createVisionContainer();
+        const fov = vision._pv_fov;
+        const los = vision._pv_los;
         const smooth = !this.fogExploration && canvas.foreground.roofs.length === 0;
 
         this.explored.removeChild(this._pv_vision);
@@ -93,23 +103,26 @@ Hooks.once("init", () => {
         // Draw standard vision sources
         let inBuffer = canvas.scene.data.padding === 0;
 
-        canvas.lighting._pv_drawMask(vision._pv_fov, vision._pv_los);
-
-        for (const area of canvas.lighting._pv_areas) {
-            area._pv_drawMask(vision._pv_fov, vision._pv_los);
-        }
-
         if (!smooth) {
+            for (const region of LightingSystem.instance.activeRegions) {
+                if (region.id === "Scene") {
+                    fov.draw({ hole: !region.vision && !region.globalLight });
+                    los.draw({ hole: !region.vision });
+                } else {
+                    region.drawSight(fov, los);
+                }
+            }
+
             // Draw field-of-vision for lighting sources
             for (const source of canvas.lighting.sources) {
                 if (!this.sources.size || !source.active) {
                     continue;
                 }
 
-                source._pv_drawMask(vision._pv_fov, vision._pv_los);
+                source._pv_drawMask(fov, los);
             }
 
-            this._pv_drawMinFOV(vision._pv_fov);
+            this._pv_drawMinFOV(fov);
         }
 
         // Draw sight-based visibility for each vision source
@@ -121,7 +134,7 @@ Hooks.once("init", () => {
             }
 
             if (!smooth) {
-                source._pv_drawMask(vision._pv_fov, vision._pv_los);
+                source._pv_drawMask(fov, los);
 
                 if (!skipUpdateFog) { // Update fog exploration
                     this.updateFog(source, forceUpdateFog);
@@ -195,35 +208,29 @@ Hooks.once("init", () => {
             }
         }
 
-        const uniformVision = canvas.lighting._pv_uniformVision;
-        const uniformGlobalLight = canvas.lighting._pv_uniformGlobalLight;
+        const vision = LightingSystem.instance.vision;
+
+        if (vision === true) {
+            return true;
+        }
 
         let hasLOS = false;
-        let hasFOV = false;
+        let hasFOV = LightingSystem.instance.globalLight;
 
-        if (uniformVision && uniformGlobalLight) {
-            if (canvas.lighting._pv_vision) {
-                return true;
-            }
-
-            hasFOV = canvas.lighting._pv_globalLight;
-        } else {
-            if (uniformVision && canvas.lighting._pv_vision) {
-                return true;
-            }
-
+        if (vision === undefined || hasFOV === undefined) {
             for (const offset of offsets) {
-                const p = tempPoint.set(point.x + tolerance * offset.x, point.y + tolerance * offset.y);
-                const area = canvas.lighting._pv_getArea(p);
+                const region = LightingSystem.instance.getActiveRegionAtPoint(
+                    tempPoint.set(point.x + tolerance * offset.x, point.y + tolerance * offset.y)
+                );
 
-                if (area._pv_vision) {
+                if (region.vision) {
                     return true;
                 }
 
-                if (area._pv_globalLight) {
+                if (region.globalLight) {
                     hasFOV = true;
 
-                    if (uniformVision) {
+                    if (vision === false) {
                         break;
                     }
                 }
@@ -274,7 +281,7 @@ Hooks.once("init", () => {
     });
 
     patch("FogExploration.prototype.explore", "OVERRIDE", function (source, force = false) {
-        const globalLight = canvas.lighting._pv_uniformGlobalLight ? canvas.lighting._pv_globalLight : undefined;
+        const globalLight = LightingSystem.instance.globalLight;
         const radius = Math.min(globalLight ? canvas.dimensions.maxR : source.fov.radius, source.los.config.radius);
 
         if (radius < 0) {

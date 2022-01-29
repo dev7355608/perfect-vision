@@ -26,3 +26,20 @@ Hooks.once("init", () => {
         wrapped(options);
     });
 });
+
+Hooks.on("updateToken", (document, change, options, userId) => {
+    if (!document.parent?.isView || !canvas.ready || !("flags" in change && ("perfect-vision" in change.flags || "-=perfect-vision" in change.flags) || "-=flags" in change)) {
+        return;
+    }
+
+    const token = document.object;
+
+    if (token) {
+        token.updateSource({ defer: true });
+
+        canvas.perception.schedule({
+            lighting: { refresh: true },
+            sight: { refresh: true, forceUpdateFog: token.hasLimitedVisionAngle }
+        });
+    }
+});

@@ -1,5 +1,5 @@
 import "./settings.js"
-import "./config.js";
+import "./config/index.js";
 import "./controls.js";
 import "./canvas.js";
 import "./drawings.js";
@@ -30,7 +30,7 @@ Hooks.once("ready", () => {
         config: false,
     });
 
-    const next = 5;
+    const next = 6;
     let current = game.settings.get("perfect-vision", "popup");
 
     if (game.user.isGM && current < next) {
@@ -46,6 +46,18 @@ Hooks.once("ready", () => {
             <hr>
             <p>If you haven't heard, Perfect Vision makes it possible to adjust all lighting settings locally; this includes <i>Sight Limit</i> as well. To learn how to setup mixed indoor/outdoor scenes or how to create magical darkness click <a href="https://github.com/dev7355608/perfect-vision/blob/main/README.md#drawing-configuration">here</a>.</p>
             <hr>`;
+
+        content += templates[current < 6]
+            .replace("%HEAD%", "v3.6 (Drawing Configuration Improvements)")
+            .replace("%BODY%", `\
+                <ul>
+                    <li>
+                        The lighting configuration of drawings has been improved: unless the <i>Override</i> box is checked, the corresponding UI elements are disabled and set to the inherited values of the parent.
+                        This change should make it a lot easier to see what the lighting/vision settings actually are without looking at the settings of the scene/parents.
+                    </li>
+                    <li>Fixed incorrect <i>Saturation Level</i> inheritance.</li>
+                    <li>Fixed various <i>Sight Limit</i> bugs.</li>
+                </ul>`);
 
         content += templates[current < 5]
             .replace("%HEAD%", "v3.5 (Sight Limit Changes)")
@@ -121,10 +133,14 @@ Hooks.once("ready", () => {
 
 import { Framebuffer } from "../utils/framebuffer.js";
 import { MonoFilter } from "./mono.js";
+import { LightingSystem } from "./lighting-system.js";
+import { LimitSystem } from "./limit-system.js";
 
 class PerfectVision {
     static Framebuffer = Framebuffer;
     static MonoFilter = MonoFilter;
+    static LightingSystem = LightingSystem;
+    static LimitSystem = LimitSystem;
 
     static get debug() {
         return Framebuffer.debug;

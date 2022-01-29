@@ -1,3 +1,5 @@
+import { LightingSystem } from "../core/lighting-system.js";
+import { LimitSystem } from "../core/limit-system.js";
 import { patch } from "../utils/patch.js";
 
 Hooks.once("init", () => {
@@ -260,8 +262,10 @@ Hooks.once("init", () => {
     const tempPoint = new PIXI.Point();
 
     patch("Levels.prototype.overrideVisibilityTest", "OVERRIDE", function (sourceToken, token) {
-        if (canvas.lighting._pv_uniformVision) {
-            if (canvas.lighting._pv_vision) {
+        const vision = LightingSystem.instance.vision;
+
+        if (vision !== undefined) {
+            if (vision) {
                 return true;
             }
         } else {
@@ -270,9 +274,9 @@ Hooks.once("init", () => {
 
             for (const offset of offsets) {
                 const p = tempPoint.set(point.x + tolerance * offset.x, point.y + tolerance * offset.y);
-                const area = canvas.lighting._pv_getArea(p);
+                const region = LightingSystem.instance.getActiveRegionAtPoint(p);
 
-                if (area._pv_vision) {
+                if (region.vision) {
                     return true;
                 }
             }
@@ -280,8 +284,10 @@ Hooks.once("init", () => {
     });
 
     patch("Levels.prototype.tokenInRange", "OVERRIDE", function (sourceToken, token) {
-        if (canvas.lighting._pv_uniformGlobalLight) {
-            if (canvas.lighting._pv_globalLight) {
+        const globalLight = LightingSystem.instance.globalLight;
+
+        if (globalLight !== undefined) {
+            if (globalLight) {
                 return true;
             }
         } else {
@@ -290,9 +296,9 @@ Hooks.once("init", () => {
 
             for (const offset of offsets) {
                 const p = tempPoint.set(point.x + tolerance * offset.x, point.y + tolerance * offset.y);
-                const area = canvas.lighting._pv_getArea(p);
+                const region = LightingSystem.instance.getActiveRegionAtPoint(p);
 
-                if (area._pv_globalLight) {
+                if (region.globalLight) {
                     return true;
                 }
             }
@@ -341,7 +347,7 @@ Hooks.once("init", () => {
         const dx = x1 - x0;
         const dy = y1 - y0;
         const dz = z1 - z0;
-        const t = canvas._pv_limits.castRay(x0, y0, dx, dy, dz, token?.vision._pv_minRadius ?? 0);
+        const t = LimitSystem.instance.castRay(x0, y0, dx, dy, dz, token?.vision._pv_minRadius ?? 0);
 
         return t < 1 ? { x: x0 + dx * t, y: y0 + dy * t, z: z0 + dz * t } : collision;
     });

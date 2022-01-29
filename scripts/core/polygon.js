@@ -1,4 +1,5 @@
 import { patch } from "../utils/patch.js";
+import { LimitSystem } from "./limit-system.js";
 
 Hooks.once("init", () => {
     patch("ClockwiseSweepPolygon.prototype.initialize", "WRAPPER", function (wrapped, origin, config, ...args) {
@@ -7,7 +8,7 @@ Hooks.once("init", () => {
             config.radiusMin = config.radiusMin ?? 0;
             config._pv_paddingDensity = Math.PI / config.density;
             config._pv_precision = Math.ceil(canvas.dimensions.size / 5);
-            config._pv_limits = canvas._pv_limits.estimateRayLimits(
+            config._pv_limits = LimitSystem.instance.estimateRayLimits(
                 origin.x,
                 origin.y,
                 config.radiusMin,
@@ -72,11 +73,11 @@ Hooks.once("init", () => {
         let pointQueue;
 
         if (this.config._pv_castRays) {
-            const rs = canvas._pv_limits;
+            const ls = LimitSystem.instance;
             const ox = this.origin.x;
             const oy = this.origin.y;
-            const rox = rs.constructor.round(this.origin.x);
-            const roy = rs.constructor.round(this.origin.y);
+            const rox = ls.constructor.round(this.origin.x);
+            const roy = ls.constructor.round(this.origin.y);
             const rmin = this.config.radiusMin;
             const [lmin, rmax] = this.config._pv_limits;
             const lmin2 = lmin * lmin;
@@ -121,9 +122,9 @@ Hooks.once("init", () => {
                     const dy = Math.sin(a1);
                     const x = ox + rmax * dx;
                     const y = oy + rmax * dy;
-                    const rbx = rs.constructor.round(x);
-                    const rby = rs.constructor.round(y);
-                    const t = rs.castRayUnsafe(rox, roy, rbx - rox, rby - roy, 0, rmin, rmax);
+                    const rbx = ls.constructor.round(x);
+                    const rby = ls.constructor.round(y);
+                    const t = ls.castRayUnsafe(rox, roy, rbx - rox, rby - roy, 0, rmin, rmax);
                     const x1 = ox + t * (x - ox);
                     const y1 = oy + t * (y - oy);
 
@@ -220,9 +221,9 @@ Hooks.once("init", () => {
                     const dist = ndd / (ndx * dx + ndy * dy);
                     const x = ox + dist * dx;
                     const y = oy + dist * dy;
-                    const rbx = rs.constructor.round(x);
-                    const rby = rs.constructor.round(y);
-                    const t = rs.castRayUnsafe(rox, roy, rbx - rox, rby - roy, 0, rmin);
+                    const rbx = ls.constructor.round(x);
+                    const rby = ls.constructor.round(y);
+                    const t = ls.castRayUnsafe(rox, roy, rbx - rox, rby - roy, 0, rmin);
                     const x1 = ox + t * (x - ox);
                     const y1 = oy + t * (y - oy);
 
@@ -245,12 +246,12 @@ Hooks.once("init", () => {
             };
 
             processRay = ray => {
-                const rbx = rs.constructor.round(ray.B.x);
-                const rby = rs.constructor.round(ray.B.y);
+                const rbx = ls.constructor.round(ray.B.x);
+                const rby = ls.constructor.round(ray.B.y);
                 const rdx = rbx - rox;
                 const rdy = rby - roy;
                 const rmax = Math.sqrt(rdx * rdx + rdy * rdy);
-                const d = rs.castRayUnsafe(rox, roy, rdx, rdy, 0, rmin, rmax) * rmax;
+                const d = ls.castRayUnsafe(rox, roy, rdx, rdy, 0, rmin, rmax) * rmax;
 
                 // Add collision points for the ray
                 let x0, y0;

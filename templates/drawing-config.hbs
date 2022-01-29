@@ -1,0 +1,198 @@
+<div class="tab" data-tab="perfect-vision.lighting">
+    <style type="text/css" scoped>
+        input[type="range"]:disabled {
+            filter: grayscale(1.0) opacity(0.33);
+        }
+
+        input[type="color"]:disabled {
+            filter: opacity(0.5);
+        }
+
+        span.range-value.disabled {
+            filter: opacity(0.67);
+        }
+    </style>
+    <p class="notes">
+        Adjust lighting and vision of the area below the Drawing.
+        Drawings with a higher Z-Index override lighting settings of overlapping Drawings with a lower Z-Index.
+    </p>
+
+    <div class="form-group">
+        <label style="flex: 1.5;">Active</label>
+        <div class="form-fields">
+            <label id="perfect-vision.id" style="flex: 1; font-family: monospace;">{{id}}</label>
+            <button type="button" style="flex: 1;" id="perfect-vision.resetDefaults">
+                <i class="fas fa-undo"></i> Reset Defaults
+            </button>
+            &nbsp;&nbsp;&nbsp;
+            <label class="checkbox" style="visibility: hidden;">Override&nbsp;</label>
+            <input type="checkbox" name="flags.perfect-vision.active" {{checked data.active}}>
+        </div>
+        <p class="notes">If enabled, lighting and vision below the drawing is controlled by the following settings.</p>
+    </div>
+
+    <div class="form-group">
+        <label style="flex: 1.5;">Parent</label>
+        <div class="form-fields">
+            <select name="flags.perfect-vision.parent" style="font-family: monospace;" data-dtype="String">
+                <option value=""></option>
+            </select>
+            &nbsp;&nbsp;&nbsp;
+            <label class="checkbox" style="visibility: hidden;">Override <input type="checkbox"></label>
+        </div>
+        <p class="notes">
+            If left blank, the scene is the parent.
+            The drawing inherits the settings of the parent unless <i>Override</i> is checked.
+        </p>
+    </div>
+
+    <div class="form-group">
+        <label style="flex: 1.5;">Origin</label>
+        <div class="form-fields">
+            <label class="grid-label">x</label>
+            <input type="number" name="flags.perfect-vision.origin.x" placeholder="0.5" step="any"
+                value="{{data.origin.x}}">
+            <label class="grid-label">y</label>
+            <input type="number" name="flags.perfect-vision.origin.y" placeholder="0.5" step="any"
+                value="{{data.origin.x}}">
+            &nbsp;
+            <button class="capture-position" type="button" title="Pick Origin" id="perfect-vision.pickOrigin">
+                <i class="fas fa-crosshairs"></i>
+            </button>
+            &nbsp;&nbsp;&nbsp;
+            <label class="checkbox" style="visibility: hidden;">Override <input type="checkbox"></label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label style="flex: 1.5;">Constrained By Walls</label>
+        <div class="form-fields">
+            <input type="checkbox" name="flags.perfect-vision.walls" {{checked data.walls}}>
+            &nbsp;&nbsp;&nbsp;
+            <label class="checkbox">
+                Override <input type="checkbox" id="perfect-vision.walls.override" {{checked (ne data.walls undefined)
+                    }}>
+            </label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label style="flex: 1.5;">Provides Vision</label>
+        <div class="form-fields">
+            <input type="checkbox" name="flags.perfect-vision.vision" {{checked data.vision}}>
+            &nbsp;&nbsp;&nbsp;
+            <label class="checkbox">
+                Override <input type="checkbox" id="perfect-vision.vision.override" {{checked (ne data.vision
+                    undefined)}}>
+            </label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label style="flex: 1.5;">Unrestricted Vision Range</label>
+        <div class="form-fields">
+            <input type="checkbox" name="flags.perfect-vision.globalLight" {{checked data.globalLight}}>
+            &nbsp;&nbsp;&nbsp;
+            <label class="checkbox">
+                Override <input type="checkbox" id="perfect-vision.globalLight.override" {{checked (ne data.globalLight
+                    undefined)}}>
+            </label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label style="flex: 1.5;">Sight Limit <span class="units">(Grid Units)</span></label>
+        <div class="form-fields">
+            <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Infinity"
+                data-dtype="Number" value="{{data.sightLimit}}">
+            &nbsp;&nbsp;&nbsp;
+            <label class="checkbox">
+                Override <input type="checkbox" id="perfect-vision.sightLimit.override" {{checked (ne data.sightLimit
+                    undefined)}}>
+            </label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label style="flex: 1.5;">Daylight Color</label>
+        <div class="form-fields">
+            <input type="text" name="flags.perfect-vision.daylightColor" placeholder="{{defaults.daylightColor}}"
+                data-dtype="String" value="{{#if data.daylightColor}}{{data.daylightColor}}{{/if}}">
+            <input type="color" data-edit="flags.perfect-vision.daylightColor"
+                value="{{#if data.daylightColor}}{{data.daylightColor}}{{else}}{{defaults.daylightColor}}{{/if}}">
+            &nbsp;&nbsp;&nbsp;
+            <label class="checkbox">
+                Override <input type="checkbox" id="perfect-vision.daylightColor.override" {{checked (ne
+                    data.daylightColor undefined)}}>
+            </label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label style="flex: 1.5;">Darkness Color</label>
+        <div class="form-fields">
+            <input type="text" name="flags.perfect-vision.darknessColor" placeholder="{{defaults.darknessColor}}"
+                data-dtype="String" value="{{#if data.darknessColor}}{{data.darknessColor}}{{/if}}">
+            <input type="color" data-edit="flags.perfect-vision.darknessColor"
+                value="{{#if data.darknessColor}}{{data.darknessColor}}{{else}}{{defaults.darknessColor}}{{/if}}">
+            &nbsp;&nbsp;&nbsp;
+            <label class="checkbox">
+                Override <input type="checkbox" id="perfect-vision.darknessColor.override" {{checked (ne
+                    data.darknessColor undefined)}}>
+            </label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label style="flex: 1.5;">Darkness Level</label>
+        <div class="form-fields">
+            <input type="range" name="flags.perfect-vision.darkness" min="0" max="1" step="0.05"
+                value="{{#if data.darkness includeZero=true}}{{data.darkness}}{{else}}0{{/if}}">
+            <span class="range-value" id="perfect-vision.darkness.value">{{#if data.darkness
+                includeZero=true}}{{data.darkness}}{{else}}0{{/if}}</span>
+            &nbsp;&nbsp;&nbsp;
+            <label class="checkbox">
+                Override <input type="checkbox" id="perfect-vision.darkness.override" {{checked (ne data.darkness
+                    undefined)}}>
+            </label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label style="flex: 1.5;">Saturation Level</label>
+        <div class="form-fields">
+            <label class="checkbox">
+                <input type="checkbox" id="perfect-vision.saturation.enable" {{#if data.saturation
+                    includeZero=true}}checked{{/if}}>
+            </label>
+            <input type="range" name="flags.perfect-vision.saturation" min="0" max="1" step="0.05"
+                value="{{#if data.saturation includeZero=true}}{{data.saturation}}{{else}}0{{/if}}">
+            <span class="range-value" id="perfect-vision.saturation.value">{{#if data.saturation
+                includeZero=true}}{{data.saturation}}{{else}}0{{/if}}</span>
+            &nbsp;&nbsp;&nbsp;
+            <label class="checkbox">
+                Override <input type="checkbox" id="perfect-vision.saturation.override" {{checked (ne data.saturation
+                    undefined)}}>
+            </label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label style="flex: 1.5;">Vision Limitation Threshold</label>
+        <div class="form-fields">
+            <label class="checkbox">
+                <input type="checkbox" id="perfect-vision.globalLightThreshold.enable" {{#if data.globalLightThreshold
+                    includeZero=true}}checked{{/if}}>
+            </label>
+            <input type="range" name="flags.perfect-vision.globalLightThreshold" min="0" max="1" step="0.05"
+                value="{{#if data.globalLightThreshold includeZero=true}}{{data.globalLightThreshold}}{{else}}0{{/if}}">
+            <span class="range-value" id="perfect-vision.globalLightThreshold.value">{{#if data.globalLightThreshold
+                includeZero=true}}{{data.globalLightThreshold}}{{else}}0{{/if}}</span>
+            &nbsp;&nbsp;&nbsp;
+            <label class="checkbox">
+                Override <input type="checkbox" id="perfect-vision.globalLightThreshold.override" {{checked (ne
+                    data.walls undefined)}}>
+            </label>
+        </div>
+    </div>
+</div>

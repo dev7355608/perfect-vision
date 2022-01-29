@@ -1,10 +1,8 @@
 import { Region } from "../utils/region.js";
 
-Hooks.on("canvasInit", () => {
-    canvas._pv_limits = new LimitSystem();
-});
-
 export class LimitSystem {
+    static instance = new LimitSystem();
+
     static round(x) {
         return Math.round(x * 256) * (1 / 256);
     }
@@ -21,9 +19,24 @@ export class LimitSystem {
     lmin = Infinity;
     lmax = Infinity;
 
-    addRegion(id, { region, mask = null, limit = Infinity, mode = "sum", index = [] }) {
-        this.regions[id] = new LimitSystemRegion(region, mask, limit, mode, index);
+    addRegion(id, options) {
+        const region = this.regions[id] = new LimitSystemRegion(options);
+
         this.dirty = true;
+
+        return region;
+    }
+
+    updateRegion(id, changes) {
+        const region = this.regions[id];
+
+        if (region?._update(changes)) {
+            this.dirty = true;
+
+            return true;
+        }
+
+        return false;
     }
 
     deleteRegion(id) {
@@ -40,6 +53,10 @@ export class LimitSystem {
 
     hasRegion(id) {
         return id in this.regions;
+    }
+
+    getRegion(id) {
+        return this.regions[id];
     }
 
     reset() {
@@ -67,8 +84,12 @@ export class LimitSystem {
         let m = 0;
 
         for (const region of regions) {
-            const p1 = region.object;
-            const p2 = region.mask;
+            if (!region.active) {
+                continue;
+            }
+
+            const p1 = region._shape;
+            const p2 = region._mask;
             const m1 = p1.length;
             const m2 = p2 ? p2.length : 0;
 
@@ -111,18 +132,22 @@ export class LimitSystem {
         let dmax = 0;
         let dadd = 0;
 
-        for (const a of regions) {
-            const p1 = a.object;
-            const p2 = a.mask;
+        for (const region of regions) {
+            if (!region.active) {
+                continue;
+            }
+
+            const p1 = region._shape;
+            const p2 = region._mask;
             const m1 = p1.length;
             const m2 = p2 ? p2.length : 0;
-            const d = 1 / a.limit;
+            const d = 1 / region.limit;
 
             if (m1 === 0 || p2?.length === 0) {
                 continue;
             }
 
-            switch (a.mode) {
+            switch (region.mode) {
                 case "sum":
                     s = 0;
                     dadd += d;
@@ -134,7 +159,7 @@ export class LimitSystem {
 
             let s = 0;
 
-            switch (a.mode) {
+            switch (region.mode) {
                 case "sum":
                     s = 0;
                     break;
@@ -154,7 +179,7 @@ export class LimitSystem {
             K[(i << 1)] = m1 !== undefined ? m1 : 1;
             K[(i << 1) + 1] = m2;
 
-            const b = a.bounds;
+            const b = region.bounds;
 
             E[k++] = b.left;
             E[k++] = b.right;
@@ -198,7 +223,7 @@ export class LimitSystem {
     estimateRayLimitsUnsafe(rax, ray, rmin = 0, rmax = Infinity) {
         const { n, D, E, K, S } = this;
 
-        rmax = Math.min(rmax, this.lmax);
+        rmax = Math.min(rmax, rmin + this.lmax);
 
         const xmin = rax - rmax;
         const xmax = rax + rmax;
@@ -228,7 +253,11 @@ export class LimitSystem {
                 }
             }
 
-            k += K[i << 1] + K[(i << 1) + 1];
+            const i1 = i << 1;
+            const m1 = K[i1];
+            const m2 = K[i1 + 1];
+
+            k += (m1 !== 1 ? m1 : 6) + m2;
         }
 
         const lmax = Math.min(rmin + Math.round(1 / Math.min(dmin, dmax)), rmax);
@@ -658,29 +687,91 @@ export class LimitSystem {
 }
 
 class LimitSystemRegion {
-    object;
+    shape;
+    _shape;
     mask;
+    _mask;
     bounds;
     limit;
     mode;
     index;
+    active;
 
-    constructor(region, mask = null, limit = Infinity, mode = "sum", index = []) {
-        region = Region.from(region);
-        mask = mask ? Region.from(mask) : null;
+    constructor({ shape, mask, limit, mode, index, active }) {
+        this._update({ shape, mask, limit, mode, index, active });
+    }
 
-        this.object = this.constructor._processRegion(region);
-        this.mask = this.constructor._processRegion(mask);
-        this.bounds = region.bounds.clone();
-        this.limit = Math.round(Math.max(limit));
-        this.mode = mode;
-        this.index = index.map(x => Number(x));
+    _update(changes) {
+        let { shape, mask, limit, mode, index, active } = changes;
+        let changed = false;
 
-        if (mask) {
-            this.bounds.fit(mask.bounds);
+        if ("shape" in changes) {
+            shape = Region.from(shape);
+
+            if (this.shape !== shape) {
+                this.shape = shape;
+                this._shape = this.constructor._processRegion(shape);
+                changed = true;
+            }
         }
 
-        this.bounds.ceil();
+        if ("mask" in changes) {
+            mask = mask ? Region.from(mask) : null;
+
+            if (this.mask !== mask) {
+                this.mask = mask;
+                this._mask = this.constructor._processRegion(mask);
+                changed = true;
+            }
+        }
+
+        if (shape !== undefined || mask !== undefined) {
+            this.bounds = this.shape.bounds.clone();
+
+            if (this.mask) {
+                this.bounds.fit(this.mask.bounds);
+            }
+
+            this.bounds.ceil();
+        }
+
+        if ("limit" in changes) {
+            limit = Math.round(Math.max(limit ?? Infinity, 0));
+
+            if (this.limit !== limit) {
+                this.limit = limit;
+                changed = true;
+            }
+        }
+
+        if ("mode" in changes) {
+            mode = mode ?? "sum";
+
+            if (this.mode !== mode) {
+                this.mode = mode;
+                changed = true;
+            }
+        }
+
+        if ("index" in changes) {
+            index = index?.map(x => Number(x)) ?? [];
+
+            if (this.index?.length !== index.length || this.index.some((v, i) => index[i] !== v)) {
+                this.index = index;
+                changed = true;
+            }
+        }
+
+        if ("active" in changes) {
+            active = !!(active ?? true);
+
+            if (this.active !== active) {
+                this.active = active;
+                changed = true;
+            }
+        }
+
+        return changed;
     }
 
     static _processRegion(region) {
