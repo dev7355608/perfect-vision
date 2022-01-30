@@ -274,7 +274,7 @@ Hooks.once("init", () => {
 
             for (const offset of offsets) {
                 const p = tempPoint.set(point.x + tolerance * offset.x, point.y + tolerance * offset.y);
-                const region = LightingSystem.instance.getActiveRegionAtPoint(p);
+                const region = LightingSystem.instance.getActiveRegionAtPoint(p) ?? LightingSystem.instance.getRegion("Scene");
 
                 if (region.vision) {
                     return true;
@@ -296,7 +296,7 @@ Hooks.once("init", () => {
 
             for (const offset of offsets) {
                 const p = tempPoint.set(point.x + tolerance * offset.x, point.y + tolerance * offset.y);
-                const region = LightingSystem.instance.getActiveRegionAtPoint(p);
+                const region = LightingSystem.instance.getActiveRegionAtPoint(p) ?? LightingSystem.instance.getRegion("Scene");
 
                 if (region.globalLight) {
                     return true;

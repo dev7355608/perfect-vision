@@ -221,7 +221,7 @@ Hooks.once("init", () => {
             for (const offset of offsets) {
                 const region = LightingSystem.instance.getActiveRegionAtPoint(
                     tempPoint.set(point.x + tolerance * offset.x, point.y + tolerance * offset.y)
-                );
+                ) ?? LightingSystem.instance.getRegion("Scene");
 
                 if (region.vision) {
                     return true;

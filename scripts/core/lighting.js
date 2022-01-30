@@ -184,11 +184,11 @@ Hooks.once("init", () => {
 
         forceUpdateLOS = false;
 
-        const region = LightingSystem.instance.getRegion("Scene");
+        const sceneRegion = LightingSystem.instance.getRegion("Scene");
 
-        this.darknessLevel = region.darknessLevel;
-        this.channels = region.channels;
-        this.version = region.version;
+        this.darknessLevel = sceneRegion.darknessLevel;
+        this.channels = sceneRegion.channels;
+        this.version = sceneRegion.version;
 
         canvas.app.renderer.backgroundColor = this.channels.canvas.hex;
 
@@ -215,7 +215,7 @@ Hooks.once("init", () => {
         this._animatedSources = [];
 
         for (const source of this.sources) {
-            const region = LightingSystem.instance.getActiveRegionAtPoint(source);
+            const region = LightingSystem.instance.getActiveRegionAtPoint(source) ?? sceneRegion;
 
             if (source._pv_region !== region) {
                 source._pv_region = region;
@@ -265,7 +265,7 @@ Hooks.once("init", () => {
         }
 
         for (const source of canvas.sight.sources) {
-            const region = LightingSystem.instance.getActiveRegionAtPoint(source);
+            const region = LightingSystem.instance.getActiveRegionAtPoint(source) ?? sceneRegion;
 
             if (source._pv_region !== region) {
                 source._pv_region = region;
