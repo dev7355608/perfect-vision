@@ -83,6 +83,9 @@ Hooks.once("init", () => {
     });
 
     patch("LightSource.prototype.initialize", "WRAPPER", function (wrapped, data, ...args) {
+        data.z = Number.parseInt(data.z, 10);
+        data.z = !Number.isNaN(data.z) ? data.z : null;
+
         wrapped(data, ...args);
 
         this._pv_los = this.los ? Region.from(this.los) : null;
@@ -185,8 +188,11 @@ Hooks.once("init", () => {
         const defaultZ = this.isDarkness ? 10 : 0;
         const BM = PIXI.BLEND_MODES;
 
+        this.illumination.zIndex += 0.5 * this.isDarkness;
+        this.coloration.zIndex += 0.5 * this.isDarkness;
+
         this._pv_delimiter.blendMode = BM[this.isDarkness ? "NORMAL" : "MAX_COLOR"];
-        this._pv_delimiter.zIndex = this.data.z ?? defaultZ;
+        this._pv_delimiter.zIndex = (this.data.z ?? defaultZ) + 0.5 * this.isDarkness;
     });
 
     patch("LightSource.prototype.drawMeshes", "OVERRIDE", function () {
@@ -464,8 +470,10 @@ Hooks.once("init", () => {
         const defaultZ = this.isDarkness ? 10 : 0;
         const BM = PIXI.BLEND_MODES;
 
+        this.illumination.zIndex += 0.5 * this.isDarkness;
+
         this._pv_delimiter.blendMode = BM[this.isDarkness ? "NORMAL" : "MAX_COLOR"];
-        this._pv_delimiter.zIndex = this.data.z ?? defaultZ;
+        this._pv_delimiter.zIndex = (this.data.z ?? defaultZ) + 0.5 * this.isDarkness;
     });
 
     // TODO
