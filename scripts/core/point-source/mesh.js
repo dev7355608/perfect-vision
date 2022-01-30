@@ -1,3 +1,5 @@
+import { PointSourceContainer } from "./container.js";
+
 class PointSourcePrepassShader extends PIXI.Shader {
     static vertexSrc = `\
         #version 300 es
@@ -169,13 +171,19 @@ export class PointSourceMesh extends PIXI.Mesh {
             return;
         }
 
+        renderer.batch.flush();
+
         this._renderOcclusionMask(renderer);
 
-        renderer.batch.flush();
+        renderer.state.set(this.state);
 
         const shader = this.shader;
 
         shader.alpha = this.worldAlpha;
+
+        if ("viewportTexture" in shader) {
+            shader.viewportTexture = this._getViewportTexture(renderer);
+        }
 
         if (shader.update) {
             shader.update(renderer, this);
@@ -198,7 +206,6 @@ export class PointSourceMesh extends PIXI.Mesh {
             current.depth = true;
         }
 
-        renderer.state.set(this.state);
         renderer.shader.bind(prepassShader);
         renderer.geometry.bind(geometry, prepassShader);
 
@@ -260,6 +267,10 @@ export class PointSourceMesh extends PIXI.Mesh {
         } else {
             gl.stencilFunc(gl.EQUAL, prevMaskCount, 0xFFFFFFFF);
             gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+        }
+
+        if ("viewportTexture" in shader) {
+            shader.viewportTexture = PIXI.Texture.EMPTY;
         }
 
         this._returnOcclusionMask(renderer);
@@ -387,6 +398,16 @@ export class PointSourceMesh extends PIXI.Mesh {
 
             this._occlusionMaskState = null;
         }
+    }
+
+    _getViewportTexture(renderer) {
+        for (let container = this.parent; container; container = container.parent) {
+            if (container instanceof PointSourceContainer) {
+                return container._getViewportTexture(renderer, this.getBounds(true));
+            }
+        }
+
+        return PIXI.Texture.EMPTY;
     }
 }
 
