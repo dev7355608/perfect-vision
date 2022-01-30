@@ -90,7 +90,7 @@ Hooks.on("renderSceneConfig", (sheet, html, data) => {
                 <label class="checkbox">
                     <input type="checkbox" id="perfect-vision.saturation.enable" ${Number.isFinite(saturation) ? "checked" : ""}>
                 </label>
-                <input type="range" name="flags.perfect-vision.saturation" value="0" min="0" max="1" step="0.05" value=${saturation ?? 0}>
+                <input type="range" name="flags.perfect-vision.saturation" min="0" max="1" step="0.05" value="${saturation ?? 0}">
                 <span class="range-value">${saturation ?? 0}</span>
             </div>
             <p class="notes">Desaturate unilluminated areas and monochrome vision. If disabled, the saturation is linked to the Darkness Level.</p>
