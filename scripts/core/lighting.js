@@ -377,6 +377,11 @@ LightingLayer.prototype._pv_updateLighting = function ({ defer = false } = {}) {
     darknessColor = parseColor(darknessColor, CONFIG.Canvas.darknessColor);
 
     let saturation = canvas.scene.getFlag("perfect-vision", "saturation");
+    const forceSaturation = canvas.scene.getFlag("perfect-vision", "forceSaturation");
+
+    if (forceSaturation !== undefined && !forceSaturation) {
+        saturation = null;
+    }
 
     saturation = Number.isFinite(saturation) ? Math.clamped(saturation, 0, 1) : null;
 
