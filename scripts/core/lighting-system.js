@@ -141,7 +141,7 @@ export class LightingSystem {
     }
 
     refresh({ backgroundColor, forceUpdateLOS = false, forceVision = undefined } = {}) {
-        if (forceUpdateLOS) {
+        if (backgroundColor !== undefined || forceUpdateLOS) {
             this.dirty = true;
         }
 
@@ -329,10 +329,6 @@ class LightingRegion {
             this.sightLimit = data.sightLimit;
 
             refreshVision = true;
-        }
-
-        if (flags.backgroundColor) {
-            this.channels = null;
         }
 
         if (this.daylightColor !== data.daylightColor) {
