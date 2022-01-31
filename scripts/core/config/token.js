@@ -30,7 +30,7 @@ Hooks.once("init", () => {
 });
 
 Hooks.on("renderTokenConfig", (sheet, html, data) => {
-    const document = sheet.object;
+    const document = sheet.token;
 
     html.find(`div[data-tab="vision"]`).append(`\
         <div class="form-group">
