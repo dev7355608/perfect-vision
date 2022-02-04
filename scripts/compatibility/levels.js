@@ -222,7 +222,7 @@ Hooks.once("init", () => {
             return result;
         }
 
-        const tElev = cToken.losHeight;
+        const tElev = cToken.data.elevation;
         let refresh = false;
 
         for (const drawing of canvas.scene.drawings.map(document => document.object)) {
@@ -237,7 +237,9 @@ Hooks.once("init", () => {
             if (drawing.skipRender !== skipRender) {
                 drawing.skipRender = skipRender;
 
-                refresh = true;
+                if (LightingSystem.instance.updateRegion(`Drawing.${drawing.document.id}`, { hidden: !!drawing.skipRender })) {
+                    refresh = true;
+                }
             }
         }
 
