@@ -45,7 +45,7 @@ export class LightingSystem {
     updateRegion(id, changes) {
         const region = this.regions[id];
 
-        if (!region) {
+        if (!region?.data) {
             return false;
         }
 
@@ -96,29 +96,39 @@ export class LightingSystem {
     }
 
     deleteRegion(id) {
-        const deleted = id in this.regions;
+        const region = this.regions[id];
 
-        delete this.regions[id];
+        if (region?.data) {
+            region.data = null;
 
-        if (deleted) {
             this.dirty = true;
             this.flags.refreshVision = true;
             this.flags.darknessChanged = true;
+
+            return true;
         }
 
-        return deleted;
+        return false;
     }
 
     hasRegion(id) {
-        return id in this.regions;
+        return !!this.regions[id]?.data;
     }
 
     getRegion(id) {
-        return this.regions[id];
+        const region = this.regions[id];
+
+        return region?.data ? region : undefined;
     }
 
     reset() {
+        for (const region of Object.values(this.regions)) {
+            region.data = null;
+            region.reset();
+        }
+
         this.regions = {};
+        this.activeRegions = [];
         this.dirty = true;
         this.flags.refreshVision = true;
         this.flags.darknessChanged = true;
@@ -202,7 +212,15 @@ export class LightingSystem {
         }
 
         for (const id in this.regions) {
-            refresh(id);
+            const region = this.regions[id];
+
+            if (!region.data) {
+                region.reset();
+
+                delete this.regions[id];
+            } else {
+                refresh(id);
+            }
         }
 
         this.activeRegions.sort(LightingRegion.compare);
@@ -264,9 +282,9 @@ class LightingRegion {
         return region1.zIndex - region2.zIndex || region1.id.localeCompare(region2.id, "en");
     }
 
-    constructor(id, data) {
+    constructor(id) {
         this.id = id;
-        this.data = data;
+        this.data = null;
         this.reset();
     }
 
