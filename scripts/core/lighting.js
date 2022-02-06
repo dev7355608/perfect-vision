@@ -173,6 +173,8 @@ Hooks.once("init", () => {
 
     patch("LightingLayer.prototype.refresh", "OVERRIDE", function ({ darkness, backgroundColor } = {}) {
         LightingSystem.instance.updateRegion("Scene", {
+            globalLight: canvas.scene.data.globalLight,
+            globalLightThreshold: canvas.scene.data.globalLightThreshold,
             darkness: Math.clamped(darkness ?? this.darknessLevel, 0, 1)
         });
 
@@ -688,7 +690,7 @@ class IlluminationBackgroundShader extends PIXI.Shader {
             float alpha = 1.0 - light;
 
             #ifdef PF2E_RULES_BASED_VISION
-            alpha = min(alpha, clamp((darknessLevel - 0.25) / 0.5, 0.0, 1.0))
+            alpha = min(alpha, clamp((darknessLevel - 0.25) / 0.5, 0.0, 1.0));
             #endif
 
             gl_FragColor = vec4(
