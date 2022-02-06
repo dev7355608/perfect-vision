@@ -117,7 +117,7 @@ AdaptiveLightingShader.prototype.update = function (renderer, mesh) {
     // TODO: move elsewhere?
     uniforms.pv_sampler1 = textures[0];
     uniforms.pv_sampler2 = textures[1];
-    uniforms.pv_colorBackgroundSampler = textures[2];
+    uniforms.pv_sampler3 = textures[2];
 
     // TODO
     const occlusionMaskFrame = uniforms.pv_occlusionMaskFrame;
@@ -145,6 +145,17 @@ Object.defineProperty(AdaptiveLightingShader.prototype, "occlusionMask", {
     },
     set(value) {
         this.uniforms.pv_occlusionMaskSampler = value ?? PIXI.Texture.EMPTY;
+    }
+});
+
+Logger.debug("Patching AdaptiveIlluminationShader.prototype.viewportTexture (ADDED)");
+
+Object.defineProperty(AdaptiveIlluminationShader.prototype, "viewportTexture", {
+    get() {
+        return this.uniforms.viewportTextureSampler;
+    },
+    set(value) {
+        this.uniforms.viewportTextureSampler = value ?? PIXI.Texture.EMPTY;
     }
 });
 
@@ -492,13 +503,29 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                 );
 
                 if (type === AdaptiveIlluminationShader) {
+                    this.fragmentShader = replace(this.fragmentShader, `\
+  if (gradual) {
+    if (darkness) {
+      float f = smoothstep(0.7, 1.0, dist);
+      finalColor = mix(finalColor, mix(colorDim, colorBackground, dist), f * f * f * f * f);
+    } else finalColor = mix(colorBackground, finalColor, fade(dist * dist));
+  }`, `/* $& */ /* --- removed --- */ /* Patched by Perfect Vision */`)
+
                     this.fragmentShader = wrap(this.fragmentShader, ["ratio", "colorBackground", "colorDim", "colorBright"], `\
                         uniform bool pv_sight;
                         uniform float pv_luminosity;
                         uniform sampler2D pv_sampler2;
-                        uniform sampler2D pv_colorBackgroundSampler;
+                        uniform sampler2D pv_sampler3;
 
-                        const vec3 pv_lightLevels = vec3(${CONFIG.Canvas.lightLevels.bright.toFixed(3)}, ${CONFIG.Canvas.lightLevels.dim.toFixed(3)}, ${CONFIG.Canvas.lightLevels.dark.toFixed(3)});
+                        #define UNIFORM_VIEWPORT_FRAME
+                        uniform ${PIXI.settings.PRECISION_VERTEX} vec4 viewportFrame;
+                        uniform sampler2D viewportTextureSampler;
+
+                        const vec3 pv_lightLevels = vec3(
+                            ${CONFIG.Canvas.lightLevels.bright.toFixed(3)},
+                            ${CONFIG.Canvas.lightLevels.dim.toFixed(3)},
+                            ${CONFIG.Canvas.lightLevels.dark.toFixed(3)}
+                        );
 
                         vec3 colorVision(vec3 colorBackground, float darknessLevel, float vision) {
                             float luminosity = 0.5;
@@ -515,83 +542,88 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                         void main() {
                             float light = pv_lflc.b;
 
-                            colorBackground = pv_alphaColor = texture2D(pv_colorBackgroundSampler, vSamplerUvs).rgb;
+                            colorBackground = texture2D(pv_sampler3, vSamplerUvs).rgb;
+
+                            vec3 darknessVisionBoost = texture2D(pv_sampler2, vSamplerUvs).rba;
+
+                            float darknessLevel = darknessVisionBoost.x;
+                            float vision = darknessVisionBoost.y;
+                            float boost = darknessVisionBoost.z;
+
+                            #ifdef PF2E_RULES_BASED_VISION
+                            {
+                                float f = clamp((darknessLevel - 0.25) / 0.5, 0.0, 1.0);
+
+                                vision = min(vision, f);
+                                boost = min(boost, f);
+                            }
+                            #endif
+
+                            float luminosity = pv_luminosity;
 
                             if (!darkness) {
-                                vec4 dsvb = texture2D(pv_sampler2, vSamplerUvs);
-
-                                float luminosity = pv_luminosity;
-                                float darknessLevel = dsvb.r;
                                 float darknessPenalty = darknessLevel * 0.25 * (1.0 - luminosity);
                                 float luminosityPenalty = clamp(luminosity * 2.0, 0.0, 1.0);
                                 float lightPenalty = (1.0 - darknessPenalty) * luminosityPenalty;
 
                                 colorBright = max(vec3(pv_lightLevels.x * lightPenalty), colorBackground);
                                 colorDim = mix(colorBackground, colorBright, pv_lightLevels.y);
-
-                                if (!pv_sight) {
-                                    float vision = dsvb.b;
-                                    float boost = dsvb.a;
-
-                                    #ifdef PF2E_RULES_BASED_VISION
-                                    vision = min(vision, clamp((darknessLevel - 0.25) / 0.5, 0.0, 1.0));
-                                    boost = min(boost, clamp((darknessLevel - 0.25) / 0.5, 0.0, 1.0));
-                                    #endif
-
-                                    colorBackground = colorVision(colorBackground, darknessLevel, min(vision, mix(0.5, 1.0, boost)));
-                                    colorBright = max(colorBright, colorBackground);
-                                    colorDim = max(colorDim, colorBackground);
-
-                                    if (gradual) {
-                                        float dist = pv_dist / pv_radius;
-
-                                        pv_alpha = min(pv_alpha, fade(dist * dist));
-                                    }
-
-                                    if (pv_alpha < 1.0) {
-                                        pv_alphaColor = mix(colorVision(pv_alphaColor, darknessLevel, vision), pv_alphaColor, clamp((light - pv_alpha) / (1.0 - pv_alpha), 0.0, 1.0));
-                                    }
-
-                                    vec3 a = vec3(0.0);
-                                    vec3 b = vec3(0.0);
-
-                                    if (boost < 1.0) {
-                                        ratio = %ratio%;
-
-                                        %wrapped%();
-
-                                        a = finalColor;
-                                    }
-
-                                    if (boost > 0.0) {
-                                        ratio = 1.0;
-
-                                        %wrapped%();
-
-                                        b = finalColor;
-                                    }
-
-                                    finalColor = mix(a, b, boost);
-                                } else {
-                                    pv_alpha = min(pv_alpha, 1.0 - light);
-
-                                    #ifdef PF2E_RULES_BASED_VISION
-                                    pv_alpha = min(pv_alpha, clamp((darknessLevel - 0.25) / 0.5, 0.0, 1.0));
-                                    #endif
-
-                                    ratio = %ratio%;
-
-                                    %wrapped%();
-                                }
                             } else {
-                                pv_alphaColor = mix(pv_alphaColor, vec3(1.0), 1.0 - pv_alpha);
-
-                                ratio = %ratio%;
                                 colorDim = %colorDim%;
                                 colorBright = %colorBright%;
+                            }
+
+                            vec3 finalColor1 = vec3(0.0);
+                            vec3 finalColor2 = vec3(0.0);
+
+                            if (boost < 1.0) {
+                                ratio = %ratio%;
 
                                 %wrapped%();
+
+                                finalColor1 = finalColor;
                             }
+
+                            if (boost > 0.0) {
+                                ratio = !darkness ? 1.0 : 0.0;
+
+                                %wrapped%();
+
+                                finalColor2 = finalColor;
+                            }
+
+                            finalColor = mix(finalColor1, finalColor2, boost);
+
+                            if (!darkness) {
+                                finalColor = max(finalColor, colorBackground);
+                            } else {
+                                finalColor = min(finalColor, colorBackground);
+                            }
+
+                            vec3 viewportColor = texture2D(viewportTextureSampler, ((gl_FragCoord.xy - viewportFrame.xy) / viewportFrame.zw)).rgb;
+
+                            if (!darkness) {
+                                viewportColor = min(viewportColor, colorBackground);
+                            } else {
+                                viewportColor = max(viewportColor, colorBackground);
+                            }
+
+                            if (gradual) {
+                                float dist = pv_dist / pv_radius;
+
+                                pv_alpha *= fade(dist * dist);
+                            }
+
+                            vec3 visionColor = max(viewportColor, colorVision(colorBackground, darknessLevel, vision));
+
+                            if (light > 0.0) {
+                                viewportColor = mix(viewportColor, visionColor, clamp(pv_alpha / light, 0.0, 1.0));
+                            } else {
+                                viewportColor = visionColor;
+                            }
+
+                            finalColor = mix(viewportColor, finalColor, pv_alpha);
+                            pv_alpha = 1.0;
                         }`
                     );
                 }
@@ -623,7 +655,9 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                 }
 
                 this.fragmentShader = wrap(this.fragmentShader, ["vUvs", "vSamplerUvs"], `\
+                    #ifndef UNIFORM_VIEWPORT_FRAME
                     uniform ${PIXI.settings.PRECISION_VERTEX} vec4 viewportFrame;
+                    #endif
                     uniform ${PIXI.settings.PRECISION_VERTEX} mat3 projectionMatrixInverse;
                     uniform ${PIXI.settings.PRECISION_VERTEX} mat3 translationMatrixInverse;
 
@@ -648,7 +682,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
 
                         %wrapped%();
 
-                        pv_fragColor = ${type === AdaptiveIlluminationShader ? "vec4(mix(pv_alphaColor, finalColor, pv_alpha), 1.0)" : `vec4(finalColor, 1.0) * pv_alpha`};
+                        pv_fragColor = vec4(finalColor, 1.0) * pv_alpha;
                     }`
                 );
 
@@ -676,7 +710,6 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                     vec4 pv_lflc;
                     float pv_dist;
                     float pv_alpha;
-                    vec3 pv_alphaColor;
                     vec3 finalColor;
                     vec4 baseColor;
                     #define PV_GRADUAL_SMOOTHNESS 0.2
@@ -716,7 +749,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
         shader.uniforms.pv_sight = false;
         shader.uniforms.pv_luminosity = 0;
         shader.uniforms.pv_sampler2 = PIXI.Texture.EMPTY;
-        shader.uniforms.pv_colorBackgroundSampler = PIXI.Texture.EMPTY;
+        shader.uniforms.pv_sampler3 = PIXI.Texture.EMPTY;
     } else if (shader instanceof DelimiterShader) {
         shader.uniforms.pv_sight = false;
         shader.uniforms.pv_darknessSaturationBoost = PIXI.Texture.EMPTY;

@@ -117,7 +117,7 @@ Hooks.once("init", () => {
     });
 
     patch("LightingLayer.prototype._drawIlluminationContainer", "OVERRIDE", function () {
-        const c = new PointSourceContainer();
+        const c = new IlluminationPointSourceContainer();
 
         c.background = c.addChild(new Sprite(IlluminationBackgroundShader.instance));
         c.primary = c.addChild(new PIXI.Container());
@@ -277,12 +277,7 @@ Hooks.once("init", () => {
                 continue;
             }
 
-            const sight = source.drawVision();
             const delimiter = source._pv_drawDelimiter();
-
-            if (sight) {
-                ilm.lights.addChild(sight);
-            }
 
             if (delimiter) {
                 del.addChild(delimiter);
@@ -662,17 +657,69 @@ class IlluminationBackgroundShader extends PIXI.Shader {
 
         precision ${PIXI.settings.PRECISION_FRAGMENT} float;
 
+        %PF2E_RULES_BASED_VISION%
+
         varying vec2 vScreenCoord;
 
-        uniform sampler2D uColorBackground;
+        uniform sampler2D uSampler1;
+        uniform sampler2D uSampler2;
+        uniform sampler2D uSampler3;
+
+        const vec3 lightLevels = %LIGHT_LEVELS%;
+
+        vec3 colorVision(vec3 colorBackground, float darknessLevel, float vision) {
+            float luminosity = 0.5;
+            float darknessPenalty = darknessLevel * 0.25 * (1.0 - luminosity);
+            float luminosityPenalty = clamp(luminosity * 2.0, 0.0, 1.0);
+            float lightPenalty = (1.0 - darknessPenalty) * luminosityPenalty;
+            vec3 colorBright = max(vec3(lightLevels.x * lightPenalty), colorBackground);
+            vec3 colorDim = mix(colorBackground, colorBright, lightLevels.y);
+            return mix(mix(colorBackground, colorDim, vision * 2.0),
+                       mix(colorDim, colorBright, vision * 2.0 - 1.0),
+                       step(0.5, vision));
+        }
 
         void main() {
-            gl_FragColor = texture2D(uColorBackground, vScreenCoord);
+            float light = texture2D(uSampler1, vScreenCoord).b;
+            vec2 darknessVision = texture2D(uSampler2, vScreenCoord).rb;
+            float darknessLevel = darknessVision.x;
+            float vision = darknessVision.y;
+            vec3 colorBackground = texture2D(uSampler3, vScreenCoord).rgb;
+            float alpha = 1.0 - light;
+
+            #ifdef PF2E_RULES_BASED_VISION
+            alpha = min(alpha, clamp((darknessLevel - 0.25) / 0.5, 0.0, 1.0))
+            #endif
+
+            gl_FragColor = vec4(
+                mix(
+                    colorBackground,
+                    colorVision(colorBackground, darknessLevel, vision),
+                    alpha
+                ),
+                1.0
+            );
         }`;
 
     static get program() {
         if (!this._program) {
-            this._program = PIXI.Program.from(this.vertexSrc, this.fragmentSrc);
+            this._program = PIXI.Program.from(
+                this.vertexSrc,
+                this.fragmentSrc
+                    .replace(
+                        /%LIGHT_LEVELS%/gm,
+                        `vec3(
+                            ${CONFIG.Canvas.lightLevels.bright.toFixed(3)},
+                            ${CONFIG.Canvas.lightLevels.dim.toFixed(3)},
+                            ${CONFIG.Canvas.lightLevels.dark.toFixed(3)}
+                        )`
+                    )
+                    .replace(
+                        /%PF2E_RULES_BASED_VISION%/gm,
+                        game.system.id === "pf2e" && game.settings.get("pf2e", "automation.rulesBasedVision")
+                            ? "#define PF2E_RULES_BASED_VISION" : ""
+                    )
+            );
         }
 
         return this._program;
@@ -688,18 +735,51 @@ class IlluminationBackgroundShader extends PIXI.Shader {
 
     constructor() {
         super(IlluminationBackgroundShader.program, {
-            screenDimensions: new Float32Array(2)
+            screenDimensions: new Float32Array(2),
+            uSampler1: PIXI.Texture.EMPTY,
+            uSampler2: PIXI.Texture.EMPTY,
+            uSampler3: PIXI.Texture.EMPTY
         });
     }
 
     update() {
+        const uniforms = this.uniforms;
+        const screenDimensions = uniforms.screenDimensions;
         const { width, height } = canvas.app.renderer.screen;
-        const screenDimensions = this.uniforms.screenDimensions;
 
         screenDimensions[0] = width;
         screenDimensions[1] = height;
 
-        this.uniforms.uColorBackground = canvas.lighting._pv_buffer.textures[2];
+        const textures = canvas.lighting._pv_buffer.textures;
+
+        uniforms.uSampler1 = textures[0];
+        uniforms.uSampler2 = textures[1];
+        uniforms.uSampler3 = textures[2];
+    }
+}
+
+class IlluminationPointSourceContainer extends PointSourceContainer {
+    _viewportTextureBlendMode;
+
+    _render(renderer) {
+        this._viewportTextureBlendMode = undefined;
+
+        super._render(renderer);
+    }
+
+    _getViewportTexture(renderer) {
+        const blendMode = renderer.state.blendMode;
+        let texture;
+
+        if (this._viewportTextureBlendMode ?? blendMode !== blendMode) {
+            texture = super._getViewportTexture(renderer);
+        } else {
+            texture = this._viewportTexture ?? canvas.lighting._pv_buffer.textures[1];
+        }
+
+        this._viewportTextureBlendMode = blendMode;
+
+        return texture;
     }
 }
 

@@ -742,7 +742,7 @@ class LightSourceShader extends PIXI.Shader {
             float alpha2 = alpha1;
 
             if (uGradual) {
-                alpha2 = min(alpha2, fade(dist * dist));
+                alpha2 *= fade(dist * dist);
             }
 
             textures[0] = vec4(alpha1, alpha1, alpha2, alpha2);

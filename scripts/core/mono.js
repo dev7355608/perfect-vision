@@ -113,8 +113,8 @@ export class MonoFilter extends MaskFilter {
     constructor() {
         super(undefined, MonoFilter.fragmentSrc, {
             uColor: new Float32Array(3),
-            uSightLightSaturation: PIXI.Texture.EMPTY,
-            uVisionBoostDarkness: PIXI.Texture.EMPTY
+            uSampler1: PIXI.Texture.EMPTY,
+            uSampler2: PIXI.Texture.EMPTY
         });
 
         this._colorDirty = false;
