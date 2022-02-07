@@ -237,7 +237,6 @@ Hooks.once("init", () => {
 
     patch("LightSource.prototype._updateIlluminationUniforms", "OVERRIDE", function (shader) {
         const u = shader.uniforms;
-        const d = shader._defaults;
         const c = this._pv_region.channels;
         const colorIntensity = this.data.alpha * 2;
         const blend = (rgb1, rgb2, w) => rgb1.map((x, i) => (w * x) + ((1 - w) * (rgb2[i]))); // linear interpolation
@@ -293,7 +292,9 @@ Hooks.once("init", () => {
         // Apply standard uniforms for this PointSource
         this._updateCommonUniforms(shader);
 
-        u.color = this.data.color ? this.colorRGB : d.color;
+        u.alpha = this.data.color ? colorIntensity : 1.0;
+
+        u.color = this.data.color ? this.colorRGB : [1, 1, 1];
         u.colorBackground = c.background.rgb;
 
         u.pv_sight = false;

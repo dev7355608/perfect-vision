@@ -488,6 +488,7 @@ class LightingRegion {
         uniforms.uDarknessLevel = this.darknessLevel;
         uniforms.uSaturationLevel = this.saturationLevel;
         uniforms.uColorBackground.set(this.channels.background.rgb);
+        uniforms.uColorDarkness.set(this.channels.darkness.rgb);
 
         return mesh;
     }
@@ -528,7 +529,7 @@ function configureChannels({
     darknessColor = CONFIG.Canvas.darknessColor,
     darknessLightPenalty = CONFIG.Canvas.darknessLightPenalty,
     dark = CONFIG.Canvas.lightLevels.dark,
-    black = 0.5,
+    black = CONFIG.Canvas.lightLevels.black ?? 0.5,
     dim = CONFIG.Canvas.lightLevels.dim,
     bright = CONFIG.Canvas.lightLevels.bright
 } = {}) {
@@ -550,7 +551,7 @@ function configureChannels({
     channels.canvas.hex = foundry.utils.rgbToHex(channels.canvas.rgb);
     channels.background.rgb = channels.darkness.rgb.map((c, i) => darkness * c + (1 - darkness) * channels.daylight.rgb[i]);
     channels.background.hex = foundry.utils.rgbToHex(channels.background.rgb);
-    channels.dark.rgb = foundry.utils.hexToRGB(CONFIG.Canvas.darknessColor).map(c => (1 + dark) * c);
+    channels.dark.rgb = channels.darkness.rgb.map(c => (1 + dark) * c);
     channels.dark.hex = foundry.utils.rgbToHex(channels.dark.rgb);
     channels.black.rgb = channels.dark.rgb.map(c => black * c);
     channels.black.hex = foundry.utils.rgbToHex(channels.black.rgb);
@@ -588,8 +589,9 @@ class LightingRegionShader extends PIXI.Shader {
         uniform float uDarknessLevel;
         uniform float uSaturationLevel;
         uniform vec3 uColorBackground;
+        uniform vec3 uColorDarkness;
 
-        layout(location = 0) out vec4 textures[3];
+        layout(location = 0) out vec4 textures[4];
 
         void main() {
             float alpha = smoothstep(0.0, 1.0, gl_FragCoord.z);
@@ -597,6 +599,7 @@ class LightingRegionShader extends PIXI.Shader {
             textures[0] = vec4(uLOS, uFOV, 0.0, alpha);
             textures[1] = vec4(uDarknessLevel, uSaturationLevel, 0.0, alpha);
             textures[2] = vec4(uColorBackground, alpha);
+            textures[3] = vec4(uColorDarkness, alpha);
         }`;
 
 
@@ -614,7 +617,8 @@ class LightingRegionShader extends PIXI.Shader {
             uFOV: 0,
             uDarknessLevel: 0,
             uSaturationLevel: 0,
-            uColorBackground: new Float32Array(3)
+            uColorBackground: new Float32Array(3),
+            uColorDarkness: new Float32Array(3)
         });
 
         this.region = region;

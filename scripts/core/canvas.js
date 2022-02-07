@@ -425,9 +425,14 @@ class BackgroundColorShader extends PIXI.Shader {
         attribute vec2 aVertexPosition;
 
         uniform mat3 projectionMatrix;
+        uniform vec2 screenDimensions;
+
+        varying vec2 vScreenCoord;
 
         void main() {
             gl_Position = vec4((projectionMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
+
+            vScreenCoord = aVertexPosition.xy / screenDimensions;
         }`;
 
     static fragmentSrc = `\
@@ -435,10 +440,17 @@ class BackgroundColorShader extends PIXI.Shader {
 
         precision ${PIXI.settings.PRECISION_FRAGMENT} float;
 
+        varying vec2 vScreenCoord;
+
         uniform vec3 uColor;
+        uniform sampler2D uDarknessLevel;
+        uniform sampler2D uColorDarkness;
 
         void main() {
-            gl_FragColor = vec4(uColor, 1.0);
+            float darknessLevel = texture2D(uDarknessLevel, vScreenCoord).r;
+            vec3 colorDarkness = texture2D(uColorDarkness, vScreenCoord).rgb;
+
+            gl_FragColor = vec4(mix(vec3(1.0), colorDarkness, darknessLevel) * uColor, 1.0);
         }`;
 
     static get program() {
@@ -458,14 +470,28 @@ class BackgroundColorShader extends PIXI.Shader {
     }
 
     constructor() {
-        super(BackgroundColorShader.program, { uColor: new Float32Array(3) });
+        super(BackgroundColorShader.program, {
+            uColor: new Float32Array(3),
+            uDarknessLevel: PIXI.Texture.EMPTY,
+            uColorDarkness: PIXI.Texture.EMPTY,
+            screenDimensions: new Float32Array(2)
+        });
     }
 
     update() {
+        const { width, height } = canvas.app.renderer.screen;
+        const screenDimensions = this.uniforms.screenDimensions;
+
+        screenDimensions[0] = width;
+        screenDimensions[1] = height;
+
         const channels = canvas.lighting.channels;
 
         if (channels) {
-            this.uniforms.uColor.set(channels.canvas.rgb);
+            this.uniforms.uColor.set(channels.scene.rgb);
+
+            this.uniforms.uDarknessLevel = canvas.lighting._pv_buffer.textures[1];
+            this.uniforms.uColorDarkness = canvas.lighting._pv_buffer.textures[3];
         }
     }
 }

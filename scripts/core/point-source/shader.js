@@ -118,6 +118,7 @@ AdaptiveLightingShader.prototype.update = function (renderer, mesh) {
     uniforms.pv_sampler1 = textures[0];
     uniforms.pv_sampler2 = textures[1];
     uniforms.pv_sampler3 = textures[2];
+    uniforms.pv_sampler4 = textures[3];
 
     // TODO
     const occlusionMaskFrame = uniforms.pv_occlusionMaskFrame;
@@ -152,10 +153,10 @@ Logger.debug("Patching AdaptiveIlluminationShader.prototype.viewportTexture (ADD
 
 Object.defineProperty(AdaptiveIlluminationShader.prototype, "viewportTexture", {
     get() {
-        return this.uniforms.viewportTextureSampler;
+        return this.uniforms.viewportSampler;
     },
     set(value) {
-        this.uniforms.viewportTextureSampler = value ?? PIXI.Texture.EMPTY;
+        this.uniforms.viewportSampler = value ?? PIXI.Texture.EMPTY;
     }
 });
 
@@ -516,15 +517,17 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                         uniform float pv_luminosity;
                         uniform sampler2D pv_sampler2;
                         uniform sampler2D pv_sampler3;
+                        uniform sampler2D pv_sampler4;
 
                         #define UNIFORM_VIEWPORT_FRAME
                         uniform ${PIXI.settings.PRECISION_VERTEX} vec4 viewportFrame;
-                        uniform sampler2D viewportTextureSampler;
+                        uniform sampler2D viewportSampler;
 
-                        const vec3 pv_lightLevels = vec3(
+                        const vec4 pv_lightLevels = vec4(
                             ${CONFIG.Canvas.lightLevels.bright.toFixed(3)},
                             ${CONFIG.Canvas.lightLevels.dim.toFixed(3)},
-                            ${CONFIG.Canvas.lightLevels.dark.toFixed(3)}
+                            ${CONFIG.Canvas.lightLevels.dark.toFixed(3)},
+                            ${(CONFIG.Canvas.lightLevels.black ?? 0.5).toFixed(3)}
                         );
 
                         vec3 colorVision(vec3 colorBackground, float darknessLevel, float vision) {
@@ -569,8 +572,37 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                                 colorBright = max(vec3(pv_lightLevels.x * lightPenalty), colorBackground);
                                 colorDim = mix(colorBackground, colorBright, pv_lightLevels.y);
                             } else {
-                                colorDim = %colorDim%;
-                                colorBright = %colorBright%;
+                                vec3 colorDarkness = texture2D(pv_sampler4, vSamplerUvs).rgb;
+                                vec3 colorDark = (1.0 + pv_lightLevels.z) * colorDarkness;
+                                vec3 colorBlack = pv_lightLevels.w * colorDark;
+
+                                float lc;
+                                vec3 cdim1, cdim2, cbr1, cbr2;
+
+                                vec3 iMid = mix(colorBackground, colorBlack, 0.5);
+                                vec3 mid = color * iMid * alpha;
+                                vec3 black = color * colorBlack * alpha;
+
+                                if (luminosity < -0.5) {
+                                    lc = abs(luminosity) - 0.5;
+
+                                    cdim1 = black;
+                                    cdim2 = black * 0.625;
+
+                                    cbr1 = black * 0.5;
+                                    cbr2 = black * 0.125;
+                                } else {
+                                    lc = pow(abs(luminosity) * 2.0, 0.4);
+
+                                    cdim1 = mid;
+                                    cdim2 = black;
+
+                                    cbr1 = mid;
+                                    cbr2 = black * 0.5;
+                                }
+
+                                colorDim = mix(cdim1, cdim2, lc);
+                                colorBright = mix(cbr1, cbr2, lc);
                             }
 
                             vec3 finalColor1 = vec3(0.0);
@@ -600,7 +632,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                                 finalColor = min(finalColor, colorBackground);
                             }
 
-                            vec3 viewportColor = texture2D(viewportTextureSampler, ((gl_FragCoord.xy - viewportFrame.xy) / viewportFrame.zw)).rgb;
+                            vec3 viewportColor = texture2D(viewportSampler, ((gl_FragCoord.xy - viewportFrame.xy) / viewportFrame.zw)).rgb;
 
                             if (!darkness) {
                                 viewportColor = min(viewportColor, colorBackground);
@@ -750,6 +782,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
         shader.uniforms.pv_luminosity = 0;
         shader.uniforms.pv_sampler2 = PIXI.Texture.EMPTY;
         shader.uniforms.pv_sampler3 = PIXI.Texture.EMPTY;
+        shader.uniforms.pv_sampler4 = PIXI.Texture.EMPTY;
     } else if (shader instanceof DelimiterShader) {
         shader.uniforms.pv_sight = false;
         shader.uniforms.pv_darknessSaturationBoost = PIXI.Texture.EMPTY;

@@ -25,7 +25,8 @@ Hooks.once("init", () => {
             stage.regions = stage.addChild(new DrawBuffersContainer(
                 WebGL2RenderingContext.COLOR_ATTACHMENT0,
                 WebGL2RenderingContext.COLOR_ATTACHMENT1,
-                WebGL2RenderingContext.COLOR_ATTACHMENT2
+                WebGL2RenderingContext.COLOR_ATTACHMENT2,
+                WebGL2RenderingContext.COLOR_ATTACHMENT3
             ));
             stage.visions = stage.addChild(new DrawBuffersContainer(
                 WebGL2RenderingContext.COLOR_ATTACHMENT0,
@@ -63,6 +64,10 @@ Hooks.once("init", () => {
                     },
                     {
                         format: PIXI.FORMATS.RGBA,
+                        type: PIXI.TYPES.UNSIGNED_BYTE
+                    },
+                    {
+                        format: PIXI.FORMATS.RGB,
                         type: PIXI.TYPES.UNSIGNED_BYTE
                     },
                     {
@@ -461,6 +466,7 @@ LightingLayer.prototype._pv_refreshBuffer = function () {
             textures[1].baseTexture.clearColor[0] = region.darknessLevel;
             textures[1].baseTexture.clearColor[1] = region.saturationLevel;
             textures[2].baseTexture.clearColor.set(region.channels.background.rgb);
+            textures[3].baseTexture.clearColor.set(region.channels.darkness.rgb);
         } else {
             const mesh = region.drawMesh();
 
