@@ -7,7 +7,7 @@ Hooks.once("init", () => {
             config.density = Math.max(config.density ?? 0, 60);
             config.radiusMin = config.radiusMin ?? 0;
             config._pv_paddingDensity = Math.PI / config.density;
-            config._pv_precision = Math.ceil(canvas.dimensions.size / 5);
+            config._pv_precision = Math.ceil(canvas.dimensions.size / 10);
             config._pv_limits = LimitSystem.instance.estimateRayLimits(
                 origin.x,
                 origin.y,
@@ -93,7 +93,7 @@ Hooks.once("init", () => {
                     d += 2 * Math.PI;
                 }
 
-                const nPad = Math.round(d / this.config._pv_density);
+                const nPad = Math.ceil(d / this.config._pv_density);
                 const delta = d / nPad;
                 const density = this.config._pv_paddingDensity - 0.5 * delta;
                 const a = r0.angle;
@@ -178,27 +178,18 @@ Hooks.once("init", () => {
                 cdx /= cdd;
                 cdy /= cdd;
 
-                let ndx = c0.x - ox;
-                let ndy = c0.y - oy;
-                const u = cdx * ndx + cdy * ndy;
-
-                ndx -= u * cdx;
-                ndy -= u * cdy;
-
+                const u0 = cdx * (c0.x - ox) + cdy * (c0.y - oy);
+                const u1 = cdx * (c1.x - ox) + cdy * (c1.y - oy);
+                const px = c0.x - u0 * cdx;
+                const py = c0.y - u0 * cdy;
+                const ndx = px - ox;
+                const ndy = py - oy;
                 const ndd = Math.sqrt(ndx * ndx + ndy * ndy);
-
-                ndx /= ndd;
-                ndy /= ndd;
-
-                let d = r1.angle - r0.angle;
-
-                if (d < 0) {
-                    d += 2 * Math.PI;
-                }
-
-                const nPad = Math.round(d / Math.min(this.config._pv_paddingDensity, Math.abs(2 * Math.asin(Math.min(0.5 * precision / ndd, 1)))));
+                const fu0 = Math.asinh(u0 / ndd);
+                const fu1 = Math.asinh(u1 / ndd);
+                const d = fu1 - fu0;
+                const nPad = Math.ceil(Math.abs(d / Math.asinh(precision / ndd)));
                 const delta = d / nPad;
-                const a = r0.angle;
 
                 let s = t0 === 1 ? 1 : 0;
 
@@ -215,12 +206,9 @@ Hooks.once("init", () => {
                     }
 
                     const i1 = (i0 + i2) >> 1;
-                    const a1 = a + i1 * delta;
-                    const dx = Math.cos(a1);
-                    const dy = Math.sin(a1);
-                    const dist = ndd / (ndx * dx + ndy * dy);
-                    const x = ox + dist * dx;
-                    const y = oy + dist * dy;
+                    const u = Math.sinh(fu0 + i1 * delta) * ndd;
+                    const x = px + u * cdx;
+                    const y = py + u * cdy;
                     const rbx = ls.constructor.round(x);
                     const rby = ls.constructor.round(y);
                     const t = ls.castRayUnsafe(rox, roy, rbx - rox, rby - roy, 0, rmin);
@@ -278,7 +266,7 @@ Hooks.once("init", () => {
                     d += 2 * Math.PI;
                 }
 
-                const nPad = Math.round(d / density);
+                const nPad = Math.ceil(d / density);
                 const delta = d / nPad;
 
                 for (let i = 1; i < nPad; i++) {

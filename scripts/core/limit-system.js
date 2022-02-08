@@ -97,6 +97,22 @@ export class LimitSystem {
                 continue;
             }
 
+            switch (region.mode) {
+                case "sum":
+                case "min":
+                    if (region.limit === Infinity) {
+                        continue;
+                    }
+
+                    break;
+                case "max":
+                    if (region.limit === 0) {
+                        continue;
+                    }
+
+                    break;
+            }
+
             m += 4;
             m += m1 !== undefined ? m1 : 6;
             m += m2;
@@ -141,7 +157,6 @@ export class LimitSystem {
             const p2 = region._mask;
             const m1 = p1.length;
             const m2 = p2 ? p2.length : 0;
-            const d = 1 / region.limit;
 
             if (m1 === 0 || p2?.length === 0) {
                 continue;
@@ -149,7 +164,24 @@ export class LimitSystem {
 
             switch (region.mode) {
                 case "sum":
-                    s = 0;
+                case "min":
+                    if (region.limit === Infinity) {
+                        continue;
+                    }
+
+                    break;
+                case "max":
+                    if (region.limit === 0) {
+                        continue;
+                    }
+
+                    break;
+            }
+
+            const d = 1 / region.limit;
+
+            switch (region.mode) {
+                case "sum":
                     dadd += d;
                     break;
                 default:
