@@ -30,6 +30,14 @@ Hooks.once("init", () => {
         return this;
     });
 
+    patch("Tile.prototype.activateListeners", "WRAPPER", function (wrapped) {
+        wrapped();
+
+        this.frame.handle.off("mouseup").off("mouseupoutside")
+            .on("mouseup", this._onHandleMouseUp.bind(this))
+            .on("mouseupoutside", this._onHandleMouseUp.bind(this));
+    });
+
     patch("Tile.prototype.refresh", "WRAPPER", function (wrapped, ...args) {
         wrapped(...args);
 
@@ -42,6 +50,20 @@ Hooks.once("init", () => {
             this.tile.mask = this._pv_getOcclusionMask();
         }
 
+        if (!this._pv_frame) {
+            this._pv_frame = new ObjectHUD(this);
+        } else {
+            this._pv_frame.removeChildren();
+        }
+
+        this._pv_frame.addChild(this.frame);
+
+        if (this.data.overhead) {
+            canvas._pv_highlights_overhead.frames.addChild(this._pv_frame);
+        } else {
+            canvas._pv_highlights_underfoot.frames.addChild(this._pv_frame);
+        }
+
         return this;
     });
 
@@ -52,7 +74,42 @@ Hooks.once("init", () => {
 
         return sprite;
     });
+
+    patch("Tile.prototype._onHandleHoverIn", "WRAPPER", function (wrapped, event) {
+        wrapped(event);
+
+        this.mouseInteractionManager._handleMouseOver(event);
+    });
+
+    patch("Tile.prototype._onHandleHoverOut", "WRAPPER", function (wrapped, event) {
+        wrapped(event);
+
+        this.mouseInteractionManager._handleMouseOut(event);
+    });
+
+    patch("Tile.prototype._onHandleMouseDown", "WRAPPER", function (wrapped, event) {
+        wrapped(event);
+
+        this.mouseInteractionManager._handleMouseDown(event);
+    });
+
+    patch("Tile.prototype._onHandleMouseUp", "WRAPPER", function (wrapped, event) {
+        wrapped(event);
+
+        this.mouseInteractionManager._handleMouseUp(event);
+    });
+
+    patch("Tile.prototype.destroy", "WRAPPER", function (wrapped, options) {
+        this._pv_frame?.destroy(options);
+        this._pv_frame = null;
+
+        wrapped(options);
+    });
 });
+
+if (!Tile.prototype._onHandleMouseUp) {
+    Tile.prototype._onHandleMouseUp = function (event) { };
+}
 
 Tile.prototype._pv_getOcclusionMask = function () {
     if (this._original || !this.data.overhead) {

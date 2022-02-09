@@ -50,15 +50,27 @@ class UnderfootHighlightsLayer extends CanvasLayer {
         super();
 
         this.auras = this.addChild(new PIXI.Container());
+        this.auras.interactive = false;
+        this.auras.interactiveChildren = false;
         this.bases = this.addChild(new PIXI.Container());
+        this.bases.interactive = false;
+        this.bases.interactiveChildren = false;
         this.markers = this.addChild(new PIXI.Container());
+        this.markers.interactive = false;
+        this.markers.interactiveChildren = false;
         this.markers.start = this.markers.addChild(new PIXI.Container());
         this.markers.turn = this.markers.addChild(new PIXI.Container());
         this.markers.next = this.markers.addChild(new PIXI.Container());
         this.borders = this.addChild(new PIXI.Container());
+        this.borders.interactive = false;
+        this.borders.interactiveChildren = false;
+        this.frames = this.addChild(new PIXI.Container());
+        this.frames.interactive = false;
     }
 
     async draw() {
+        this.interactiveChildren = true;
+
         return this;
     }
 
@@ -69,6 +81,15 @@ class UnderfootHighlightsLayer extends CanvasLayer {
         this.markers.turn.removeChildren();
         this.markers.next.removeChildren();
         this.borders.removeChildren();
+        this.frames.removeChildren();
+    }
+
+    deactivate() {
+        super.deactivate();
+
+        this.interactiveChildren = true;
+
+        return this;
     }
 }
 
@@ -84,14 +105,24 @@ class OverheadHighlightsLayer extends CanvasLayer {
         super();
 
         this.markers = this.addChild(new PIXI.Container());
+        this.markers.interactive = false;
+        this.markers.interactiveChildren = false;
         this.markers.start = this.markers.addChild(new PIXI.Container());
         this.markers.turn = this.markers.addChild(new PIXI.Container());
         this.markers.next = this.markers.addChild(new PIXI.Container());
         this.delimiter = this.addChild(new PIXI.Container());
+        this.delimiter.interactive = false;
+        this.delimiter.interactiveChildren = false;
         this.borders = this.addChild(new PIXI.Container());
+        this.borders.interactive = false;
+        this.borders.interactiveChildren = false;
+        this.frames = this.addChild(new PIXI.Container());
+        this.frames.interactive = false;
     }
 
     async draw() {
+        this.interactiveChildren = true;
+
         return this;
     }
 
@@ -100,6 +131,15 @@ class OverheadHighlightsLayer extends CanvasLayer {
         this.markers.turn.removeChildren();
         this.markers.next.removeChildren();
         this.borders.removeChildren();
+        this.frames.removeChildren();
+    }
+
+    deactivate() {
+        super.deactivate();
+
+        this.interactiveChildren = true;
+
+        return this;
     }
 }
 
