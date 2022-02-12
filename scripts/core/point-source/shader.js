@@ -284,15 +284,17 @@ function replace(source, searchValue, replaceValue) {
     return source;
 }
 
-function removeVariable(source, variable, constant = "/* Removed by Perfect Vision */") {
-    return replace(source,
+function removeVariable(source, variable, constant) {
+    source = replace(source,
         new RegExp(`(^|\\W)((?:uniform|varying|in)\\s+([^;]+?)\\s+(${variable})\\s*;)`, "gm"),
         `$1
          /* Patched by Perfect Vision */
          /* $2 */
-         #define $4 (${constant})
+         const $3 $4 = ${constant};
          /* ------------------------- */\n\n`
     );
+
+    return replace(source, new RegExp(`(^|\\W)(${variable})($|\\W)`, "gm"), "$1_pv_$2$3");
 }
 
 function replaceFunction(source, name, body) {
@@ -305,7 +307,7 @@ function replaceFunction(source, name, body) {
 
 function wrap(source, variables, code) {
     const comments = [];
-    const defintions = [];
+    const definitions = [];
 
     source = stashComments(source, comments);
 
@@ -318,18 +320,18 @@ function wrap(source, variables, code) {
     source = source.replace(
         new RegExp(`(^|\\W)((uniform|varying|in)\\s+([^;]+?)\\s+(${variables.join("|")})\\s*;)`, "gm"),
         (...args) => {
-            defintions.push(args[2]);
+            definitions.push(args[2]);
 
             if (args[3] === "uniform") {
                 return `${args[1]}
                         /* Patched by Perfect Vision */
-                        %defintion-${defintions.length - 1}%
+                        %definition-${definitions.length - 1}%
                         ${args[4]} _pv_${args[5]};
                         /* ------------------------- */\n\n`;
             } else {
                 return `${args[1]}
                         /* Patched by Perfect Vision */
-                        /* %defintion-${defintions.length - 1}% */
+                        /* %definition-${definitions.length - 1}% */
                         ${args[4]} ${args[5]};
                         /* ------------------------- */\n\n`;
             }
@@ -343,8 +345,8 @@ function wrap(source, variables, code) {
     source += code;
     source += "\n\n/* ------------------------- */\n\n";
     source = source.replace(new RegExp(`(^|\\W)(${variables.join("|")})($|\\W)`, "gm"), "$1_pv_$2$3");
-    source = source.replace(/%defintion-(\d+)%/gm, (_, i) => {
-        return defintions[parseInt(i, 10)];
+    source = source.replace(/%definition-(\d+)%/gm, (_, i) => {
+        return definitions[parseInt(i, 10)];
     });
     source = source.replace(/%wrapped%/gi, `_pv_wrapped_${i}`)
     source = source.replace(new RegExp(`%(?:_pv_)?(${variables.join("|")})%`, "g"), "$1");
@@ -510,7 +512,18 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
       float f = smoothstep(0.7, 1.0, dist);
       finalColor = mix(finalColor, mix(colorDim, colorBackground, dist), f * f * f * f * f);
     } else finalColor = mix(colorBackground, finalColor, fade(dist * dist));
-  }`, `/* $& */ /* --- removed --- */ /* Patched by Perfect Vision */`)
+  }`, `/* $& */ /* --- removed --- */ /* Patched by Perfect Vision */`);
+
+                    this.fragmentShader = replace(this.fragmentShader,
+                        new RegExp(`(^|\\W)uniform\\s+[^;]+?\\s+alpha\\s*;`, "gm"),
+                        `$1
+                         /* Patched by Perfect Vision */
+                         %definition-0%
+                         const float alpha = 1.0;
+                         /* ------------------------- */\n\n`
+                    );
+                    this.fragmentShader = replace(this.fragmentShader, new RegExp(`(^|\\W)alpha($|\\W)`, "gm"), "$1_pv_alpha$2");
+                    this.fragmentShader = replace(this.fragmentShader, /%definition-0%/gm, "uniform float alpha;");
 
                     this.fragmentShader = wrap(this.fragmentShader, ["ratio", "colorBackground", "colorDim", "colorBright"], `\
                         uniform bool pv_sight;
