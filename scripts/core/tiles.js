@@ -105,12 +105,6 @@ Hooks.once("init", () => {
 
         wrapped(options);
     });
-
-    patch("TileConfig.prototype.close", "OVERRIDE", async function (options) {
-        await DocumentSheet.prototype.close.call(this, options);
-
-        this.object.layer.clearPreviewContainer();
-    });
 });
 
 if (!Tile.prototype._onHandleMouseUp) {

@@ -15,6 +15,76 @@ import "./tokens.js";
 import "./walls.js";
 import "./weather.js";
 
+import { patch } from "../utils/patch.js";
+
+Hooks.once("init", () => {
+    // https://gitlab.com/foundrynet/foundryvtt/-/issues/6696
+
+    function destroyPreviewObjects(objects) {
+        objects?.forEach(c => {
+            if (!c.destroyed) {
+                const o = c._original;
+
+                if (o) {
+                    if ("locked" in o.data) {
+                        o.data.locked = false;
+                    }
+
+                    o.alpha = 1.0;
+                }
+
+                c.destroy();
+            }
+        });
+    }
+
+    patch("PlaceablesLayer.prototype.deactivate", "WRAPPER", function (wrapped, ...args) {
+        const previewObjects = this.preview ? Array.from(this.preview.children) : null;
+
+        wrapped(...args);
+
+        destroyPreviewObjects(previewObjects);
+    });
+
+    patch("PlaceablesLayer.prototype._onDragLeftStart", "WRAPPER", async function (wrapped, ...args) {
+        const previewObjects = this.preview ? Array.from(this.preview.children) : null;
+
+        await wrapped(...args);
+
+        if (this.options.canDragCreate) {
+            destroyPreviewObjects(previewObjects);
+        }
+    });
+
+    patch("TileConfig.prototype.close", "WRAPPER", async function (wrapped, ...args) {
+        const previewObjects = this.object.layer?.preview ? Array.from(this.object.layer.preview.children) : null;
+
+        await wrapped(...args);
+
+        destroyPreviewObjects(previewObjects);
+    });
+
+    patch("NoteConfig.prototype.close", "WRAPPER", async function (wrapped, ...args) {
+        const previewObjects = canvas.notes.preview ? Array.from(canvas.notes.preview.children) : null;
+
+        await wrapped(...args);
+
+        if (!this.object.id) {
+            destroyPreviewObjects(previewObjects);
+        }
+    });
+
+    patch("AmbientSoundConfig.prototype.close", "WRAPPER", async function (wrapped, ...args) {
+        const previewObjects = canvas.sounds.preview ? Array.from(canvas.sounds.preview.children) : null;
+
+        await wrapped(...args);
+
+        if (!this.object.id) {
+            destroyPreviewObjects(previewObjects);
+        }
+    });
+});
+
 Hooks.once("canvasInit", () => {
     if (canvas.app.renderer.context.webGLVersion !== 2) {
         ui.notifications.error("Perfect Vision requires WebGL 2!", { permanent: true });
