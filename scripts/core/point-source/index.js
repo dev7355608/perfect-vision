@@ -312,7 +312,7 @@ Hooks.once("init", () => {
         let brightVisionInDimLight;
 
         if (game.system.id === "pf2e" && canvas.sight.rulesBasedVision && (token.actor?.type === "character" || token.actor?.type === "familiar")) {
-            visionRules = token.actor.items.find(i => i.type === "ancestry")?.slug === "fetchling" ? "pf2e_fetchling" : "pf2e";
+            visionRules = token.actor.traits.has("fetchling") ? "pf2e_fetchling" : "pf2e";
         } else {
             visionRules = document.getFlag("perfect-vision", "visionRules") || "default";
         }
