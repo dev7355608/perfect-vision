@@ -753,10 +753,6 @@ class LightSourceShader extends PIXI.Shader {
     static get program() {
         if (!this._program) {
             this._program = PIXI.Program.from(this.vertexSrc, this.fragmentSrc);
-
-            if (game.modules.get("levels")?.active) {
-                LightSourceShader.prototype.update = LightSourceShader.prototype._update;
-            }
         }
 
         return this._program;
