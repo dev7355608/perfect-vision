@@ -179,7 +179,10 @@ class BackgroundContainer extends PIXI.Container {
             this.filter.resolution = foregroundTexture.resolution;
             this.filter.multisample = foregroundTexture.multisample;
             this.filter.uniforms.uMask = foregroundTexture;
-            this.filter.uniforms.uMaskFrame = foregroundTexture.filterFrame;
+            this.filter.uniforms.uMaskFrame.x = foregroundTexture.filterFrame.x;
+            this.filter.uniforms.uMaskFrame.y = foregroundTexture.filterFrame.y;
+            this.filter.uniforms.uMaskFrame.width = foregroundTexture.width;
+            this.filter.uniforms.uMaskFrame.height = foregroundTexture.height;
             this.filterArea = foregroundTexture.filterFrame;
             this.filters = this.filters ?? [];
             this.filters.push(this.filter);
@@ -243,7 +246,7 @@ class BackgroundFilter extends PIXI.Filter {
         }`;
 
     constructor() {
-        super(BackgroundFilter.vertexSrc, BackgroundFilter.fragmentSrc);
+        super(BackgroundFilter.vertexSrc, BackgroundFilter.fragmentSrc, { uMaskFrame: new PIXI.Rectangle() });
     }
 }
 
@@ -254,7 +257,7 @@ let framePool = [];
 function getFilterTexture(renderer) {
     const rt = renderer.renderTexture;
     const current = rt.current;
-    const { width, height } = rt.destinationFrame;
+    const { width, height } = rt.sourceFrame;
     const resolution = current ? current.resolution : renderer.resolution;
     const multisample = current ? current.multisample : renderer.multisample;
     const filterTexture = renderer.filter.getOptimalFilterTexture(width, height, resolution, multisample);

@@ -38,7 +38,7 @@ export const RenderTargetMixin = Base => class extends Base {
             const currentSourceFrame = (framePool.pop() ?? new PIXI.Rectangle()).copyFrom(renderTextureSystem.sourceFrame);
             const currentDestinationFrame = (framePool.pop() ?? new PIXI.Rectangle()).copyFrom(renderTextureSystem.destinationFrame);
 
-            const destinationFrame = renderTargetData?.destinationFrame ?? currentDestinationFrame;
+            const destinationFrame = renderTargetData?.destinationFrame;
 
             let renderTargetTexture;
             let renderTexturePool;

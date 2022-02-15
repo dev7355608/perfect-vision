@@ -25,6 +25,7 @@ export class PointSourceContainer extends PIXI.Container {
         if (this._viewportTexture) {
             renderer.filter.texturePool.returnTexture(this._viewportTexture);
 
+            this._viewportTexture.filterFrame = null;
             this._viewportTexture = null;
         }
     }
@@ -81,6 +82,7 @@ export class PointSourceContainer extends PIXI.Container {
         if (!viewportTexture) {
             viewportTexture = this._viewportTexture =
                 renderer.filter.texturePool.getOptimalTexture(viewportFrame.width, viewportFrame.height);
+            viewportTexture.filterFrame = viewportFrame;
         }
 
         const gl = renderer.gl;

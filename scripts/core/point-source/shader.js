@@ -128,14 +128,19 @@ AdaptiveLightingShader.prototype.update = function (renderer, mesh) {
     if (occlusionMaskTextureFilterFrame) {
         occlusionMaskFrame[0] = occlusionMaskTextureFilterFrame.x;
         occlusionMaskFrame[1] = occlusionMaskTextureFilterFrame.y;
-        occlusionMaskFrame[2] = occlusionMaskTextureFilterFrame.width;
-        occlusionMaskFrame[3] = occlusionMaskTextureFilterFrame.height;
     } else {
         occlusionMaskFrame[0] = 0;
         occlusionMaskFrame[1] = 0;
-        occlusionMaskFrame[2] = occlusionMaskTexture.width;
-        occlusionMaskFrame[3] = occlusionMaskTexture.height;
     }
+
+    occlusionMaskFrame[2] = occlusionMaskTexture.width;
+    occlusionMaskFrame[3] = occlusionMaskTexture.height;
+
+    const viewportSampler = uniforms.viewportSampler;
+    const viewportSamplerSize = uniforms.viewportSamplerSize;
+
+    viewportSamplerSize[0] = viewportSampler.baseTexture.realWidth;
+    viewportSamplerSize[1] = viewportSampler.baseTexture.realHeight;
 };
 
 Logger.debug("Patching AdaptiveLightingShader.prototype.occlusionMask (ADDED)");
@@ -535,6 +540,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                         #define UNIFORM_VIEWPORT_FRAME
                         uniform ${PIXI.settings.PRECISION_VERTEX} vec4 viewportFrame;
                         uniform sampler2D viewportSampler;
+                        uniform vec2 viewportSamplerSize;
 
                         const vec4 pv_lightLevels = vec4(
                             ${CONFIG.Canvas.lightLevels.bright.toFixed(3)},
@@ -645,7 +651,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                                 finalColor = min(finalColor, colorBackground);
                             }
 
-                            vec3 viewportColor = texture2D(viewportSampler, ((gl_FragCoord.xy - viewportFrame.xy) / viewportFrame.zw)).rgb;
+                            vec3 viewportColor = texture2D(viewportSampler, ((gl_FragCoord.xy - viewportFrame.xy) / viewportSamplerSize)).rgb;
 
                             if (!darkness) {
                                 viewportColor = min(viewportColor, colorBackground);
@@ -800,6 +806,9 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
         shader.uniforms.pv_sight = false;
         shader.uniforms.pv_darknessSaturationBoost = PIXI.Texture.EMPTY;
     }
+
+    shader.uniforms.viewportSampler = PIXI.Texture.EMPTY;
+    shader.uniforms.viewportSamplerSize = new Float32Array(2);
 
     return shader;
 };

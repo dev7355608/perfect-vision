@@ -795,14 +795,13 @@ class LightSourceShader extends PIXI.Shader {
         if (occlusionMaskTextureFilterFrame) {
             occlusionMaskFrame[0] = occlusionMaskTextureFilterFrame.x;
             occlusionMaskFrame[1] = occlusionMaskTextureFilterFrame.y;
-            occlusionMaskFrame[2] = occlusionMaskTextureFilterFrame.width;
-            occlusionMaskFrame[3] = occlusionMaskTextureFilterFrame.height;
         } else {
             occlusionMaskFrame[0] = 0;
             occlusionMaskFrame[1] = 0;
-            occlusionMaskFrame[2] = occlusionMaskTexture.width;
-            occlusionMaskFrame[3] = occlusionMaskTexture.height;
         }
+
+        occlusionMaskFrame[2] = occlusionMaskTexture.width;
+        occlusionMaskFrame[3] = occlusionMaskTexture.height;
     }
 }
 
