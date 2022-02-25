@@ -782,7 +782,7 @@ class IlluminationPointSourceContainer extends PointSourceContainer {
         if ((this._viewportTextureBlendMode ?? blendMode) !== blendMode) {
             texture = super._getViewportTexture(renderer);
         } else {
-            texture = this._viewportTexture ?? canvas.lighting._pv_buffer.textures[1];
+            texture = this._viewportTexture ?? canvas.lighting._pv_buffer.textures[2];
         }
 
         this._viewportTextureBlendMode = blendMode;
