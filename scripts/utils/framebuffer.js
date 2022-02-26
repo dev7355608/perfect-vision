@@ -76,6 +76,10 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
         for (const name in this.buffers) {
             const buffer = this.buffers[name];
 
+            if (!(buffer instanceof this)) {
+                continue;
+            }
+
             buffer.invalidate();
         }
     }
@@ -90,6 +94,10 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
 
         for (const name in this.buffers) {
             const buffer = this.buffers[name];
+
+            if (!(buffer instanceof this)) {
+                continue;
+            }
 
             if (buffer.dirty === true) {
                 buffer.dirty = false;
@@ -118,7 +126,13 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
 
     static hideAll() {
         for (const name in this.buffers) {
-            this.buffers[name].hide();
+            const buffer = this.buffers[name];
+
+            if (!(buffer instanceof this)) {
+                continue;
+            }
+
+            buffer.hide();
         }
     }
 
