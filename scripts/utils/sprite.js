@@ -435,7 +435,6 @@ export class SpriteMaterial extends PIXI.Shader {
     constructor(uSampler, options) {
         const uniforms = {
             uSampler: uSampler || PIXI.Texture.EMPTY,
-            alpha: 1,
             uColor: new Float32Array([1, 1, 1, 1]),
         };
 

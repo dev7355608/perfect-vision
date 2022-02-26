@@ -152,7 +152,7 @@ Hooks.once("init", () => {
 
                 this._pv_occlusionTile.geometry = geometry;
 
-                canvas.lighting._pv_buffer?.invalidate(true);
+                canvas.lighting._pv_buffer?.invalidate();
             } else {
                 if (this._pv_occlusionTile) {
                     this._pv_occlusionTile.geometry.refCount--;
@@ -164,7 +164,7 @@ Hooks.once("init", () => {
                     this._pv_occlusionTile.destroy();
                     this._pv_occlusionTile = null;
 
-                    canvas.lighting._pv_buffer?.invalidate(true);
+                    canvas.lighting._pv_buffer?.invalidate();
                 }
             }
         }
@@ -198,7 +198,7 @@ Hooks.once("init", () => {
         }
 
         if (light.source._pv_occlusionTiles.length > 0) {
-            canvas.lighting._pv_buffer.invalidate(true);
+            canvas.lighting._pv_buffer.invalidate();
         }
     });
 
@@ -206,7 +206,7 @@ Hooks.once("init", () => {
         const light = lightIndex.light;
 
         if (light.source._pv_occlusionTiles?.length > 0) {
-            canvas.lighting._pv_buffer.invalidate(true);
+            canvas.lighting._pv_buffer.invalidate();
         }
 
         light.occlusionTiles = null;

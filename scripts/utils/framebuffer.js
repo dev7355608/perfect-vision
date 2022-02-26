@@ -72,11 +72,11 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
         return this.get(name)?.sprites[index];
     }
 
-    static invalidateAll(weak = false) {
+    static invalidateAll() {
         for (const name in this.buffers) {
             const buffer = this.buffers[name];
 
-            buffer.invalidate(true);
+            buffer.invalidate();
         }
     }
 
@@ -414,12 +414,12 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
         renderer.framebuffer.blit();
     }
 
-    invalidate(weak = false) {
-        if (this.dirty === false || this.dirty === undefined && !weak) {
+    invalidate(create = false) {
+        if (this.dirty === false || create && this.dirty === undefined) {
             this.dirty = true;
 
             for (const name in this.dependents) {
-                this.dependents[name]?.invalidate(true);
+                this.dependents[name]?.invalidate();
             }
         }
     }

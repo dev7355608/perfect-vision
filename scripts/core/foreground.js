@@ -97,7 +97,7 @@ Hooks.once("init", () => {
         }
 
         if (mask) {
-            this._pv_buffer.invalidate();
+            this._pv_buffer.invalidate(true);
         } else {
             this._pv_buffer.dispose();
         }

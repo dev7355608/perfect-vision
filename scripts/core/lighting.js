@@ -438,7 +438,7 @@ function invalidateBuffer(baseTexture) {
         canvas._pv_showTileVideoWarning(); // TODO
     }
 
-    this.invalidate(true);
+    this.invalidate();
 }
 
 LightingLayer.prototype._pv_refreshBuffer = function () {
@@ -546,7 +546,7 @@ LightingLayer.prototype._pv_refreshBuffer = function () {
         }
     }
 
-    buffer.invalidate();
+    buffer.invalidate(true);
 };
 
 class IlluminationContainerFilter extends PIXI.Filter {

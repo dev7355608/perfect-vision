@@ -115,7 +115,7 @@ function invalidateBuffer(baseTexture) {
         canvas._pv_showTileVideoWarning();
     }
 
-    this.invalidate(true);
+    this.invalidate();
 }
 
 WeatherLayer.prototype._pv_refreshBuffer = function () {
@@ -173,7 +173,7 @@ WeatherLayer.prototype._pv_refreshBuffer = function () {
     }
 
     if (this._pv_mask) {
-        buffer.invalidate();
+        buffer.invalidate(true);
     } else {
         this._pv_buffer.dispose();
     }
