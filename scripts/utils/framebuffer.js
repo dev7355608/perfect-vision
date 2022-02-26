@@ -5,13 +5,13 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
     static buffers = {};
     static debug = false;
 
-    static create(name, texturesOptions = {}, framebufferOptions = {}, updateOptions = {}) {
+    static create({ name, dependencies = [] }, ...args) {
         console.assert(typeof name === "string" && !(name in this.buffers));
 
-        const buffer = new Framebuffer(texturesOptions, framebufferOptions);
+        const buffer = new this(...args);
 
         buffer.name = name;
-        buffer.dependencies = updateOptions.dependencies ? Object.assign(...Array.from(updateOptions.dependencies, v => ({ [v]: null }))) : {};
+        buffer.dependencies = Object.assign({}, ...Array.from(dependencies, v => ({ [v]: null })));
         buffer.dependents = null;
 
         this.buffers[name] = buffer;

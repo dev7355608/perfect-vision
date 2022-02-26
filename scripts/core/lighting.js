@@ -56,7 +56,7 @@ Hooks.once("init", () => {
 
         if (!buffer) {
             buffer = this._pv_buffer = Framebuffer.create(
-                "lighting",
+                { name: "lighting" },
                 [
                     {
                         format: PIXI.FORMATS.RGBA,

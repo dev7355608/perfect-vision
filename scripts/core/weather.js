@@ -29,7 +29,7 @@ Hooks.once("init", () => {
 
         if (!buffer) {
             buffer = this._pv_buffer = Framebuffer.create(
-                "weather",
+                { name: "weather" },
                 [
                     {
                         format: PIXI.FORMATS.RED,

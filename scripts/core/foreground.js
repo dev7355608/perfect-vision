@@ -35,7 +35,7 @@ Hooks.once("init", () => {
 
         if (!buffer) {
             buffer = this._pv_buffer = Framebuffer.create(
-                "occlusion",
+                { name: "occlusion" },
                 [
                     {
                         format: PIXI.FORMATS.RED,
