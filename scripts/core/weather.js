@@ -1,5 +1,5 @@
 import { patch } from "../utils/patch.js";
-import { Framebuffer } from "../utils/framebuffer.js";
+import { CanvasFramebuffer } from "../utils/canvas-framebuffer.js";
 import { MaskData } from "../utils/mask-filter.js";
 
 Hooks.once("init", () => {
@@ -28,7 +28,7 @@ Hooks.once("init", () => {
         let buffer = this._pv_buffer;
 
         if (!buffer) {
-            buffer = this._pv_buffer = Framebuffer.create(
+            buffer = this._pv_buffer = CanvasFramebuffer.create(
                 { name: "weather" },
                 [
                     {

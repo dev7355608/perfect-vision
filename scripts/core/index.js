@@ -224,29 +224,3 @@ class PerfectVision {
 PerfectVision.debug = false;
 
 self.PerfectVision = PerfectVision;
-
-function onTick() {
-    if (canvas?.ready) {
-        Framebuffer.updateAll();
-    }
-}
-
-function onResize() {
-    Framebuffer.invalidateAll(true);
-}
-
-Hooks.on("canvasInit", () => {
-    canvas.app.renderer.off("resize", onResize);
-    canvas.app.renderer.on("resize", onResize);
-
-    canvas.app.ticker.remove(onTick);
-    canvas.app.ticker.add(onTick, undefined, PIXI.UPDATE_PRIORITY.LOW + 1);
-});
-
-Hooks.on("canvasReady", () => {
-    Framebuffer.invalidateAll(true);
-});
-
-Hooks.on("canvasPan", () => {
-    Framebuffer.invalidateAll(true);
-});

@@ -1,6 +1,6 @@
 import { patch } from "../utils/patch.js";
 import { Sprite } from "../utils/sprite.js";
-import { Framebuffer } from "../utils/framebuffer.js";
+import { CanvasFramebuffer } from "../utils/canvas-framebuffer.js";
 import { LimitSystem } from "./limit-system.js";
 import { LightingSystem } from "./lighting-system.js";
 import { PointSourceContainer } from "./point-source/container.js";
@@ -55,7 +55,7 @@ Hooks.once("init", () => {
         let buffer = this._pv_buffer;
 
         if (!buffer) {
-            buffer = this._pv_buffer = Framebuffer.create(
+            buffer = this._pv_buffer = CanvasFramebuffer.create(
                 { name: "lighting" },
                 [
                     {
