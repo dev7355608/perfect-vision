@@ -123,7 +123,7 @@ Tile.prototype._pv_getOcclusionMask = function () {
     } else if (occlusionMode === CONST.TILE_OCCLUSION_MODES.RADIAL) {
         return new TileOcclusionMaskData(canvas.foreground._pv_buffer.sprites[0], new RadialTileOcclusionMaskFilter(this));
     } else if (typeof _betterRoofs !== "undefined" && _betterRoofs.foregroundSightMaskContainers[this.id] /* Better Roofs */) {
-        return new TileOcclusionMaskData(canvas.lighting._pv_buffer.sprites[0], new VisionTileOcclusionMaskFilter(this));
+        return new TileOcclusionMaskData(CanvasFramebuffer.get("lighting").sprites[0], new VisionTileOcclusionMaskFilter(this));
     }
 
     return null;

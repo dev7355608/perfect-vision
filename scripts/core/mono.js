@@ -1,6 +1,7 @@
 import { MaskFilter } from "../utils/mask-filter.js";
 import { srgb2rgb } from "../utils/color.js";
 import { LightingSystem } from "./lighting-system.js";
+import { CanvasFramebuffer } from "../utils/canvas-framebuffer.js";
 
 function updateMonoFilter() {
     let tint;
@@ -150,7 +151,7 @@ export class MonoFilter extends MaskFilter {
             srgb2rgb(color, color);
         }
 
-        const textures = canvas.lighting._pv_buffer.textures;
+        const textures = CanvasFramebuffer.get("lighting").textures;
 
         uniforms.uSampler1 = textures[0];
         uniforms.uSampler2 = textures[1];

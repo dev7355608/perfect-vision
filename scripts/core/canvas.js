@@ -4,6 +4,7 @@ import { RenderTargetMixin } from "../utils/render-target.js";
 import { MonoFilter } from "./mono.js";
 import { Logger } from "../utils/logger.js";
 import { Region } from "../utils/region.js";
+import { CanvasFramebuffer } from "../utils/canvas-framebuffer.js";
 
 class OverlaysCanvasGroup extends PIXI.Container {
     constructor() {
@@ -533,8 +534,10 @@ class BackgroundColorShader extends PIXI.Shader {
         if (channels) {
             this.uniforms.uColor.set(channels.scene.rgb);
 
-            this.uniforms.uDarknessLevel = canvas.lighting._pv_buffer.textures[1];
-            this.uniforms.uColorDarkness = canvas.lighting._pv_buffer.textures[3];
+            const textures = CanvasFramebuffer.get("lighting").textures;
+
+            this.uniforms.uDarknessLevel = textures[1];
+            this.uniforms.uColorDarkness = textures[3];
         }
     }
 }

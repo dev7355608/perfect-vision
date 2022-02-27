@@ -1,3 +1,4 @@
+import { CanvasFramebuffer } from "../../utils/canvas-framebuffer.js";
 import { Logger } from "../../utils/logger.js";
 
 function generateDistanceFunction(functionName, n, k) {
@@ -112,7 +113,7 @@ AdaptiveLightingShader.prototype.update = function (renderer, mesh) {
 
     uniforms.translationMatrixInverse = mesh.worldTransformInverse.toArray(true);
 
-    const textures = canvas.lighting._pv_buffer.textures;
+    const textures = CanvasFramebuffer.get("lighting").textures;
 
     // TODO: move elsewhere?
     uniforms.pv_sampler1 = textures[0];

@@ -5,6 +5,7 @@ import { Sprite } from "../utils/sprite.js";
 import { GeometrySegment } from "../utils/geometry-segment.js";
 import { LightingSystem } from "./lighting-system.js";
 import { LimitSystem } from "./limit-system.js";
+import { CanvasFramebuffer } from "../utils/canvas-framebuffer.js";
 
 Hooks.once("init", () => {
     patch("SightLayer.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
@@ -428,6 +429,6 @@ class SightMaskShader extends PIXI.Shader {
         screenDimensions[0] = width;
         screenDimensions[1] = height;
 
-        this.uniforms.uSampler = canvas.lighting._pv_buffer.textures[0];
+        this.uniforms.uSampler = CanvasFramebuffer.get("lighting").textures[0];
     }
 }

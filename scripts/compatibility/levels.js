@@ -1,5 +1,6 @@
 import { LightingSystem } from "../core/lighting-system.js";
 import { LimitSystem } from "../core/limit-system.js";
+import { CanvasFramebuffer } from "../utils/canvas-framebuffer.js";
 import { patch } from "../utils/patch.js";
 
 Hooks.once("init", () => {
@@ -152,7 +153,7 @@ Hooks.once("init", () => {
 
                 this._pv_occlusionTile.geometry = geometry;
 
-                canvas.lighting._pv_buffer?.invalidate();
+                CanvasFramebuffer.get("lighting")?.invalidate();
             } else {
                 if (this._pv_occlusionTile) {
                     this._pv_occlusionTile.geometry.refCount--;
@@ -164,7 +165,7 @@ Hooks.once("init", () => {
                     this._pv_occlusionTile.destroy();
                     this._pv_occlusionTile = null;
 
-                    canvas.lighting._pv_buffer?.invalidate();
+                    CanvasFramebuffer.get("lighting")?.invalidate();
                 }
             }
         }
@@ -198,7 +199,7 @@ Hooks.once("init", () => {
         }
 
         if (light.source._pv_occlusionTiles.length > 0) {
-            canvas.lighting._pv_buffer.invalidate();
+            CanvasFramebuffer.get("lighting").invalidate();
         }
     });
 
@@ -206,7 +207,7 @@ Hooks.once("init", () => {
         const light = lightIndex.light;
 
         if (light.source._pv_occlusionTiles?.length > 0) {
-            canvas.lighting._pv_buffer.invalidate();
+            CanvasFramebuffer.get("lighting").invalidate();
         }
 
         light.occlusionTiles = null;

@@ -11,76 +11,7 @@ Hooks.once("init", () => {
     });
 
     patch("LightingLayer.prototype.draw", "OVERRIDE", async function () {
-        let stage = this._pv_stage;
-
-        if (stage) {
-            stage.transform.reference = canvas.stage.transform;
-
-            for (const child of stage.children) {
-                child._parentID = -1;
-            }
-        } else {
-            stage = this._pv_stage = new PointSourceContainer();
-            stage.transform = new SynchronizedTransform(canvas.stage.transform);
-            stage.regions = stage.addChild(new DrawBuffersContainer(
-                WebGL2RenderingContext.COLOR_ATTACHMENT0,
-                WebGL2RenderingContext.COLOR_ATTACHMENT1,
-                WebGL2RenderingContext.COLOR_ATTACHMENT2,
-                WebGL2RenderingContext.COLOR_ATTACHMENT3
-            ));
-            stage.visions = stage.addChild(new DrawBuffersContainer(
-                WebGL2RenderingContext.COLOR_ATTACHMENT0,
-                WebGL2RenderingContext.COLOR_ATTACHMENT1
-            ));
-
-            const container = stage.addChild(new DrawBuffersContainer(
-                WebGL2RenderingContext.COLOR_ATTACHMENT0
-            ));
-
-            const geometry = new PIXI.Geometry()
-                .addAttribute("aVertexPosition", new PIXI.Buffer(new Float32Array([-1, -1, +1, -1, +1, +1, -1, +1]), true, false), 2, false, PIXI.TYPES.FLOAT)
-                .addAttribute("aCenterRadius", new PIXI.Buffer(new Float32Array([]), false, false), 3, false, PIXI.TYPES.FLOAT, undefined, undefined, true);
-            const shader = MinFOVShader.instance;
-
-            stage.minFOV = container.addChild(new PIXI.Mesh(geometry, shader, undefined, PIXI.DRAW_MODES.TRIANGLE_FAN));
-            stage.minFOV.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
-            stage.minFOV.visible = false;
-            stage.minFOV.geometry.instanceCount = 0;
-
-            stage.lights = container.addChild(new PIXI.Container());
-            stage.roofs = container.addChild(new ColorMaskContainer(true, false, false, false));
-            stage.baseTextures = [];
-        }
-
-        let buffer = this._pv_buffer;
-
-        if (!buffer) {
-            buffer = this._pv_buffer = CanvasFramebuffer.create(
-                { name: "lighting" },
-                [
-                    {
-                        format: PIXI.FORMATS.RGBA,
-                        type: PIXI.TYPES.UNSIGNED_BYTE
-                    },
-                    {
-                        format: PIXI.FORMATS.RGBA,
-                        type: PIXI.TYPES.UNSIGNED_BYTE
-                    },
-                    {
-                        format: PIXI.FORMATS.RGB,
-                        type: PIXI.TYPES.UNSIGNED_BYTE
-                    },
-                    {
-                        format: PIXI.FORMATS.RGB,
-                        type: PIXI.TYPES.UNSIGNED_BYTE
-                    }
-                ]
-            );
-
-            buffer.on("update", buffer => {
-                buffer.render(canvas.app.renderer, this._pv_stage);
-            });
-        }
+        CanvasFramebuffer.get("lighting").draw();
 
         this.globalLight = canvas.scene.data.globalLight;
         this.darknessLevel = canvas.scene.data.darkness;
@@ -300,33 +231,13 @@ Hooks.once("init", () => {
             canvas.sounds._onDarknessChange();
         }
 
-        this._pv_refreshBuffer();
+        CanvasFramebuffer.get("lighting").refresh();
 
         Hooks.callAll("lightingRefresh", this);
     });
 
     patch("LightingLayer.prototype.tearDown", "WRAPPER", async function (wrapped, ...args) {
-        const buffer = this._pv_buffer;
-        const stage = this._pv_stage;
-
-        stage.transform.reference = PIXI.Transform.IDENTITY;
-
-        for (const child of stage.children) {
-            child._parentID = -1;
-        }
-
-        const { regions, visions, lights, roofs, baseTextures } = stage;
-
-        regions.removeChildren();
-        visions.removeChildren();
-        lights.removeChildren();
-        roofs.removeChildren().forEach(sprite => sprite.destroy());
-
-        for (const baseTexture of baseTextures) {
-            baseTexture.off("update", invalidateBuffer, buffer);
-        }
-
-        baseTextures.length = 0;
+        CanvasFramebuffer.get("lighting").tearDown();
 
         LightingSystem.instance.reset();
 
@@ -344,6 +255,10 @@ Hooks.once("init", () => {
 
         return !this.data.hidden && (LightingSystem.instance.getActiveRegionAtPoint(this.center)?.darknessLevel ?? canvas.lighting.darknessLevel).between(this.data.darkness.min ?? 0, this.data.darkness.max ?? 1);
     });
+});
+
+Hooks.once("canvasInit", () => {
+    LightingFramebuffer.create({ name: "lighting" });
 });
 
 Hooks.on("updateScene", (document, change, options, userId) => {
@@ -433,122 +348,6 @@ LightingLayer.prototype._pv_toggleDelimiters = function (toggled) {
     game.settings.set("perfect-vision", "delimiters", toggled ?? !game.settings.get("perfect-vision", "delimiters"));
 };
 
-function invalidateBuffer(baseTexture) {
-    if (baseTexture.resource?.source?.tagName === "VIDEO") {
-        canvas._pv_showTileVideoWarning(); // TODO
-    }
-
-    this.invalidate();
-}
-
-LightingLayer.prototype._pv_refreshBuffer = function () {
-    const buffer = this._pv_buffer;
-    const stage = this._pv_stage;
-    const { regions, visions, lights, roofs, baseTextures } = stage;
-
-    regions.removeChildren();
-    visions.removeChildren();
-    lights.removeChildren();
-    roofs.removeChildren().forEach(sprite => sprite.destroy());
-
-    for (const baseTexture of baseTextures) {
-        baseTexture.off("update", invalidateBuffer, buffer);
-    }
-
-    baseTextures.length = 0;
-
-    const textures = buffer.textures;
-
-    for (const region of LightingSystem.instance.activeRegions) {
-        if (region.id === "Scene") {
-            textures[0].baseTexture.clearColor[0] = region.vision ? 1 : 0;
-            textures[0].baseTexture.clearColor[1] = region.vision || region.globalLight ? 1 : 0;
-            textures[1].baseTexture.clearColor[0] = region.darknessLevel;
-            textures[1].baseTexture.clearColor[1] = region.saturationLevel;
-            textures[2].baseTexture.clearColor.set(region.channels.background.rgb);
-            textures[3].baseTexture.clearColor.set(region.channels.darkness.rgb);
-        } else {
-            const mesh = region.drawMesh();
-
-            if (mesh) {
-                regions.addChild(mesh);
-            }
-        }
-    }
-
-    {
-        const minFOV = [];
-
-        for (const source of canvas.sight.sources) {
-            const mesh = source._pv_drawMesh();
-
-            if (mesh) {
-                visions.addChild(mesh);
-                minFOV.push(source.x, source.y, source._pv_minRadius);
-            }
-        }
-
-        const minFOVMesh = stage.minFOV;
-        const minFOVGeometry = minFOVMesh.geometry;
-
-        minFOVGeometry.buffers[1].update(minFOV);
-        minFOVGeometry.instanceCount = minFOV.length / 3;
-        minFOVMesh.visible = minFOVGeometry.instanceCount > 0;
-    }
-
-    for (const source of this.sources) {
-        if (!source.active) {
-            continue;
-        }
-
-        const mesh = source._pv_drawMesh();
-
-        if (!mesh) {
-            continue;
-        }
-
-        lights.addChild(mesh);
-
-        if (mesh.occlusionObjects) {
-            for (const occlusionTile of mesh.occlusionObjects) {
-                if (occlusionTile.destroyed || !occlusionTile.visible || !occlusionTile.renderable || occlusionTile.worldAlpha <= 0) {
-                    continue;
-                }
-
-                if (!occlusionTile.geometry.bounds.intersects(source._pv_geometry.bounds)) {
-                    continue;
-                }
-
-                occlusionTile.texture.baseTexture.on("update", invalidateBuffer, buffer);
-
-                baseTextures.push(occlusionTile.texture.baseTexture);
-            }
-        }
-    }
-
-    if (canvas.foreground.displayRoofs) {
-        for (const roof of canvas.foreground.roofs) {
-            if (roof.occluded) {
-                continue;
-            }
-
-            const sprite = roof._pv_createSprite();
-
-            if (!sprite) {
-                continue;
-            }
-
-            sprite.tint = 0x000000;
-            sprite.texture.baseTexture.on("update", invalidateBuffer, buffer);
-
-            baseTextures.push(sprite.texture.baseTexture);
-            roofs.addChild(sprite);
-        }
-    }
-
-    buffer.invalidate(true);
-};
-
 class IlluminationContainerFilter extends PIXI.Filter {
     static vertexSrc = `\
         #version 100
@@ -635,7 +434,7 @@ class IlluminationContainerFilter extends PIXI.Filter {
         screenDimensions[0] = width;
         screenDimensions[1] = height;
 
-        this.uniforms.uDarknessLevel = canvas.lighting._pv_buffer.textures[1];
+        this.uniforms.uDarknessLevel = CanvasFramebuffer.get("lighting").textures[1];
 
         super.apply(filterManager, input, output, clearMode, currentState);
     }
@@ -758,7 +557,7 @@ class IlluminationBackgroundShader extends PIXI.Shader {
         screenDimensions[0] = width;
         screenDimensions[1] = height;
 
-        const textures = canvas.lighting._pv_buffer.textures;
+        const textures = CanvasFramebuffer.get("lighting").textures;
 
         uniforms.uSampler1 = textures[0];
         uniforms.uSampler2 = textures[1];
@@ -782,7 +581,7 @@ class IlluminationPointSourceContainer extends PointSourceContainer {
         if ((this._viewportTextureBlendMode ?? blendMode) !== blendMode) {
             texture = super._getViewportTexture(renderer);
         } else {
-            texture = this._viewportTexture ?? canvas.lighting._pv_buffer.textures[2];
+            texture = this._viewportTexture ?? CanvasFramebuffer.get("lighting").textures[2];
         }
 
         this._viewportTextureBlendMode = blendMode;
@@ -900,5 +699,173 @@ class MinFOVShader extends PIXI.Shader {
 
     update() {
         this.uniforms.uSmoothness = canvas.dimensions._pv_inset;
+    }
+}
+
+class LightingFramebuffer extends CanvasFramebuffer {
+    constructor() {
+        super([
+            {
+                format: PIXI.FORMATS.RGBA,
+                type: PIXI.TYPES.UNSIGNED_BYTE
+            },
+            {
+                format: PIXI.FORMATS.RGBA,
+                type: PIXI.TYPES.UNSIGNED_BYTE
+            },
+            {
+                format: PIXI.FORMATS.RGB,
+                type: PIXI.TYPES.UNSIGNED_BYTE
+            },
+            {
+                format: PIXI.FORMATS.RGB,
+                type: PIXI.TYPES.UNSIGNED_BYTE
+            }
+        ]);
+    }
+
+    draw() {
+        super.draw();
+
+        const stage = this.stage.addChild(new PointSourceContainer());
+
+        this.stage.regions = stage.addChild(new DrawBuffersContainer(
+            WebGL2RenderingContext.COLOR_ATTACHMENT0,
+            WebGL2RenderingContext.COLOR_ATTACHMENT1,
+            WebGL2RenderingContext.COLOR_ATTACHMENT2,
+            WebGL2RenderingContext.COLOR_ATTACHMENT3
+        ));
+        this.stage.visions = stage.addChild(new DrawBuffersContainer(
+            WebGL2RenderingContext.COLOR_ATTACHMENT0,
+            WebGL2RenderingContext.COLOR_ATTACHMENT1
+        ));
+
+        const container = stage.addChild(new DrawBuffersContainer(
+            WebGL2RenderingContext.COLOR_ATTACHMENT0
+        ));
+
+        const geometry = new PIXI.Geometry()
+            .addAttribute("aVertexPosition", new PIXI.Buffer(new Float32Array([-1, -1, +1, -1, +1, +1, -1, +1]), true, false), 2, false, PIXI.TYPES.FLOAT)
+            .addAttribute("aCenterRadius", new PIXI.Buffer(new Float32Array([]), false, false), 3, false, PIXI.TYPES.FLOAT, undefined, undefined, true);
+        const shader = MinFOVShader.instance;
+
+        this.stage.minFOV = container.addChild(new PIXI.Mesh(geometry, shader, undefined, PIXI.DRAW_MODES.TRIANGLE_FAN));
+        this.stage.minFOV.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
+        this.stage.minFOV.visible = false;
+        this.stage.minFOV.geometry.instanceCount = 0;
+        this.stage.lights = container.addChild(new PIXI.Container());
+        this.stage.roofs = container.addChild(new ColorMaskContainer(true, false, false, false));
+    }
+
+    refresh() {
+        this.baseTextures.forEach(t => t.off("update", this._onBaseTextureUpdate, this));
+        this.baseTextures.length = 0;
+
+        const stage = this.stage;
+        const { regions, visions, lights, roofs } = stage;
+
+        regions.removeChildren();
+        visions.removeChildren();
+        lights.removeChildren();
+        roofs.removeChildren().forEach(sprite => sprite.destroy());
+
+        const textures = this.textures;
+
+        for (const region of LightingSystem.instance.activeRegions) {
+            if (region.id === "Scene") {
+                textures[0].baseTexture.clearColor[0] = region.vision ? 1 : 0;
+                textures[0].baseTexture.clearColor[1] = region.vision || region.globalLight ? 1 : 0;
+                textures[1].baseTexture.clearColor[0] = region.darknessLevel;
+                textures[1].baseTexture.clearColor[1] = region.saturationLevel;
+                textures[2].baseTexture.clearColor.set(region.channels.background.rgb);
+                textures[3].baseTexture.clearColor.set(region.channels.darkness.rgb);
+            } else {
+                const mesh = region.drawMesh();
+
+                if (mesh) {
+                    regions.addChild(mesh);
+                }
+            }
+        }
+
+        {
+            const minFOV = [];
+
+            for (const source of canvas.sight.sources) {
+                const mesh = source._pv_drawMesh();
+
+                if (mesh) {
+                    visions.addChild(mesh);
+                    minFOV.push(source.x, source.y, source._pv_minRadius);
+                }
+            }
+
+            const minFOVMesh = stage.minFOV;
+            const minFOVGeometry = minFOVMesh.geometry;
+
+            minFOVGeometry.buffers[1].update(minFOV);
+            minFOVGeometry.instanceCount = minFOV.length / 3;
+            minFOVMesh.visible = minFOVGeometry.instanceCount > 0;
+        }
+
+        for (const source of canvas.lighting.sources) {
+            if (!source.active) {
+                continue;
+            }
+
+            const mesh = source._pv_drawMesh();
+
+            if (!mesh) {
+                continue;
+            }
+
+            lights.addChild(mesh);
+
+            if (mesh.occlusionObjects) {
+                for (const occlusionTile of mesh.occlusionObjects) {
+                    if (occlusionTile.destroyed || !occlusionTile.visible || !occlusionTile.renderable || occlusionTile.worldAlpha <= 0) {
+                        continue;
+                    }
+
+                    if (!occlusionTile.geometry.bounds.intersects(source._pv_geometry.bounds)) {
+                        continue;
+                    }
+
+                    occlusionTile.texture.baseTexture.on("update", this._onBaseTextureUpdate, this);
+
+                    this.baseTextures.push(occlusionTile.texture.baseTexture);
+                }
+            }
+        }
+
+        if (canvas.foreground.displayRoofs) {
+            for (const roof of canvas.foreground.roofs) {
+                if (roof.occluded) {
+                    continue;
+                }
+
+                const sprite = roof._pv_createSprite();
+
+                if (!sprite) {
+                    continue;
+                }
+
+                sprite.tint = 0x000000;
+                sprite.texture.baseTexture.on("update", this._onBaseTextureUpdate, this);
+
+                this.baseTextures.push(sprite.texture.baseTexture);
+                roofs.addChild(sprite);
+            }
+        }
+
+        this.invalidate(true);
+    }
+
+    tearDown() {
+        this.stage.regions.removeChildren();
+        this.stage.visions.removeChildren();
+        this.stage.lights.removeChildren();
+
+        super.tearDown();
     }
 }
