@@ -311,6 +311,16 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
         }
     }
 
+    acquire() {
+        if (this.dirty === undefined) {
+            this.dirty = true;
+
+            for (const name in this.dependents) {
+                this.dependents[name]?.invalidate();
+            }
+        }
+    }
+
     dispose() {
         if (this.dirty !== undefined) {
             this.reset();
