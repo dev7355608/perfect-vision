@@ -55,6 +55,7 @@ export class MonoFilter extends MaskFilter {
         uniform sampler2D uSampler;
         uniform sampler2D uSampler1;
         uniform sampler2D uSampler2;
+        uniform sampler2D uSampler3;
 
         vec3 rgb2srgb(vec3 c) {
             vec3 a = 12.92 * c;
@@ -91,10 +92,11 @@ export class MonoFilter extends MaskFilter {
             if (a != 0.0) {
                 vec4 v = texture2D(uSampler1, vMaskCoord);
                 vec4 w = texture2D(uSampler2, vMaskCoord);
+                vec4 u = texture2D(uSampler3, vMaskCoord);
                 vec3 srgb = color.rgb / a;
                 vec3 rgb = srgb2rgb(srgb);
                 float y = rgb2y(rgb);
-                float s = min(v.r, v.g);
+                float s = min(min(v.r, v.g), u.r);
                 float t2 = max(min(s, v.a), w.g);
                 float t1 = 1.0 - s;
                 gl_FragColor = vec4(rgb2srgb(mix(mix(y2mono(y, uColor), vec3(y), t1), rgb, t2)), 1.0) * a;
@@ -115,7 +117,8 @@ export class MonoFilter extends MaskFilter {
         super(undefined, MonoFilter.fragmentSrc, {
             uColor: new Float32Array(3),
             uSampler1: PIXI.Texture.EMPTY,
-            uSampler2: PIXI.Texture.EMPTY
+            uSampler2: PIXI.Texture.EMPTY,
+            uSampler3: PIXI.Texture.EMPTY
         });
 
         this._colorDirty = false;
@@ -155,6 +158,7 @@ export class MonoFilter extends MaskFilter {
 
         uniforms.uSampler1 = textures[0];
         uniforms.uSampler2 = textures[1];
+        uniforms.uSampler3 = CanvasFramebuffer.get("roofs").textures[0];
 
         super.apply(filterManager, input, output, clearMode, currentState);
     }

@@ -471,6 +471,7 @@ class IlluminationBackgroundShader extends PIXI.Shader {
         uniform sampler2D uSampler1;
         uniform sampler2D uSampler2;
         uniform sampler2D uSampler3;
+        uniform sampler2D uSampler5;
 
         const vec3 lightLevels = %LIGHT_LEVELS%;
 
@@ -492,7 +493,7 @@ class IlluminationBackgroundShader extends PIXI.Shader {
             float darknessLevel = darknessVision.x;
             float vision = darknessVision.y;
             vec3 colorBackground = texture2D(uSampler3, vScreenCoord).rgb;
-            float alpha = 1.0 - light;
+            float alpha = min(1.0 - light, texture2D(uSampler5, vScreenCoord).r);
 
             #ifdef PF2E_RULES_BASED_VISION
             alpha = min(alpha, clamp((darknessLevel - 0.25) / 0.5, 0.0, 1.0));
@@ -545,7 +546,8 @@ class IlluminationBackgroundShader extends PIXI.Shader {
             screenDimensions: new Float32Array(2),
             uSampler1: PIXI.Texture.EMPTY,
             uSampler2: PIXI.Texture.EMPTY,
-            uSampler3: PIXI.Texture.EMPTY
+            uSampler3: PIXI.Texture.EMPTY,
+            uSampler5: PIXI.Texture.EMPTY
         });
     }
 
@@ -562,6 +564,7 @@ class IlluminationBackgroundShader extends PIXI.Shader {
         uniforms.uSampler1 = textures[0];
         uniforms.uSampler2 = textures[1];
         uniforms.uSampler3 = textures[2];
+        uniforms.uSampler5 = CanvasFramebuffer.get("roofs").textures[0];
     }
 }
 
@@ -587,34 +590,6 @@ class IlluminationPointSourceContainer extends PointSourceContainer {
         this._viewportTextureBlendMode = blendMode;
 
         return texture;
-    }
-}
-
-class ColorMaskContainer extends PIXI.Container {
-    constructor(red, green, blue, alpha) {
-        super();
-
-        this._colorMaskRed = red;
-        this._colorMaskGreen = green;
-        this._colorMaskBlue = blue;
-        this._colorMaskAlpha = alpha;
-    }
-    render(renderer) {
-        if (this.children.length === 0) {
-            return;
-        }
-
-        renderer.batch.flush();
-
-        const gl = renderer.gl;
-
-        gl.colorMask(this._colorMaskRed, this._colorMaskGreen, this._colorMaskBlue, this._colorMaskAlpha);
-
-        super.render(renderer);
-
-        renderer.batch.flush();
-
-        gl.colorMask(true, true, true, true);
     }
 }
 
@@ -729,13 +704,13 @@ class LightingFramebuffer extends CanvasFramebuffer {
 
         const stage = this.stage.addChild(new PointSourceContainer());
 
-        this.stage.regions = stage.addChild(new DrawBuffersContainer(
+        this.regions = stage.addChild(new DrawBuffersContainer(
             WebGL2RenderingContext.COLOR_ATTACHMENT0,
             WebGL2RenderingContext.COLOR_ATTACHMENT1,
             WebGL2RenderingContext.COLOR_ATTACHMENT2,
             WebGL2RenderingContext.COLOR_ATTACHMENT3
         ));
-        this.stage.visions = stage.addChild(new DrawBuffersContainer(
+        this.visions = stage.addChild(new DrawBuffersContainer(
             WebGL2RenderingContext.COLOR_ATTACHMENT0,
             WebGL2RenderingContext.COLOR_ATTACHMENT1
         ));
@@ -749,25 +724,22 @@ class LightingFramebuffer extends CanvasFramebuffer {
             .addAttribute("aCenterRadius", new PIXI.Buffer(new Float32Array([]), false, false), 3, false, PIXI.TYPES.FLOAT, undefined, undefined, true);
         const shader = MinFOVShader.instance;
 
-        this.stage.minFOV = container.addChild(new PIXI.Mesh(geometry, shader, undefined, PIXI.DRAW_MODES.TRIANGLE_FAN));
-        this.stage.minFOV.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
-        this.stage.minFOV.visible = false;
-        this.stage.minFOV.geometry.instanceCount = 0;
-        this.stage.lights = container.addChild(new PIXI.Container());
-        this.stage.roofs = container.addChild(new ColorMaskContainer(true, false, false, false));
+        this.minFOV = container.addChild(new PIXI.Mesh(geometry, shader, undefined, PIXI.DRAW_MODES.TRIANGLE_FAN));
+        this.minFOV.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
+        this.minFOV.visible = false;
+        this.minFOV.geometry.instanceCount = 0;
+        this.lights = container.addChild(new PIXI.Container());
     }
 
     refresh() {
         this.baseTextures.forEach(t => t.off("update", this._onBaseTextureUpdate, this));
         this.baseTextures.length = 0;
 
-        const stage = this.stage;
-        const { regions, visions, lights, roofs } = stage;
+        const { regions, visions, lights } = this;
 
         regions.removeChildren();
         visions.removeChildren();
         lights.removeChildren();
-        roofs.removeChildren().forEach(sprite => sprite.destroy());
 
         const textures = this.textures;
 
@@ -800,7 +772,7 @@ class LightingFramebuffer extends CanvasFramebuffer {
                 }
             }
 
-            const minFOVMesh = stage.minFOV;
+            const minFOVMesh = this.minFOV;
             const minFOVGeometry = minFOVMesh.geometry;
 
             minFOVGeometry.buffers[1].update(minFOV);
@@ -835,26 +807,6 @@ class LightingFramebuffer extends CanvasFramebuffer {
 
                     this.baseTextures.push(occlusionTile.texture.baseTexture);
                 }
-            }
-        }
-
-        if (canvas.foreground.displayRoofs) {
-            for (const roof of canvas.foreground.roofs) {
-                if (roof.occluded) {
-                    continue;
-                }
-
-                const sprite = roof._pv_createSprite();
-
-                if (!sprite) {
-                    continue;
-                }
-
-                sprite.tint = 0x000000;
-                sprite.texture.baseTexture.on("update", this._onBaseTextureUpdate, this);
-
-                this.baseTextures.push(sprite.texture.baseTexture);
-                roofs.addChild(sprite);
             }
         }
 

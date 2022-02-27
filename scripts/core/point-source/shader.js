@@ -120,6 +120,7 @@ AdaptiveLightingShader.prototype.update = function (renderer, mesh) {
     uniforms.pv_sampler2 = textures[1];
     uniforms.pv_sampler3 = textures[2];
     uniforms.pv_sampler4 = textures[3];
+    uniforms.pv_sampler5 = CanvasFramebuffer.get("roofs").textures[0];
 
     // TODO
     const occlusionMaskFrame = uniforms.pv_occlusionMaskFrame;
@@ -666,7 +667,11 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                                 pv_alpha *= fade(dist * dist);
                             }
 
-                            vec3 visionColor = max(viewportColor, colorVision(colorBackground, darknessLevel, vision));
+                            vec3 visionColor = max(viewportColor, mix(
+                                colorBackground,
+                                colorVision(colorBackground, darknessLevel, vision),
+                                pv_roofs
+                            ));
 
                             if (light > 0.0) {
                                 viewportColor = mix(viewportColor, visionColor, clamp(pv_alpha / light, 0.0, 1.0));
@@ -714,6 +719,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                     uniform ${PIXI.settings.PRECISION_VERTEX} mat3 translationMatrixInverse;
 
                     uniform sampler2D pv_sampler1;
+                    uniform sampler2D pv_sampler5;
 
                     void main() {
                         ${PIXI.settings.PRECISION_VERTEX} vec3 worldPosition = projectionMatrixInverse * vec3(((gl_FragCoord.xy - viewportFrame.xy) / viewportFrame.zw) * 2.0 - 1.0, 1.0);
@@ -730,7 +736,8 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                         pv_alpha = min(pv_alpha, pv_occlusionMaskAlpha(worldPosition.xy));
                         #endif
 
-                        pv_alpha = min(pv_alpha, min(pv_lflc.r, pv_lflc.g));
+                        pv_roofs = texture2D(pv_sampler5, vSamplerUvs).r;
+                        pv_alpha = min(pv_alpha, min(min(pv_lflc.r, pv_lflc.g), pv_roofs));
 
                         %wrapped%();
 
@@ -762,6 +769,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                     vec4 pv_lflc;
                     float pv_dist;
                     float pv_alpha;
+                    float pv_roofs;
                     vec3 finalColor;
                     vec4 baseColor;
                     #define PV_GRADUAL_SMOOTHNESS 0.2
@@ -792,6 +800,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
     shader.uniforms.pv_radius = 0;
     shader.uniforms.pv_smoothness = 0;
     shader.uniforms.pv_sampler1 = PIXI.Texture.EMPTY;
+    shader.uniforms.pv_sampler5 = PIXI.Texture.EMPTY;
     shader.uniforms.pv_occlusionMaskSampler = PIXI.Texture.WHITE;
     shader.uniforms.pv_occlusionMaskFrame = new Float32Array(4);
     shader.uniforms.pv_shape = 0;

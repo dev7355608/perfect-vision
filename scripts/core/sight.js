@@ -91,7 +91,7 @@ Hooks.once("init", () => {
         const vision = this._createVisionContainer();
         const fov = vision._pv_fov;
         const los = vision._pv_los;
-        const smooth = !this.fogExploration && canvas.foreground.roofs.length === 0;
+        const smooth = !this.fogExploration;
 
         this.explored.removeChild(this._pv_vision);
 
