@@ -68,6 +68,15 @@ Hooks.once("init", () => {
         return this;
     });
 
+    patch("Tile.prototype._onUpdate", "WRAPPER", function (wrapped, ...args) {
+        wrapped(...args);
+
+        if (this._alphaMap?.texture) {
+            this._alphaMap.texture.destroy(true);
+            delete this._alphaMap.texture;
+        }
+    });
+
     patch("Tile.prototype.getRoofSprite", "POST", function (sprite) {
         if (sprite) {
             sprite.mask = this._pv_getOcclusionMask();
