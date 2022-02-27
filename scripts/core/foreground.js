@@ -57,7 +57,7 @@ Hooks.once("init", () => {
             CanvasFramebuffer.get("occlusionRadial").dispose();
         }
 
-        canvas.weather._pv_refreshBuffer();
+        CanvasFramebuffer.get("weatherMask").refresh();
 
         return this;
     });

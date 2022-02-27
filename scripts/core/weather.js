@@ -4,45 +4,7 @@ import { MaskData } from "../utils/mask-filter.js";
 
 Hooks.once("init", () => {
     patch("WeatherLayer.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
-        let stage = this._pv_stage;
-
-        if (stage) {
-            stage.transform.reference = canvas.stage.transform;
-
-            for (const child of stage.children) {
-                child._parentID = -1;
-            }
-        } else {
-            stage = this._pv_stage = new PIXI.Container();
-            stage.transform = new SynchronizedTransform(canvas.stage.transform);
-            stage.roofs = stage.addChild(new PIXI.Container());
-            stage.masks = stage.addChild(new PIXI.Container());
-            stage.baseTextures = [];
-
-            if (canvas.performance.blur.enabled) {
-                stage.masks.filters = [canvas.createBlurFilter()];
-                stage.masks.filterArea = canvas.app.renderer.screen;
-            }
-        }
-
-        let buffer = this._pv_buffer;
-
-        if (!buffer) {
-            buffer = this._pv_buffer = CanvasFramebuffer.create(
-                { name: "weather" },
-                [
-                    {
-                        format: PIXI.FORMATS.RED,
-                        type: PIXI.TYPES.UNSIGNED_BYTE,
-                        clearColor: [1, 0, 0, 0]
-                    }
-                ]
-            );
-
-            buffer.on("update", buffer => {
-                buffer.render(canvas.app.renderer, this._pv_stage);
-            });
-        }
+        CanvasFramebuffer.get("weatherMask").draw();
 
         await wrapped(...args);
 
@@ -50,17 +12,9 @@ Hooks.once("init", () => {
     });
 
     patch("WeatherLayer.prototype.tearDown", "WRAPPER", async function (wrapped, ...args) {
-        const stage = this._pv_stage;
-
-        stage.transform.reference = PIXI.Transform.IDENTITY;
-
-        for (const child of stage.children) {
-            child._parentID = -1;
-        }
-
-        this._pv_buffer.dispose();
-
         this.mask = null;
+
+        CanvasFramebuffer.get("weatherMask").tearDown();
 
         return await wrapped(...args);
     });
@@ -74,6 +28,10 @@ Hooks.once("init", () => {
     });
 });
 
+Hooks.once("canvasInit", () => {
+    WeatherMaskFramebuffer.create({ name: "weatherMask" });
+});
+
 WeatherLayer.prototype._pv_updateMask = function (visible) {
     if (this.weather) {
         if (this.weatherOcclusionFilter) {
@@ -85,7 +43,7 @@ WeatherLayer.prototype._pv_updateMask = function (visible) {
         }
 
         if (visible) {
-            this.weather.mask = new WeatherMaskData(canvas.weather._pv_buffer.sprites[0]);
+            this.weather.mask = new WeatherMaskData();
         } else {
             this.weather.mask = null;
         }
@@ -106,87 +64,96 @@ WeatherLayer.prototype._pv_updateMask = function (visible) {
     if (this._pv_visible !== visible) {
         this._pv_visible = visible;
 
-        canvas.weather._pv_refreshBuffer();
-    }
-};
-
-function invalidateBuffer(baseTexture) {
-    if (baseTexture.resource?.source?.tagName === "VIDEO") {
-        canvas._pv_showTileVideoWarning();
-    }
-
-    this.invalidate();
-}
-
-WeatherLayer.prototype._pv_refreshBuffer = function () {
-    const buffer = this._pv_buffer;
-    const { roofs, masks, baseTextures } = this._pv_stage;
-
-    roofs.removeChildren().forEach(sprite => sprite.destroy());
-
-    for (const baseTexture of baseTextures) {
-        baseTexture.off("update", invalidateBuffer, buffer);
-    }
-
-    baseTextures.length = 0;
-
-    this._pv_mask = false;
-
-    if (this._pv_visible || canvas.fxmaster?._pv_visible /* FXMaster */) {
-        if (canvas.foreground.roofs.length !== 0) {
-            const displayRoofs = canvas.foreground.displayRoofs;
-
-            for (const roof of canvas.foreground.roofs) {
-                if (!roof.occluded && displayRoofs || roof.tile.alpha >= 1) {
-                    continue;
-                }
-
-                const sprite = roof._pv_createSprite();
-
-                if (!sprite) {
-                    continue;
-                }
-
-                this._pv_mask = true;
-
-                sprite.tint = 0x000000;
-                sprite.alpha = 1 - sprite.alpha;
-
-                sprite.texture.baseTexture.on("update", invalidateBuffer, buffer);
-
-                baseTextures.push(sprite.texture.baseTexture);
-
-                roofs.addChild(sprite);
-            }
-
-            roofs.visible = this._pv_mask;
-        } else {
-            roofs.visible = false;
-        }
-
-        if (masks.children.length !== 0) {
-            this._pv_mask = true;
-            masks.visible = true;
-        } else {
-            masks.visible = false;
-        }
-    }
-
-    if (this._pv_mask) {
-        buffer.invalidate(true);
-    } else {
-        this._pv_buffer.dispose();
+        CanvasFramebuffer.get("weatherMask").refresh();
     }
 };
 
 class WeatherMaskData extends MaskData {
-    constructor(sprite) {
-        super(sprite);
+    constructor() {
+        super(CanvasFramebuffer.get("weatherMask").sprites[0]);
     }
 
     get enabled() {
-        return canvas.weather._pv_mask;
+        return CanvasFramebuffer.get("weatherMask").enabled;
     }
 
     set enabled(value) { }
+}
+
+class WeatherMaskFramebuffer extends CanvasFramebuffer {
+    constructor() {
+        super([
+            {
+                format: PIXI.FORMATS.RED,
+                type: PIXI.TYPES.UNSIGNED_BYTE,
+                clearColor: [1, 0, 0, 0]
+            }
+        ]);
+    }
+
+    draw() {
+        super.draw();
+
+        this.roofs = this.stage.addChild(new PIXI.Container());
+        this.masks = this.stage.addChild(new PIXI.Container());
+
+        if (canvas.performance.blur.enabled) {
+            this.masks.filters = [canvas.createBlurFilter()];
+            this.masks.filterArea = canvas.app.renderer.screen;
+        }
+
+        this.stage.visible = false;
+    }
+
+    refresh() {
+        this.roofs.removeChildren().forEach(c => c.destroy());
+        this.baseTextures.forEach(t => t.off("update", this._onBaseTextureUpdate, this));
+        this.baseTextures.length = 0;
+
+        this.stage.visible = false;
+
+        if (canvas.weather._pv_visible || canvas.fxmaster?._pv_visible /* FXMaster */) {
+            this.acquire();
+
+            if (canvas.foreground.roofs.length !== 0) {
+                const displayRoofs = canvas.foreground.displayRoofs;
+
+                for (const roof of canvas.foreground.roofs) {
+                    if (!roof.occluded && displayRoofs || roof.tile.alpha >= 1) {
+                        continue;
+                    }
+
+                    const sprite = roof._pv_createSprite();
+
+                    if (!sprite) {
+                        continue;
+                    }
+
+                    sprite.tint = 0x000000;
+                    sprite.alpha = 1 - sprite.alpha;
+
+                    sprite.texture.baseTexture.on("update", this._onBaseTextureUpdate, this);
+
+                    this.baseTextures.push(sprite.texture.baseTexture);
+                    this.roofs.addChild(sprite);
+                }
+            }
+
+            if (this.roofs.children.length !== 0) {
+                this.roofs.visible = this.stage.visible = true;
+            } else {
+                this.roofs.visible = false;
+            }
+
+            if (this.masks.children.length !== 0) {
+                this.masks.visible = this.stage.visible = true;
+            } else {
+                this.masks.visible = false;
+            }
+        } else {
+            this.dispose();
+        }
+
+        this.invalidate();
+    }
 }

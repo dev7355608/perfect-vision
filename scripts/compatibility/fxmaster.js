@@ -1,13 +1,11 @@
 import { patch } from "../utils/patch.js";
 import { Logger } from "../utils/logger.js";
+import { CanvasFramebuffer } from "../utils/canvas-framebuffer.js";
 
 Hooks.once("setup", () => {
     if (!game.modules.get("fxmaster")?.active) {
         return;
     }
-
-    CONFIG.Canvas.layers.fxmaster.group = "primary";
-    CONFIG.Canvas.layers.specials.group = "primary";
 
     patch("Canvas.layers.fxmaster.layerClass.prototype.drawWeather", "WRAPPER", async function (wrapped, ...args) {
         const result = await wrapped(...args);
@@ -18,24 +16,25 @@ Hooks.once("setup", () => {
     });
 
     patch("Canvas.layers.fxmaster.layerClass.prototype.updateMask", "OVERRIDE", function () {
-        if (this._pv_mask) {
-            this._pv_mask.destroy(true);
-            this._pv_mask = null;
+        const buffer = CanvasFramebuffer.get("weatherMask");
+
+        if (buffer.fxmaster && !buffer.fxmaster.destroyed) {
+            buffer.fxmaster.destroy(true);
         }
 
         const inverted = canvas.scene.getFlag("fxmaster", "invert");
 
-        this._pv_mask = inverted ? this._createMask() : this._createInvertedMask();
+        buffer.fxmaster = inverted ? this._createMask() : this._createInvertedMask();
 
         if (inverted) {
-            canvas.weather._pv_stage.masks.addChild(this._pv_mask);
+            buffer.masks.addChild(buffer.fxmaster);
         } else {
-            if (this._pv_mask?.geometry?.graphicsData?.length > 0) {
-                canvas.weather._pv_stage.masks.addChild(this._pv_mask);
+            if (buffer.fxmaster?.geometry?.graphicsData?.length > 0) {
+                buffer.masks.addChild(buffer.fxmaster);
             }
         }
 
-        canvas.weather._pv_refreshBuffer();
+        buffer.refresh();
     });
 
     patch("Canvas.layers.fxmaster.layerClass.prototype.shouldMaskToScene", "OVERRIDE", function () {
