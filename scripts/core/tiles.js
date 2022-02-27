@@ -1,6 +1,7 @@
 import { patch } from "../utils/patch.js";
 import { Sprite } from "../utils/sprite.js";
 import { MaskData, MaskFilter } from "../utils/mask-filter.js";
+import { CanvasFramebuffer } from "../utils/canvas-framebuffer.js";
 
 Hooks.once("init", () => {
     patch("Tile.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
@@ -103,7 +104,25 @@ Hooks.once("init", () => {
         this._pv_frame?.destroy(options);
         this._pv_frame = null;
 
+        const occlusionRadial = this.tile && this.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.RADIAL;
+
         wrapped(options);
+
+        if (occlusionRadial) {
+            let dispose = true;
+
+            for (const tile of canvas.foreground.tiles) {
+                if (tile.tile && tile.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.RADIAL) {
+                    dispose = false;
+
+                    break;
+                }
+            }
+
+            if (dispose) {
+                CanvasFramebuffer.get("occlusionRadial").dispose();
+            }
+        }
     });
 });
 
@@ -121,7 +140,7 @@ Tile.prototype._pv_getOcclusionMask = function () {
     if (occlusionMode === CONST.TILE_OCCLUSION_MODES.ROOF) {
         return null;
     } else if (occlusionMode === CONST.TILE_OCCLUSION_MODES.RADIAL) {
-        return new TileOcclusionMaskData(canvas.foreground._pv_buffer.sprites[0], new RadialTileOcclusionMaskFilter(this));
+        return new TileOcclusionMaskData(CanvasFramebuffer.get("occlusionRadial").sprites[0], new RadialTileOcclusionMaskFilter(this));
     } else if (typeof _betterRoofs !== "undefined" && _betterRoofs.foregroundSightMaskContainers[this.id] /* Better Roofs */) {
         return new TileOcclusionMaskData(CanvasFramebuffer.get("lighting").sprites[0], new VisionTileOcclusionMaskFilter(this));
     }
