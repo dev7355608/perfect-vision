@@ -345,6 +345,14 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
         delete this.constructor.buffers[this.name];
     }
 
+    get disposed() {
+        return this.dirty === undefined;
+    }
+
+    get destroyed() {
+        return !this.framebuffer;
+    }
+
     render(renderer, displayObject, clear = true, transform = null, skipUpdateTransform = false) {
         const textures = this.textures;
         const framebuffer = this.framebuffer;
