@@ -858,7 +858,8 @@ class LightingFramebuffer extends CanvasFramebuffer {
             }
         }
 
-        this.invalidate(true);
+        this.acquire();
+        this.invalidate();
     }
 
     tearDown() {

@@ -446,8 +446,8 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
         renderer.framebuffer.blit();
     }
 
-    invalidate(create = false) {
-        if (this.dirty === false || create && this.dirty === undefined) {
+    invalidate() {
+        if (this.dirty === false) {
             this.dirty = true;
 
             for (const name in this.dependents) {
