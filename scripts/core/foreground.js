@@ -10,6 +10,7 @@ Hooks.once("init", () => {
 
     patch("ForegroundLayer.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
         CanvasFramebuffer.get("occlusionRadial").draw();
+        CanvasFramebuffer.get("roofs").draw();
 
         await wrapped(...args);
 
@@ -32,6 +33,7 @@ Hooks.once("init", () => {
 
     patch("ForegroundLayer.prototype.tearDown", "WRAPPER", async function (wrapped, ...args) {
         CanvasFramebuffer.get("occlusionRadial").tearDown();
+        CanvasFramebuffer.get("roofs").tearDown();
 
         return await wrapped(...args);
     });
@@ -57,6 +59,7 @@ Hooks.once("init", () => {
             CanvasFramebuffer.get("occlusionRadial").dispose();
         }
 
+        CanvasFramebuffer.get("roofs").refresh();
         CanvasFramebuffer.get("weatherMask").refresh();
 
         return this;
@@ -69,6 +72,7 @@ Hooks.once("init", () => {
 
 Hooks.once("canvasInit", () => {
     RadialOcclusionFramebuffer.create({ name: "occlusionRadial" });
+    RoofsFramebuffer.create({ name: "roofs", dependencies: ["lighting"] });
 });
 
 class RadialOcclusionShader extends PIXI.Shader {
@@ -183,6 +187,53 @@ class RadialOcclusionFramebuffer extends CanvasFramebuffer {
             this.stage.visible = false;
         }
 
+        this.invalidate();
+    }
+}
+
+class RoofsFramebuffer extends CanvasFramebuffer {
+    constructor() {
+        super([{
+            format: PIXI.FORMATS.RED,
+            type: PIXI.TYPES.UNSIGNED_BYTE,
+            clearColor: [1, 0, 0, 0]
+        }]);
+    }
+
+    draw() {
+        super.draw();
+
+        this.stage.visible = false;
+    }
+
+    refresh() {
+        this.stage.removeChildren().forEach(c => c.destroy());
+        this.baseTextures.forEach(t => t.off("update", this._onBaseTextureUpdate, this));
+        this.baseTextures.length = 0;
+
+        if (canvas.foreground.displayRoofs) {
+            for (const roof of canvas.foreground.roofs) {
+                if (roof.occluded && roof.tile.alpha <= 0) {
+                    continue;
+                }
+
+                const sprite = roof._pv_createSprite();
+
+                if (!sprite) {
+                    continue;
+                }
+
+                sprite.tint = 0x000000;
+                sprite.texture.baseTexture.on("update", this._onBaseTextureUpdate, this);
+
+                this.baseTextures.push(sprite.texture.baseTexture);
+                this.stage.addChild(sprite);
+            }
+        }
+
+        this.stage.visible = this.stage.children.length !== 0;
+
+        this.acquire();
         this.invalidate();
     }
 }
