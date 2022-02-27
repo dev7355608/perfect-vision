@@ -95,6 +95,7 @@ class WeatherMaskFramebuffer extends CanvasFramebuffer {
         super.draw();
 
         this.roofs = this.stage.addChild(new PIXI.Container());
+        this.roofs.sortableChildren = true;
         this.masks = this.stage.addChild(new PIXI.Container());
 
         if (canvas.performance.blur.enabled) {

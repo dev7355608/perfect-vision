@@ -23,6 +23,7 @@ Hooks.once("init", () => {
         placeholder.renderable = false;
         placeholder.tokens = placeholder.addChild(new PIXI.Container());
         placeholder.roofs = placeholder.addChild(new PIXI.Container());
+        placeholder.roofs.sortableChildren = true;
 
         return placeholder;
     });
@@ -158,6 +159,7 @@ class RadialOcclusionFramebuffer extends CanvasFramebuffer {
 
         this.mesh = this.stage.addChild(new PIXI.Mesh(geometry, shader, undefined, PIXI.DRAW_MODES.TRIANGLE_FAN));
         this.mesh.geometry.instanceCount = 0;
+        this.stage.sortableChildren = true;
         this.stage.visible = false;
     }
 

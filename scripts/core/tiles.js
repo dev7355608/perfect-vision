@@ -174,6 +174,7 @@ Tile.prototype._pv_createSprite = function ({ shader, blendMode, blendColor, col
     sprite.rotation = tile.rotation;
     sprite.skew = tile.skew;
     sprite.alpha = tile.alpha;
+    sprite.zIndex = this.zIndex;
     sprite.mask = this._pv_getOcclusionMask();
 
     if (blendMode) {
