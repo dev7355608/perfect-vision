@@ -20,10 +20,10 @@ Hooks.once("init", () => {
     patch("ForegroundLayer.prototype._drawOcclusionMask", "OVERRIDE", function () {
         const placeholder = new PIXI.Container();
 
+        placeholder.visible = false;
         placeholder.renderable = false;
         placeholder.tokens = placeholder.addChild(new PIXI.Container());
         placeholder.roofs = placeholder.addChild(new PIXI.Container());
-        placeholder.roofs.sortableChildren = true;
 
         return placeholder;
     });
@@ -45,12 +45,10 @@ Hooks.once("init", () => {
         let occlusionRadial = false;
 
         for (const tile of this.tiles) {
-            if (tile.tile) {
-                tile.tile.mask = tile._pv_getOcclusionMask();
+            tile._pv_refreshOcclusionAlpha();
 
-                if (tile.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.RADIAL) {
-                    occlusionRadial = true;
-                }
+            if (tile.tile && tile.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.RADIAL) {
+                occlusionRadial = true;
             }
         }
 
@@ -165,7 +163,7 @@ class RadialOcclusionFramebuffer extends CanvasFramebuffer {
 
     refresh(tokens) {
         if (canvas.foreground.tiles.length !== 0 && tokens?.length > 0) {
-            const rMulti = typeof _betterRoofs !== "undefined" /* Better Roofs */ ?
+            const rMulti = game.modules.get("betterroofs")?.active ?
                 (canvas.scene.getFlag("betterroofs", "occlusionRadius")
                     ?? game.settings.get("betterroofs", "occlusionRadius")) : 1.0;
 

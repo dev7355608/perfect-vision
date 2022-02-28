@@ -17,7 +17,7 @@ Hooks.once("init", () => {
         const tile = document.object;
 
         if (tile) {
-            tile.refresh(); // TODO
+            tile.refresh({ refreshPerception: tile.isRoof });
         }
     });
 });

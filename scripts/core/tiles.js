@@ -47,9 +47,7 @@ Hooks.once("init", () => {
             delete this._alphaMap.texture;
         }
 
-        if (this.id && !this._original && this.tile) {
-            this.tile.mask = this._pv_getOcclusionMask();
-        }
+        this._pv_refreshOcclusion();
 
         if (!this._pv_frame) {
             this._pv_frame = new ObjectHUD(this);
@@ -75,14 +73,6 @@ Hooks.once("init", () => {
             this._alphaMap.texture.destroy(true);
             delete this._alphaMap.texture;
         }
-    });
-
-    patch("Tile.prototype.getRoofSprite", "POST", function (sprite) {
-        if (sprite) {
-            sprite.mask = this._pv_getOcclusionMask();
-        }
-
-        return sprite;
     });
 
     patch("Tile.prototype._onHandleHoverIn", "WRAPPER", function (wrapped, event) {
@@ -140,21 +130,63 @@ if (!Tile.prototype._onHandleMouseUp) {
 }
 
 Tile.prototype._pv_getOcclusionMask = function () {
-    if (this._original || !this.data.overhead) {
+    if (!this.data.overhead || this._original) {
         return null;
     }
+
+    let mask = null;
 
     const occlusionMode = this.data.occlusion.mode;
+    const cutoutVision = game.modules.get("betterroofs")?.active && this.document.getFlag("betterroofs", "brMode") === 3;
 
-    if (occlusionMode === CONST.TILE_OCCLUSION_MODES.ROOF) {
-        return null;
-    } else if (occlusionMode === CONST.TILE_OCCLUSION_MODES.RADIAL) {
-        return new TileOcclusionMaskData(CanvasFramebuffer.get("occlusionRadial").sprites[0], new RadialTileOcclusionMaskFilter(this));
-    } else if (typeof _betterRoofs !== "undefined" && _betterRoofs.foregroundSightMaskContainers[this.id] /* Better Roofs */) {
-        return new TileOcclusionMaskData(CanvasFramebuffer.get("lighting").sprites[0], new VisionTileOcclusionMaskFilter(this));
+    if (occlusionMode === CONST.TILE_OCCLUSION_MODES.RADIAL) {
+        if (cutoutVision) {
+            mask = new TileOcclusionMaskData(CanvasFramebuffer.get("occlusionRadial").sprites[0], new RadialVisionTileOcclusionMaskFilter());
+        } else {
+            mask = new TileOcclusionMaskData(CanvasFramebuffer.get("occlusionRadial").sprites[0], new RadialTileOcclusionMaskFilter());
+        }
+    } else if (cutoutVision) {
+        mask = new TileOcclusionMaskData(CanvasFramebuffer.get("lighting").sprites[0], new VisionTileOcclusionMaskFilter());
     }
 
-    return null;
+    return mask;
+};
+
+Tile.prototype._pv_refreshOcclusionAlpha = function () {
+    if (!this.tile) {
+        return;
+    }
+
+    if (!this.data.overhead || this._original) {
+        this.tile.alpha = (this.data.hidden ? 0.5 : 1.0) * this.data.alpha;
+    } else {
+        this.tile.alpha = (this.data.hidden ? 0.5 : 1.0) * (canvas.foreground.displayRoofs ? 1.0 : 0.25);
+
+        if (this.tile.mask) {
+            this.tile.mask.filter.uniforms.uAlpha = this.data.alpha;
+            this.tile.mask.filter.uniforms.uOcclusionAlpha = this.data.occlusion.alpha;
+        } else {
+            switch (this.data.occlusion.mode) {
+                case CONST.TILE_OCCLUSION_MODES.FADE:
+                case CONST.TILE_OCCLUSION_MODES.ROOF:
+                    this.tile.alpha *= this.occluded ? this.data.occlusion.alpha : this.data.alpha;
+            }
+        }
+    }
+};
+
+Tile.prototype._pv_refreshOcclusion = function () {
+    if (!this.tile) {
+        return;
+    }
+
+    if (!this.data.overhead || this._original) {
+        this.tile.mask = null;
+    } else {
+        this.tile.mask = this._pv_getOcclusionMask();
+    }
+
+    this._pv_refreshOcclusionAlpha();
 };
 
 Tile.prototype._pv_createSprite = function ({ shader, blendMode, blendColor, colorMask } = {}) {
@@ -184,7 +216,7 @@ Tile.prototype._pv_createSprite = function ({ shader, blendMode, blendColor, col
     sprite.skew = tile.skew;
     sprite.alpha = tile.alpha;
     sprite.zIndex = this.zIndex;
-    sprite.mask = this._pv_getOcclusionMask();
+    sprite.mask = tile.mask;
 
     if (blendMode) {
         if (sprite.mask) {
@@ -231,6 +263,7 @@ class TileOcclusionMaskFilter extends MaskFilter {
 
         uniform sampler2D uSampler;
         uniform sampler2D uMask;
+        uniform float uAlpha;
         uniform float uOcclusionAlpha;
 
         void main() {
@@ -241,31 +274,53 @@ class TileOcclusionMaskFilter extends MaskFilter {
             float b = mask.b;
             float a = mask.a;
 
-            gl_FragColor = color * mix(uOcclusionAlpha, 1.0, %mask%);
+            gl_FragColor = color * mix(uOcclusionAlpha, uAlpha, %mask%);
         }`;
 
-    constructor(tile, mask) {
+    constructor(mask) {
         super(undefined, TileOcclusionMaskFilter.fragmentSrc.replace(/%mask%/gm, mask), { uOcclusionAlpha: 0 });
-
-        this.tile = tile;
-    }
-
-    apply(filterManager, input, output, clearMode, currentState) {
-        this.uniforms.uOcclusionAlpha = this.tile.data.occlusion.alpha;
-
-        super.apply(filterManager, input, output, clearMode, currentState);
     }
 }
 
 class RadialTileOcclusionMaskFilter extends TileOcclusionMaskFilter {
-    constructor(tile) {
-        super(tile, "r");
+    constructor() {
+        super("r");
     }
 }
 
 class VisionTileOcclusionMaskFilter extends TileOcclusionMaskFilter {
-    constructor(tile) {
-        super(tile, "1.0 - min(r, g)");
+    constructor() {
+        super("1.0 - min(r, g)");
+    }
+}
+
+class RadialVisionTileOcclusionMaskFilter extends MaskFilter {
+    static fragmentSrc = `\
+        #version 100
+
+        precision ${PIXI.settings.PRECISION_FRAGMENT} float;
+
+        varying vec2 vTextureCoord;
+        varying vec2 vMaskCoord;
+
+        uniform sampler2D uSampler;
+        uniform sampler2D uMask;
+        uniform sampler2D uMask2;
+        uniform float uAlpha;
+        uniform float uOcclusionAlpha;
+
+        void main() {
+            vec4 color = texture2D(uSampler, vTextureCoord);
+            vec4 mask = texture2D(uMask, vMaskCoord);
+            vec4 mask2 = texture2D(uMask2, vMaskCoord);
+
+            gl_FragColor = color * mix(uOcclusionAlpha, uAlpha, mask.r * (1.0 - min(mask2.r, mask2.g)));
+        }`;
+
+    constructor() {
+        super(undefined, RadialVisionTileOcclusionMaskFilter.fragmentSrc);
+
+        this.uniforms.uMask2 = CanvasFramebuffer.get("lighting").textures[0];
     }
 }
 
