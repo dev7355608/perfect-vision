@@ -2,6 +2,7 @@ import { patch } from "../utils/patch.js";
 import { Sprite } from "../utils/sprite.js";
 import { MaskData, MaskFilter } from "../utils/mask-filter.js";
 import { CanvasFramebuffer } from "../utils/canvas-framebuffer.js";
+import { LightingSystem } from "./lighting-system.js";
 
 Hooks.once("init", () => {
     patch("Tile.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
@@ -63,6 +64,18 @@ Hooks.once("init", () => {
             canvas._pv_highlights_underfoot.frames.addChild(this._pv_frame);
         }
 
+        if (!this.isRoof) {
+            if (this._pv_lightingSprite) {
+                this._pv_lightingSprite.destroy();
+                this._pv_lightingSprite = null;
+            }
+
+            if (this._pv_weatherSprite) {
+                this._pv_weatherSprite.destroy();
+                this._pv_weatherSprite = null;
+            }
+        }
+
         return this;
     });
 
@@ -103,6 +116,16 @@ Hooks.once("init", () => {
         this._pv_frame?.destroy(options);
         this._pv_frame = null;
 
+        if (this._pv_lightingSprite) {
+            this._pv_lightingSprite.destroy();
+            this._pv_lightingSprite = null;
+        }
+
+        if (this._pv_weatherSprite) {
+            this._pv_weatherSprite.destroy();
+            this._pv_weatherSprite = null;
+        }
+
         const occlusionRadial = this.tile && this.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.RADIAL;
 
         wrapped(options);
@@ -136,17 +159,10 @@ Tile.prototype._pv_getOcclusionMask = function () {
 
     let mask = null;
 
-    const occlusionMode = this.data.occlusion.mode;
-    const cutoutVision = game.modules.get("betterroofs")?.active && this.document.getFlag("betterroofs", "brMode") === 3;
-
-    if (occlusionMode === CONST.TILE_OCCLUSION_MODES.RADIAL) {
-        if (cutoutVision) {
-            mask = new TileOcclusionMaskData(CanvasFramebuffer.get("occlusionRadial").sprites[0], new RadialVisionTileOcclusionMaskFilter());
-        } else {
-            mask = new TileOcclusionMaskData(CanvasFramebuffer.get("occlusionRadial").sprites[0], new RadialTileOcclusionMaskFilter());
-        }
-    } else if (cutoutVision) {
+    if (game.modules.get("betterroofs")?.active && this.document.getFlag("betterroofs", "brMode") === 3) {
         mask = new TileOcclusionMaskData(CanvasFramebuffer.get("lighting").sprites[0], new VisionTileOcclusionMaskFilter());
+    } else if (this.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.RADIAL) {
+        mask = new TileOcclusionMaskData(CanvasFramebuffer.get("occlusionRadial").sprites[0], new RadialTileOcclusionMaskFilter());
     }
 
     return mask;
@@ -163,8 +179,8 @@ Tile.prototype._pv_refreshOcclusionAlpha = function () {
         this.tile.alpha = (this.data.hidden ? 0.5 : 1.0) * (canvas.foreground.displayRoofs ? 1.0 : 0.25);
 
         if (this.tile.mask) {
-            this.tile.mask.filter.uniforms.uAlpha = this.data.alpha;
-            this.tile.mask.filter.uniforms.uOcclusionAlpha = this.data.occlusion.alpha;
+            this.tile.mask.tileAlpha = this.data.alpha;
+            this.tile.mask.occlusionAlpha = this.data.occlusion.alpha;
         } else {
             switch (this.data.occlusion.mode) {
                 case CONST.TILE_OCCLUSION_MODES.FADE:
@@ -252,6 +268,80 @@ Tile.prototype._pv_createSprite = function ({ shader, blendMode, blendColor, col
     return sprite;
 };
 
+Tile.prototype._pv_createRoofSprite = function (shader) {
+    shader.texture = PIXI.Texture.EMPTY;
+
+    const sprite = new Sprite(shader);
+
+    sprite.blendMode = PIXI.BLEND_MODES.NORMAL_NPM;
+
+    return sprite;
+};
+
+Tile.prototype._pv_updateRoofSprite = function (sprite) {
+    const tile = this.tile;
+    const texture = this.texture;
+
+    if (!tile || !texture) {
+        return;
+    }
+
+    sprite.width = tile.width;
+    sprite.height = tile.height;
+    sprite.anchor = tile.anchor;
+    sprite.pivot = tile.pivot;
+    sprite.position.set(this.data.x + tile.position.x, this.data.y + tile.position.y);
+    sprite.rotation = tile.rotation;
+    sprite.skew = tile.skew;
+    sprite.alpha = tile.alpha;
+    sprite.zIndex = this.zIndex;
+
+    const shader = sprite.shader;
+
+    shader.texture = texture;
+
+    const uniforms = shader.uniforms;
+
+    if (tile.mask) {
+        uniforms.uTileAlpha = tile.mask.tileAlpha;
+        uniforms.uOcclusionAlpha = tile.mask.occlusionAlpha;
+        uniforms.uOcclusionSampler = tile.mask.occlusionTexture;
+    } else {
+        uniforms.uTileAlpha = 1;
+        uniforms.uOcclusionAlpha = 0;
+        uniforms.uOcclusionSampler = PIXI.Texture.WHITE;
+    }
+
+    return sprite;
+};
+
+Tile.prototype._pv_drawLightingSprite = function () {
+    if (!this._pv_lightingSprite) {
+        this._pv_lightingSprite = this._pv_createRoofSprite(new LightingSpriteShader());
+    }
+
+    // TODO
+    this._pv_region = LightingSystem.instance.getRegion("Scene");
+
+    const region = this._pv_region;
+    const uniforms = this._pv_lightingSprite.shader.uniforms;
+
+    uniforms.uDarknessLevel = region.darknessLevel;
+    uniforms.uSaturationLevel = region.saturationLevel;
+    uniforms.uColorBackground.set(region.channels.background.rgb);
+    uniforms.uColorDarkness.set(region.channels.darkness.rgb);
+
+    return this._pv_updateRoofSprite(this._pv_lightingSprite);
+};
+
+Tile.prototype._pv_drawWeatherSprite = function () {
+    if (!this._pv_weatherSprite) {
+        this._pv_weatherSprite = this._pv_createRoofSprite(new WeatherSpriteShader());
+    }
+
+    return this._pv_updateRoofSprite(this._pv_weatherSprite);
+};
+
 class TileOcclusionMaskFilter extends MaskFilter {
     static fragmentSrc = `\
         #version 100
@@ -263,7 +353,7 @@ class TileOcclusionMaskFilter extends MaskFilter {
 
         uniform sampler2D uSampler;
         uniform sampler2D uMask;
-        uniform float uAlpha;
+        uniform float uTileAlpha;
         uniform float uOcclusionAlpha;
 
         void main() {
@@ -274,11 +364,14 @@ class TileOcclusionMaskFilter extends MaskFilter {
             float b = mask.b;
             float a = mask.a;
 
-            gl_FragColor = color * mix(uOcclusionAlpha, uAlpha, %mask%);
+            gl_FragColor = color * mix(uOcclusionAlpha, uTileAlpha, %mask%);
         }`;
 
     constructor(mask) {
-        super(undefined, TileOcclusionMaskFilter.fragmentSrc.replace(/%mask%/gm, mask), { uOcclusionAlpha: 0 });
+        super(undefined, TileOcclusionMaskFilter.fragmentSrc.replace(/%mask%/gm, mask), {
+            uTileAlpha: 1,
+            uOcclusionAlpha: 0
+        });
     }
 }
 
@@ -294,36 +387,6 @@ class VisionTileOcclusionMaskFilter extends TileOcclusionMaskFilter {
     }
 }
 
-class RadialVisionTileOcclusionMaskFilter extends MaskFilter {
-    static fragmentSrc = `\
-        #version 100
-
-        precision ${PIXI.settings.PRECISION_FRAGMENT} float;
-
-        varying vec2 vTextureCoord;
-        varying vec2 vMaskCoord;
-
-        uniform sampler2D uSampler;
-        uniform sampler2D uMask;
-        uniform sampler2D uMask2;
-        uniform float uAlpha;
-        uniform float uOcclusionAlpha;
-
-        void main() {
-            vec4 color = texture2D(uSampler, vTextureCoord);
-            vec4 mask = texture2D(uMask, vMaskCoord);
-            vec4 mask2 = texture2D(uMask2, vMaskCoord);
-
-            gl_FragColor = color * mix(uOcclusionAlpha, uAlpha, mask.r * (1.0 - min(mask2.r, mask2.g)));
-        }`;
-
-    constructor() {
-        super(undefined, RadialVisionTileOcclusionMaskFilter.fragmentSrc);
-
-        this.uniforms.uMask2 = CanvasFramebuffer.get("lighting").textures[0];
-    }
-}
-
 class TileOcclusionMaskData extends MaskData {
     constructor(sprite, filter) {
         super(sprite, filter);
@@ -334,4 +397,202 @@ class TileOcclusionMaskData extends MaskData {
     }
 
     set enabled(value) { }
+
+    get tileAlpha() {
+        return this.filter.uniforms.uTileAlpha;
+    }
+
+    set tileAlpha(value) {
+        this.filter.uniforms.uTileAlpha = value;
+    }
+
+    get occlusionAlpha() {
+        return this.filter.uniforms.uOcclusionAlpha;
+    }
+
+    set occlusionAlpha(value) {
+        this.filter.uniforms.uOcclusionAlpha = value;
+    }
+
+    get occlusionTexture() {
+        return this.maskObject.texture;
+    }
+}
+
+class LightingSpriteShader extends PIXI.Shader {
+    static vertexSrc = `\
+        #version 300 es
+
+        precision ${PIXI.settings.PRECISION_VERTEX} float;
+
+        in vec2 aVertexPosition;
+        in vec2 aTextureCoord;
+
+        uniform mat3 projectionMatrix;
+        uniform vec4 uMaskFrame;
+
+        out vec2 vTextureCoord;
+        out vec2 vMaskCoord;
+
+        void main(void) {
+            gl_Position = vec4((projectionMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
+
+            vTextureCoord = aTextureCoord;
+            vMaskCoord = (aVertexPosition - uMaskFrame.xy) / uMaskFrame.zw;
+        }`;
+
+    static fragmentSrc = `\
+        #version 300 es
+
+        precision ${PIXI.settings.PRECISION_FRAGMENT} float;
+
+        in vec2 vTextureCoord;
+        in vec2 vMaskCoord;
+
+        uniform float uAlpha;
+        uniform sampler2D uSampler;
+        uniform sampler2D uOcclusionSampler;
+        uniform float uTileAlpha;
+        uniform float uOcclusionAlpha;
+        uniform float uDarknessLevel;
+        uniform float uSaturationLevel;
+        uniform vec3 uColorBackground;
+        uniform vec3 uColorDarkness;
+
+        layout(location = 0) out vec4 textures[3];
+
+        void main(void) {
+            vec4 mask = texture(uOcclusionSampler, vMaskCoord);
+            float alpha = texture(uSampler, vTextureCoord).a * uAlpha * mix(uOcclusionAlpha, uTileAlpha, 1.0 - min(mask.r, mask.g));
+
+            textures[0] = vec4(uDarknessLevel, uSaturationLevel, 0.0, alpha);
+            textures[1] = vec4(uColorBackground, alpha);
+            textures[2] = vec4(uColorDarkness, alpha);
+        }`;
+
+    static get program() {
+        if (!this._program) {
+            this._program = PIXI.Program.from(this.vertexSrc, this.fragmentSrc);
+        }
+
+        return this._program;
+    }
+
+    constructor() {
+        super(LightingSpriteShader.program, {
+            uSampler: PIXI.Texture.EMPTY,
+            uOcclusionSampler: PIXI.Texture.WHITE,
+            uAlpha: 1,
+            uTileAlpha: 1,
+            uOcclusionAlpha: 0,
+            uDarknessLevel: 0,
+            uSaturationLevel: 0,
+            uColorBackground: new Float32Array(3),
+            uColorDarkness: new Float32Array(3)
+        });
+    }
+
+    get texture() {
+        return this.uniforms.uSampler;
+    }
+
+    set texture(value) {
+        this.uniforms.uSampler = value;
+    }
+
+    get alpha() {
+        return this.uniforms.uAlpha;
+    }
+
+    set alpha(value) {
+        this.uniforms.uAlpha = value;
+    }
+
+    update() {
+        this.uniforms.uMaskFrame = canvas.app.renderer.screen;
+    }
+}
+
+class WeatherSpriteShader extends PIXI.Shader {
+    static vertexSrc = `\
+        #version 300 es
+
+        precision ${PIXI.settings.PRECISION_VERTEX} float;
+
+        in vec2 aVertexPosition;
+        in vec2 aTextureCoord;
+
+        uniform mat3 projectionMatrix;
+        uniform vec4 uMaskFrame;
+
+        out vec2 vTextureCoord;
+        out vec2 vMaskCoord;
+
+        void main(void) {
+            gl_Position = vec4((projectionMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
+
+            vTextureCoord = aTextureCoord;
+            vMaskCoord = (aVertexPosition - uMaskFrame.xy) / uMaskFrame.zw;
+        }`;
+
+    static fragmentSrc = `\
+        #version 300 es
+
+        precision ${PIXI.settings.PRECISION_FRAGMENT} float;
+
+        in vec2 vTextureCoord;
+        in vec2 vMaskCoord;
+
+        uniform float uAlpha;
+        uniform sampler2D uSampler;
+        uniform sampler2D uOcclusionSampler;
+        uniform float uTileAlpha;
+        uniform float uOcclusionAlpha;
+
+        layout(location = 0) out vec4 textures[1];
+
+        void main(void) {
+            vec4 mask = texture(uOcclusionSampler, vMaskCoord);
+            float alpha = texture(uSampler, vTextureCoord).a * uAlpha * mix(uOcclusionAlpha, uTileAlpha, 1.0 - min(mask.r, mask.g));
+
+            textures[0] = vec4(0.0, 0.0, 0.0, 1.0 - alpha);
+        }`;
+
+    static get program() {
+        if (!this._program) {
+            this._program = PIXI.Program.from(this.vertexSrc, this.fragmentSrc);
+        }
+
+        return this._program;
+    }
+
+    constructor() {
+        super(WeatherSpriteShader.program, {
+            uSampler: PIXI.Texture.EMPTY,
+            uOcclusionSampler: PIXI.Texture.WHITE,
+            uAlpha: 1,
+            uTileAlpha: 1,
+            uOcclusionAlpha: 0
+        });
+    }
+
+    get texture() {
+        return this.uniforms.uSampler;
+    }
+
+    set texture(value) {
+        this.uniforms.uSampler = value;
+    }
+
+    get alpha() {
+        return this.uniforms.uAlpha;
+    }
+
+    set alpha(value) {
+        this.uniforms.uAlpha = value;
+    }
+
+    update() {
+        this.uniforms.uMaskFrame = canvas.app.renderer.screen;
+    }
 }

@@ -729,17 +729,20 @@ class LightingFramebuffer extends CanvasFramebuffer {
         this.minFOV.visible = false;
         this.minFOV.geometry.instanceCount = 0;
         this.lights = container.addChild(new PIXI.Container());
+        this.roofs = stage.addChild(new RoofsContainer(this));
+        this.roofs.sortableChildren = true;
     }
 
     refresh() {
         this.baseTextures.forEach(t => t.off("update", this._onBaseTextureUpdate, this));
         this.baseTextures.length = 0;
 
-        const { regions, visions, lights } = this;
+        const { regions, visions, lights, roofs } = this;
 
         regions.removeChildren();
         visions.removeChildren();
         lights.removeChildren();
+        roofs.removeChildren();
 
         const textures = this.textures;
 
@@ -810,15 +813,55 @@ class LightingFramebuffer extends CanvasFramebuffer {
             }
         }
 
+        for (const roof of canvas.foreground.roofs) {
+            const sprite = roof._pv_drawLightingSprite();
+
+            if (!sprite || sprite.alpha <= 0) {
+                continue;
+            }
+
+            sprite.texture.baseTexture.on("update", this._onBaseTextureUpdate, this);
+
+            this.baseTextures.push(sprite.texture.baseTexture);
+
+            roofs.addChild(sprite);
+        }
+
         this.acquire();
         this.invalidate();
     }
 
     tearDown() {
-        this.stage.regions.removeChildren();
-        this.stage.visions.removeChildren();
-        this.stage.lights.removeChildren();
+        this.regions.removeChildren();
+        this.visions.removeChildren();
+        this.lights.removeChildren();
+        this.roofs.removeChildren();
 
         super.tearDown();
+    }
+}
+
+class RoofsContainer extends PIXI.Container {
+    constructor(buffer) {
+        super();
+
+        this.buffer = buffer;
+        this.attachments = [1, 2, 3];
+    }
+
+    render(renderer) {
+        if (this.children.length === 0) {
+            return;
+        }
+
+        renderer.batch.flush();
+
+        this.buffer.bind(renderer, this.attachments);
+
+        super.render(renderer);
+
+        renderer.batch.flush();
+
+        this.buffer.bind(renderer);
     }
 }
