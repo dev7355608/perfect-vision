@@ -29,7 +29,7 @@ Hooks.once("init", () => {
 });
 
 Hooks.once("canvasInit", () => {
-    WeatherMaskFramebuffer.create({ name: "weatherMask" });
+    WeatherMaskFramebuffer.create({ name: "weatherMask", dependencies: ["lighting"] });
 });
 
 WeatherLayer.prototype._pv_updateMask = function (visible) {
@@ -74,7 +74,7 @@ class WeatherMaskData extends MaskData {
     }
 
     get enabled() {
-        return CanvasFramebuffer.get("weatherMask").enabled;
+        return !CanvasFramebuffer.get("weatherMask").disposed;
     }
 
     set enabled(value) { }
@@ -107,7 +107,7 @@ class WeatherMaskFramebuffer extends CanvasFramebuffer {
     }
 
     refresh() {
-        this.roofs.removeChildren().forEach(c => c.destroy());
+        this.roofs.removeChildren();
         this.baseTextures.forEach(t => t.off("update", this._onBaseTextureUpdate, this));
         this.baseTextures.length = 0;
 
@@ -116,28 +116,17 @@ class WeatherMaskFramebuffer extends CanvasFramebuffer {
         if (canvas.weather._pv_visible || canvas.fxmaster?._pv_visible /* FXMaster */) {
             this.acquire();
 
-            if (canvas.foreground.roofs.length !== 0) {
-                const displayRoofs = canvas.foreground.displayRoofs;
+            for (const roof of canvas.foreground.roofs) {
+                const sprite = roof._pv_drawWeatherSprite();
 
-                for (const roof of canvas.foreground.roofs) {
-                    if (!roof.occluded && displayRoofs || roof.tile.alpha >= 1) {
-                        continue;
-                    }
-
-                    const sprite = roof._pv_createSprite();
-
-                    if (!sprite) {
-                        continue;
-                    }
-
-                    sprite.tint = 0x000000;
-                    sprite.alpha = 1 - sprite.alpha;
-
-                    sprite.texture.baseTexture.on("update", this._onBaseTextureUpdate, this);
-
-                    this.baseTextures.push(sprite.texture.baseTexture);
-                    this.roofs.addChild(sprite);
+                if (!sprite || sprite.alpha <= 0) {
+                    continue;
                 }
+
+                sprite.texture.baseTexture.on("update", this._onBaseTextureUpdate, this);
+
+                this.baseTextures.push(sprite.texture.baseTexture);
+                this.roofs.addChild(sprite);
             }
 
             if (this.roofs.children.length !== 0) {
@@ -156,5 +145,11 @@ class WeatherMaskFramebuffer extends CanvasFramebuffer {
         }
 
         this.invalidate();
+    }
+
+    tearDown() {
+        this.roofs.removeChildren();
+
+        super.tearDown();
     }
 }

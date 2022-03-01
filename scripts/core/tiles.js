@@ -294,7 +294,7 @@ Tile.prototype._pv_updateRoofSprite = function (sprite) {
     sprite.position.set(this.data.x + tile.position.x, this.data.y + tile.position.y);
     sprite.rotation = tile.rotation;
     sprite.skew = tile.skew;
-    sprite.alpha = tile.alpha;
+    sprite.alpha = 1;
     sprite.zIndex = this.zIndex;
 
     const shader = sprite.shader;
@@ -303,14 +303,16 @@ Tile.prototype._pv_updateRoofSprite = function (sprite) {
 
     const uniforms = shader.uniforms;
 
-    if (tile.mask) {
+    uniforms.uAlpha = tile.alpha;
+
+    if (tile.mask?.enabled) {
         uniforms.uTileAlpha = tile.mask.tileAlpha;
         uniforms.uOcclusionAlpha = tile.mask.occlusionAlpha;
         uniforms.uOcclusionSampler = tile.mask.occlusionTexture;
     } else {
         uniforms.uTileAlpha = 1;
         uniforms.uOcclusionAlpha = 0;
-        uniforms.uOcclusionSampler = PIXI.Texture.WHITE;
+        uniforms.uOcclusionSampler = PIXI.Texture.EMPTY;
     }
 
     return sprite;
@@ -332,7 +334,11 @@ Tile.prototype._pv_drawLightingSprite = function () {
     uniforms.uColorBackground.set(region.channels.background.rgb);
     uniforms.uColorDarkness.set(region.channels.darkness.rgb);
 
-    return this._pv_updateRoofSprite(this._pv_lightingSprite);
+    const sprite = this._pv_updateRoofSprite(this._pv_lightingSprite);
+
+    this._pv_lightingSprite.visible = uniforms.uAlpha > 0;
+
+    return sprite;
 };
 
 Tile.prototype._pv_drawWeatherSprite = function () {
@@ -340,7 +346,12 @@ Tile.prototype._pv_drawWeatherSprite = function () {
         this._pv_weatherSprite = this._pv_createRoofSprite(new WeatherSpriteShader());
     }
 
-    return this._pv_updateRoofSprite(this._pv_weatherSprite);
+    const sprite = this._pv_updateRoofSprite(this._pv_weatherSprite);
+    const uniforms = this._pv_weatherSprite.shader.uniforms;
+
+    this._pv_weatherSprite.visible = uniforms.uAlpha < 1 || uniforms.uOcclusionSampler !== PIXI.Texture.WHITE;
+
+    return sprite;
 };
 
 class TileOcclusionMaskFilter extends MaskFilter {
@@ -505,9 +516,7 @@ class LightingSpriteShader extends PIXI.Shader {
         return this.uniforms.uAlpha;
     }
 
-    set alpha(value) {
-        this.uniforms.uAlpha = value;
-    }
+    set alpha(value) { }
 
     update() {
         this.uniforms.uMaskFrame = canvas.app.renderer.screen;
@@ -589,9 +598,7 @@ class WeatherSpriteShader extends PIXI.Shader {
         return this.uniforms.uAlpha;
     }
 
-    set alpha(value) {
-        this.uniforms.uAlpha = value;
-    }
+    set alpha(value) { }
 
     update() {
         this.uniforms.uMaskFrame = canvas.app.renderer.screen;
