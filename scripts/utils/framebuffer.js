@@ -6,7 +6,7 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
     static debug = false;
 
     static create({ name, dependencies = [] }, ...args) {
-        console.assert(typeof name === "string" && !(name in this.buffers));
+        console.assert(typeof name === "string" && !this.buffers.hasOwnProperty(name));
 
         const buffer = new this(...args);
 
@@ -24,7 +24,7 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
                 return null;
             }
 
-            if (buffer.name in visited) {
+            if (visited.hasOwnProperty(buffer.name)) {
                 if (dependent) {
                     buffer.dependents[dependent.name] = dependent;
                 }
@@ -36,7 +36,7 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
 
             visited[buffer.name] = true;
 
-            for (const name in buffer.dependencies) {
+            for (const name of Object.keys(buffer.dependencies)) {
                 buffer.dependencies[name] = visit(this.buffers[name], buffer);
             }
 
@@ -45,11 +45,11 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
             return buffer;
         }
 
-        for (const name in this.buffers) {
-            visit(this.buffers[name]);
+        for (const buffer of Object.values(this.buffers)) {
+            visit(buffer);
         }
 
-        for (const name in this.buffers) {
+        for (const name of Object.keys(this.buffers)) {
             delete this.buffers[name];
         }
 
@@ -73,8 +73,7 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
     }
 
     static invalidateAll() {
-        for (const name in this.buffers) {
-            const buffer = this.buffers[name];
+        for (const buffer of Object.values(this.buffers)) {
 
             if (!(buffer instanceof this)) {
                 continue;
@@ -92,9 +91,7 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
             start = performance.now();
         }
 
-        for (const name in this.buffers) {
-            const buffer = this.buffers[name];
-
+        for (const buffer of Object.values(this.buffers)) {
             if (!(buffer instanceof this)) {
                 continue;
             }
@@ -125,8 +122,7 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
     }
 
     static hideAll() {
-        for (const name in this.buffers) {
-            const buffer = this.buffers[name];
+        for (const buffer of Object.values(this.buffers)) {
 
             if (!(buffer instanceof this)) {
                 continue;
@@ -256,15 +252,14 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
                 }
             }
         } else {
-            for (const name of this.textures) {
-                if (typeof name === "string") {
+            for (const name of Object.keys(this.textures)) {
+                if (!Number.isInteger(Number(name))) {
                     delete this.textures[name];
                     delete this.sprites[name];
                 }
             }
 
             const textures = this.textures;
-            const framebuffer = this.framebuffer;
 
             for (let i = 0; i < textures.length; i++) {
                 const baseTexture = textures[i].baseTexture;
@@ -296,14 +291,21 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
                 }
             }
 
-            framebuffer.dispose();
-            framebuffer.multisample = framebufferOptions.multisample;
-            framebuffer.depth = !!framebufferOptions.depth;
-            framebuffer.stencil = !!framebufferOptions.stencil;
-            framebuffer.clearDepth = framebufferOptions.clearDepth ?? undefined;
-            framebuffer.clearStencil = framebufferOptions.clearStencil ?? undefined;
+            this.framebuffer.dispose();
+            this.framebuffer.multisample = framebufferOptions.multisample;
+            this.framebuffer.depth = !!framebufferOptions.depth;
+            this.framebuffer.stencil = !!framebufferOptions.stencil;
+            this.framebuffer.clearDepth = framebufferOptions.clearDepth ?? undefined;
+            this.framebuffer.clearStencil = framebufferOptions.clearStencil ?? undefined;
+
+            for (const framebuffer of Object.values(this.framebuffers)) {
+                if (framebuffer !== this.framebuffer) {
+                    framebuffer.dispose();
+                }
+            }
         }
 
+        this.framebuffers = { [[...Array(this.textures.length).keys()].join(",")]: this.framebuffer };
         this.dirty = undefined;
 
         if (this.constructor.debug) {
@@ -315,8 +317,8 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
         if (this.dirty === undefined) {
             this.dirty = true;
 
-            for (const name in this.dependents) {
-                this.dependents[name]?.invalidate();
+            for (const dependent of Object.values(this.dependents)) {
+                dependent?.invalidate();
             }
         }
     }
@@ -333,9 +335,16 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
             this.sprites[i].destroy();
         }
 
+        for (const framebuffer of Object.values(this.framebuffers)) {
+            if (framebuffer !== this.framebuffer) {
+                framebuffer.dispose();
+            }
+        }
+
         this.textures = null;
         this.sprites = null;
         this.framebuffer = null;
+        this.framebuffers = null;
         this.drawBuffers = null;
 
         if (this.constructor.debug) {
@@ -384,6 +393,24 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
                 sprite.height = height;
                 sprite.updateTransform();
             }
+
+            for (const framebuffer of Object.values(this.framebuffers)) {
+                if (framebuffer === this.framebuffer) {
+                    continue;
+                }
+
+                framebuffer.width = width;
+                framebuffer.height = height;
+
+                framebuffer.dirtyId++;
+                framebuffer.dirtySize++;
+
+                if (framebuffer.depthTexture) {
+                    const resolution = framebuffer.depthTexture.resolution;
+
+                    framebuffer.depthTexture.setSize(width / resolution, height / resolution);
+                }
+            }
         }
 
         renderer.renderingToScreen = false;
@@ -404,7 +431,7 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
 
         renderer.renderTexture.bind(renderTexture);
 
-        gl.drawBuffers(this.drawBuffers);
+        this.bind(renderer);
 
         renderer.state.reset();
 
@@ -446,12 +473,72 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
         renderer.framebuffer.blit();
     }
 
+    bind(renderer, attachments = null) {
+        const textures = this.textures;
+        const renderTexture = this.textures[0];
+        const drawBuffers = this.drawBuffers;
+        let framebuffer;
+
+        if (!attachments) {
+            framebuffer = this.framebuffer;
+        } else {
+            const key = attachments.join(",");
+
+            if (!this.framebuffers.hasOwnProperty(key)) {
+                framebuffer = new PIXI.Framebuffer(this.framebuffer.width, this.framebuffer.height);
+                framebuffer.multisample = this.framebufferOptions.multisample;
+                framebuffer.depth = !!this.framebufferOptions.depth;
+                framebuffer.stencil = !!this.framebufferOptions.stencil;
+                framebuffer.clearDepth = this.framebufferOptions.clearDepth ?? undefined;
+                framebuffer.clearStencil = this.framebufferOptions.clearStencil ?? undefined;
+
+                for (let i = 0; i < attachments.length; i++) {
+                    framebuffer.addColorTexture(i, this.textures[attachments[i]].baseTexture);
+                }
+
+                this.framebuffers[key] = framebuffer;
+            } else {
+                framebuffer = this.framebuffers[key];
+            }
+        }
+
+        if (renderer.renderTexture.current !== renderTexture) {
+            renderer.renderTexture.bind(renderTexture);
+        }
+
+        if (renderer.framebuffer.current !== framebuffer) {
+            renderer.framebuffer.bind(framebuffer, renderer.framebuffer.viewport);
+        }
+
+        if (attachments) {
+            drawBuffers.length = 0;
+
+            for (let i = 0; i < attachments.length; i++) {
+                drawBuffers[attachments[i]] = 1;
+            }
+
+            for (let i = 0; i < textures.length; i++) {
+                if (!drawBuffers[i]) {
+                    textures[i].baseTexture.update();
+                }
+            }
+        }
+
+        drawBuffers.length = 0;
+
+        for (let i = 0; i < (attachments ?? textures).length; i++) {
+            drawBuffers.push(WebGL2RenderingContext.COLOR_ATTACHMENT0 + i);
+        }
+
+        renderer.gl.drawBuffers(drawBuffers);
+    }
+
     invalidate() {
         if (this.dirty === false) {
             this.dirty = true;
 
-            for (const name in this.dependents) {
-                this.dependents[name]?.invalidate();
+            for (const dependent of Object.values(this.dependents)) {
+                dependent?.invalidate();
             }
         }
     }
