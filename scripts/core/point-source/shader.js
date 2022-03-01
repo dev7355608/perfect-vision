@@ -120,7 +120,7 @@ AdaptiveLightingShader.prototype.update = function (renderer, mesh) {
     uniforms.pv_sampler2 = textures[1];
     uniforms.pv_sampler3 = textures[2];
     uniforms.pv_sampler4 = textures[3];
-    uniforms.pv_sampler5 = CanvasFramebuffer.get("roofs").textures[0];
+    uniforms.pv_sampler5 = textures[4];
 
     // TODO
     const occlusionMaskFrame = uniforms.pv_occlusionMaskFrame;
@@ -190,6 +190,7 @@ export class DelimiterShader extends AdaptiveLightingShader {
     uniform bool pv_sight;
     uniform sampler2D pv_sampler1;
     uniform sampler2D pv_sampler2;
+    uniform sampler2D pv_sampler3;
 
     layout(location = 0) out vec4 pv_fragColor;
 
@@ -225,15 +226,15 @@ export class DelimiterShader extends AdaptiveLightingShader {
             vec4 v = texture(pv_sampler1, vSamplerUvs);
 
             #ifdef PF2E_RULES_BASED_VISION
-            vec4 w = texture(pv_sampler2, vSamplerUvs);
+            vec4 w = texture(pv_sampler3, vSamplerUvs);
             float darknessLevel = w.r;
             #endif
 
             if (!pv_sight) {
                 #ifdef PF2E_RULES_BASED_VISION
-                float boost = min(w.a, clamp((darknessLevel - 0.25) / 0.5, 0.0, 1.0));
+                float boost = min(texture(pv_sampler2, vSamplerUvs).b, clamp((darknessLevel - 0.25) / 0.5, 0.0, 1.0));
                 #else
-                float boost = texture(pv_sampler2, vSamplerUvs).a;
+                float boost = texture(pv_sampler2, vSamplerUvs).b;
                 #endif
 
                 brightness = max(brightness, boost);
@@ -536,8 +537,8 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                         uniform bool pv_sight;
                         uniform float pv_luminosity;
                         uniform sampler2D pv_sampler2;
-                        uniform sampler2D pv_sampler3;
                         uniform sampler2D pv_sampler4;
+                        uniform sampler2D pv_sampler5;
 
                         #define UNIFORM_VIEWPORT_FRAME
                         uniform ${PIXI.settings.PRECISION_VERTEX} vec4 viewportFrame;
@@ -564,15 +565,15 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                         }
 
                         void main() {
-                            float light = pv_lflc.b;
+                            float light = pv_light;
 
-                            colorBackground = texture2D(pv_sampler3, vSamplerUvs).rgb;
+                            colorBackground = texture2D(pv_sampler4, vSamplerUvs).rgb;
 
-                            vec3 darknessVisionBoost = texture2D(pv_sampler2, vSamplerUvs).rba;
+                            vec2 visionBoost = texture2D(pv_sampler2, vSamplerUvs).rb;
 
-                            float darknessLevel = darknessVisionBoost.x;
-                            float vision = darknessVisionBoost.y;
-                            float boost = darknessVisionBoost.z;
+                            float darknessLevel = pv_darkness;
+                            float vision = visionBoost.x;
+                            float boost = visionBoost.y;
 
                             #ifdef PF2E_RULES_BASED_VISION
                             {
@@ -593,7 +594,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                                 colorBright = max(vec3(pv_lightLevels.x * lightPenalty), colorBackground);
                                 colorDim = mix(colorBackground, colorBright, pv_lightLevels.y);
                             } else {
-                                vec3 colorDarkness = texture2D(pv_sampler4, vSamplerUvs).rgb;
+                                vec3 colorDarkness = texture2D(pv_sampler5, vSamplerUvs).rgb;
                                 vec3 colorDark = (1.0 + pv_lightLevels.z) * colorDarkness;
                                 vec3 colorBlack = pv_lightLevels.w * colorDark;
 
@@ -719,7 +720,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                     uniform ${PIXI.settings.PRECISION_VERTEX} mat3 translationMatrixInverse;
 
                     uniform sampler2D pv_sampler1;
-                    uniform sampler2D pv_sampler5;
+                    uniform sampler2D pv_sampler3;
 
                     void main() {
                         ${PIXI.settings.PRECISION_VERTEX} vec3 worldPosition = projectionMatrixInverse * vec3(((gl_FragCoord.xy - viewportFrame.xy) / viewportFrame.zw) * 2.0 - 1.0, 1.0);
@@ -729,15 +730,21 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                         vSamplerUvs = worldPosition.xy / screenDimensions;
 
                         pv_dist = pv_distance(localPosition, vec2(0.0));
-                        pv_lflc = texture2D(pv_sampler1, vSamplerUvs);
                         pv_alpha = smoothstep(0.0, 1.0, gl_FragCoord.z);
 
                         #ifdef PV_OCCLUSION_MASK
                         pv_alpha = min(pv_alpha, pv_occlusionMaskAlpha(worldPosition.xy));
                         #endif
 
-                        pv_roofs = texture2D(pv_sampler5, vSamplerUvs).r;
-                        pv_alpha = min(pv_alpha, min(min(pv_lflc.r, pv_lflc.g), pv_roofs));
+                        vec4 w = texture2D(pv_sampler3, vSamplerUvs);
+
+                        pv_darkness = w.r;
+                        pv_roofs = w.b;
+
+                        vec4 v = texture2D(pv_sampler1, vSamplerUvs);
+
+                        pv_alpha = min(pv_alpha, min(min(v.r, v.g), pv_roofs));
+                        pv_light = v.b;
 
                         %wrapped%();
 
@@ -766,9 +773,10 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                     layout(location = 0) out vec4 pv_fragColor;
                     vec4 pv_unused_vec4;
                     #define gl_FragColor pv_unused_vec4
-                    vec4 pv_lflc;
                     float pv_dist;
+                    float pv_light;
                     float pv_alpha;
+                    float pv_darkness;
                     float pv_roofs;
                     vec3 finalColor;
                     vec4 baseColor;
@@ -799,8 +807,6 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
     shader.uniforms.pv_origin = [0, 0];
     shader.uniforms.pv_radius = 0;
     shader.uniforms.pv_smoothness = 0;
-    shader.uniforms.pv_sampler1 = PIXI.Texture.EMPTY;
-    shader.uniforms.pv_sampler5 = PIXI.Texture.EMPTY;
     shader.uniforms.pv_occlusionMaskSampler = PIXI.Texture.WHITE;
     shader.uniforms.pv_occlusionMaskFrame = new Float32Array(4);
     shader.uniforms.pv_shape = 0;
@@ -809,12 +815,8 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
     if (shader instanceof AdaptiveIlluminationShader) {
         shader.uniforms.pv_sight = false;
         shader.uniforms.pv_luminosity = 0;
-        shader.uniforms.pv_sampler2 = PIXI.Texture.EMPTY;
-        shader.uniforms.pv_sampler3 = PIXI.Texture.EMPTY;
-        shader.uniforms.pv_sampler4 = PIXI.Texture.EMPTY;
     } else if (shader instanceof DelimiterShader) {
         shader.uniforms.pv_sight = false;
-        shader.uniforms.pv_darknessSaturationBoost = PIXI.Texture.EMPTY;
     }
 
     shader.uniforms.viewportSampler = PIXI.Texture.EMPTY;

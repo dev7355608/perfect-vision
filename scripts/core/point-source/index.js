@@ -719,7 +719,7 @@ class LightSourceShader extends PIXI.Shader {
         }
         #endif
 
-        layout(location = 0) out vec4 textures[1];
+        layout(location = 0) out vec3 textures[1];
 
         float fade(in float dist) {
             float ampdist = dist;
@@ -746,7 +746,7 @@ class LightSourceShader extends PIXI.Shader {
                 alpha2 *= fade(dist * dist);
             }
 
-            textures[0] = vec4(alpha1, alpha1, alpha2, alpha2);
+            textures[0] = vec3(alpha1, alpha1, alpha2);
         }`;
     }
 
@@ -834,7 +834,7 @@ class VisionSourceShader extends PIXI.Shader {
         uniform float uRadiusBoost;
         uniform float uSmoothness;
 
-        layout(location = 0) out vec4 textures[2];
+        layout(location = 0) out vec3 textures[2];
 
         void main() {
             ${PIXI.settings.PRECISION_VERTEX} vec3 worldPosition = projectionMatrixInverse * vec3(((gl_FragCoord.xy - viewportFrame.xy) / viewportFrame.zw) * 2.0 - 1.0, 1.0);
@@ -851,8 +851,8 @@ class VisionSourceShader extends PIXI.Shader {
 
             float alpha = smoothstep(0.0, 1.0, gl_FragCoord.z);
 
-            textures[0] = vec4(alpha, min(sight, alpha), 0.0, min(color, alpha));
-            textures[1] = vec4(0.0, 0.0, min(vision, alpha), min(boost, alpha));
+            textures[0] = vec3(alpha, min(sight, alpha), 0.0);
+            textures[1] = vec3(min(vision, alpha), min(color, alpha), min(boost, alpha));
         }`;
 
     static get program() {

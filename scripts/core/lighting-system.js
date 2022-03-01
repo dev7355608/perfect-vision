@@ -591,15 +591,18 @@ class LightingRegionShader extends PIXI.Shader {
         uniform vec3 uColorBackground;
         uniform vec3 uColorDarkness;
 
-        layout(location = 0) out vec4 textures[4];
+        layout(location = 0) out vec4 texture1;
+        layout(location = 2) out vec4 texture3;
+        layout(location = 3) out vec4 texture4;
+        layout(location = 4) out vec4 texture5;
 
         void main() {
             float alpha = smoothstep(0.0, 1.0, gl_FragCoord.z);
 
-            textures[0] = vec4(uLOS, uFOV, 0.0, alpha);
-            textures[1] = vec4(uDarknessLevel, uSaturationLevel, 0.0, alpha);
-            textures[2] = vec4(uColorBackground, alpha);
-            textures[3] = vec4(uColorDarkness, alpha);
+            texture1 = vec4(uLOS, uFOV, 0.0, alpha);
+            texture3 = vec4(uDarknessLevel, uSaturationLevel, 1.0, alpha);
+            texture4 = vec4(uColorBackground, alpha);
+            texture5 = vec4(uColorDarkness, alpha);
         }`;
 
 

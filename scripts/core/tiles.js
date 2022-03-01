@@ -126,7 +126,8 @@ Hooks.once("init", () => {
             this._pv_weatherSprite = null;
         }
 
-        const occlusionRadial = this.tile && this.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.RADIAL;
+        const occlusionRadialTexture = CanvasFramebuffer.get("occlusionRadial").textures[0];
+        const occlusionRadial = this.tile?.mask?.occlusionTexture === occlusionRadialTexture;
 
         wrapped(options);
 
@@ -134,7 +135,7 @@ Hooks.once("init", () => {
             let dispose = true;
 
             for (const tile of canvas.foreground.tiles) {
-                if (tile.tile && tile.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.RADIAL) {
+                if (tile.tile?.mask?.occlusionTexture === occlusionRadialTexture) {
                     dispose = false;
 
                     break;

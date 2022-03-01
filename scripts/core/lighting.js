@@ -471,7 +471,7 @@ class IlluminationBackgroundShader extends PIXI.Shader {
         uniform sampler2D uSampler1;
         uniform sampler2D uSampler2;
         uniform sampler2D uSampler3;
-        uniform sampler2D uSampler5;
+        uniform sampler2D uSampler4;
 
         const vec3 lightLevels = %LIGHT_LEVELS%;
 
@@ -489,11 +489,11 @@ class IlluminationBackgroundShader extends PIXI.Shader {
 
         void main() {
             float light = texture2D(uSampler1, vScreenCoord).b;
-            vec2 darknessVision = texture2D(uSampler2, vScreenCoord).rb;
-            float darknessLevel = darknessVision.x;
-            float vision = darknessVision.y;
-            vec3 colorBackground = texture2D(uSampler3, vScreenCoord).rgb;
-            float alpha = min(1.0 - light, texture2D(uSampler5, vScreenCoord).r);
+            float vision = texture2D(uSampler2, vScreenCoord).r;
+            vec2 darknessRoofs = texture2D(uSampler3, vScreenCoord).rb;
+            float darknessLevel = darknessRoofs.x;
+            vec3 colorBackground = texture2D(uSampler4, vScreenCoord).rgb;
+            float alpha = min(1.0 - light, darknessRoofs.y);
 
             #ifdef PF2E_RULES_BASED_VISION
             alpha = min(alpha, clamp((darknessLevel - 0.25) / 0.5, 0.0, 1.0));
@@ -547,7 +547,7 @@ class IlluminationBackgroundShader extends PIXI.Shader {
             uSampler1: PIXI.Texture.EMPTY,
             uSampler2: PIXI.Texture.EMPTY,
             uSampler3: PIXI.Texture.EMPTY,
-            uSampler5: PIXI.Texture.EMPTY
+            uSampler4: PIXI.Texture.EMPTY
         });
     }
 
@@ -564,7 +564,7 @@ class IlluminationBackgroundShader extends PIXI.Shader {
         uniforms.uSampler1 = textures[0];
         uniforms.uSampler2 = textures[1];
         uniforms.uSampler3 = textures[2];
-        uniforms.uSampler5 = CanvasFramebuffer.get("roofs").textures[0];
+        uniforms.uSampler4 = textures[3];
     }
 }
 
@@ -681,12 +681,17 @@ class LightingFramebuffer extends CanvasFramebuffer {
     constructor() {
         super([
             {
-                format: PIXI.FORMATS.RGBA,
+                format: PIXI.FORMATS.RGB,
                 type: PIXI.TYPES.UNSIGNED_BYTE
             },
             {
-                format: PIXI.FORMATS.RGBA,
+                format: PIXI.FORMATS.RGB,
                 type: PIXI.TYPES.UNSIGNED_BYTE
+            },
+            {
+                format: PIXI.FORMATS.RGB,
+                type: PIXI.TYPES.UNSIGNED_BYTE,
+                clearColor: [0, 0, 1, 0]
             },
             {
                 format: PIXI.FORMATS.RGB,
@@ -706,17 +711,25 @@ class LightingFramebuffer extends CanvasFramebuffer {
 
         this.regions = stage.addChild(new DrawBuffersContainer(
             WebGL2RenderingContext.COLOR_ATTACHMENT0,
-            WebGL2RenderingContext.COLOR_ATTACHMENT1,
+            WebGL2RenderingContext.NONE,
             WebGL2RenderingContext.COLOR_ATTACHMENT2,
-            WebGL2RenderingContext.COLOR_ATTACHMENT3
+            WebGL2RenderingContext.COLOR_ATTACHMENT3,
+            WebGL2RenderingContext.COLOR_ATTACHMENT4
         ));
         this.visions = stage.addChild(new DrawBuffersContainer(
             WebGL2RenderingContext.COLOR_ATTACHMENT0,
-            WebGL2RenderingContext.COLOR_ATTACHMENT1
+            WebGL2RenderingContext.COLOR_ATTACHMENT1,
+            WebGL2RenderingContext.NONE,
+            WebGL2RenderingContext.NONE,
+            WebGL2RenderingContext.NONE
         ));
 
         const container = stage.addChild(new DrawBuffersContainer(
-            WebGL2RenderingContext.COLOR_ATTACHMENT0
+            WebGL2RenderingContext.COLOR_ATTACHMENT0,
+            WebGL2RenderingContext.NONE,
+            WebGL2RenderingContext.NONE,
+            WebGL2RenderingContext.NONE,
+            WebGL2RenderingContext.NONE
         ));
 
         const geometry = new PIXI.Geometry()
@@ -750,10 +763,10 @@ class LightingFramebuffer extends CanvasFramebuffer {
             if (region.id === "Scene") {
                 textures[0].baseTexture.clearColor[0] = region.vision ? 1 : 0;
                 textures[0].baseTexture.clearColor[1] = region.vision || region.globalLight ? 1 : 0;
-                textures[1].baseTexture.clearColor[0] = region.darknessLevel;
-                textures[1].baseTexture.clearColor[1] = region.saturationLevel;
-                textures[2].baseTexture.clearColor.set(region.channels.background.rgb);
-                textures[3].baseTexture.clearColor.set(region.channels.darkness.rgb);
+                textures[2].baseTexture.clearColor[0] = region.darknessLevel;
+                textures[2].baseTexture.clearColor[1] = region.saturationLevel;
+                textures[3].baseTexture.clearColor.set(region.channels.background.rgb);
+                textures[4].baseTexture.clearColor.set(region.channels.darkness.rgb);
             } else {
                 const mesh = region.drawMesh();
 
@@ -846,7 +859,7 @@ class RoofsContainer extends PIXI.Container {
         super();
 
         this.buffer = buffer;
-        this.attachments = [1, 2, 3];
+        this.attachments = [2, 3, 4];
     }
 
     render(renderer) {

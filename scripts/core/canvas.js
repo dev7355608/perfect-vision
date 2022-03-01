@@ -536,8 +536,8 @@ class BackgroundColorShader extends PIXI.Shader {
 
             const textures = CanvasFramebuffer.get("lighting").textures;
 
-            this.uniforms.uDarknessLevel = textures[1];
-            this.uniforms.uColorDarkness = textures[3];
+            this.uniforms.uDarknessLevel = textures[2];
+            this.uniforms.uColorDarkness = textures[4];
         }
     }
 }

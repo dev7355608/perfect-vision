@@ -96,8 +96,8 @@ export class MonoFilter extends MaskFilter {
                 vec3 srgb = color.rgb / a;
                 vec3 rgb = srgb2rgb(srgb);
                 float y = rgb2y(rgb);
-                float s = min(min(v.r, v.g), u.r);
-                float t2 = max(min(s, v.a), w.g);
+                float s = min(min(v.r, v.g), u.b);
+                float t2 = max(min(s, max(w.g, v.b)), u.g);
                 float t1 = 1.0 - s;
                 gl_FragColor = vec4(rgb2srgb(mix(mix(y2mono(y, uColor), vec3(y), t1), rgb, t2)), 1.0) * a;
             } else {
@@ -158,7 +158,7 @@ export class MonoFilter extends MaskFilter {
 
         uniforms.uSampler1 = textures[0];
         uniforms.uSampler2 = textures[1];
-        uniforms.uSampler3 = CanvasFramebuffer.get("roofs").textures[0];
+        uniforms.uSampler3 = textures[2];
 
         super.apply(filterManager, input, output, clearMode, currentState);
     }
