@@ -444,7 +444,7 @@ class IlluminationContainerFilter extends PIXI.Filter {
         screenDimensions[0] = width;
         screenDimensions[1] = height;
 
-        this.uniforms.uDarknessLevel = CanvasFramebuffer.get("lighting").textures[1];
+        this.uniforms.uDarknessLevel = CanvasFramebuffer.get("lighting").textures[2];
 
         super.apply(filterManager, input, output, clearMode, currentState);
     }
@@ -594,7 +594,7 @@ class IlluminationPointSourceContainer extends PointSourceContainer {
         if ((this._viewportTextureBlendMode ?? blendMode) !== blendMode) {
             texture = super._getViewportTexture(renderer);
         } else {
-            texture = this._viewportTexture ?? CanvasFramebuffer.get("lighting").textures[2];
+            texture = this._viewportTexture ?? CanvasFramebuffer.get("lighting").textures[3];
         }
 
         this._viewportTextureBlendMode = blendMode;
