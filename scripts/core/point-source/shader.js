@@ -660,14 +660,6 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                                 viewportColor = max(viewportColor, colorBackground);
                             }
 
-                            pv_alpha = min(pv_alpha, pv_light);
-
-                            if (gradual) {
-                                float dist = pv_dist / pv_radius;
-
-                                pv_alpha *= fade(dist * dist);
-                            }
-
                             vec3 visionColor = max(viewportColor, mix(
                                 colorBackground,
                                 colorVision(colorBackground, darknessLevel, vision),
@@ -675,7 +667,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                             ));
 
                             if (pv_light > 0.0) {
-                                viewportColor = mix(viewportColor, visionColor, pv_alpha / pv_light);
+                                viewportColor = mix(viewportColor, visionColor, clamp(pv_alpha / pv_light, 0.0, 1.0));
                             } else {
                                 viewportColor = visionColor;
                             }
@@ -736,6 +728,14 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                         pv_alpha = min(pv_alpha, pv_occlusionMaskAlpha(worldPosition.xy));
                         #endif
 
+                        ${type === AdaptiveIlluminationShader ? `
+                        if (gradual) {
+                            float dist = pv_dist / pv_radius;
+
+                            pv_alpha *= fade(dist * dist);
+                        }
+                        ` : ""}
+
                         vec4 w = texture2D(pv_sampler3, vSamplerUvs);
 
                         pv_darkness = w.r;
@@ -743,8 +743,9 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
 
                         vec4 v = texture2D(pv_sampler1, vSamplerUvs);
 
-                        pv_alpha = min(pv_alpha, min(min(v.r, v.g), pv_roofs));
-                        pv_light = min(v.b, pv_roofs);
+                        pv_mask = min(min(v.r, v.g), pv_roofs);
+                        pv_alpha = min(pv_alpha, pv_mask);
+                        pv_light = min(v.b, pv_mask);
 
                         %wrapped%();
 
@@ -774,6 +775,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                     vec4 pv_unused_vec4;
                     #define gl_FragColor pv_unused_vec4
                     float pv_dist;
+                    float pv_mask;
                     float pv_light;
                     float pv_alpha;
                     float pv_darkness;
