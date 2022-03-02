@@ -565,8 +565,6 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                         }
 
                         void main() {
-                            float light = pv_light;
-
                             colorBackground = texture2D(pv_sampler4, vSamplerUvs).rgb;
 
                             vec2 visionBoost = texture2D(pv_sampler2, vSamplerUvs).rb;
@@ -662,6 +660,8 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                                 viewportColor = max(viewportColor, colorBackground);
                             }
 
+                            pv_alpha = min(pv_alpha, pv_light);
+
                             if (gradual) {
                                 float dist = pv_dist / pv_radius;
 
@@ -674,8 +674,8 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                                 pv_roofs
                             ));
 
-                            if (light > 0.0) {
-                                viewportColor = mix(viewportColor, visionColor, clamp(pv_alpha / light, 0.0, 1.0));
+                            if (pv_light > 0.0) {
+                                viewportColor = mix(viewportColor, visionColor, pv_alpha / pv_light);
                             } else {
                                 viewportColor = visionColor;
                             }
@@ -744,7 +744,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                         vec4 v = texture2D(pv_sampler1, vSamplerUvs);
 
                         pv_alpha = min(pv_alpha, min(min(v.r, v.g), pv_roofs));
-                        pv_light = v.b;
+                        pv_light = min(v.b, pv_roofs);
 
                         %wrapped%();
 

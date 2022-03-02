@@ -2,7 +2,7 @@ import { patch } from "../utils/patch.js";
 import { LimitSystem } from "./limit-system.js";
 
 Hooks.once("init", () => {
-    patch("ClockwiseSweepPolygon.prototype.initialize", "WRAPPER", function (wrapped, origin, config, ...args) {
+    patch("ClockwiseSweepPolygon.prototype.initialize", "WRAPPER", function (wrapped, origin, config = {}, ...args) {
         if (config.type === "sight") {
             config.density = Math.max(config.density ?? 0, 60);
             config.radiusMin = config.radiusMin ?? 0;

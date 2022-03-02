@@ -100,7 +100,7 @@ Hooks.once("ready", () => {
         config: false,
     });
 
-    const next = 6;
+    const next = 7;
     let current = game.settings.get("perfect-vision", "popup");
 
     if (game.user.isGM && current < next) {
@@ -117,6 +117,18 @@ Hooks.once("ready", () => {
             <p>If you haven't heard, Perfect Vision makes it possible to adjust all lighting settings locally; this includes <i>Sight Limit</i> as well. To learn how to setup mixed indoor/outdoor scenes or how to create magical darkness click <a href="https://github.com/dev7355608/perfect-vision/blob/main/README.md#drawing-configuration">here</a>.</p>
             <hr>`;
 
+        content += templates[current < 7]
+            .replace("%HEAD%", "v3.7 (Roof Lighting)")
+            .replace("%BODY%", `\
+                <ul>
+                    <li>
+                        The lighting of roof tiles can be configured now. Before this update a roof would appear dark if it covered a dark interior in a daylight scene.
+                        Now roofs are illuminated according to the scene's lighting settings by default. This can be changed to any other lighting settings:
+                        in the tile configuration under the <i>Overhead</i> tab you find the <i>Roof Lighting</i> setting that allows you to choose any drawing's lighting settings.
+                    </li>
+                    <li>Should you use <i>Better Roofs'</i> mask mode <i>Cutout Tile on Vision</i> for your roofs, you can safely change the occlusion mode to <i>Roof</i> now even though <i>Better Roofs</i> doesn't support/recommend it.</li>
+                    <li>Fixed some tile occlusion alpha issues.</li>
+                </ul>`);
         content += templates[current < 6]
             .replace("%HEAD%", "v3.6 (Drawing Configuration Improvements)")
             .replace("%BODY%", `\

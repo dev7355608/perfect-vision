@@ -2,6 +2,7 @@ import "./ambient-light.js";
 import "./measured-template.js";
 import "./drawing.js";
 import "./scene.js";
+import "./tile.js";
 import "./token.js";
 import { presets } from "../settings.js";
 

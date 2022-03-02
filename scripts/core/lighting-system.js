@@ -121,6 +121,12 @@ export class LightingSystem {
         return region?.data ? region : undefined;
     }
 
+    getActiveRegion(id) {
+        const region = this.getRegion(id);
+
+        return region?.active ? region : undefined;
+    }
+
     reset() {
         for (const region of Object.values(this.regions)) {
             region.data = null;

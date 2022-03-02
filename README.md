@@ -111,6 +111,12 @@ Create a light source and open the configuration and go to the *Advanced Options
 
 Create a circle-shaped template and open the configuration. Check the *Enable* box next to *Sight Limit* and set *Sight Limit* to 0. Now tokens won't be able to see though or inside the area of this template. Done!
 
+## Tile Configuration
+
+You find these settings in the *Overhead* tab.
+
+- **Roof Lighting**: If left blank, the roof is illuminated according to the scene's lighting settings. Otherwise, according to the chosen drawing's lighting settings.
+
 ## Drawing Configuration
 
 You find these settings in the *Lighting* tab.

@@ -79,12 +79,18 @@ Hooks.once("init", () => {
         return this;
     });
 
-    patch("Tile.prototype._onUpdate", "WRAPPER", function (wrapped, ...args) {
-        wrapped(...args);
+    patch("Tile.prototype._onUpdate", "WRAPPER", function (wrapped, data, ...args) {
+        wrapped(data, ...args);
 
         if (this._alphaMap?.texture) {
             this._alphaMap.texture.destroy(true);
             delete this._alphaMap.texture;
+        }
+
+        if (this.isRoof && (["z", "alpha", "hidden"].some(k => k in data)
+            || foundry.utils.hasProperty(data, "occlusion.alpha")
+            || foundry.utils.hasProperty(data, "flags.perfect-vision.lighting"))) {
+            canvas.perception.schedule({ lighting: { refresh: true } });
         }
     });
 
@@ -323,9 +329,6 @@ Tile.prototype._pv_drawLightingSprite = function () {
         this._pv_lightingSprite = this._pv_createRoofSprite(new LightingSpriteShader());
     }
 
-    // TODO
-    this._pv_region = LightingSystem.instance.getRegion("Scene");
-
     const region = this._pv_region;
     const uniforms = this._pv_lightingSprite.shader.uniforms;
 
@@ -349,7 +352,7 @@ Tile.prototype._pv_drawWeatherSprite = function () {
     const sprite = this._pv_updateRoofSprite(this._pv_weatherSprite);
     const uniforms = this._pv_weatherSprite.shader.uniforms;
 
-    this._pv_weatherSprite.visible = uniforms.uAlpha < 1 || uniforms.uOcclusionSampler !== PIXI.Texture.WHITE;
+    this._pv_weatherSprite.visible = uniforms.uAlpha < 1 || uniforms.uOcclusionSampler !== PIXI.Texture.EMPTY;
 
     return sprite;
 };
@@ -493,7 +496,7 @@ class LightingSpriteShader extends PIXI.Shader {
     constructor() {
         super(LightingSpriteShader.program, {
             uSampler: PIXI.Texture.EMPTY,
-            uOcclusionSampler: PIXI.Texture.WHITE,
+            uOcclusionSampler: PIXI.Texture.EMPTY,
             uAlpha: 1,
             uTileAlpha: 1,
             uOcclusionAlpha: 0,
@@ -579,7 +582,7 @@ class WeatherSpriteShader extends PIXI.Shader {
     constructor() {
         super(WeatherSpriteShader.program, {
             uSampler: PIXI.Texture.EMPTY,
-            uOcclusionSampler: PIXI.Texture.WHITE,
+            uOcclusionSampler: PIXI.Texture.EMPTY,
             uAlpha: 1,
             uTileAlpha: 1,
             uOcclusionAlpha: 0

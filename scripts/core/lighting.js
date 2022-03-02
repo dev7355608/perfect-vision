@@ -222,6 +222,16 @@ Hooks.once("init", () => {
             }
         }
 
+        for (const roof of canvas.foreground.roofs) {
+            let regionId = roof.document.getFlag("perfect-vision", "lighting") || "";
+
+            if (regionId) {
+                regionId = `Drawing.${regionId}`;
+            }
+
+            roof._pv_region = LightingSystem.instance.getActiveRegion(regionId) ?? sceneRegion;
+        }
+
         if (refreshVision) {
             canvas.perception.schedule({ sight: { refresh: true } });
         }
