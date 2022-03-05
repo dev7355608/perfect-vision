@@ -2,7 +2,7 @@ import { patch } from "../../utils/patch.js";
 
 Hooks.once("init", () => {
     patch("SceneConfig.prototype.close", "POST", async function (result) {
-        this.object.data.reset();
+        this.object.prepareData();
 
         if (this.object.isView && canvas.ready) {
             canvas.lighting._pv_updateLighting();

@@ -9,7 +9,7 @@ Hooks.once("init", () => {
         }
 
         if (!options?.force) {
-            this.object.data.reset();
+            this.object.prepareData();
 
             if (this.object.parent.isView && canvas.ready) {
                 this.object.object._pv_updateLighting();
