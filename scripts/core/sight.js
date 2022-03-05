@@ -33,7 +33,10 @@ Hooks.once("init", () => {
         return this;
     });
 
-    patch("SightLayer.prototype._createCachedMask", "OVERRIDE", function () { });
+    patch("SightLayer.prototype._createCachedMask", "OVERRIDE", function () {
+        this.losCache = new PIXI.Container();
+        this.losCache.sprite = null;
+    });
 
     patch("SightLayer.prototype._createVisionContainer", "OVERRIDE", function () {
         const c = new PIXI.Container();
