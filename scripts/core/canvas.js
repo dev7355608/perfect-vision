@@ -1,10 +1,12 @@
 import { patch } from "../utils/patch.js";
+import { rgb2gray, rgb2srgb, srgb2rgb } from "../utils/color.js";
 import { Sprite } from "../utils/sprite.js";
 import { RenderTargetMixin } from "../utils/render-target.js";
 import { MonoFilter } from "./mono.js";
 import { Logger } from "../utils/logger.js";
 import { Region } from "../utils/region.js";
 import { CanvasFramebuffer } from "../utils/canvas-framebuffer.js";
+import { LightingSystem } from "./lighting-system.js";
 
 class OverlaysCanvasGroup extends PIXI.Container {
     constructor() {
@@ -441,24 +443,35 @@ Hooks.once("init", () => {
 
         return settings;
     });
+
+    patch("Canvas.prototype.setBackgroundColor", "POST", function (result, color) {
+        this._pv_setBackgroundColor(color);
+    });
 });
 
-Hooks.on("canvasInit", () => {
-    canvas._pv_nextTileVideoWarning = 0;
-});
-
-Canvas.prototype._pv_showTileVideoWarning = function () {
-    if (game.user.isGM && game.time.serverTime >= this._pv_nextTileVideoWarning) {
-        ui.notifications.warn("[Perfect Vision] Roof/Levels tiles with video texture may impact performance significantly!");
-        Logger.warn("Roof/Levels tiles with video texture may impact performance significantly!");
-
-        if (this._pv_nextTileVideoWarning === 0) {
-            this._pv_nextTileVideoWarning = game.time.serverTime + 300000;
-        } else {
-            this._pv_nextTileVideoWarning = undefined;
-        }
+Canvas.prototype._pv_setBackgroundColor = function (color) {
+    if (typeof color === "string") {
+        color = foundry.utils.colorStringToHex(color);
     }
-}
+
+    if (typeof color === "number") {
+        color = foundry.utils.hexToRGB(color);
+    }
+
+    if (!(game.user.isGM && game.settings.get("perfect-vision", "improvedGMVision") && this.sight.sources.size === 0) && LightingSystem.instance.hasRegion("Scene")) {
+        const a = srgb2rgb(color);
+        const b = rgb2gray(a);
+        const s = LightingSystem.instance.getRegion("Scene").saturationLevel;
+
+        color = rgb2srgb([
+            a[0] * s + b[0] * (1 - s),
+            a[1] * s + b[1] * (1 - s),
+            a[2] * s + b[2] * (1 - s)
+        ]);
+    }
+
+    this.app.renderer.backgroundColor = foundry.utils.rgbToHex(color);
+};
 
 class BackgroundColorShader extends PIXI.Shader {
     static vertexSrc = `\

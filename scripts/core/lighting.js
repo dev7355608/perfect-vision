@@ -128,7 +128,7 @@ Hooks.once("init", () => {
         this.channels = sceneRegion.channels;
         this.version = sceneRegion.version;
 
-        canvas.app.renderer.backgroundColor = this.channels.canvas.hex;
+        canvas._pv_setBackgroundColor(this.channels.canvas.rgb);
 
         const bkg = this.background;
         const ilm = this.illumination;
