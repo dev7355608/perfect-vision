@@ -228,19 +228,10 @@ Hooks.once("init", () => {
 
         for (const drawing of canvas.scene.drawings.map(document => document.object)) {
             const { rangeBottom, rangeTop } = this.getFlagsForObject(drawing);
+            const hidden = drawing.skipRender = !(!rangeBottom && rangeBottom != 0) && !(rangeBottom <= tElev && tElev <= rangeTop);
 
-            if (!rangeBottom && rangeBottom != 0) {
-                continue;
-            }
-
-            const skipRender = !(rangeBottom <= tElev && tElev <= rangeTop);
-
-            if (drawing.skipRender !== skipRender) {
-                drawing.skipRender = skipRender;
-
-                if (LightingSystem.instance.updateRegion(`Drawing.${drawing.document.id}`, { hidden: !!drawing.skipRender })) {
-                    refresh = true;
-                }
+            if (LightingSystem.instance.updateRegion(`Drawing.${drawing.document.id}`, { hidden })) {
+                refresh = true;
             }
         }
 
