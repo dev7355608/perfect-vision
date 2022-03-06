@@ -250,16 +250,16 @@ Hooks.once("init", () => {
                 continue;
             }
 
-            if ((!hasLOS || !hasFOV) && source._pv_los.intersectsCircle(point, radius)) {
-                hasLOS = true;
-
+            if ((!hasLOS || source.fov.radius > 0) && source._pv_los.intersectsCircle(point, radius)) {
                 if (!hasFOV && source._pv_fov.intersectsCircle(point, radius)) {
                     hasFOV = true;
                 }
-            }
 
-            if (hasLOS && hasFOV) {
-                return true;
+                if (hasFOV) {
+                    return true;
+                }
+
+                hasLOS = true;
             }
         }
 
@@ -268,15 +268,7 @@ Hooks.once("init", () => {
                 continue;
             }
 
-            if ((!hasFOV || !hasLOS && source.data.vision) && source._pv_los.intersectsCircle(point, radius)) {
-                if (source.data.vision) {
-                    hasLOS = true;
-                }
-
-                hasFOV = true;
-            }
-
-            if (hasLOS && hasFOV) {
+            if ((hasLOS || source.data.vision) && source._pv_los.intersectsCircle(point, radius)) {
                 return true;
             }
         }
