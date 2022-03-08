@@ -216,12 +216,14 @@ Hooks.once("ready", () => {
 import { Framebuffer } from "../utils/framebuffer.js";
 import { MonoFilter } from "./mono.js";
 import { LightingSystem } from "./lighting-system.js";
+import { SightSystem } from "./sight-system.js";
 import { LimitSystem } from "./limit-system.js";
 
 class PerfectVision {
     static Framebuffer = Framebuffer;
     static MonoFilter = MonoFilter;
     static LightingSystem = LightingSystem;
+    static SightSystem = SightSystem;
     static LimitSystem = LimitSystem;
 
     static get debug() {

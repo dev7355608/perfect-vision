@@ -6,6 +6,11 @@
   "version": "3.7.9",
   "minimumCoreVersion": "9.245",
   "compatibleCoreVersion": "9",
+  "scripts": [
+    "libs/clipper.js",
+    "libs/tess2.js",
+    "libs/vlq.js"
+  ],
   "esmodules": [
     "scripts/index.js"
   ],

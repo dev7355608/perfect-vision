@@ -437,6 +437,25 @@ Hooks.once("init", () => {
             this._pv_geometrySight = this._pv_geometry;
         }
 
+        if (radiusSight > 0) {
+            if (sightLimit !== radiusSight) {
+                this._pv_clos = Region.from(
+                    CONFIG.Canvas.losBackend.create(origin, {
+                        type: "sight",
+                        angle: this.data.angle,
+                        rotation: this.data.rotation,
+                        radius: radiusSight,
+                        radiusMin: this._pv_minRadius,
+                        source: this
+                    })
+                );
+            } else {
+                this._pv_clos = this._pv_los;
+            }
+        } else {
+            this._pv_clos = this._pv_fov;
+        }
+
         this._pv_radiusColor = radiusColor;
         this._pv_radiusBoost = radiusBoost;
 

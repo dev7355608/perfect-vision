@@ -2,6 +2,7 @@ import { PointSourceGeometry } from "./point-source/geometry.js";
 import { PointSourceMesh } from "./point-source/mesh.js";
 import { Region } from "../utils/region.js";
 import { LimitSystem } from "./limit-system.js";
+import { Tess2 } from "../utils/tess2.js";
 
 const inheritedKeys = {
     walls: false, vision: false, globalLight: false, globalLightThreshold: null, sightLimit: Infinity,
@@ -320,6 +321,7 @@ class LightingRegion {
         if (this.shape !== data.shape) {
             this.shape = this.fov = data.shape;
 
+            updateFOV = true;
             updateLOS = true;
         }
 
@@ -409,6 +411,62 @@ class LightingRegion {
                 this.los = Region.from(CONFIG.Canvas.losBackend.create(this.data.origin, { type: "light" }));
             } else if (this.los) {
                 this.los = null;
+            }
+        }
+
+        if (updateFOV || updateLOS) {
+            this.clos1 = [];
+            this.clos2 = [];
+
+            if (this.los) {
+                const tess = new Tess2();
+
+                tess.addContours(this.fov.contour);
+                tess.addContours(this.los.contour);
+
+                const result = tess.tesselate({
+                    windingRule: Tess2.WINDING_ABS_GEQ_TWO,
+                    elementType: Tess2.BOUNDARY_CONTOURS,
+                    polySize: 3,
+                    vertexSize: 2
+                });
+
+                for (let i = 0, n = result.elementCount * 2; i < n; i += 2) {
+                    const k = result.elements[i] * 2;
+                    const m = result.elements[i + 1] * 2;
+                    const points1 = new Array(m);
+
+                    for (let j = 0; j < m; j++) {
+                        points1[j] = result.vertices[k + j];
+                    }
+
+                    this.clos1.push(points1);
+
+                    const points2 = new Array(m);
+
+                    for (let i = m - 2; i >= 0; i -= 2) {
+                        points2[i] = points1[m - i - 2];
+                        points2[i + 1] = points1[m - i - 1];
+                    }
+
+                    this.clos2.push(points2);
+                }
+
+                tess.dispose();
+            } else {
+                const points1 = this.fov.contour;
+                const m = points1.length;
+
+                this.clos1.push(points1);
+
+                const points2 = new Array(m);
+
+                for (let i = m - 2; i >= 0; i -= 2) {
+                    points2[i] = points1[m - i - 2];
+                    points2[i + 1] = points1[m - i - 1];
+                }
+
+                this.clos2.push(points2);
             }
         }
 

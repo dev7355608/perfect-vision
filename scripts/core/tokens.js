@@ -25,6 +25,12 @@ Hooks.once("init", () => {
 
         wrapped(options);
     });
+
+    patch("Token.prototype.updateVisionSource", "WRAPPER", function (wrapped, ...args) {
+        wrapped(...args);
+
+        this._pv_visibilityPolygon = null;
+    });
 });
 
 Hooks.on("updateToken", (document, change, options, userId) => {
@@ -43,3 +49,55 @@ Hooks.on("updateToken", (document, change, options, userId) => {
         });
     }
 });
+
+Token.prototype._pv_getVisibilityPolygon = function (origin, radius) {
+    origin = origin ?? this.getSightOrigin();
+    radius = radius ?? (this.w / 2 - 1.5);
+
+    const polygon = this._pv_visibilityPolygon;
+
+    if (polygon && polygon.origin.x === origin.x && polygon.origin.y === origin.y && polygon.config.radius === radius) {
+        return polygon;
+    }
+
+    return this._pv_visibilityPolygon = VisibilityPolygon.create(origin, radius);
+};
+
+class VisibilityPolygon extends ClockwiseSweepPolygon {
+    computed = false;
+
+    static create(origin, radius) {
+        const polygon = new this();
+        const density = Math.PI / (2 * Math.acos(1 - Math.min(0.5 / radius, 1)));
+
+        polygon.initialize(origin, { type: "move", radius, density });
+
+        return polygon;
+    }
+
+    initialize(origin, config) {
+        this.computed = false;
+        super.initialize(origin, config);
+    }
+
+    compute() {
+        this.computed = true;
+        super.compute();
+    }
+
+    get points() {
+        if (!this.computed) {
+            this.compute();
+        }
+
+        return this._points;
+    }
+
+    set points(value) {
+        this._points = value;
+    }
+
+    get radius() {
+        return this.config.radius;
+    }
+}

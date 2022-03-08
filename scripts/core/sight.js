@@ -5,6 +5,7 @@ import { Sprite } from "../utils/sprite.js";
 import { GeometrySegment } from "../utils/geometry-segment.js";
 import { LightingSystem } from "./lighting-system.js";
 import { LimitSystem } from "./limit-system.js";
+import { SightSystem } from "./sight-system.js";
 import { CanvasFramebuffer } from "../utils/canvas-framebuffer.js";
 
 Hooks.once("init", () => {
@@ -30,7 +31,33 @@ Hooks.once("init", () => {
         this._pv_vision.width = this._pv_bgRect.width;
         this._pv_vision.height = this._pv_bgRect.height;
 
+        this._pv_debounceRestrictVisibility = (
+            () => {
+                const restrictVisibility = foundry.utils.debounce(() => {
+                    if (this._pv_restrictVisibility) {
+                        this.restrictVisibility();
+                    }
+                }, 50);
+
+                return () => {
+                    this._pv_restrictVisibility = true;
+                    restrictVisibility();
+                };
+            }
+        )();
+
+        SightSystem.instance.on("vision", this._pv_debounceRestrictVisibility);
+
         return this;
+    });
+
+    patch("SightLayer.prototype.tearDown", "WRAPPER", async function (wrapped, ...args) {
+        SightSystem.instance.off("vision", this._pv_debounceRestrictVisibility);
+        SightSystem.instance.reset();
+
+        this._pv_debounceRestrictVisibility = null;
+
+        return await wrapped(...args);
     });
 
     patch("SightLayer.prototype._createCachedMask", "OVERRIDE", function () {
@@ -70,6 +97,8 @@ Hooks.once("init", () => {
         if (!this.tokenVision) {
             this.visible = false;
 
+            SightSystem.instance.reset();
+
             return this.restrictVisibility();
         }
 
@@ -92,13 +121,15 @@ Hooks.once("init", () => {
 
         // Create a new vision container for this frame
         const vision = this._createVisionContainer();
-        const fov = vision._pv_fov;
-        const los = vision._pv_los;
-        const smooth = !this.fogExploration;
+        const fov = [];
+        const los = [];
+        const fovMask = vision._pv_fov;
+        const losMask = vision._pv_los;
+        const visionTexture = !this.fogExploration;
 
         this.explored.removeChild(this._pv_vision);
 
-        if (!smooth) {
+        if (!visionTexture) {
             this.explored.addChild(vision);
         } else {
             this.explored.addChild(this._pv_vision);
@@ -107,26 +138,48 @@ Hooks.once("init", () => {
         // Draw standard vision sources
         let inBuffer = canvas.scene.data.padding === 0;
 
-        if (!smooth) {
-            for (const region of LightingSystem.instance.activeRegions) {
+        for (const region of LightingSystem.instance.activeRegions) {
+            if (!visionTexture) {
                 if (region.id === "Scene") {
-                    fov.draw({ hole: !region.vision && !region.globalLight });
-                    los.draw({ hole: !region.vision });
+                    fovMask.draw({ hole: !region.vision && !region.globalLight });
+                    losMask.draw({ hole: !region.vision });
                 } else {
-                    region.drawSight(fov, los);
+                    region.drawSight(fovMask, losMask);
                 }
             }
 
-            // Draw field-of-vision for lighting sources
-            for (const source of canvas.lighting.sources) {
-                if (!this.sources.size || !source.active) {
-                    continue;
-                }
-
-                source._pv_drawMask(fov, los);
+            if (region.vision || region.globalLight) {
+                fov.push(...region.clos1);
+            } else {
+                fov.push(...region.clos2);
             }
 
-            this._pv_drawMinFOV(fov);
+            if (region.vision) {
+                los.push(...region.clos1);
+            } else {
+                los.push(...region.clos2);
+            }
+        }
+
+        // Draw field-of-vision for lighting sources
+        for (const source of canvas.lighting.sources) {
+            if (!this.sources.size || !source.active) {
+                continue;
+            }
+
+            if (!visionTexture) {
+                source._pv_drawMask(fovMask, losMask);
+            }
+
+            fov.push(source._pv_los.contour);
+
+            if (source.data.vision) {
+                los.push(source._pv_los.contour);
+            }
+        }
+
+        if (!visionTexture) {
+            this._pv_drawMinFOV(fovMask);
         }
 
         // Draw sight-based visibility for each vision source
@@ -137,14 +190,22 @@ Hooks.once("init", () => {
                 inBuffer = true;
             }
 
-            if (!smooth) {
-                source._pv_drawMask(fov, los);
+            if (!visionTexture) {
+                source._pv_drawMask(fovMask, losMask);
 
                 if (!skipUpdateFog) { // Update fog exploration
                     this.updateFog(source, forceUpdateFog);
                 }
             }
+
+            if (source.fov.radius > 0) {
+                fov.push(source._pv_clos.contour);
+            }
+
+            los.push(source._pv_los.contour);
         }
+
+        SightSystem.instance.updateVision(fov, los, false);
 
         // Commit updates to the Fog of War texture
         if (commitFog) {
@@ -188,26 +249,25 @@ Hooks.once("init", () => {
             return game.user.isGM;
         }
 
-        let radius;
+        let polygon;
+        let preview = canvas.tokens.preview.children.length !== 0;
 
         if (object instanceof Token) {
-            radius = object.w / 2 - 1.5;
-            tolerance = radius * 0.95;
-
             const v = object._velocity;
 
             point = {
                 x: point.x - v.sx,
                 y: point.y - v.sy
             };
-        } else {
-            radius = tolerance;
+
+            polygon = object._pv_getVisibilityPolygon(point);
+            tolerance = polygon.radius * Math.SQRT1_2;
         }
 
         if (!this._inBuffer) {
             const sceneRect = canvas.dimensions._pv_sceneRect;
 
-            if (!sceneRect.intersectsCircle(point, radius)) {
+            if (!sceneRect.intersectsCircle(point, polygon?.radius ?? tolerance)) {
                 return false;
             }
         }
@@ -218,14 +278,41 @@ Hooks.once("init", () => {
             return true;
         }
 
-        let hasLOS = false;
-        let hasFOV = LightingSystem.instance.globalLight;
+        for (let i = 0, n = offsets.length; i < n; i++) {
+            const offset = offsets[i];
+            const p = tempPoint.set(point.x + tolerance * offset.x, point.y + tolerance * offset.y);
 
-        if (vision === undefined || hasFOV === undefined) {
-            for (const offset of offsets) {
-                const region = LightingSystem.instance.getActiveRegionAtPoint(
-                    tempPoint.set(point.x + tolerance * offset.x, point.y + tolerance * offset.y)
-                ) ?? LightingSystem.instance.getRegion("Scene");
+            if (i > 0 && polygon) {
+                if (!polygon.computed) {
+                    break;
+                }
+
+                if (!polygon.contains(p.x, p.y)) {
+                    continue;
+                }
+            }
+
+            const visible = SightSystem.instance.testVisibility(polygon && !preview ? polygon : { origin: p });
+
+            if (visible !== undefined) {
+                if (visible) {
+                    return true;
+                }
+
+                if (polygon && !preview) {
+                    break;
+                }
+
+                continue;
+            }
+
+            const globalLight = LightingSystem.instance.globalLight;
+
+            let hasLOS = false;
+            let hasFOV = globalLight;
+
+            if (vision === undefined || globalLight === undefined) {
+                const region = LightingSystem.instance.getActiveRegionAtPoint(p) ?? LightingSystem.instance.getRegion("Scene");
 
                 if (region.vision) {
                     return true;
@@ -233,43 +320,35 @@ Hooks.once("init", () => {
 
                 if (region.globalLight) {
                     hasFOV = true;
+                }
+            }
 
-                    if (vision === false) {
-                        break;
+            for (const source of visionSources.values()) {
+                if (!source.active) {
+                    continue;
+                }
+
+                if ((!hasLOS || source.fov.radius > 0) && source._pv_los.containsPoint(p)) {
+                    if (!hasFOV && source._pv_fov.containsPoint(p)) {
+                        hasFOV = true;
                     }
-                }
 
-                if (!(tolerance > 0)) {
-                    break;
+                    if (hasFOV) {
+                        return true;
+                    }
+
+                    hasLOS = true;
                 }
             }
-        }
 
-        for (const source of visionSources.values()) {
-            if (!source.active) {
-                continue;
-            }
-
-            if ((!hasLOS || source.fov.radius > 0) && source._pv_los.intersectsCircle(point, radius)) {
-                if (!hasFOV && source._pv_fov.intersectsCircle(point, radius)) {
-                    hasFOV = true;
+            for (const source of lightSources.values()) {
+                if (!source.active) {
+                    continue;
                 }
 
-                if (hasFOV) {
+                if ((hasLOS || source.data.vision) && source._pv_los.containsPoint(p)) {
                     return true;
                 }
-
-                hasLOS = true;
-            }
-        }
-
-        for (const source of lightSources.values()) {
-            if (!source.active) {
-                continue;
-            }
-
-            if ((hasLOS || source.data.vision) && source._pv_los.intersectsCircle(point, radius)) {
-                return true;
             }
         }
 
@@ -309,6 +388,10 @@ Hooks.once("init", () => {
 
         return true;
     });
+});
+
+Hooks.on("sightRefresh", () => {
+    canvas.sight._pv_restrictVisibility = false;
 });
 
 SightLayer.prototype._pv_drawMinFOV = function (fov) {
