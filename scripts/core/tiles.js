@@ -181,21 +181,27 @@ Tile.prototype._pv_refreshOcclusionAlpha = function () {
     }
 
     if (!this.data.overhead || this._original) {
-        this.tile.alpha = (this.data.hidden ? 0.5 : 1.0) * this.data.alpha;
+        this.tile.alpha = this.data.alpha;
     } else {
-        this.tile.alpha = (this.data.hidden ? 0.5 : 1.0) * (canvas.foreground.displayRoofs ? 1.0 : 0.25);
+        this.tile.alpha = 1;
 
-        if (this.tile.mask) {
+        if (this.tile.mask?.enabled) {
             this.tile.mask.tileAlpha = this.data.alpha;
             this.tile.mask.occlusionAlpha = this.data.occlusion.alpha;
         } else {
             switch (this.data.occlusion.mode) {
-                case CONST.TILE_OCCLUSION_MODES.FADE:
                 case CONST.TILE_OCCLUSION_MODES.ROOF:
+                    this.tile.alpha *= canvas.foreground.displayRoofs ? 1.0 : 0.25;
+                case CONST.TILE_OCCLUSION_MODES.FADE:
                     this.tile.alpha *= this.occluded ? this.data.occlusion.alpha : this.data.alpha;
+                    break;
+                default:
+                    this.tile.alpha *= this.data.alpha;
             }
         }
     }
+
+    this.tile.alpha *= this.data.hidden ? 0.5 : 1.0;
 };
 
 Tile.prototype._pv_refreshOcclusion = function () {
