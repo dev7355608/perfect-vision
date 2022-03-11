@@ -181,27 +181,18 @@ Tile.prototype._pv_refreshOcclusionAlpha = function () {
     }
 
     if (!this.data.overhead || this._original) {
-        this.tile.alpha = this.data.alpha;
-    } else {
+        this.tile.alpha = Math.min(this.data.alpha, this.data.hidden ? 0.5 : 1.0);
+    } else if (this.tile.mask?.enabled) {
         this.tile.alpha = 1;
+        this.tile.mask.tileAlpha = Math.min(this.data.alpha, this.data.hidden ? 0.5 : 1.0);
+        this.tile.mask.occlusionAlpha = Math.min(this.data.occlusion.alpha, this.data.hidden ? 0.5 : 1.0);
+    } else {
+        this.tile.alpha = Math.min(this.occluded ? this.data.occlusion.alpha : this.data.alpha, this.data.hidden ? 0.5 : 1.0);
 
-        if (this.tile.mask?.enabled) {
-            this.tile.mask.tileAlpha = this.data.alpha;
-            this.tile.mask.occlusionAlpha = this.data.occlusion.alpha;
-        } else {
-            switch (this.data.occlusion.mode) {
-                case CONST.TILE_OCCLUSION_MODES.ROOF:
-                    this.tile.alpha *= canvas.foreground.displayRoofs ? 1.0 : 0.25;
-                case CONST.TILE_OCCLUSION_MODES.FADE:
-                    this.tile.alpha *= this.occluded ? this.data.occlusion.alpha : this.data.alpha;
-                    break;
-                default:
-                    this.tile.alpha *= this.data.alpha;
-            }
+        if (this.data.occlusion.mode !== CONST.TILE_OCCLUSION_MODES.NONE) {
+            this.tile.alpha = Math.min(this.tile.alpha, canvas.foreground.displayRoofs ? 1.0 : 0.25);
         }
     }
-
-    this.tile.alpha *= this.data.hidden ? 0.5 : 1.0;
 };
 
 Tile.prototype._pv_refreshOcclusion = function () {
