@@ -83,7 +83,6 @@ Hooks.once("init", () => {
                     this._pv_occlusionTile.position.set(this.data.x + this.tile.position.x, this.data.y + this.tile.position.y);
                     this._pv_occlusionTile.rotation = this.tile.rotation;
                     this._pv_occlusionTile.skew = this.tile.skew;
-                    this._pv_occlusionTile.alpha = this.tile.alpha;
                     this._pv_occlusionTile.geometry.refCount--;
 
                     if (this._pv_occlusionTile.geometry.refCount === 0) {
@@ -91,6 +90,7 @@ Hooks.once("init", () => {
                     }
                 }
 
+                this._pv_occlusionTile.alpha = this.data.alpha;
                 this._pv_occlusionTile.transform.updateLocalTransform();
 
                 const data = new Float32Array(16);
