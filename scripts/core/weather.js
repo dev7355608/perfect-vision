@@ -102,6 +102,32 @@ class WeatherOcclusionMaskFilter extends InverseOcclusionMaskFilter { // TODO
 
     set enabled(value) { }
 
+    get resolution() {
+        const renderer = canvas.app.renderer;
+        const renderTextureSystem = renderer.renderTexture;
+
+        if (renderTextureSystem.current) {
+            return renderTextureSystem.current.resolution;
+        }
+
+        return renderer.resolution;
+    }
+
+    set resolution(value) { }
+
+    get multisample() {
+        const renderer = canvas.app.renderer;
+        const renderTextureSystem = renderer.renderTexture;
+
+        if (renderTextureSystem.current) {
+            return renderTextureSystem.current.multisample;
+        }
+
+        return renderer.multisample;
+    }
+
+    set multisample(value) { }
+
     static get instance() {
         if (!this._instance) {
             this._instance = this.create();

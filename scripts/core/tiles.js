@@ -376,6 +376,32 @@ class TileOcclusionMaskFilter extends InverseOcclusionMaskFilter { // TODO
         return super.create(defaultUniforms, channel);
     }
 
+    get resolution() {
+        const renderer = canvas.app.renderer;
+        const renderTextureSystem = renderer.renderTexture;
+
+        if (renderTextureSystem.current) {
+            return renderTextureSystem.current.resolution;
+        }
+
+        return renderer.resolution;
+    }
+
+    set resolution(value) { }
+
+    get multisample() {
+        const renderer = canvas.app.renderer;
+        const renderTextureSystem = renderer.renderTexture;
+
+        if (renderTextureSystem.current) {
+            return renderTextureSystem.current.multisample;
+        }
+
+        return renderer.multisample;
+    }
+
+    set multisample(value) { }
+
     get alpha() {
         return this.uniforms.alpha;
     }
