@@ -73,7 +73,6 @@ Hooks.once("init", () => {
                     this._pv_occlusionTile = canvas.foreground._pv_occlusionTiles.addChild(this._pv_createSprite());
                     this._pv_occlusionTile.name = this.name;
                     this._pv_occlusionTile.tint = 0x000000;
-                    this._pv_occlusionTile.mask = null;
                 } else {
                     this._pv_occlusionTile.texture = this.texture;
                     this._pv_occlusionTile.width = this.tile.width;

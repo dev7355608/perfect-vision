@@ -1,8 +1,6 @@
 import { patch } from "../utils/patch.js";
 import { Sprite } from "../utils/sprite.js";
-import { MaskData, MaskFilter } from "../utils/mask-filter.js";
 import { CanvasFramebuffer } from "../utils/canvas-framebuffer.js";
-import { LightingSystem } from "./lighting-system.js";
 
 Hooks.once("init", () => {
     patch("Tile.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
@@ -13,21 +11,7 @@ Hooks.once("init", () => {
             delete this._alphaMap.texture;
         }
 
-        if (this.occlusionFilter) {
-            this.occlusionFilter.enabled = false;
-
-            if (this.tile) {
-                const index = this.tile.filters.indexOf(this.occlusionFilter);
-
-                if (index >= 0) {
-                    this.tile.filters.splice(index, 1);
-                }
-
-                if (this.tile.filters.length === 0) {
-                    this.tile.filters = null;
-                }
-            }
-        }
+        this._pv_refreshOcclusion();
 
         return this;
     });
@@ -133,7 +117,7 @@ Hooks.once("init", () => {
         }
 
         const occlusionRadialTexture = CanvasFramebuffer.get("occlusionRadial").textures[0];
-        const occlusionRadial = this.tile?.mask?.occlusionTexture === occlusionRadialTexture;
+        const occlusionRadial = this.occlusionFilter?.occlusionTexture === occlusionRadialTexture;
 
         wrapped(options);
 
@@ -141,7 +125,7 @@ Hooks.once("init", () => {
             let dispose = true;
 
             for (const tile of canvas.foreground.tiles) {
-                if (tile.tile?.mask?.occlusionTexture === occlusionRadialTexture) {
+                if (tile.occlusionFilter?.occlusionTexture === occlusionRadialTexture) {
                     dispose = false;
 
                     break;
@@ -159,20 +143,26 @@ if (!Tile.prototype._onHandleMouseUp) {
     Tile.prototype._onHandleMouseUp = function (event) { };
 }
 
-Tile.prototype._pv_getOcclusionMask = function () {
+Tile.prototype._pv_getOcclusionFilter = function () {
     if (!this.data.overhead || this._original) {
         return null;
     }
 
-    let mask = null;
+    let filter = this.occlusionFilter;
 
     if (game.modules.get("betterroofs")?.active && this.document.getFlag("betterroofs", "brMode") === 3) {
-        mask = new TileOcclusionMaskData(CanvasFramebuffer.get("lighting").sprites[0], new VisionTileOcclusionMaskFilter());
+        if (!(filter instanceof VisionTileOcclusionMaskFilter)) {
+            filter = VisionTileOcclusionMaskFilter.create();
+        }
     } else if (this.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.RADIAL) {
-        mask = new TileOcclusionMaskData(CanvasFramebuffer.get("occlusionRadial").sprites[0], new RadialTileOcclusionMaskFilter());
+        if (!(filter instanceof RadialTileOcclusionMaskFilter)) {
+            filter = RadialTileOcclusionMaskFilter.create();
+        }
+    } else {
+        filter = null;
     }
 
-    return mask;
+    return filter;
 };
 
 Tile.prototype._pv_refreshOcclusionAlpha = function () {
@@ -180,12 +170,16 @@ Tile.prototype._pv_refreshOcclusionAlpha = function () {
         return;
     }
 
+    if (this.occlusionFilter) {
+        this.occlusionFilter.enabled = canvas.tokens.controlled.length !== 0;
+    }
+
     if (!this.data.overhead || this._original) {
         this.tile.alpha = Math.min(this.data.alpha, this.data.hidden ? 0.5 : 1.0);
-    } else if (this.tile.mask?.enabled) {
+    } else if (this.occlusionFilter?.enabled) {
         this.tile.alpha = 1;
-        this.tile.mask.tileAlpha = Math.min(this.data.alpha, this.data.hidden ? 0.5 : 1.0);
-        this.tile.mask.occlusionAlpha = Math.min(this.data.occlusion.alpha, this.data.hidden ? 0.5 : 1.0);
+        this.occlusionFilter.alpha = Math.min(this.data.alpha, this.data.hidden ? 0.5 : 1.0);
+        this.occlusionFilter.occlusionAlpha = Math.min(this.data.occlusion.alpha, this.data.hidden ? 0.5 : 1.0);
     } else {
         this.tile.alpha = Math.min(this.occluded ? this.data.occlusion.alpha : this.data.alpha, this.data.hidden ? 0.5 : 1.0);
 
@@ -196,14 +190,28 @@ Tile.prototype._pv_refreshOcclusionAlpha = function () {
 };
 
 Tile.prototype._pv_refreshOcclusion = function () {
-    if (!this.tile) {
-        return;
+    if (this.occlusionFilter) {
+        if (this.tile) {
+            const index = this.tile.filters.indexOf(this.occlusionFilter);
+
+            if (index >= 0) {
+                this.tile.filters.splice(index, 1);
+            }
+        }
     }
 
     if (!this.data.overhead || this._original) {
-        this.tile.mask = null;
+        this.occlusionFilter = null;
     } else {
-        this.tile.mask = this._pv_getOcclusionMask();
+        this.occlusionFilter = this._pv_getOcclusionFilter();
+
+        if (this.occlusionFilter && this.tile) {
+            if (this.tile.filters) {
+                this.tile.filters.push(this.occlusionFilter);
+            } else {
+                this.tile.filters = [this.occlusionFilter];
+            }
+        }
     }
 
     this._pv_refreshOcclusionAlpha();
@@ -236,37 +244,20 @@ Tile.prototype._pv_createSprite = function ({ shader, blendMode, blendColor, col
     sprite.skew = tile.skew;
     sprite.alpha = tile.alpha;
     sprite.zIndex = this.zIndex;
-    sprite.mask = tile.mask;
 
     if (blendMode) {
-        if (sprite.mask) {
-            // TODO: change to `sprite.mask.blendMode = blendMode` in pixi.js 6.3.0+
-            sprite.mask.filter.blendMode = blendMode;
-        } else {
-            sprite.blendMode = blendMode;
-        }
+        sprite.blendMode = blendMode;
     }
 
     if (blendColor) {
-        if (sprite.mask) {
-            sprite.mask.filter.blendColor.set(blendColor);
-        } else {
-            sprite.blendColor.set(blendColor);
-        }
+        sprite.blendColor.set(blendColor);
     }
 
     if (colorMask) {
-        if (sprite.mask) {
-            sprite.mask.filter.colorMask.red = !!colorMask.red;
-            sprite.mask.filter.colorMask.green = !!colorMask.green;
-            sprite.mask.filter.colorMask.blue = !!colorMask.blue;
-            sprite.mask.filter.colorMask.alpha = !!colorMask.alpha;
-        } else {
-            sprite.colorMask.red = !!colorMask.red;
-            sprite.colorMask.green = !!colorMask.green;
-            sprite.colorMask.blue = !!colorMask.blue;
-            sprite.colorMask.alpha = !!colorMask.alpha;
-        }
+        sprite.colorMask.red = !!colorMask.red;
+        sprite.colorMask.green = !!colorMask.green;
+        sprite.colorMask.blue = !!colorMask.blue;
+        sprite.colorMask.alpha = !!colorMask.alpha;
     }
 
     return sprite;
@@ -308,10 +299,10 @@ Tile.prototype._pv_updateRoofSprite = function (sprite) {
 
     uniforms.uAlpha = tile.alpha;
 
-    if (tile.mask?.enabled) {
-        uniforms.uTileAlpha = tile.mask.tileAlpha;
-        uniforms.uOcclusionAlpha = tile.mask.occlusionAlpha;
-        uniforms.uOcclusionSampler = tile.mask.occlusionTexture;
+    if (this.occlusionFilter?.enabled) {
+        uniforms.uTileAlpha = this.occlusionFilter.alpha;
+        uniforms.uOcclusionAlpha = this.occlusionFilter.occlusionAlpha;
+        uniforms.uOcclusionSampler = this.occlusionFilter.occlusionTexture;
     } else {
         uniforms.uTileAlpha = 1;
         uniforms.uOcclusionAlpha = 0;
@@ -354,80 +345,67 @@ Tile.prototype._pv_drawWeatherSprite = function () {
     return sprite;
 };
 
-class TileOcclusionMaskFilter extends MaskFilter {
-    static fragmentSrc = `\
-        #version 100
+class TileOcclusionMaskFilter extends InverseOcclusionMaskFilter { // TODO
+    static fragmentShader(channel) {
+        return `\
+            precision mediump float;
 
-        precision ${PIXI.settings.PRECISION_FRAGMENT} float;
+            varying vec2 vTextureCoord;
+            varying vec2 vMaskTextureCoord;
 
-        varying vec2 vTextureCoord;
-        varying vec2 vMaskCoord;
+            uniform sampler2D uSampler;
+            uniform sampler2D uMaskSampler;
+            uniform float alphaOcclusion;
+            uniform float alpha;
 
-        uniform sampler2D uSampler;
-        uniform sampler2D uMask;
-        uniform float uTileAlpha;
-        uniform float uOcclusionAlpha;
+            void main() {
+                vec4 mask = texture2D(uMaskSampler, vMaskTextureCoord);
+                float r = mask.r;
+                float g = mask.g;
+                float b = mask.b;
+                float a = mask.a;
 
-        void main() {
-            vec4 color = texture2D(uSampler, vTextureCoord);
-            vec4 mask = texture2D(uMask, vMaskCoord);
-            float r = mask.r;
-            float g = mask.g;
-            float b = mask.b;
-            float a = mask.a;
+                gl_FragColor = texture2D(uSampler, vTextureCoord) * mix(alphaOcclusion, alpha, ${channel});
+            }`;
+    };
 
-            gl_FragColor = color * mix(uOcclusionAlpha, uTileAlpha, %mask%);
-        }`;
+    static create(defaultUniforms = {}, channel = "r") {
+        defaultUniforms.alpha = 1.0;
+        defaultUniforms.alphaOcclusion = 0.0;
 
-    constructor(mask) {
-        super(undefined, TileOcclusionMaskFilter.fragmentSrc.replace(/%mask%/gm, mask), {
-            uTileAlpha: 1,
-            uOcclusionAlpha: 0
-        });
+        return super.create(defaultUniforms, channel);
+    }
+
+    get alpha() {
+        return this.uniforms.alpha;
+    }
+
+    set alpha(value) {
+        this.uniforms.alpha = value;
+    }
+
+    get occlusionAlpha() {
+        return this.uniforms.alphaOcclusion;
+    }
+
+    set occlusionAlpha(value) {
+        this.uniforms.alphaOcclusion = value;
+    }
+
+    get occlusionTexture() {
+        return this.uniforms.uMaskSampler;
     }
 }
 
 class RadialTileOcclusionMaskFilter extends TileOcclusionMaskFilter {
-    constructor() {
-        super("r");
+    static create() {
+        return super.create({ uMaskSampler: CanvasFramebuffer.get("occlusionRadial").textures[0] }, "r");
     }
 }
 
 class VisionTileOcclusionMaskFilter extends TileOcclusionMaskFilter {
-    constructor() {
-        super("1.0 - min(r, g)");
-    }
-}
-
-class TileOcclusionMaskData extends MaskData {
-    constructor(sprite, filter) {
-        super(sprite, filter);
-    }
-
-    get enabled() {
-        return canvas.tokens.controlled.length !== 0;
-    }
-
-    set enabled(value) { }
-
-    get tileAlpha() {
-        return this.filter.uniforms.uTileAlpha;
-    }
-
-    set tileAlpha(value) {
-        this.filter.uniforms.uTileAlpha = value;
-    }
-
-    get occlusionAlpha() {
-        return this.filter.uniforms.uOcclusionAlpha;
-    }
-
-    set occlusionAlpha(value) {
-        this.filter.uniforms.uOcclusionAlpha = value;
-    }
-
-    get occlusionTexture() {
-        return this.maskObject.texture;
+    static create() {
+        return super.create({ uMaskSampler: CanvasFramebuffer.get("lighting").textures[0] }, "1.0 - min(r, g)");
     }
 }
 

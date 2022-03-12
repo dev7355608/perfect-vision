@@ -46,7 +46,7 @@ Hooks.once("init", () => {
         for (const tile of this.tiles) {
             tile._pv_refreshOcclusionAlpha();
 
-            if (tile.tile?.mask?.occlusionTexture === occlusionRadialTexture) {
+            if (tile.occlusionFilter?.occlusionTexture === occlusionRadialTexture) {
                 occlusionRadial = true;
             }
         }
