@@ -839,7 +839,7 @@ class LightingFramebuffer extends CanvasFramebuffer {
         for (const roof of canvas.foreground.roofs) {
             const sprite = roof._pv_drawLightingSprite();
 
-            if (!sprite || sprite.alpha <= 0) {
+            if (!sprite) {
                 continue;
             }
 

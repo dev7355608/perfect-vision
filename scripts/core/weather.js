@@ -1,6 +1,5 @@
 import { patch } from "../utils/patch.js";
 import { CanvasFramebuffer } from "../utils/canvas-framebuffer.js";
-import { MaskData } from "../utils/mask-filter.js";
 
 Hooks.once("init", () => {
     patch("WeatherLayer.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
@@ -146,12 +145,10 @@ class WeatherMaskFramebuffer extends CanvasFramebuffer {
         this.stage.visible = false;
 
         if (canvas.weather._pv_visible || canvas.fxmaster?._pv_visible /* FXMaster */) {
-            this.acquire();
-
             for (const roof of canvas.foreground.roofs) {
                 const sprite = roof._pv_drawWeatherSprite();
 
-                if (!sprite || sprite.alpha <= 0) {
+                if (!sprite) {
                     continue;
                 }
 
@@ -172,6 +169,10 @@ class WeatherMaskFramebuffer extends CanvasFramebuffer {
             } else {
                 this.masks.visible = false;
             }
+        }
+
+        if (this.stage.visible) {
+            this.acquire();
         } else {
             this.dispose();
         }

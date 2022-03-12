@@ -340,7 +340,7 @@ Tile.prototype._pv_drawWeatherSprite = function () {
     const sprite = this._pv_updateRoofSprite(this._pv_weatherSprite);
     const uniforms = this._pv_weatherSprite.shader.uniforms;
 
-    this._pv_weatherSprite.visible = uniforms.uAlpha < 1 || uniforms.uOcclusionSampler !== PIXI.Texture.EMPTY;
+    this._pv_weatherSprite.visible = !(uniforms.uAlpha === 1 && uniforms.uTileAlpha === 1 && uniforms.uOcclusionSampler === PIXI.Texture.EMPTY);
 
     return sprite;
 };
@@ -541,9 +541,9 @@ class WeatherSpriteShader extends PIXI.Shader {
 
         void main(void) {
             vec4 mask = texture(uOcclusionSampler, vMaskCoord);
-            float alpha = texture(uSampler, vTextureCoord).a * uAlpha * mix(uOcclusionAlpha, uTileAlpha, 1.0 - min(mask.r, mask.g));
+            float alpha = texture(uSampler, vTextureCoord).a * (1.0 - uAlpha * mix(uTileAlpha, uOcclusionAlpha, min(mask.r, mask.g)));
 
-            textures[0] = vec4(0.0, 0.0, 0.0, 1.0 - alpha);
+            textures[0] = vec4(0.0, 0.0, 0.0, alpha);
         }`;
 
     static get program() {
