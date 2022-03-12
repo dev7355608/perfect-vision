@@ -33,22 +33,25 @@ Hooks.once("canvasInit", () => {
 });
 
 WeatherLayer.prototype._pv_updateMask = function (visible) {
-    if (this.weather) {
-        if (this.weatherOcclusionFilter) {
-            const index = this.weather.filters?.indexOf(this.weatherOcclusionFilter);
+    if (this.weatherOcclusionFilter && this.weather) {
+        const index = this.weather.filters?.indexOf(this.weatherOcclusionFilter);
 
-            if (index >= 0) {
-                this.weather.filters.splice(index, 1);
-            }
+        if (index >= 0) {
+            this.weather.filters.splice(index, 1);
         }
+    }
 
-        if (visible) {
-            this.weather.mask = new WeatherMaskData();
+    this.weatherOcclusionFilter = WeatherOcclusionMaskFilter.instance;
+
+    if (this.weather) {
+        if (this.weather.filters) {
+            this.weather.filters.push(this.weatherOcclusionFilter);
         } else {
-            this.weather.mask = null;
+            this.weather.filters = [this.weatherOcclusionFilter];
         }
 
         this.weather.visible = visible;
+        this.weather.filterArea = canvas.app.renderer.screen;
     }
 
     if (this.mask) {
@@ -68,9 +71,30 @@ WeatherLayer.prototype._pv_updateMask = function (visible) {
     }
 };
 
-class WeatherMaskData extends MaskData {
-    constructor() {
-        super(CanvasFramebuffer.get("weatherMask").sprites[0]);
+class WeatherOcclusionMaskFilter extends InverseOcclusionMaskFilter { // TODO
+    static fragmentShader(channel) {
+        return `\
+            precision mediump float;
+
+            varying vec2 vTextureCoord;
+            varying vec2 vMaskTextureCoord;
+
+            uniform sampler2D uSampler;
+            uniform sampler2D uMaskSampler;
+
+            void main() {
+                vec4 mask = texture2D(uMaskSampler, vMaskTextureCoord);
+                float r = mask.r;
+                float g = mask.g;
+                float b = mask.b;
+                float a = mask.a;
+
+                gl_FragColor = texture2D(uSampler, vTextureCoord) * (${channel});
+            }`;
+    };
+
+    static create() {
+        return super.create({ uMaskSampler: CanvasFramebuffer.get("weatherMask").textures[0] }, "r");
     }
 
     get enabled() {
@@ -78,6 +102,14 @@ class WeatherMaskData extends MaskData {
     }
 
     set enabled(value) { }
+
+    static get instance() {
+        if (!this._instance) {
+            this._instance = this.create();
+        }
+
+        return this._instance;
+    }
 }
 
 class WeatherMaskFramebuffer extends CanvasFramebuffer {
