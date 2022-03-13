@@ -46,14 +46,20 @@ Hooks.once("init", () => {
             }
         )();
 
-        SightSystem.instance.on("vision", this._pv_debounceRestrictVisibility);
+        this._pv_exactVisibility = !game.modules.get("levels")?.active;
+
+        if (this._pv_exactVisibility) {
+            SightSystem.instance.on("vision", this._pv_debounceRestrictVisibility);
+        }
 
         return this;
     });
 
     patch("SightLayer.prototype.tearDown", "WRAPPER", async function (wrapped, ...args) {
-        SightSystem.instance.off("vision", this._pv_debounceRestrictVisibility);
-        SightSystem.instance.reset();
+        if (this._pv_exactVisibility) {
+            SightSystem.instance.off("vision", this._pv_debounceRestrictVisibility);
+            SightSystem.instance.reset();
+        }
 
         this._pv_debounceRestrictVisibility = null;
 
@@ -97,7 +103,9 @@ Hooks.once("init", () => {
         if (!this.tokenVision) {
             this.visible = false;
 
-            SightSystem.instance.reset();
+            if (this._pv_exactVisibility) {
+                SightSystem.instance.reset();
+            }
 
             return this.restrictVisibility();
         }
@@ -121,11 +129,17 @@ Hooks.once("init", () => {
 
         // Create a new vision container for this frame
         const vision = this._createVisionContainer();
-        const fov = [];
-        const los = [];
+        let fov;
+        let los;
         const fovMask = vision._pv_fov;
         const losMask = vision._pv_los;
         const visionTexture = !this.fogExploration;
+        const exactVisibility = this._pv_exactVisibility;
+
+        if (exactVisibility) {
+            fov = [];
+            los = [];
+        }
 
         this.explored.removeChild(this._pv_vision);
 
@@ -148,16 +162,18 @@ Hooks.once("init", () => {
                 }
             }
 
-            if (region.vision || region.globalLight) {
-                fov.push(...region.clos1);
-            } else {
-                fov.push(...region.clos2);
-            }
+            if (exactVisibility) {
+                if (region.vision || region.globalLight) {
+                    fov.push(...region.clos1);
+                } else {
+                    fov.push(...region.clos2);
+                }
 
-            if (region.vision) {
-                los.push(...region.clos1);
-            } else {
-                los.push(...region.clos2);
+                if (region.vision) {
+                    los.push(...region.clos1);
+                } else {
+                    los.push(...region.clos2);
+                }
             }
         }
 
@@ -171,10 +187,12 @@ Hooks.once("init", () => {
                 source._pv_drawMask(fovMask, losMask);
             }
 
-            fov.push(source._pv_los.contour);
+            if (exactVisibility) {
+                fov.push(source._pv_los.contour);
 
-            if (source.data.vision) {
-                los.push(source._pv_los.contour);
+                if (source.data.vision) {
+                    los.push(source._pv_los.contour);
+                }
             }
         }
 
@@ -198,14 +216,18 @@ Hooks.once("init", () => {
                 }
             }
 
-            if (source.fov.radius > 0) {
-                fov.push(source._pv_clos.contour);
-            }
+            if (exactVisibility) {
+                if (source.fov.radius > 0) {
+                    fov.push(source._pv_clos.contour);
+                }
 
-            los.push(source._pv_los.contour);
+                los.push(source._pv_los.contour);
+            }
         }
 
-        SightSystem.instance.updateVision(fov, los, false);
+        if (exactVisibility) {
+            SightSystem.instance.updateVision(fov, los, false);
+        }
 
         // Commit updates to the Fog of War texture
         if (commitFog) {
@@ -251,7 +273,6 @@ Hooks.once("init", () => {
         }
 
         let polygon;
-        let preview = canvas.tokens.preview.children.length !== 0;
         let offsets = radialOffsets;
 
         if (object instanceof Token) {
@@ -274,6 +295,12 @@ Hooks.once("init", () => {
             offsets[0].set(x, y);
             offsets[1].set(-x, -y);
         }
+
+        if (!this._pv_exactVisibility) {
+            polygon = null;
+        }
+
+        const exact = this._pv_exactVisibility && canvas.tokens.preview.children.length === 0;
 
         if (!this._inBuffer) {
             const sceneRect = canvas.dimensions._pv_sceneRect;
@@ -303,18 +330,20 @@ Hooks.once("init", () => {
                 }
             }
 
-            const visible = SightSystem.instance.testVisibility(polygon && !preview ? polygon : { origin: p });
+            if (exact) {
+                const visible = SightSystem.instance.testVisibility(polygon ?? { origin: p });
 
-            if (visible !== undefined) {
-                if (visible) {
-                    return true;
+                if (visible !== undefined) {
+                    if (visible) {
+                        return true;
+                    }
+
+                    if (polygon) {
+                        break;
+                    }
+
+                    continue;
                 }
-
-                if (polygon && !preview) {
-                    break;
-                }
-
-                continue;
             }
 
             const globalLight = LightingSystem.instance.globalLight;
