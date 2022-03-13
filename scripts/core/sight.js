@@ -228,7 +228,7 @@ Hooks.once("init", () => {
         this.restrictVisibility();
     });
 
-    const offsets = [
+    const radialOffsets = [
         [0, 0],
         [-1, 0],
         [+1, 0],
@@ -239,6 +239,7 @@ Hooks.once("init", () => {
         [+Math.SQRT1_2, +Math.SQRT1_2],
         [+Math.SQRT1_2, -Math.SQRT1_2]
     ].map(args => new PIXI.Point(...args));
+    const doorOffsets = [new PIXI.Point(), new PIXI.Point()];
     const tempPoint = new PIXI.Point();
 
     patch("SightLayer.prototype.testVisibility", "OVERRIDE", function (point, { tolerance = 2, object = null } = {}) {
@@ -251,6 +252,7 @@ Hooks.once("init", () => {
 
         let polygon;
         let preview = canvas.tokens.preview.children.length !== 0;
+        let offsets = radialOffsets;
 
         if (object instanceof Token) {
             const v = object._velocity;
@@ -262,6 +264,15 @@ Hooks.once("init", () => {
 
             polygon = object._pv_getVisibilityPolygon(point);
             tolerance = polygon.radius * Math.SQRT1_2;
+        } else if (object instanceof DoorControl) {
+            const c = object.wall.data.c;
+            const s = Math.hypot(c[0] - c[2], c[1] - c[3]);
+            const x = (c[1] - c[3]) / s;
+            const y = (c[2] - c[0]) / s;
+
+            offsets = doorOffsets;
+            offsets[0].set(x, y);
+            offsets[1].set(-x, -y);
         }
 
         if (!this._inBuffer) {
