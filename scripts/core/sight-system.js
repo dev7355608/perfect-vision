@@ -286,8 +286,7 @@ class SightPolygons {
         const points = polygon.points;
 
         if (!points) {
-            const da = 2 * Math.acos(1 - Math.min(0.5 / radius, 1));
-            const n = Math.max(Math.ceil(Math.PI / 2 / da), 1);
+            const n = Math.ceil(Math.sqrt(radius));
 
             path = new Array(n * 4);
 

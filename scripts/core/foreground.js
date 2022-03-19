@@ -2,12 +2,6 @@ import { patch } from "../utils/patch.js";
 import { CanvasFramebuffer } from "../utils/canvas-framebuffer.js";
 
 Hooks.once("init", () => {
-    patch("ForegroundLayer.layerOptions", "POST", function (options) {
-        return foundry.utils.mergeObject(options, {
-            zIndex: BackgroundLayer.layerOptions.zIndex + 200
-        });
-    });
-
     patch("ForegroundLayer.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
         CanvasFramebuffer.get("occlusionRadial").draw();
 

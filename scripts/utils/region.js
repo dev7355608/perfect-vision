@@ -695,8 +695,7 @@ export class Region {
             sy *= Math.sqrt(b * b + d * d);
         }
 
-        const da = 2 * Math.acos(1 - Math.min(0.5 / Math.max(sx, sy), 1));
-        const n = Math.max(Math.ceil(Math.PI / 2 / da), 1);
+        const n = Math.ceil(Math.sqrt(sx + sy));
         const m = n * 8 + (dx ? 4 : 0) + (dy ? 4 : 0);
         const points = new Array(m);
 
