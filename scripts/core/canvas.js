@@ -393,7 +393,7 @@ Hooks.once("init", () => {
 
             Object.defineProperty(this, name, { value: layer, writable: false });
 
-            if (layer.options.zIndex >= this._pv_foreground.zIndex) {
+            if (layer.options.zIndex >= this._pv_foreground.zIndex || name === "foreground") {
                 this._pv_foreground.addChild(layer);
             } else {
                 this.addChild(layer);
