@@ -151,9 +151,7 @@ Tile.prototype._pv_getOcclusionFilter = function () {
     let filter = this.occlusionFilter;
 
     if (game.modules.get("betterroofs")?.active && this.document.getFlag("betterroofs", "brMode") === 3) {
-        if (this.occluded && (this.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.FADE || this.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.ROOF)) {
-            filter = null;
-        } else if (!(filter instanceof VisionTileOcclusionMaskFilter)) {
+        if (!(filter instanceof VisionTileOcclusionMaskFilter)) {
             filter = VisionTileOcclusionMaskFilter.create();
         }
     } else if (this.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.RADIAL) {
@@ -173,7 +171,8 @@ Tile.prototype._pv_refreshOcclusionAlpha = function () {
     }
 
     if (this.occlusionFilter) {
-        this.occlusionFilter.enabled = canvas.tokens.controlled.length !== 0;
+        this.occlusionFilter.enabled = canvas.tokens.controlled.length !== 0 && !(
+            this.occluded && (this.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.FADE || this.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.ROOF));
     }
 
     if (!this.data.overhead || this._original) {

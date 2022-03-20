@@ -38,7 +38,7 @@ Hooks.once("init", () => {
         const occlusionRadialTexture = CanvasFramebuffer.get("occlusionRadial").textures[0];
 
         for (const tile of this.tiles) {
-            tile._pv_refreshOcclusion();
+            tile._pv_refreshOcclusionAlpha();
 
             if (tile.occlusionFilter?.occlusionTexture === occlusionRadialTexture) {
                 occlusionRadial = true;
