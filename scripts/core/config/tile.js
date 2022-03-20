@@ -46,10 +46,8 @@ function updateForm(sheet, value) {
 
     for (const other of Array.from(scene.drawings.values()).sort((a, b) => a.id.localeCompare(b.id))) {
         const active = isActive(scene, other.id);
-        const text = other.data.text ? `${other.id} (${other.data.text})` : `${other.id}`;
-        const color = active ? black : "red";
 
-        select.append(`<option value="${other.id}" style="color: ${color};">${text}</id>`);
+        select.append(`<option value="${other.id}" title="${other.data.text || ""}" style="color: ${active ? black : "red"};">${other.id}</id>`);
     }
 
     select.val(lighting);

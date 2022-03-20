@@ -308,11 +308,11 @@ function updateForm(sheet) {
         }
 
         const data = getLightingData(scene, other.id);
-        const text = other.data.text ? `${other.id} (${other.data.text})` : `${other.id}`;
+        const text = other.data.text ? `${other.id} (${other.data.text.length <= 16 ? other.data.text : other.data.text.substring(0, 13).concat("...")})` : `${other.id}`;
         const color = data.active ? black : "red";
         const disabled = data.parents.includes(document.id) ? "disabled" : ""
 
-        parent.append(`<option value="${other.id}" style="color: ${color};" ${disabled}>${text}</id>`);
+        parent.append(`<option value="${other.id}" title="${other.data.text || ""}"style="color: ${color};" ${disabled}>${text}</id>`);
     }
 
     parent.val(document.getFlag("perfect-vision", "parent") || "");
