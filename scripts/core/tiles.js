@@ -192,7 +192,7 @@ Tile.prototype._pv_refreshOcclusionAlpha = function () {
 Tile.prototype._pv_refreshOcclusion = function () {
     if (this.occlusionFilter) {
         if (this.tile) {
-            const index = this.tile.filters.indexOf(this.occlusionFilter);
+            const index = this.tile.filters?.indexOf(this.occlusionFilter);
 
             if (index >= 0) {
                 this.tile.filters.splice(index, 1);

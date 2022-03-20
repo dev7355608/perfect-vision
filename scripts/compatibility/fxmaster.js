@@ -69,7 +69,7 @@ Hooks.once("setup", () => {
 
         for (const container of [canvas.stage._pv_scene_without_overlays, canvas.stage._pv_scene_with_overlays]) {
             for (const filter of filters) {
-                const index = container.filters.indexOf(filter);
+                const index = container.filters?.indexOf(filter);
 
                 if (index >= 0) {
                     container.filters.splice(index, 1);
