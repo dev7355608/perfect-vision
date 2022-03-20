@@ -216,6 +216,7 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
                     this.framebuffer.stencil = !!framebufferOptions.stencil;
                     this.framebuffer.clearDepth = framebufferOptions.clearDepth ?? undefined;
                     this.framebuffer.clearStencil = framebufferOptions.clearStencil ?? undefined;
+                    this.framebuffer.cleared = false;
                 } else {
                     // TODO: BaseRenderTexture?
                     const baseTexture = new PIXI.BaseTexture(null, options);
@@ -297,6 +298,7 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
             this.framebuffer.stencil = !!framebufferOptions.stencil;
             this.framebuffer.clearDepth = framebufferOptions.clearDepth ?? undefined;
             this.framebuffer.clearStencil = framebufferOptions.clearStencil ?? undefined;
+            this.framebuffer.cleared = false;
 
             for (const framebuffer of Object.values(this.framebuffers)) {
                 if (framebuffer !== this.framebuffer) {
@@ -362,13 +364,11 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
         return !this.framebuffer;
     }
 
-    render(renderer, displayObject, clear = true, transform = null, skipUpdateTransform = false) {
+    render(renderer, displayObject, clear = true, transform = null, skipUpdateTransform = false, attachments = null) {
         const textures = this.textures;
-        const framebuffer = this.framebuffer;
         const renderTexture = textures[0];
         const { width, height } = renderer.screen;
         const resolution = renderer.resolution;
-        const gl = renderer.gl;
 
         if (renderTexture.width !== width || renderTexture.height !== height || renderTexture.resolution !== resolution) {
             for (let i = 0; i < textures.length; i++) {
@@ -429,34 +429,21 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
             displayObject.disableTempParent(cacheParent);
         }
 
-        renderer.renderTexture.bind(renderTexture);
+        clear = clear ?? renderer.clearBeforeRender;
 
-        this.bind(renderer);
+        for (let i = 0; i < textures.length; i++) {
+            const baseTexture = textures[i].baseTexture;
 
-        renderer.state.reset();
-
-        if (clear !== undefined ? clear : renderer.clearBeforeRender) {
-            for (let i = 0; i < textures.length; i++) {
-                const baseTexture = textures[i].baseTexture;
-
-                if (baseTexture.clear) {
-                    gl.clearBufferfv(gl.COLOR, i, baseTexture.clearColor);
-                }
-            }
-
-            if (framebuffer.depth || framebuffer.stencil) {
-                const { clearDepth, clearStencil } = this.framebuffer;
-
-                if (clearDepth !== undefined && clearStencil !== undefined) {
-                    gl.clearBufferfi(gl.DEPTH_STENCIL, 0, clearDepth, clearStencil);
-                } else if (clearDepth !== undefined) {
-                    gl.clearBufferfv(gl.DEPTH, 0, [clearDepth]);
-                } else if (clearStencil !== undefined) {
-                    gl.clearBufferiv(gl.STENCIL, 0, [clearStencil]);
-                }
-            }
+            baseTexture.cleared = !clear;
         }
 
+        for (const framebuffer of Object.values(this.framebuffers)) {
+            framebuffer.cleared = !clear;
+        }
+
+        this.bind(renderer, attachments);
+
+        renderer.state.reset();
         renderer.batch.currentRenderer.start();
 
         displayObject.render(renderer);
@@ -474,9 +461,9 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
     }
 
     bind(renderer, attachments = null) {
-        const textures = this.textures;
         const renderTexture = this.textures[0];
         const drawBuffers = this.drawBuffers;
+        const gl = renderer.gl;
         let framebuffer;
 
         if (!attachments) {
@@ -491,6 +478,7 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
                 framebuffer.stencil = !!this.framebufferOptions.stencil;
                 framebuffer.clearDepth = this.framebufferOptions.clearDepth ?? undefined;
                 framebuffer.clearStencil = this.framebufferOptions.clearStencil ?? undefined;
+                framebuffer.cleared = false;
 
                 for (let i = 0; i < attachments.length; i++) {
                     framebuffer.addColorTexture(i, this.textures[attachments[i]].baseTexture);
@@ -507,30 +495,52 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
         }
 
         if (renderer.framebuffer.current !== framebuffer) {
-            renderer.framebuffer.bind(framebuffer, renderer.framebuffer.viewport);
-        }
-
-        if (attachments) {
-            drawBuffers.length = 0;
-
-            for (let i = 0; i < attachments.length; i++) {
-                drawBuffers[attachments[i]] = 1;
-            }
-
-            for (let i = 0; i < textures.length; i++) {
-                if (!drawBuffers[i]) {
-                    textures[i].baseTexture.update();
+            if (Object.values(this.framebuffers).indexOf(renderer.framebuffer.current) >= 0) {
+                for (const baseTexture of renderer.framebuffer.current.colorTextures) {
+                    if (framebuffer.colorTextures.indexOf(baseTexture) < 0) {
+                        baseTexture.update();
+                    }
                 }
             }
+
+            renderer.framebuffer.bind(framebuffer, renderer.framebuffer.viewport);
         }
 
         drawBuffers.length = 0;
 
-        for (let i = 0; i < (attachments ?? textures).length; i++) {
+        for (let i = 0, n = framebuffer.colorTextures.length; i < n; i++) {
             drawBuffers.push(WebGL2RenderingContext.COLOR_ATTACHMENT0 + i);
         }
 
         renderer.gl.drawBuffers(drawBuffers);
+
+        for (let i = 0, n = framebuffer.colorTextures.length; i < n; i++) {
+            const baseTexture = framebuffer.colorTextures[i];
+
+            if (!baseTexture.cleared) {
+                if (baseTexture.clear) {
+                    gl.clearBufferfv(gl.COLOR, i, baseTexture.clearColor);
+                }
+
+                baseTexture.cleared = true;
+            }
+        }
+
+        if (!framebuffer.cleared) {
+            if (framebuffer.depth || framebuffer.stencil) {
+                const { clearDepth, clearStencil } = framebuffer;
+
+                if (clearDepth !== undefined && clearStencil !== undefined) {
+                    gl.clearBufferfi(gl.DEPTH_STENCIL, 0, clearDepth, clearStencil);
+                } else if (clearDepth !== undefined) {
+                    gl.clearBufferfv(gl.DEPTH, 0, [clearDepth]);
+                } else if (clearStencil !== undefined) {
+                    gl.clearBufferiv(gl.STENCIL, 0, [clearStencil]);
+                }
+            }
+
+            framebuffer.cleared = true;
+        }
     }
 
     invalidate() {
