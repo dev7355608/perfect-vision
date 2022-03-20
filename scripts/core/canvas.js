@@ -321,7 +321,15 @@ for (const name in groups) {
 
 Logger.debug("Patching CONFIG.Canvas.cullingBackend (OVERRIDE)");
 
-CONFIG.Canvas.cullingBackend = null;
+class PatchedScreenCulling extends ScreenCulling {
+    constructor() {
+        super();
+
+        this.layers = this.layers.filter(l => !(l instanceof TokenLayer));
+    }
+}
+
+CONFIG.Canvas.cullingBackend = PatchedScreenCulling;
 
 Logger.debug("Patching CONFIG.Canvas.layers.weather.group (OVERRIDE)");
 Logger.debug("Patching CONFIG.Canvas.layers.grid.group (OVERRIDE)");
