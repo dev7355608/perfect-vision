@@ -151,7 +151,9 @@ Tile.prototype._pv_getOcclusionFilter = function () {
     let filter = this.occlusionFilter;
 
     if (game.modules.get("betterroofs")?.active && this.document.getFlag("betterroofs", "brMode") === 3) {
-        if (!(filter instanceof VisionTileOcclusionMaskFilter)) {
+        if (this.occluded && (this.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.FADE || this.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.ROOF)) {
+            filter = null;
+        } else if (!(filter instanceof VisionTileOcclusionMaskFilter)) {
             filter = VisionTileOcclusionMaskFilter.create();
         }
     } else if (this.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.RADIAL) {
@@ -304,7 +306,7 @@ Tile.prototype._pv_updateRoofSprite = function (sprite) {
         uniforms.uOcclusionAlpha = this.occlusionFilter.occlusionAlpha;
         uniforms.uOcclusionSampler = this.occlusionFilter.occlusionTexture;
     } else {
-        uniforms.uTileAlpha = 1;
+        uniforms.uTileAlpha = tile.alpha;
         uniforms.uOcclusionAlpha = 0;
         uniforms.uOcclusionSampler = PIXI.Texture.EMPTY;
     }
