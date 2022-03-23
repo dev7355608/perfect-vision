@@ -1,6 +1,7 @@
 import { patch } from "../utils/patch.js";
 import { Logger } from "../utils/logger.js";
 import { CanvasFramebuffer } from "../utils/canvas-framebuffer.js";
+import { InvertMaskFilter } from "./weatherblock.js";
 
 Hooks.once("setup", () => {
     if (!game.modules.get("fxmaster")?.active) {
@@ -24,14 +25,19 @@ Hooks.once("setup", () => {
 
         const inverted = canvas.scene.getFlag("fxmaster", "invert");
 
-        buffer.fxmaster = inverted ? this._createMask() : this._createInvertedMask();
+        buffer.fxmaster = this._createInvertedMask();
+        buffer.fxmaster.filters = inverted ? [new InvertMaskFilter()] : null;
+        buffer.fxmaster.filterArea = canvas.app.renderer.screen;
 
-        if (inverted) {
+        const numPolygons = buffer.fxmaster.geometry.graphicsData?.length ?? 0;
+
+        if (inverted && numPolygons === 0) {
+            buffer.fxmaster.clear().beginFill().drawShape(canvas.dimensions.rect).endFill();
+            buffer.fxmaster.filters = null;
+        }
+
+        if (inverted || numPolygons !== 0) {
             buffer.masks.addChild(buffer.fxmaster);
-        } else {
-            if (buffer.fxmaster?.geometry?.graphicsData?.length > 0) {
-                buffer.masks.addChild(buffer.fxmaster);
-            }
         }
 
         buffer.refresh();

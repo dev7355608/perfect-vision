@@ -1,42 +1,56 @@
 import { CanvasFramebuffer } from "../utils/canvas-framebuffer.js";
 import { patch } from "../utils/patch.js";
 
-Hooks.once("init", () => {
+Hooks.once("setup", () => {
     if (!game.modules.get("weatherblock")?.active) {
         return;
     }
 
-    patch("_weatherBlock.updateMask", "OVERRIDE", function () {
-        const buffer = CanvasFramebuffer.get("weatherMask");
+    patch("game.WeatherBlocker.constructor.prototype.setMask", "OVERRIDE", function () { });
 
-        if (buffer.weatherblock && !buffer.weatherblock.destroyed) {
-            buffer.weatherblock.destroy(true);
+    patch("game.WeatherBlocker.constructor.prototype.refreshMask", "OVERRIDE", function () {
+        const buffer = CanvasFramebuffer.get("weatherMask");
+        const polygons = this.getPolygons();
+
+        if (buffer.weatherblock?.destroyed) {
+            buffer.weatherblock = null;
         }
 
-        const inverted = !!canvas.scene.getFlag("weatherblock", "invertMask");
-
-        buffer.weatherblock = _weatherBlock.createMask(inverted);
-        buffer.weatherblock.filters = [new InvertMaskFilter()];
+        buffer.weatherblock = buffer.weatherblock ?? new PIXI.LegacyGraphics();
+        buffer.weatherblock.filters = buffer.weatherblock.filters ?? [new InvertMaskFilter()];
         buffer.weatherblock.filterArea = canvas.app.renderer.screen;
+        buffer.weatherblock.clear();
 
-        if (inverted) {
-            if (!buffer.weatherblock?.geometry?.graphicsData?.length) {
-                buffer.weatherblock.destroy(true);
-                buffer.weatherblock = new PIXI.LegacyGraphics().beginFill().drawShape(canvas.dimensions.rect).endFill();
+        if (this.inverted) {
+            if (polygons.length !== 0) {
+                buffer.weatherblock.filters[0].enabled = true;
+            } else {
+                buffer.weatherblock.filters[0].enabled = false;
+                buffer.weatherblock.beginFill().drawShape(canvas.dimensions.rect).endFill();
             }
+        } else {
+            buffer.weatherblock.filters[0].enabled = false;
+        }
 
+        buffer.weatherblock.beginFill();
+
+        for (const polygon of polygons) {
+            buffer.weatherblock.drawPolygon(polygon);
+        }
+
+        buffer.weatherblock.endFill();
+
+        if (this.inverted || polygons.length !== 0) {
             buffer.masks.addChild(buffer.weatherblock);
         } else {
-            if (buffer.weatherblock?.geometry?.graphicsData?.[0]?.holes?.length > 0) {
-                buffer.masks.addChild(buffer.weatherblock);
-            }
+            buffer.masks.removeChild(buffer.weatherblock);
         }
 
         buffer.refresh();
     });
 });
 
-class InvertMaskFilter extends PIXI.Filter {
+export class InvertMaskFilter extends PIXI.Filter {
     static vertexSrc = `\
         #version 100
 
