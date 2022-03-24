@@ -148,7 +148,7 @@ export class PointSourceGeometry extends PIXI.Geometry {
         }
 
         const r = this.inset;
-        const a = 2 * Math.acos(1 - Math.min(0.5 / r, 1));
+        const a = Math.PI / (2 * Math.sqrt(r));
 
         const start = indices.length;
         const first = vertices.length / 3;

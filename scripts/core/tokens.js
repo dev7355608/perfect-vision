@@ -68,7 +68,7 @@ class VisibilityPolygon extends ClockwiseSweepPolygon {
 
     static create(origin, radius) {
         const polygon = new this();
-        const density = Math.PI / (2 * Math.acos(1 - Math.min(0.5 / radius, 1)));
+        const density = 2 * Math.sqrt(radius);
 
         polygon.initialize(origin, { type: "move", radius, density });
 
