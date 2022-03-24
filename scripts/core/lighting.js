@@ -128,6 +128,10 @@ Hooks.once("init", () => {
         this.channels = sceneRegion.channels;
         this.version = sceneRegion.version;
 
+        if (canvas._pv_background) {
+            canvas._pv_background.tint = this.channels.scene.hex;
+        }
+
         canvas._pv_setBackgroundColor(this.channels.canvas.rgb);
 
         const bkg = this.background;

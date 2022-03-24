@@ -609,12 +609,12 @@ function configureChannels({
     channels.darkness.rgb = foundry.utils.hexToRGB(darknessColor);
     channels.darkness.rgb = channels.darkness.rgb.map(c => Math.max(c, 0.05));
     channels.darkness.hex = foundry.utils.rgbToHex(channels.darkness.rgb);
-    channels.scene.rgb = foundry.utils.hexToRGB(backgroundColor);
-    channels.scene.hex = foundry.utils.rgbToHex(channels.scene.rgb);
-    channels.canvas.rgb = channels.darkness.rgb.map((c, i) => ((1 - darkness) + darkness * c) * channels.scene.rgb[i]);
-    channels.canvas.hex = foundry.utils.rgbToHex(channels.canvas.rgb);
     channels.background.rgb = channels.darkness.rgb.map((c, i) => darkness * c + (1 - darkness) * channels.daylight.rgb[i]);
     channels.background.hex = foundry.utils.rgbToHex(channels.background.rgb);
+    channels.scene.rgb = foundry.utils.hexToRGB(backgroundColor);
+    channels.scene.hex = foundry.utils.rgbToHex(channels.scene.rgb);
+    channels.canvas.rgb = channels.background.rgb.map((c, i) => c * channels.scene.rgb[i]);
+    channels.canvas.hex = foundry.utils.rgbToHex(channels.canvas.rgb);
     channels.dark.rgb = channels.darkness.rgb.map(c => (1 + dark) * c);
     channels.dark.hex = foundry.utils.rgbToHex(channels.dark.rgb);
     channels.black.rgb = channels.dark.rgb.map(c => black * c);

@@ -410,6 +410,17 @@ Hooks.once("init", () => {
     });
 
     patch("Canvas.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
+        if (!this._pv_background || this._pv_background.destroyed) {
+            this._pv_background = new PIXI.LegacyGraphics();
+            this._pv_background.tint = 0x000000;
+        }
+
+        if (this._pv_background.parent) {
+            this._pv_background.parent.removeChild(this._pv_background);
+        }
+
+        this._pv_background.clear();
+
         await wrapped(...args);
 
         if (this.scene === null) {
@@ -418,27 +429,12 @@ Hooks.once("init", () => {
 
         this.stage._pv_scene_without_overlays.addChildAt(this.outline, 0);
 
-        this._pv_background = this.stage._pv_scene_without_overlays.addChildAt(new Sprite(new BackgroundColorShader()), 0);
-
-        const bgRect = this.dimensions.rect;
-
-        this._pv_background.x = bgRect.x;
-        this._pv_background.y = bgRect.y;
-        this._pv_background.width = bgRect.width;
-        this._pv_background.height = bgRect.height;
+        this._pv_background.beginFill(0xFFFFFF).drawShape(this.dimensions.rect).endFill();
+        this.primary.addChildAt(this._pv_background, 0);
 
         this._pv_overlays.mask = this.msk;
 
         return this;
-    });
-
-    patch("Canvas.prototype.tearDown", "WRAPPER", async function (wrapped, ...args) {
-        if (this._pv_background) {
-            this._pv_background.destroy();
-            this._pv_background = null;
-        }
-
-        return await wrapped(...args);
     });
 
     patch("Canvas.prototype._configurePerformanceMode", "POST", function (settings) {
@@ -480,85 +476,3 @@ Canvas.prototype._pv_setBackgroundColor = function (color) {
 
     this.app.renderer.backgroundColor = foundry.utils.rgbToHex(color);
 };
-
-class BackgroundColorShader extends PIXI.Shader {
-    static vertexSrc = `\
-        #version 100
-
-        precision ${PIXI.settings.PRECISION_VERTEX} float;
-
-        attribute vec2 aVertexPosition;
-
-        uniform mat3 projectionMatrix;
-        uniform vec2 screenDimensions;
-
-        varying vec2 vScreenCoord;
-
-        void main() {
-            gl_Position = vec4((projectionMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
-
-            vScreenCoord = aVertexPosition.xy / screenDimensions;
-        }`;
-
-    static fragmentSrc = `\
-        #version 100
-
-        precision ${PIXI.settings.PRECISION_FRAGMENT} float;
-
-        varying vec2 vScreenCoord;
-
-        uniform vec3 uColor;
-        uniform sampler2D uDarknessLevel;
-        uniform sampler2D uColorDarkness;
-
-        void main() {
-            float darknessLevel = texture2D(uDarknessLevel, vScreenCoord).r;
-            vec3 colorDarkness = texture2D(uColorDarkness, vScreenCoord).rgb;
-
-            gl_FragColor = vec4(mix(vec3(1.0), colorDarkness, darknessLevel) * uColor, 1.0);
-        }`;
-
-    static get program() {
-        if (!this._program) {
-            this._program = PIXI.Program.from(this.vertexSrc, this.fragmentSrc);
-        }
-
-        return this._program;
-    }
-
-    static get instance() {
-        if (!this._instance) {
-            this._instance = new BackgroundColorShader();
-        }
-
-        return this._instance;
-    }
-
-    constructor() {
-        super(BackgroundColorShader.program, {
-            uColor: new Float32Array(3),
-            uDarknessLevel: PIXI.Texture.EMPTY,
-            uColorDarkness: PIXI.Texture.EMPTY,
-            screenDimensions: new Float32Array(2)
-        });
-    }
-
-    update() {
-        const { width, height } = canvas.app.renderer.screen;
-        const screenDimensions = this.uniforms.screenDimensions;
-
-        screenDimensions[0] = width;
-        screenDimensions[1] = height;
-
-        const channels = canvas.lighting.channels;
-
-        if (channels) {
-            this.uniforms.uColor.set(channels.scene.rgb);
-
-            const textures = CanvasFramebuffer.get("lighting").textures;
-
-            this.uniforms.uDarknessLevel = textures[2];
-            this.uniforms.uColorDarkness = textures[4];
-        }
-    }
-}
