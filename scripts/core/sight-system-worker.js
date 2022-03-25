@@ -26,11 +26,27 @@ function tick() {
         }
     } else {
         if (!commit && pendingFirst) {
+            let incomplete;
+
+            while (pendingFirst) {
+                incomplete = pendingFirst.id !== explored.id + 1;
+
+                if (!incomplete && !pendingFirst.explored) {
+                    pendingFirst = pendingFirst.next;
+                    explored.id++;
+                } else {
+                    break;
+                }
+            }
+
+            if (!pendingFirst) {
+                pendingLast = null;
+            }
+
             let pendingCurrent = pendingFirst;
-            let incomplete = pendingCurrent.id !== explored.id + 1;
             let threshold = COMMIT_THRESHOLD;
 
-            for (; ;) {
+            while (pendingCurrent) {
                 if (pendingCurrent.explored) {
                     if (!pendingCurrent.done) {
                         pendingCurrent.tick();
@@ -42,8 +58,13 @@ function tick() {
                         const id = pendingCurrent.id;
                         const pending = [];
 
-                        for (let k = COMMIT_THRESHOLD; k--;) {
-                            pending.push(pendingFirst.result);
+                        for (let k = COMMIT_THRESHOLD; k;) {
+                            if (pendingCurrent.explored) {
+                                pending.push(pendingFirst.result);
+
+                                k--;
+                            }
+
                             pendingFirst = pendingFirst.next;
                         }
 
@@ -61,11 +82,9 @@ function tick() {
                     if (pendingCurrent.next.id !== pendingCurrent.id + 1) {
                         incomplete = true;
                     }
-
-                    pendingCurrent = pendingCurrent.next;
-                } else {
-                    break;
                 }
+
+                pendingCurrent = pendingCurrent.next;
             }
         }
 
