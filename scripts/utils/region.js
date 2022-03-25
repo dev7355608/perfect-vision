@@ -1,4 +1,6 @@
 export class Region {
+    static RESOLUTION = 256;
+
     static from(shape, transform) {
         if (shape instanceof Region) {
             if (transform && shape.transform) {
@@ -19,8 +21,10 @@ export class Region {
 
     shape;
     transform;
-    _bounds = null;
-    _contour = null;
+    _bounds;
+    _contour;
+    _area;
+    _simple;
 
     constructor(shape, transform) {
         const originalShape = shape;
@@ -144,12 +148,16 @@ export class Region {
                 } else if (radius !== shape.radius) {
                     shape = new PIXI.RoundedRectangle(shape.x, shape.y, width, height, radius);
                 }
+
+                this._simple = 2;
             } else if (type === PIXI.SHAPES.ELIP) {
                 const { width, height } = shape;
 
                 if (width === height) {
                     shape = new PIXI.Circle(shape.x, shape.y, width);
                 }
+
+                this._simple = 2;
             } else if (type === PIXI.SHAPES.POLY) {
                 shape = new PIXI.Polygon(Array.from(shape.points));
 
@@ -189,42 +197,39 @@ export class Region {
                     }
 
                     transform = null;
+                } else {
+                    this._simple = 2;
                 }
+            } else {
+                this._simple = 2;
             }
         }
 
         if (shape.type === PIXI.SHAPES.POLY) {
             const points = shape.points;
+
+            this.constructor.roundPolygon(points);
+            this.constructor.dedupPolygon(points);
+            this.constructor.cleanPolygon(points);
+
             let m = points.length;
-            let k = 0;
             let area = 0;
 
             for (let i = 0, x1 = points[m - 2], y1 = points[m - 1]; i < m; i += 2) {
                 const x2 = points[i];
                 const y2 = points[i + 1];
-                const dx = x2 - x1;
-                const dy = y2 - y1;
 
-                if (dx * dx + dy * dy === 0) {
-                    k += 2;
-
-                    continue;
-                }
-
-                if (k !== 0) {
-                    points[i - k] = x2;
-                    points[i - k + 1] = y2;
-                }
-
-                area += dx * (y2 + y1);
+                area += (x2 - x1) * (y2 + y1);
 
                 x1 = x2;
                 y1 = y2;
             }
 
-            m = points.length = Math.max(m - k, 2);
+            this._area = Math.abs(area) / 2;
 
-            if (area > 0) {
+            if (area === 0) {
+                points.length = 0;
+            } else if (area > 0) {
                 const n = m / 2;
 
                 for (let i = n + n % 2; i < m; i += 2) {
@@ -275,6 +280,28 @@ export class Region {
         }
 
         return contour;
+    }
+
+    get area() {
+        this.contour;
+
+        return this._area;
+    }
+
+    get weaklySimple() {
+        if (this._simple === undefined) {
+            this._simple = this.constructor.isSimplePolygon(this.contour);
+        }
+
+        return this._simple >= 1;
+    }
+
+    get strictlySimple() {
+        if (this._simple === undefined) {
+            this._simple = this.constructor.isSimplePolygon(this.contour);
+        }
+
+        return this._simple === 2;
     }
 
     containsPoint(point) {
@@ -483,6 +510,103 @@ export class Region {
         }
     }
 
+    containsLineSegment(point1, point2) {
+        const shape = this.shape;
+
+        if (!(this.containsPoint(point1) && this.containsPoint(point2))) {
+            return false;
+        }
+
+        if (shape.type !== PIXI.SHAPES.POLY) {
+            return true;
+        }
+
+        const ax = point1.x;
+        const ay = point1.y;
+        const bx = point2.x;
+        const by = point2.y;
+        const points = shape.points;
+        const m = points.length;
+
+        for (let i = 0, x1 = points[m - 2], y1 = points[m - 1], d1 = (ay - y1) * (bx - x1) - (ax - x1) * (by - y1); i < m; i += 2) {
+            const x2 = points[i];
+            const y2 = points[i + 1];
+            const d2 = (ay - y2) * (bx - x2) - (ax - x2) * (by - y2);
+
+            if ((d1 !== 0 || d2 !== 0) && d1 * d2 <= 0) {
+                const d3 = (y1 - ay) * (x2 - ax) - (x1 - ax) * (y2 - ay);
+                const d4 = (y1 - by) * (x2 - bx) - (x1 - bx) * (y2 - by);
+
+                if (d3 * d4 <= 0) {
+                    return false;
+                }
+            }
+
+            x1 = x2;
+            y1 = y2;
+            d1 = d2;
+        }
+
+        const mx = (ax + bx) / 2;
+        const my = (ay + by) / 2;
+
+        return shape.contains(mx, my);
+    }
+
+    intersectsLineSegment(point1, point2) {
+        const { left, right, top, bottom } = this.bounds;
+        const ax = point1.x;
+        const ay = point1.y;
+        const bx = point2.x;
+        const by = point2.y;
+
+        const dx = 1 / (bx - ax);
+        const tx1 = (left - ax) * dx;
+        const tx2 = (right - ax) * dx;
+
+        let tmin = Math.min(tx1, tx2);
+        let tmax = Math.max(tx1, tx2);
+
+        const dy = 1 / (by - ay);
+        const ty1 = (top - ay) * dy;
+        const ty2 = (bottom - ay) * dy;
+
+        tmin = Math.max(tmin, Math.min(ty1, ty2));
+        tmax = Math.min(tmax, Math.max(ty1, ty2));
+
+        if (tmin >= 1 || tmax <= Math.max(0, tmin)) {
+            return false;
+        }
+
+        if (this.containsPoint(point1) || this.containsPoint(point2)) {
+            return true;
+        }
+
+        const points = this.contour;
+        const m = points.length;
+
+        for (let i = 0, x1 = points[m - 2], y1 = points[m - 1], d1 = (ay - y1) * (bx - x1) - (ax - x1) * (by - y1); i < m; i += 2) {
+            const x2 = points[i];
+            const y2 = points[i + 1];
+            const d2 = (ay - y2) * (bx - x2) - (ax - x2) * (by - y2);
+
+            if ((d1 !== 0 || d2 !== 0) && d1 * d2 <= 0) {
+                const d3 = (y1 - ay) * (x2 - ax) - (x1 - ax) * (y2 - ay);
+                const d4 = (y1 - by) * (x2 - bx) - (x1 - bx) * (y2 - by);
+
+                if (d3 * d4 <= 0) {
+                    return true;
+                }
+            }
+
+            x1 = x2;
+            y1 = y2;
+            d1 = d2;
+        }
+
+        return false;
+    }
+
     _computeBounds() {
         const shape = this.shape;
         const type = shape.type;
@@ -603,6 +727,13 @@ export class Region {
             }
         }
 
+        const resolution = this.constructor.RESOLUTION;
+
+        bounds.x = Math.floor(bounds.x * resolution) / resolution;
+        bounds.y = Math.floor(bounds.y * resolution) / resolution;
+        bounds.width = Math.ceil((bounds.x + bounds.width) * resolution) / resolution - bounds.x;
+        bounds.height = Math.ceil((bounds.y + bounds.height) * resolution) / resolution - bounds.y;
+
         return bounds;
     }
 
@@ -611,10 +742,11 @@ export class Region {
         const type = shape.type;
 
         if (type === PIXI.SHAPES.RECT) {
-            const x0 = shape.x;
-            const y0 = shape.y;
-            const w = shape.width;
-            const h = shape.height;
+            const resolution = this.constructor.RESOLUTION;
+            const x0 = Math.round(shape.x * resolution) / resolution;
+            const y0 = Math.round(shape.y * resolution) / resolution;
+            const w = Math.round((shape.x + shape.width) * resolution) / resolution - x0;
+            const h = Math.round((shape.y + shape.height) * resolution) / resolution - y0;
             const x1 = x0 + w;
             const y1 = y0 + h;
 
@@ -622,30 +754,12 @@ export class Region {
 
             if (w > 0 && h > 0) {
                 points = new Array(8);
-                points[0] = x0;
-                points[1] = y0;
-                points[2] = x1;
-                points[3] = y0;
-                points[4] = x1;
-                points[5] = y1;
-                points[6] = x0;
-                points[7] = y1;
-            } else if (w > 0) {
-                points = new Array(4);
-                points[0] = x0;
-                points[1] = y0;
-                points[2] = x1;
-                points[3] = y0;
-            } else if (h > 0) {
-                points = new Array(4);
-                points[0] = x0;
-                points[1] = y0;
-                points[2] = x0;
-                points[3] = y1;
+                points[0] = points[6] = x0;
+                points[1] = points[3] = y0;
+                points[2] = points[4] = x1;
+                points[5] = points[7] = y1;
             } else {
-                points = new Array(2);
-                points[0] = x0;
-                points[1] = y0;
+                points = [];
             }
 
             return points;
@@ -696,7 +810,7 @@ export class Region {
         }
 
         const n = Math.ceil(Math.sqrt((sx + sy) / 2));
-        const m = n * 8 + (dx ? 4 : 0) + (dy ? 4 : 0);
+        let m = n * 8 + (dx ? 4 : 0) + (dy ? 4 : 0);
         const points = new Array(m);
 
         let j1 = 0;
@@ -778,42 +892,34 @@ export class Region {
             }
         }
 
-        let k = 0;
+        this.constructor.roundPolygon(points);
+        this.constructor.dedupPolygon(points);
+        this.constructor.cleanPolygon(points);
+
+        m = points.length;
+
+        if (m === 0) {
+            return points;
+        }
+
         let area = 0;
 
         for (let i = 0, x1 = points[m - 2], y1 = points[m - 1]; i < m; i += 2) {
             const x2 = points[i];
             const y2 = points[i + 1];
-            const dx = x2 - x1;
-            const dy = y2 - y1;
 
-            if (dx * dx + dy * dy === 0) {
-                k += 2;
-
-                continue;
-            }
-
-            if (k !== 0) {
-                points[i - k] = x2;
-                points[i - k + 1] = y2;
-            }
-
-            area += dx * (y2 + y1);
+            area += (x2 - x1) * (y2 + y1);
 
             x1 = x2;
             y1 = y2;
         }
 
-        if (k < m) {
-            points.length -= k;
-        } else {
-            points[0] = x;
-            points[1] = y;
-            points.length = 2;
-        }
+        this._area = Math.abs(area) / 2;
 
-        if (area > 0) {
-            const n = points.length / 2;
+        if (area === 0) {
+            points.length = 0;
+        } else if (area > 0) {
+            const n = m / 2;
 
             for (let i = n + n % 2; i < m; i += 2) {
                 const j1 = m - i - 2;
@@ -828,4 +934,233 @@ export class Region {
 
         return points;
     }
+
+    static roundPolygon(points, resolution = Region.RESOLUTION) {
+        const polygon = points;
+
+        if (!(points instanceof Array)) {
+            points = polygon.points;
+        }
+
+        const m = points.length;
+
+        for (let i = 0; i < m; i++) {
+            points[i] = Math.round(points[i] * resolution) / resolution;
+        }
+
+        return polygon;
+    }
+
+    static dedupPolygon(points) {
+        const polygon = points;
+
+        if (!(points instanceof Array)) {
+            points = polygon.points;
+        }
+
+        while (points.length !== 0 && points[0] === points[points.length - 2] && points[1] === points[points.length - 1]) {
+            points.length -= 2;
+        }
+
+        let k = 0;
+
+        for (let i = 0, k = 0; i + 2 < points.length; i += 2) {
+            const x = points[i];
+            const y = points[i + 1];
+
+            if (x === points[i + 2] && y === points[i + 3]) {
+                k += 2;
+            } else if (k !== 0) {
+                points[i - k] = x;
+                points[i - k + 1] = y;
+            }
+        }
+
+        points.length -= k;
+
+        return polygon;
+    }
+
+    static cleanPolygon(points, resolution = Region.RESOLUTION) {
+        const polygon = points;
+
+        if (!(points instanceof Array)) {
+            points = polygon.points;
+        }
+
+        const m = points.length;
+
+        if (m < 6) {
+            points.length = 0;
+
+            return points;
+        }
+
+        let path = new Array(m / 2);
+
+        for (let j = 0; j < m; j += 2) {
+            const x = Math.round(points[j] * resolution);
+            const y = Math.round(points[j + 1] * resolution);
+
+            path[j >> 1] = new ClipperLib.IntPoint(x, y);
+        }
+
+        path = ClipperLib.Clipper.CleanPolygon(path);
+
+        const n = path.length;
+
+        points.length = n << 1;
+
+        for (let i = 0; i < n; i++) {
+            const point = path[i];
+
+            points[(i << 1)] = point.X / resolution;
+            points[(i << 1) + 1] = point.Y / resolution;
+        }
+
+        return polygon;
+    }
+
+    static smoothPolygon(points, factor = 0.5) {
+        const polygon = points;
+
+        if (!(points instanceof Array)) {
+            points = polygon.points;
+        }
+
+        if (points.length >= 6 && factor !== 0) {
+            const first = points.slice(0, 2);
+            const last = points.slice(-2);
+            const path = points.concat(points.slice(0, 4));
+
+            let previous = first;
+            let current = path.slice(2, 4);
+            let cp0 = getBezierControlPoints(factor, last, previous, current).next_cp0;
+
+            points.length = 0;
+            points.push(first[0], first[1]);
+
+            for (let i = 4; i < path.length; i += 2) {
+                const next = [path[i], path[i + 1]];
+                const bp = getBezierControlPoints(factor, previous, current, next);
+                const cp1 = bp.cp1;
+
+                PIXI.graphicsUtils.BezierUtils.curveTo(cp0.x, cp0.y, cp1.x, cp1.y, current[0], current[1], points);
+
+                previous = current;
+                current = next;
+                cp0 = bp.next_cp0;
+            }
+
+            points.length -= 2;
+        }
+
+        return polygon;
+    }
+
+    static isWeaklySimplePolygon(points) {
+        return this.isSimplePolygon(points) >= 1;
+    }
+
+    static isStrictlySimplePolygon(points) {
+        return this.isSimplePolygon(points) === 2;
+    }
+
+    static isSimplePolygon(points) {
+        points = points instanceof Array ? points : points.points;
+
+        const m = points.length;
+
+        for (let i = 2; i < m; i += 2) {
+            const x1 = points[i - 2];
+            const y1 = points[i - 1];
+            const x2 = points[i];
+            const y2 = points[i + 1];
+
+            for (let j = i + 2; j < (i > 2 ? m : m - 2); j += 2) {
+                const x3 = points[j];
+                const y3 = points[j + 1];
+                const x4 = points[(j + 2) % m];
+                const y4 = points[(j + 3) % m];
+
+                const d1 = (y1 - y3) * (x2 - x3) - (x1 - x3) * (y2 - y3);
+                const d2 = (y1 - y4) * (x2 - x4) - (x1 - x4) * (y2 - y4);
+
+                if (d1 * d2 < 0) {
+                    const d3 = (y3 - y1) * (x4 - x1) - (x3 - x1) * (y4 - y1);
+                    const d4 = (y3 - y2) * (x4 - x2) - (x3 - x2) * (y4 - y2);
+
+                    if (d3 * d4 < 0) {
+                        return 0;
+                    }
+                }
+            }
+        }
+
+        for (let i = 0; i < m; i += 2) {
+            const x1 = points[i];
+            const y1 = points[i + 1];
+
+            for (let j = i + 2; j < m; j += 2) {
+                const x2 = points[j];
+                const y2 = points[j + 1];
+
+                if (x1 === x2 && y1 === y2) {
+                    return 1;
+                }
+            }
+        }
+
+        for (let i = 0; i < m; i += 2) {
+            const x0 = points[i];
+            const y0 = points[i + 1];
+
+            for (let j = 0; j < m; j += 2) {
+                if (i === j || i === (j + 2) % m) {
+                    continue;
+                }
+
+                const x1 = points[j];
+                const y1 = points[j + 1];
+                const x2 = points[(j + 2) % m];
+                const y2 = points[(j + 3) % m];
+
+                const d1 = (y0 - y1) * (x2 - x1) - (x0 - x1) * (y2 - y1);
+
+                if (d1 === 0) {
+                    const d2 = (x0 - x1) * (x2 - x1) + (y0 - y1) * (y2 - y1);
+
+                    if (d2 >= 0) {
+                        const d3 = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
+
+                        if (d2 <= d3) {
+                            return 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        return 2;
+    }
+}
+
+function getBezierControlPoints(factor, previous, point, next) {
+    const vector = { x: next[0] - previous[0], y: next[1] - previous[1] };
+    const preDist = Math.hypot(previous[0] - point[0], previous[1] - point[1]);
+    const postDist = Math.hypot(next[0] - point[0], next[1] - point[1]);
+    const dist = preDist + postDist;
+    const cp0d = dist === 0 ? 0 : factor * (preDist / dist);
+    const cp1d = dist === 0 ? 0 : factor * (postDist / dist);
+
+    return {
+        cp1: {
+            x: point[0] - (vector.x * cp0d),
+            y: point[1] - (vector.y * cp0d)
+        },
+        next_cp0: {
+            x: point[0] + (vector.x * cp1d),
+            y: point[1] + (vector.y * cp1d)
+        }
+    };
 }
