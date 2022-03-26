@@ -1,5 +1,7 @@
 import { patch } from "../../utils/patch.js";
 
+let template;
+
 Hooks.once("init", () => {
     patch("DrawingConfig.prototype.close", "POST", async function (result, options) {
         await result;
@@ -91,16 +93,21 @@ Hooks.once("init", () => {
             this.object.object._pv_updateLighting();
         }
     });
+
+    patch("DrawingConfig.prototype._renderInner", "WRAPPER", async function (wrapped, ...args) {
+        template = await getTemplate("modules/perfect-vision/templates/drawing-config.hbs");
+
+        return await wrapped(...args);
+    });
 });
 
-Hooks.on("renderDrawingConfig", async (sheet, html) => {
+Hooks.on("renderDrawingConfig", (sheet, html) => {
     if (!game.user.isGM || sheet.options.configureDefault) {
         return;
     }
 
     const document = sheet.object;
     const data = foundry.utils.getProperty(document.data, "flags.perfect-vision") ?? {};
-    const template = await getTemplate("modules/perfect-vision/templates/drawing-config.hbs");
     const nav = html.find("nav.sheet-tabs.tabs");
 
     nav.append(`<a class="item" data-tab="perfect-vision.lighting"><i class="fas fa-lightbulb"></i> Lighting</a>`);

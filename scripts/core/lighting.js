@@ -4,6 +4,7 @@ import { CanvasFramebuffer } from "../utils/canvas-framebuffer.js";
 import { LimitSystem } from "./limit-system.js";
 import { LightingSystem } from "./lighting-system.js";
 import { PointSourceContainer } from "./point-source/container.js";
+import createTess2, { Tess2 } from "../utils/tess2.js";
 
 Hooks.once("init", () => {
     patch("LightingLayer.prototype._configureChannels", "OVERRIDE", function () {
@@ -11,6 +12,10 @@ Hooks.once("init", () => {
     });
 
     patch("LightingLayer.prototype.draw", "OVERRIDE", async function () {
+        if (!Tess2) {
+            await createTess2();
+        }
+
         CanvasFramebuffer.get("lighting").draw();
 
         this.globalLight = canvas.scene.data.globalLight;
