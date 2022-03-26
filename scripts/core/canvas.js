@@ -1,11 +1,9 @@
 import { patch } from "../utils/patch.js";
 import { rgb2gray, rgb2srgb, srgb2rgb } from "../utils/color.js";
-import { Sprite } from "../utils/sprite.js";
 import { RenderTargetMixin } from "../utils/render-target.js";
 import { MonoFilter } from "./mono.js";
 import { Logger } from "../utils/logger.js";
 import { Region } from "../utils/region.js";
-import { CanvasFramebuffer } from "../utils/canvas-framebuffer.js";
 import { LightingSystem } from "./lighting-system.js";
 
 class OverlaysCanvasGroup extends PIXI.Container {
@@ -413,6 +411,7 @@ Hooks.once("init", () => {
         if (!this._pv_background || this._pv_background.destroyed) {
             this._pv_background = new PIXI.LegacyGraphics();
             this._pv_background.tint = 0x000000;
+            this._pv_background.zIndex = -Infinity;
         }
 
         if (this._pv_background.parent) {
