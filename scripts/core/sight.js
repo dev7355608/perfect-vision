@@ -179,7 +179,7 @@ Hooks.once("init", () => {
 
         // Draw field-of-vision for lighting sources
         for (const source of canvas.lighting.sources) {
-            if (!this.sources.size || !source.active) {
+            if (!this.sources.size || !source.active || source.destroyed) {
                 continue;
             }
 
@@ -202,6 +202,10 @@ Hooks.once("init", () => {
 
         // Draw sight-based visibility for each vision source
         for (const source of this.sources) {
+            if (source.destroyed) {
+                continue;
+            }
+
             source.active = true;
 
             if (!inBuffer && !d.sceneRect.contains(source.x, source.y)) {
@@ -364,7 +368,7 @@ Hooks.once("init", () => {
             }
 
             for (const source of visionSources.values()) {
-                if (!source.active) {
+                if (!source.active || source.destroyed) {
                     continue;
                 }
 
@@ -382,7 +386,7 @@ Hooks.once("init", () => {
             }
 
             for (const source of lightSources.values()) {
-                if (!source.active) {
+                if (!source.active || source.destroyed) {
                     continue;
                 }
 
@@ -451,6 +455,10 @@ SightLayer.prototype._pv_drawMinFOV = function (fov) {
     const vertices = new Float32Array(j * (m + 4) - 4);
 
     for (const source of this.sources) {
+        if (source.destroyed) {
+            continue;
+        }
+
         const { x, y } = source.data;
         const r = source._pv_minRadius;
 

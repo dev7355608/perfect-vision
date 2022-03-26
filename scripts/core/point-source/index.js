@@ -29,8 +29,11 @@ Hooks.once("init", () => {
             this._pv_delimiter.destroy({ children: true });
         }
 
+        this.destroyed = true;
+
         this._pv_fov = null;
         this._pv_los = null;
+        this._pv_clos = null;
         this._pv_geometry = null;
 
         if (this._pv_shader) {
@@ -523,6 +526,8 @@ Hooks.once("init", () => {
     });
 });
 
+PointSource.prototype.destroyed = false;
+
 for (const cls of [LightSource, VisionSource]) {
     Object.defineProperty(cls.prototype, "_pv_delimiter", {
         get() {
@@ -563,11 +568,6 @@ LightSource.prototype._pv_updateDelimiterUniforms = VisionSource.prototype._pv_u
 LightSource.prototype._pv_drawMesh = function () {
     const mesh = this._pv_mesh;
     const shader = this._pv_shader;
-
-    if (!shader) {
-        return null;
-    }
-
     const uniforms = shader.uniforms;
     const { x, y } = this.data;
 
@@ -592,11 +592,6 @@ LightSource.prototype._pv_drawMesh = function () {
 
 LightSource.prototype._pv_drawMask = function (fov, los, inset = false) {
     const geometry = this._pv_geometry;
-
-    if (!geometry) {
-        return;
-    }
-
     const segments = geometry.segments;
 
     fov.pushMask({ geometry: segments.los });
@@ -653,11 +648,6 @@ LightSource.prototype._pv_drawMask = function (fov, los, inset = false) {
 VisionSource.prototype._pv_drawMesh = function () {
     const mesh = this._pv_mesh;
     const shader = this._pv_shader;
-
-    if (!shader) {
-        return null;
-    }
-
     const uniforms = shader.uniforms;
     const { x, y } = this.data;
 
@@ -678,11 +668,6 @@ VisionSource.prototype._pv_drawMesh = function () {
 
 VisionSource.prototype._pv_drawMask = function (fov, los, inset = false) {
     const geometry = this._pv_geometrySight;
-
-    if (!geometry) {
-        return;
-    }
-
     const segments = geometry.segments;
 
     if (this.fov.radius > 0) {

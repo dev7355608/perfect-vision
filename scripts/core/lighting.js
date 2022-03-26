@@ -157,6 +157,10 @@ Hooks.once("init", () => {
         this._animatedSources = [];
 
         for (const source of this.sources) {
+            if (source.destroyed) {
+                continue;
+            }
+
             const region = LightingSystem.instance.getActiveRegionAtPoint(source) ?? sceneRegion;
 
             if (source._pv_region !== region) {
@@ -207,6 +211,10 @@ Hooks.once("init", () => {
         }
 
         for (const source of canvas.sight.sources) {
+            if (source.destroyed) {
+                continue;
+            }
+
             const region = LightingSystem.instance.getActiveRegionAtPoint(source) ?? sceneRegion;
 
             if (source._pv_region !== region) {
@@ -794,6 +802,10 @@ class LightingFramebuffer extends CanvasFramebuffer {
             const minFOV = [];
 
             for (const source of canvas.sight.sources) {
+                if (source.destroyed) {
+                    continue;
+                }
+
                 const mesh = source._pv_drawMesh();
 
                 if (mesh) {
@@ -811,7 +823,7 @@ class LightingFramebuffer extends CanvasFramebuffer {
         }
 
         for (const source of canvas.lighting.sources) {
-            if (!source.active) {
+            if (!source.active || source.destroyed) {
                 continue;
             }
 

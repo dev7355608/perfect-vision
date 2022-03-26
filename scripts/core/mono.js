@@ -8,7 +8,7 @@ function updateMonoFilter() {
     let defaultTint;
 
     for (const source of canvas.sight.sources) {
-        if (!source.active) {
+        if (!source.active || source.destroyed) {
             continue;
         }
 
