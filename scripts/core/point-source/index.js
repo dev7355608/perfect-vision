@@ -592,6 +592,11 @@ LightSource.prototype._pv_drawMesh = function () {
 
 LightSource.prototype._pv_drawMask = function (fov, los, inset = false) {
     const geometry = this._pv_geometry;
+
+    if (!geometry) {
+        return;
+    }
+
     const segments = geometry.segments;
 
     fov.pushMask({ geometry: segments.los });
@@ -673,6 +678,11 @@ VisionSource.prototype._pv_drawMesh = function () {
 
 VisionSource.prototype._pv_drawMask = function (fov, los, inset = false) {
     const geometry = this._pv_geometrySight;
+
+    if (!geometry) {
+        return;
+    }
+
     const segments = geometry.segments;
 
     if (this.fov.radius > 0) {
