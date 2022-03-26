@@ -133,7 +133,7 @@ Hooks.once("init", () => {
         let los;
         const fovMask = vision._pv_fov;
         const losMask = vision._pv_los;
-        const visionTexture = !this.fogExploration;
+        const visionTexture = !this.fogExploration && LightingSystem.instance.globalLight !== undefined;
         const exactVisibility = this._pv_exactVisibility;
 
         if (exactVisibility) {
@@ -214,10 +214,10 @@ Hooks.once("init", () => {
 
             if (!visionTexture) {
                 source._pv_drawMask(fovMask, losMask);
+            }
 
-                if (!skipUpdateFog) { // Update fog exploration
-                    this.updateFog(source, forceUpdateFog);
-                }
+            if (!skipUpdateFog) { // Update fog exploration
+                this.updateFog(source, forceUpdateFog);
             }
 
             if (exactVisibility) {
