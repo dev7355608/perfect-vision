@@ -12,6 +12,7 @@ export class LimitSystem {
     n = 0;
     D = null;
     E = null;
+    R = null;
     K = null;
     S = null;
     Ct = null;
@@ -81,6 +82,7 @@ export class LimitSystem {
             }).map(e => e[1]);
 
         let n = 0;
+        let r = 0;
         let m = 0;
 
         for (const region of regions) {
@@ -88,12 +90,18 @@ export class LimitSystem {
                 continue;
             }
 
-            const p1 = region._shape;
-            const p2 = region._mask;
-            const m1 = p1.length;
-            const m2 = p2 ? p2.length : 0;
+            let shape = false;
+            let mask = false;
 
-            if (m1 === 0 || p2?.length === 0) {
+            for (const contour of region.contours) {
+                if (contour.mask) {
+                    mask = true;
+                } else {
+                    shape = true;
+                }
+            }
+
+            if (!shape || !mask && region.mask) {
                 continue;
             }
 
@@ -113,9 +121,10 @@ export class LimitSystem {
                     break;
             }
 
-            m += 4;
-            m += m1 !== undefined ? m1 : 6;
-            m += m2;
+            for (const { points: p } of region.contours) {
+                r++;
+                m += 4 + (p.length || 6);
+            }
 
             n++;
         }
@@ -125,25 +134,29 @@ export class LimitSystem {
         if (n === 0) {
             this.D = null;
             this.E = null;
+            this.R = null;
             this.K = null;
             this.S = null;
             this.Ct = null;
             this.Ci = null;
             this.lmin = Infinity;
             this.lmax = Infinity;
+            this.dirty = false;
 
-            return;
+            return true;
         }
 
-        const D = this.D = new Float32Array(new ArrayBuffer(n * 13 + m * 4), 0, n);
+        const D = this.D = new Float32Array(new ArrayBuffer(n * (4 + 4 + 1) + m * 4 + r * 4), 0, n);
         const E = this.E = new Float32Array(D.buffer, D.byteOffset + D.byteLength, m);
-        const K = this.K = new Uint32Array(E.buffer, E.byteOffset + E.byteLength, n * 2);
+        const R = this.R = new Uint32Array(E.buffer, E.byteOffset + E.byteLength, n);
+        const K = this.K = new Uint32Array(R.buffer, R.byteOffset + R.byteLength, r);
         const S = this.S = new Uint8Array(K.buffer, K.byteOffset + K.byteLength, n);
         this.Ct = this.Ct ?? new Float64Array(8);
         this.Ci = this.Ci ?? new Int32Array(this.Ct.buffer);
 
         let i = 0;
         let k = 0;
+        let l = 0;
         let dmin = Infinity;
         let dmax = 0;
         let dadd = 0;
@@ -153,12 +166,18 @@ export class LimitSystem {
                 continue;
             }
 
-            const p1 = region._shape;
-            const p2 = region._mask;
-            const m1 = p1.length;
-            const m2 = p2 ? p2.length : 0;
+            let shape = false;
+            let mask = false;
 
-            if (m1 === 0 || p2?.length === 0) {
+            for (const contour of region.contours) {
+                if (contour.mask) {
+                    mask = true;
+                } else {
+                    shape = true;
+                }
+            }
+
+            if (!shape || !mask && region.mask) {
                 continue;
             }
 
@@ -208,33 +227,34 @@ export class LimitSystem {
 
             D[i] = d;
             S[i] = s << 2;
-            K[(i << 1)] = m1 !== undefined ? m1 : 1;
-            K[(i << 1) + 1] = m2;
+            R[i] = 0;
 
-            const b = region.bounds;
+            for (const { points: p, bounds: b, mask: j } of region.contours) {
+                const m = p.length || 0;
 
-            E[k++] = b.left;
-            E[k++] = b.right;
-            E[k++] = b.top;
-            E[k++] = b.bottom;
+                K[l++] = m + j;
 
-            if (m1 !== undefined) {
-                for (let j = 0; j < m1;) {
-                    E[k++] = p1[j++];
-                    E[k++] = p1[j++];
+                E[k++] = b.left;
+                E[k++] = b.right;
+                E[k++] = b.top;
+                E[k++] = b.bottom;
+
+                if (m !== 0) {
+                    for (let h = 0; h < m;) {
+                        E[k++] = p[h++];
+                        E[k++] = p[h++];
+                    }
+                } else {
+                    E[k++] = p.a;
+                    E[k++] = p.b;
+                    E[k++] = p.c;
+                    E[k++] = p.d;
+                    E[k++] = p.tx;
+                    E[k++] = p.ty;
                 }
-            } else {
-                E[k++] = p1.a;
-                E[k++] = p1.b;
-                E[k++] = p1.c;
-                E[k++] = p1.d;
-                E[k++] = p1.tx;
-                E[k++] = p1.ty;
-            }
 
-            for (let j = 0; j < m2;) {
-                E[k++] = p2[j++];
-                E[k++] = p2[j++];
+                R[i] += 2;
+                R[i] |= j;
             }
 
             i++;
@@ -253,7 +273,7 @@ export class LimitSystem {
 
     // TODO: return limits for all four quadrants
     estimateRayLimitsUnsafe(rax, ray, rmin = 0, rmax = Infinity) {
-        const { n, D, E, K, S } = this;
+        const { n, D, E, R, K, S } = this;
 
         rmax = Math.min(rmax, rmin + this.lmax);
 
@@ -266,30 +286,34 @@ export class LimitSystem {
         let dmax = 0;
         let dadd = 0;
 
-        for (let i = 0, k = 0; i < n; i++) {
-            const x1 = E[k++];
-            const x2 = E[k++];
-            const y1 = E[k++];
-            const y2 = E[k++];
+        for (let i = 0, k = 0, l = 0; i < n; i++) {
+            for (const r = l + (R[i] >> 1); l < r; l++) {
+                const mj = K[l];
 
-            if (x1 < xmax && x2 > xmin && y1 < ymax && y2 > ymin) {
-                const d = D[i];
+                if ((mj & 1) === 0) {
+                    const x1 = E[k++];
+                    const x2 = E[k++];
+                    const y1 = E[k++];
+                    const y2 = E[k++];
 
-                switch (S[i] >> 2) {
-                    case 0:
-                        dadd += d;
-                        break;
-                    default:
-                        dmin = Math.min(dmin, d);
-                        dmax = Math.max(dmax, d);
+                    if (x1 < xmax && x2 > xmin && y1 < ymax && y2 > ymin) {
+                        const d = D[i];
+
+                        switch (S[i] >> 2) {
+                            case 0:
+                                dadd += d;
+                                break;
+                            default:
+                                dmin = Math.min(dmin, d);
+                                dmax = Math.max(dmax, d);
+                        }
+                    }
+                } else {
+                    k += 4;
                 }
+
+                k += (mj & ~1) || 6;
             }
-
-            const i1 = i << 1;
-            const m1 = K[i1];
-            const m2 = K[i1 + 1];
-
-            k += (m1 !== 1 ? m1 : 6) + m2;
         }
 
         const lmax = Math.min(rmin + Math.round(1 / Math.min(dmin, dmax)), rmax);
@@ -314,51 +338,45 @@ export class LimitSystem {
             rmax = 0;
         }
 
-        const { n, D, E, K, S } = this;
+        const { n, D, E, R, K, S } = this;
         let { Ct, Ci } = this;
         const rpx = 1 / rdx;
         const rpy = 1 / rdy;
 
         let c = 0;
 
-        for (let i = 0, k = 0; i < n; i++) {
-            const i1 = i << 1;
-            const m1 = K[i1];
-            const m2 = K[i1 + 1];
+        for (let i = 0, k = 0, l = 0; i < n; i++) {
+            let s = (R[i] & 1) << 1 | 1;
 
-            let s = (m2 !== 0) << 1 | 1;
+            outer: for (const r = l + (R[i] >> 1); l < r; l++) {
+                let m = K[l];
+                const j = 1 << (m & 1);
 
-            if (m1 > 16 || m1 === 1 || m2 !== 0) {
-                const tx1 = (E[k++] - rax) * rpx;
-                const tx2 = (E[k++] - rax) * rpx;
+                m = m & ~1;
 
-                let tmin = Math.min(tx1, tx2);
-                let tmax = Math.max(tx1, tx2);
+                if (m > 16 || m === 0) {
+                    const tx1 = (E[k++] - rax) * rpx;
+                    const tx2 = (E[k++] - rax) * rpx;
 
-                const ty1 = (E[k++] - ray) * rpy;
-                const ty2 = (E[k++] - ray) * rpy;
+                    let tmin = Math.min(tx1, tx2);
+                    let tmax = Math.max(tx1, tx2);
 
-                tmin = Math.max(tmin, Math.min(ty1, ty2));
-                tmax = Math.min(tmax, Math.max(ty1, ty2));
+                    const ty1 = (E[k++] - ray) * rpy;
+                    const ty2 = (E[k++] - ray) * rpy;
 
-                if (tmin >= 1 || tmax <= Math.max(0, tmin)) {
-                    k += (m1 !== 1 ? m1 : 6) + m2;
-                    S[i] = S[i] & ~3 | s;
+                    tmin = Math.max(tmin, Math.min(ty1, ty2));
+                    tmax = Math.min(tmax, Math.max(ty1, ty2));
 
-                    continue;
-                }
-            } else {
-                k += 4;
-            }
+                    if (tmin >= 1 || tmax <= Math.max(0, tmin)) {
+                        k += m || 6;
 
-            for (let j = 1; j <= 2; j++) {
-                let m = K[i1 + j - 1];
-
-                if (m === 0) {
-                    continue;
+                        continue outer;
+                    }
+                } else {
+                    k += 4;
                 }
 
-                if (m !== 1) {
+                if (m !== 0) {
                     let eax = E[k + m - 2];
                     let eay = E[k + m - 1];
 
@@ -719,11 +737,9 @@ export class LimitSystem {
 }
 
 class LimitSystemRegion {
+    contours = [];
     shape;
-    _shape;
-    mask;
-    _mask;
-    bounds;
+    mask = null;
     limit;
     mode;
     index;
@@ -738,33 +754,51 @@ class LimitSystemRegion {
         let changed = false;
 
         if ("shape" in changes) {
-            shape = Region.from(shape);
+            if (typeof shape[Symbol.iterator] === "function") {
+                shape = Array.from(shape);
+            } else {
+                shape = [shape];
+            }
 
-            if (this.shape !== shape) {
+            for (let i = 0; i < shape.length; i++) {
+                shape[i] = Region.from(shape[i]);
+            }
+
+            if (shape.length > 1) {
+                shape = Array.from(new Set(shape));
+            }
+
+            if (this.shape?.length !== shape.length || this.shape.some(r => shape.indexOf(r) < 0)) {
                 this.shape = shape;
-                this._shape = this.constructor._processRegion(shape);
+                this._updateContours(false);
                 changed = true;
             }
         }
 
         if ("mask" in changes) {
-            mask = mask ? Region.from(mask) : null;
+            if (mask && typeof mask[Symbol.iterator] === "function") {
+                mask = Array.from(mask);
+            } else if (mask) {
+                mask = [mask];
+            } else {
+                mask = null;
+            }
 
-            if (this.mask !== mask) {
+            if (mask) {
+                for (let i = 0; i < mask.length; i++) {
+                    mask[i] = Region.from(mask[i]);
+                }
+
+                if (mask.length > 1) {
+                    mask = Array.from(new Set(mask));
+                }
+            }
+
+            if (this.mask?.length !== mask?.length || this.shape?.some(r => shape.indexOf(r) < 0)) {
                 this.mask = mask;
-                this._mask = this.constructor._processRegion(mask);
+                this._updateContours(true);
                 changed = true;
             }
-        }
-
-        if (shape !== undefined || mask !== undefined) {
-            this.bounds = this.shape.bounds.clone();
-
-            if (this.mask) {
-                this.bounds.fit(this.mask.bounds);
-            }
-
-            this.bounds.ceil();
         }
 
         if ("limit" in changes) {
@@ -806,35 +840,55 @@ class LimitSystemRegion {
         return changed;
     }
 
-    static _processRegion(region) {
-        if (!region) {
-            return null;
+    _updateContours(mask) {
+        const regions = mask ? this.mask : this.shape;
+
+        for (let i = this.contours.length - 1; i >= 0; i--) {
+            if (this.contours[i].mask === mask) {
+                this.contours[i] = this.contours[this.contours.length - 1];
+                this.contours.length--;
+            }
         }
 
-        const shape = region.shape;
-        let data;
+        for (const region of regions) {
+            const shape = region.shape;
+            let points;
 
-        if (shape.type === PIXI.SHAPES.CIRC || shape.type === PIXI.SHAPES.ELIP) {
-            data = region.transform?.clone().invert() ?? new PIXI.Matrix();
-            data.translate(-shape.x, -shape.y);
+            if (shape.type === PIXI.SHAPES.CIRC || shape.type === PIXI.SHAPES.ELIP) {
+                points = region.transform?.clone().invert() ?? new PIXI.Matrix();
+                points.translate(-shape.x, -shape.y);
 
-            if (shape.type === PIXI.SHAPES.CIRC) {
-                data.scale(1 / shape.radius, 1 / shape.radius);
+                if (shape.type === PIXI.SHAPES.CIRC) {
+                    if (!(shape.radius > 0)) {
+                        continue;
+                    }
+
+                    points.scale(1 / shape.radius, 1 / shape.radius);
+                } else {
+                    if (!(shape.width > 0 && shape.height > 0)) {
+                        continue;
+                    }
+
+                    points.scale(1 / shape.width, 1 / shape.height);
+                }
             } else {
-                data.scale(1 / shape.width, 1 / shape.height);
-            }
-        } else {
-            data = Array.from(region.contour);
+                points = Array.from(region.contour);
 
-            for (let i = 0; i < data.length; i++) {
-                data[i] = LimitSystem.round(data[i]);
+                for (let i = 0; i < points.length; i++) {
+                    points[i] = LimitSystem.round(points[i]);
+                }
+
+                if (points.length < 6) {
+                    continue;
+                }
             }
 
-            if (data.length < 3) {
-                data.length = 0;
+            const bounds = region.bounds.clone();
+
+            if (bounds.width > 0 && bounds.height > 0) {
+                bounds.ceil(256, 0);
+                this.contours.push({ points, bounds, mask });
             }
         }
-
-        return data;
     }
 }
