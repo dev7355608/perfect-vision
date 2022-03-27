@@ -426,7 +426,8 @@ Hooks.once("init", () => {
             return this;
         }
 
-        this.stage._pv_scene_without_overlays.addChildAt(this.outline, 0);
+        this.outline.zIndex = -Infinity;
+        this._pv_overlays._pv_background.addChildAt(this.outline, 0);
 
         this._pv_background.beginFill(0xFFFFFF).drawShape(this.dimensions.rect).endFill();
         this.primary.addChildAt(this._pv_background, 0);
