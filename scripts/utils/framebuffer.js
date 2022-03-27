@@ -412,10 +412,10 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
             framebuffer.cleared = !clear;
         }
 
-        this.bind(renderer, attachments);
-
         renderer.state.reset();
         renderer.batch.currentRenderer.start();
+
+        this.bind(renderer, attachments);
 
         displayObject.render(renderer);
 
@@ -432,6 +432,10 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
     }
 
     bind(renderer, attachments = null) {
+        if (attachments?.length === 0) {
+            return;
+        }
+
         renderer.batch.flush();
 
         const drawBuffers = this.drawBuffers;

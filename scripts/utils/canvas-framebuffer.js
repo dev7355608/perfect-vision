@@ -8,12 +8,6 @@ export class CanvasFramebuffer extends Framebuffer {
     constructor(...args) {
         super(...args);
 
-        const gl = canvas.app.renderer.gl;
-
-        if (Math.min(gl.getParameter(gl.MAX_COLOR_ATTACHMENTS), gl.getParameter(gl.MAX_DRAW_BUFFERS)) < this.textures.length) {
-            ui.notifications.error(`Perfect Vision requires GL_MAX_COLOR_ATTACHMENTS/GL_MAX_DRAW_BUFFERS to be at least ${this.textures.length}!`, { permanent: true });
-        }
-
         this.stage.transform = new SynchronizedTransform(PIXI.Transform.IDENTITY);
         this.on("update", this.update, this);
     }
