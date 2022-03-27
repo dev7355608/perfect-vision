@@ -642,6 +642,31 @@ class DrawBuffersContainer extends PIXI.Container {
     }
 }
 
+class BindFramebufferContainer extends PIXI.Container {
+    constructor(buffer, ...attachments) {
+        super();
+
+        this.buffer = buffer;
+        this.attachments = Array.from(attachments);
+    }
+
+    render(renderer) {
+        if (this.children.length === 0) {
+            return;
+        }
+
+        renderer.batch.flush();
+
+        this.buffer.bind(renderer, this.attachments);
+
+        super.render(renderer);
+
+        renderer.batch.flush();
+
+        this.buffer.bind(renderer);
+    }
+}
+
 class MinFOVShader extends PIXI.Shader {
     static vertexSrc = `\
         #version 100
@@ -731,31 +756,23 @@ class LightingFramebuffer extends CanvasFramebuffer {
         ]);
     }
 
+    update() {
+        this.render(canvas.app.renderer, this.stage, true, null, false, []);
+    }
+
     draw() {
         super.draw();
 
         const stage = this.stage.addChild(new PointSourceContainer());
 
-        this.regions = stage.addChild(new DrawBuffersContainer(
-            WebGL2RenderingContext.COLOR_ATTACHMENT0,
-            WebGL2RenderingContext.NONE,
-            WebGL2RenderingContext.COLOR_ATTACHMENT2,
-            WebGL2RenderingContext.COLOR_ATTACHMENT3,
-            WebGL2RenderingContext.COLOR_ATTACHMENT4
-        ));
-        this.visions = stage.addChild(new DrawBuffersContainer(
-            WebGL2RenderingContext.COLOR_ATTACHMENT0,
-            WebGL2RenderingContext.COLOR_ATTACHMENT1,
-            WebGL2RenderingContext.NONE,
-            WebGL2RenderingContext.NONE,
-            WebGL2RenderingContext.NONE
-        ));
+        this.regions = stage.addChild(new BindFramebufferContainer(this, 0, 2, 3, 4));
 
-        const container = stage.addChild(new DrawBuffersContainer(
+        const lightAndVision = stage.addChild(new BindFramebufferContainer(this, 0, 1));
+
+        this.visions = lightAndVision.addChild(new PIXI.Container());
+
+        const light = lightAndVision.addChild(new DrawBuffersContainer(
             WebGL2RenderingContext.COLOR_ATTACHMENT0,
-            WebGL2RenderingContext.NONE,
-            WebGL2RenderingContext.NONE,
-            WebGL2RenderingContext.NONE,
             WebGL2RenderingContext.NONE
         ));
 
@@ -764,12 +781,12 @@ class LightingFramebuffer extends CanvasFramebuffer {
             .addAttribute("aCenterRadius", new PIXI.Buffer(new Float32Array([]), false, false), 3, false, PIXI.TYPES.FLOAT, undefined, undefined, true);
         const shader = MinFOVShader.instance;
 
-        this.minFOV = container.addChild(new PIXI.Mesh(geometry, shader, undefined, PIXI.DRAW_MODES.TRIANGLE_FAN));
+        this.minFOV = light.addChild(new PIXI.Mesh(geometry, shader, undefined, PIXI.DRAW_MODES.TRIANGLE_FAN));
         this.minFOV.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
         this.minFOV.visible = false;
         this.minFOV.geometry.instanceCount = 0;
-        this.lights = container.addChild(new PIXI.Container());
-        this.roofs = stage.addChild(new RoofsContainer(this));
+        this.lights = light.addChild(new PIXI.Container());
+        this.roofs = stage.addChild(new BindFramebufferContainer(this, 2, 3, 4));
         this.roofs.sortableChildren = true;
     }
 
@@ -882,30 +899,5 @@ class LightingFramebuffer extends CanvasFramebuffer {
         this.roofs.removeChildren();
 
         super.tearDown();
-    }
-}
-
-class RoofsContainer extends PIXI.Container {
-    constructor(buffer) {
-        super();
-
-        this.buffer = buffer;
-        this.attachments = [2, 3, 4];
-    }
-
-    render(renderer) {
-        if (this.children.length === 0) {
-            return;
-        }
-
-        renderer.batch.flush();
-
-        this.buffer.bind(renderer, this.attachments);
-
-        super.render(renderer);
-
-        renderer.batch.flush();
-
-        this.buffer.bind(renderer);
     }
 }
