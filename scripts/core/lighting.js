@@ -757,15 +757,13 @@ class LightingFramebuffer extends CanvasFramebuffer {
     draw() {
         super.draw();
 
-        const stage = this.stage.addChild(new PointSourceContainer());
+        this.regions = this.stage.addChild(new BindFramebufferContainer(this, 0, 2, 3, 4));
 
-        this.regions = stage.addChild(new BindFramebufferContainer(this, 0, 2, 3, 4));
+        const sources = this.stage.addChild(new BindFramebufferContainer(this, 0, 1));
 
-        const lightAndVision = stage.addChild(new BindFramebufferContainer(this, 0, 1));
+        this.visions = sources.addChild(new PointSourceContainer());
 
-        this.visions = lightAndVision.addChild(new PIXI.Container());
-
-        const light = lightAndVision.addChild(new DrawBuffersContainer(
+        const lights = sources.addChild(new DrawBuffersContainer(
             WebGL2RenderingContext.COLOR_ATTACHMENT0,
             WebGL2RenderingContext.NONE
         ));
@@ -775,12 +773,12 @@ class LightingFramebuffer extends CanvasFramebuffer {
             .addAttribute("aCenterRadius", new PIXI.Buffer(new Float32Array([]), false, false), 3, false, PIXI.TYPES.FLOAT, undefined, undefined, true);
         const shader = MinFOVShader.instance;
 
-        this.minFOV = light.addChild(new PIXI.Mesh(geometry, shader, undefined, PIXI.DRAW_MODES.TRIANGLE_FAN));
+        this.minFOV = lights.addChild(new PIXI.Mesh(geometry, shader, undefined, PIXI.DRAW_MODES.TRIANGLE_FAN));
         this.minFOV.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
         this.minFOV.visible = false;
         this.minFOV.geometry.instanceCount = 0;
-        this.lights = light.addChild(new PIXI.Container());
-        this.roofs = stage.addChild(new BindFramebufferContainer(this, 2, 3, 4));
+        this.lights = lights.addChild(new PointSourceContainer());
+        this.roofs = this.stage.addChild(new BindFramebufferContainer(this, 2, 3, 4));
         this.roofs.sortableChildren = true;
     }
 

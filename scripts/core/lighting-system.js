@@ -431,25 +431,41 @@ class LightingRegion {
                     vertexSize: 2
                 });
 
-                for (let i = 0, n = result.elementCount * 2; i < n; i += 2) {
-                    const k = result.elements[i] * 2;
-                    const m = result.elements[i + 1] * 2;
-                    const points1 = new Array(m);
+                if (result) {
+                    for (let i = 0, n = result.elementCount * 2; i < n; i += 2) {
+                        const k = result.elements[i] * 2;
+                        const m = result.elements[i + 1] * 2;
+                        const points1 = new Array(m);
 
-                    for (let j = 0; j < m; j++) {
-                        points1[j] = result.vertices[k + j];
+                        for (let j = 0; j < m; j++) {
+                            points1[j] = result.vertices[k + j];
+                        }
+
+                        let area = 0;
+
+                        for (let i = 0, x1 = points1[m - 2], y1 = points1[m - 1]; i < m; i += 2) {
+                            const x2 = points1[i];
+                            const y2 = points1[i + 1];
+
+                            area += (x2 - x1) * (y2 + y1);
+
+                            x1 = x2;
+                            y1 = y2;
+                        }
+
+                        if (area < 0) { // TODO
+                            this.clos1.push(points1);
+
+                            const points2 = new Array(m);
+
+                            for (let i = m - 2; i >= 0; i -= 2) {
+                                points2[i] = points1[m - i - 2];
+                                points2[i + 1] = points1[m - i - 1];
+                            }
+
+                            this.clos2.push(points2);
+                        }
                     }
-
-                    this.clos1.push(points1);
-
-                    const points2 = new Array(m);
-
-                    for (let i = m - 2; i >= 0; i -= 2) {
-                        points2[i] = points1[m - i - 2];
-                        points2[i + 1] = points1[m - i - 1];
-                    }
-
-                    this.clos2.push(points2);
                 }
 
                 tess.dispose();
