@@ -651,10 +651,6 @@ class BindFramebufferContainer extends PIXI.Container {
     }
 
     render(renderer) {
-        if (this.children.length === 0) {
-            return;
-        }
-
         renderer.batch.flush();
 
         this.buffer.bind(renderer, this.attachments);
@@ -662,8 +658,6 @@ class BindFramebufferContainer extends PIXI.Container {
         super.render(renderer);
 
         renderer.batch.flush();
-
-        this.buffer.bind(renderer);
     }
 }
 
@@ -887,6 +881,8 @@ class LightingFramebuffer extends CanvasFramebuffer {
 
             roofs.addChild(sprite);
         }
+
+        roofs.visible = roofs.children.length !== 0;
 
         this.acquire();
         this.invalidate();
