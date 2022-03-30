@@ -5,6 +5,8 @@ Hooks.once("init", () => {
         return;
     }
 
+    // TODO
+
     patch("Tile.prototype.refresh", "WRAPPER", function (wrapped, ...args) {
         wrapped(...args);
 
@@ -12,7 +14,7 @@ Hooks.once("init", () => {
 
         if (this.data.flags?.turnMarker || this.data.flags?.startMarker || this.data.flags?.deckMarker) {
             if (!this._pv_turnmarker) {
-                this._pv_turnmarker = new ObjectHUD(this);
+                this._pv_turnmarker = new TurnmarkerHUD(this);
             } else {
                 this._pv_turnmarker.removeChildren().forEach(c => c.destroy());
             }
@@ -34,13 +36,19 @@ Hooks.once("init", () => {
             sprite.position.x -= this.data.x;
             sprite.position.y -= this.data.y;
 
-            this.tile.renderable = false;
+            if (this.tile) {
+                this.tile.renderable = false;
+            }
         } else {
             if (this._pv_turnmarker && !this._pv_turnmarker.destroyed) {
                 this._pv_turnmarker.destroy({ children: true });
             }
 
             this._pv_turnmarker = null;
+
+            if (this.tile) {
+                this.tile.renderable = true;
+            }
         }
 
         return this;
@@ -53,6 +61,20 @@ Hooks.once("init", () => {
 
         this._pv_turnmarker = null;
 
+        if (this.tile) {
+            this.tile.renderable = true;
+        }
+
         wrapped(options);
     });
 });
+
+class TurnmarkerHUD extends ObjectHUD {
+    updateTransform() {
+        if (this.object.tile) {
+            this.children.forEach(c => c.rotation = this.object.tile.rotation);
+        }
+
+        super.updateTransform();
+    }
+}
