@@ -50,17 +50,20 @@ Hooks.on("updateToken", (document, change, options, userId) => {
     }
 });
 
-Token.prototype._pv_getVisibilityPolygon = function (origin, radius) {
+Token.prototype._pv_getVisibilityPolygon = function (origin, elevation, radius) {
     origin = origin ?? this.getSightOrigin();
+    elevation = elevation ?? this.data.elevation;
     radius = radius ?? (this.w / 2 - 1.5);
 
+    const { x, y } = origin;
+    const z = elevation * (canvas.dimensions.size / canvas.dimensions.distance);
     const polygon = this._pv_visibilityPolygon;
 
-    if (polygon && polygon.origin.x === origin.x && polygon.origin.y === origin.y && polygon.config.radius === radius) {
+    if (polygon && polygon.origin.x === x && polygon.origin.y === y && polygon.origin.z === z && polygon.config.radius === radius) {
         return polygon;
     }
 
-    return this._pv_visibilityPolygon = VisibilityPolygon.create(origin, radius);
+    return this._pv_visibilityPolygon = VisibilityPolygon.create({ x, y, z }, radius);
 };
 
 class VisibilityPolygon extends ClockwiseSweepPolygon {

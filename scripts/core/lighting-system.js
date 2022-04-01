@@ -408,7 +408,7 @@ class LightingRegion {
 
         if (updateLOS) {
             if (this.data.walls) {
-                this.los = Region.from(CONFIG.Canvas.losBackend.create(this.data.origin, { type: "light" }));
+                this.los = Region.from(CONFIG.Canvas.losBackend.create({ x: this.data.origin.x, y: this.data.origin.y, z: null }, { type: "light" }));
             } else if (this.los) {
                 this.los = null;
             }
