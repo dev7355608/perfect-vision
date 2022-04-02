@@ -35,7 +35,9 @@ Hooks.on("renderTokenConfig", (sheet, html, data) => {
     html.find(`div[data-tab="vision"]`).append(`\
         <div class="form-group">
             <label>Sight Limit <span class="units">(Grid Units)</span></label>
-            <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
+            <div class="form-fields">
+                <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
+            </div>
         </div>`);
     html.find(`input[name="flags.perfect-vision.sightLimit"]`)
         .attr("value", document.getFlag("perfect-vision", "sightLimit"));
