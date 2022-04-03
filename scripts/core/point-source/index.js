@@ -295,7 +295,7 @@ Hooks.once("init", () => {
         // Apply standard uniforms for this PointSource
         this._updateCommonUniforms(shader);
 
-        u.alpha = this.data.color ? colorIntensity : 1.0;
+        u.pv_colorAlpha = this.data.color ? colorIntensity : 1.0;
 
         u.color = this.data.color ? this.colorRGB : [1, 1, 1];
         u.colorBackground = c.background.rgb;

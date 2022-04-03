@@ -522,17 +522,6 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
     } else finalColor = mix(colorBackground, finalColor, fade(dist * dist));
   }`, `/* $& */ /* --- removed --- */ /* Patched by Perfect Vision */`);
 
-                    this.fragmentShader = replace(this.fragmentShader,
-                        new RegExp(`(^|\\W)uniform\\s+[^;]+?\\s+alpha\\s*;`, "gm"),
-                        `$1
-                         /* Patched by Perfect Vision */
-                         %definition-0%
-                         const float alpha = 1.0;
-                         /* ------------------------- */\n\n`
-                    );
-                    this.fragmentShader = replace(this.fragmentShader, new RegExp(`(^|\\W)alpha($|\\W)`, "gm"), "$1_pv_alpha$2");
-                    this.fragmentShader = replace(this.fragmentShader, /%definition-0%/gm, "uniform float alpha;");
-
                     this.fragmentShader = wrap(this.fragmentShader, ["ratio", "colorBackground", "colorDim", "colorBright"], `\
                         uniform bool pv_sight;
                         uniform float pv_luminosity;
@@ -552,7 +541,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                             ${(CONFIG.Canvas.lightLevels.black ?? 0.5).toFixed(3)}
                         );
 
-                        vec3 colorVision(vec3 colorBackground, float darknessLevel, float vision) {
+                        vec3 pv_colorVision(vec3 colorBackground, float darknessLevel, float vision) {
                             float luminosity = 0.5;
                             float darknessPenalty = darknessLevel * 0.25 * (1.0 - luminosity);
                             float luminosityPenalty = clamp(luminosity * 2.0, 0.0, 1.0);
@@ -600,8 +589,8 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                                 vec3 cdim1, cdim2, cbr1, cbr2;
 
                                 vec3 iMid = mix(colorBackground, colorBlack, 0.5);
-                                vec3 mid = color * iMid * alpha;
-                                vec3 black = color * colorBlack * alpha;
+                                vec3 mid = color * iMid * pv_colorAlpha;
+                                vec3 black = color * colorBlack * pv_colorAlpha;
 
                                 if (luminosity < -0.5) {
                                     lc = abs(luminosity) - 0.5;
@@ -662,7 +651,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
 
                             vec3 visionColor = max(viewportColor, mix(
                                 colorBackground,
-                                colorVision(colorBackground, darknessLevel, vision),
+                                pv_colorVision(colorBackground, darknessLevel, vision),
                                 pv_roofs
                             ));
 
@@ -780,6 +769,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                     float pv_alpha;
                     float pv_darkness;
                     float pv_roofs;
+                    float pv_colorAlpha;
                     vec3 finalColor;
                     vec4 baseColor;
                     #define PV_GRADUAL_SMOOTHNESS 0.2
@@ -813,6 +803,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
     shader.uniforms.pv_occlusionMaskFrame = new Float32Array(4);
     shader.uniforms.pv_shape = 0;
     shader.uniforms.pv_rotation = 0;
+    shader.uniforms.pv_colorAlpha = 1;
 
     if (shader instanceof AdaptiveIlluminationShader) {
         shader.uniforms.pv_sight = false;
