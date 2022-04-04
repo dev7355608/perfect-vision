@@ -1,4 +1,5 @@
 import { patch } from "../utils/patch.js";
+import { hasChanged } from "../utils/helpers.js";
 import { Sprite } from "../utils/sprite.js";
 import { CanvasFramebuffer } from "../utils/canvas-framebuffer.js";
 import { LimitSystem } from "./limit-system.js";
@@ -290,7 +291,7 @@ Hooks.once("canvasInit", () => {
 
 Hooks.on("updateScene", (document, change, options, userId) => {
     if (!document.isView || !canvas.ready || !("globalLight" in change || "globalLightThreshold" in change || "darkness" in change
-        || "flags" in change && ("perfect-vision" in change.flags || "-=perfect-vision" in change.flags) || "-=flags" in change)) {
+        || hasChanged(change, "flags.perfect-vision"))) {
         return;
     }
 

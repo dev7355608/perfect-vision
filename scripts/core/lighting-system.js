@@ -31,6 +31,12 @@ export class LightingSystem {
         }
 
         shape = Region.from(shape);
+        origin = {
+            x: origin?.x ?? 0,
+            y: origin?.y ?? 0,
+            b: origin?.b ?? -Infinity,
+            t: origin?.t ?? +Infinity
+        };
         region.data = {
             active, hidden, parent, shape, z, inset, origin, walls, vision, globalLight, globalLightThreshold,
             sightLimit, daylightColor, darknessColor, darkness, saturation
@@ -68,6 +74,13 @@ export class LightingSystem {
 
         if ("shape" in changes) {
             changes.shape = Region.from(changes.shape);
+
+            if (region.data.shape !== changes.shape) {
+                region.data.shape = changes.shape;
+                changed = true;
+            }
+
+            delete changes.shape;
         }
 
         if ("z" in changes) {
@@ -79,21 +92,35 @@ export class LightingSystem {
         }
 
         if ("origin" in changes) {
-            changes.origin = changes.origin ?? null;
-        }
+            changes.origin = changes.origin ?? {};
 
-        for (const key in changes) {
-            if (region.data[key] !== changes[key]) {
-                region.data[key] = changes[key];
-                changed = true;
+            if ("x" in changes.origin) {
+                changes.origin.x = changes.origin.x ?? 0;
+            }
+
+            if ("y" in changes.origin) {
+                changes.origin.y = changes.origin.y ?? 0;
+            }
+
+            if ("b" in changes.origin) {
+                changes.origin.b = changes.origin.b ?? -Infinity
+            }
+
+            if ("t" in changes.origin) {
+                changes.origin.t = changes.origin.t ?? +Infinity
             }
         }
 
-        if (changed) {
-            this.dirty = true;
+        const update = foundry.utils.diffObject(region.data, changes);
+
+        if (foundry.utils.isObjectEmpty(update)) {
+            return changed;
         }
 
-        return changed;
+        foundry.utils.mergeObject(region.data, changes);
+        this.dirty = true;
+
+        return true;
     }
 
     deleteRegion(id) {
@@ -325,8 +352,8 @@ class LightingRegion {
             updateLOS = true;
         }
 
-        if (this.origin?.x !== data.origin?.x || this.origin?.y !== data.origin?.y) {
-            this.origin = data.origin;
+        if (!this.origin || this.origin.x !== data.origin.x || this.origin.y !== data.origin.y || this.origin.b !== data.origin.b || this.origin.t !== data.origin.t) {
+            this.origin = { ...data.origin };
 
             updateLOS = true;
         }
@@ -408,7 +435,7 @@ class LightingRegion {
 
         if (updateLOS) {
             if (this.data.walls) {
-                this.los = Region.from(CONFIG.Canvas.losBackend.create({ x: this.data.origin.x, y: this.data.origin.y, z: null }, { type: "light" }));
+                this.los = Region.from(CONFIG.Canvas.losBackend.create({ ...this.origin }, { type: "light" }));
             } else if (this.los) {
                 this.los = null;
             }

@@ -1,4 +1,5 @@
 import { patch } from "../utils/patch.js";
+import { hasChanged } from "../utils/helpers.js";
 import { Region } from "../utils/region.js";
 import { LightingSystem } from "./lighting-system.js";
 
@@ -46,7 +47,7 @@ Hooks.on("updateDrawing", (document, change, options, userId) => {
         || "type" in change || "points" in change || "bezierFactor" in change) {
         updateLighting = true;
         skipUpdateShape = false;
-    } else if ("z" in change || "flags" in change && ("perfect-vision" in change.flags || "-=perfect-vision" in change.flags) || "-=flags" in change) {
+    } else if ("z" in change || hasChanged(change, "flags.perfect-vision", "flags.levels.rangeBottom", "flags.levels.rangeTop")) {
         updateLighting = true;
     }
 
@@ -81,6 +82,17 @@ Drawing.prototype._pv_updateLighting = function ({ defer = false, deleted = fals
         );
 
         transform.apply(origin, origin);
+
+        if (game.modules.get("levels")?.active) {
+            const { bottom, top } = WallHeight.getSourceElevationBounds(this.document);
+
+            origin = {
+                x: origin.x,
+                y: origin.y,
+                b: bottom,
+                t: top
+            };
+        }
 
         let walls = this.document.getFlag("perfect-vision", "walls");
 

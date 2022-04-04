@@ -1,4 +1,5 @@
 import { patch } from "../utils/patch.js";
+import { hasChanged } from "../utils/helpers.js";
 
 Hooks.once("init", () => {
     patch("Token.prototype.refresh", "WRAPPER", function (wrapped, ...args) {
@@ -34,7 +35,7 @@ Hooks.once("init", () => {
 });
 
 Hooks.on("updateToken", (document, change, options, userId) => {
-    if (!document.parent?.isView || !canvas.ready || !("flags" in change && ("perfect-vision" in change.flags || "-=perfect-vision" in change.flags) || "-=flags" in change)) {
+    if (!document.parent?.isView || !canvas.ready || !hasChanged(change, "flags.perfect-vision")) {
         return;
     }
 
@@ -52,18 +53,26 @@ Hooks.on("updateToken", (document, change, options, userId) => {
 
 Token.prototype._pv_getVisibilityPolygon = function (origin, elevation, radius) {
     origin = origin ?? this.getSightOrigin();
-    elevation = elevation ?? this.data.elevation;
     radius = radius ?? (this.w / 2 - 1.5);
 
     const { x, y } = origin;
-    const z = elevation * (canvas.dimensions.size / canvas.dimensions.distance);
+    let b = -Infinity;
+    let t = +Infinity;
+
+    if (typeof WallHeight !== "undefined") {
+        const { bottom, top } = WallHeight.getSourceElevationBounds(this.document);
+
+        b = bottom;
+        t = top;
+    }
+
     const polygon = this._pv_visibilityPolygon;
 
-    if (polygon && polygon.origin.x === x && polygon.origin.y === y && polygon.origin.z === z && polygon.config.radius === radius) {
+    if (polygon && polygon.origin.x === x && polygon.origin.y === y && polygon.origin.b === b && polygon.origin.t === t && polygon.config.radius === radius) {
         return polygon;
     }
 
-    return this._pv_visibilityPolygon = VisibilityPolygon.create({ x, y, z }, radius);
+    return this._pv_visibilityPolygon = VisibilityPolygon.create({ x, y, b, t }, radius);
 };
 
 class VisibilityPolygon extends ClockwiseSweepPolygon {
