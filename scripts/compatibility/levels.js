@@ -341,7 +341,7 @@ Hooks.once("init", () => {
         let dy = y1 - y0;
         let dz = z1 - z0;
         const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        const range = token?.vision.los?.config.radius ?? Infinity;
+        const range = token?.vision._pv_sightLimit ?? Infinity;
 
         if (distance > range) {
             const t = range / distance;

@@ -362,6 +362,8 @@ Hooks.once("init", () => {
             sightLimit = undefined;
         }
 
+        this._pv_sightLimit = sightLimit;
+
         let { dim, bright } = data;
 
         if (sightLimit !== undefined) {
