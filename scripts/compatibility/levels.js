@@ -297,19 +297,19 @@ Hooks.once("init", () => {
             }
         }
 
-        const range = sourceToken.vision.fov.radius;
+        const range = sourceToken.vision.fov?.radius ?? 0;
 
         if (range === 0) {
             return false;
         }
 
-        const unitsToPixel = canvas.dimensions.size / canvas.dimensions.distance;
+        const unitsToPixels = canvas.dimensions.size / canvas.dimensions.distance;
         const x0 = sourceToken.center.x;
         const y0 = sourceToken.center.y;
-        const z0 = this.getTokenLOSheight(sourceToken) * unitsToPixel;
+        const z0 = sourceToken.losHeight * unitsToPixels;
         const x1 = token.center.x;
         const y1 = token.center.y;
-        const z1 = this.getTokenLOSheight(token) * unitsToPixel;
+        const z1 = token.losHeight * unitsToPixels;
         const dx = x1 - x0;
         const dy = y1 - y0;
         const dz = z1 - z0;
@@ -320,7 +320,7 @@ Hooks.once("init", () => {
     });
 
     patch("Levels.prototype.testCollision", "WRAPPER", function (wrapped, p0, p1, type = "sight", token) {
-        const collision = wrapped(p0, p1, type, token);
+        let collision = wrapped(p0, p1, type, token);
 
         if (type !== "sight") {
             return collision;
@@ -330,18 +330,34 @@ Hooks.once("init", () => {
             p1 = collision;
         }
 
-        const unitsToPixel = canvas.dimensions.size / canvas.dimensions.distance;
+        const unitsToPixels = canvas.dimensions.size / canvas.dimensions.distance;
         const x0 = p0.x;
         const y0 = p0.y;
-        const z0 = p0.z * unitsToPixel;
-        const x1 = p1.x;
-        const y1 = p1.y;
-        const z1 = p1.z * unitsToPixel;
-        const dx = x1 - x0;
-        const dy = y1 - y0;
-        const dz = z1 - z0;
+        const z0 = p0.z * unitsToPixels;
+        let x1 = p1.x;
+        let y1 = p1.y;
+        let z1 = p1.z * unitsToPixels;
+        let dx = x1 - x0;
+        let dy = y1 - y0;
+        let dz = z1 - z0;
+        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        const range = token?.vision.los?.config.radius ?? Infinity;
+
+        if (distance > range) {
+            const t = range / distance;
+
+            dx *= t;
+            dy *= t;
+            dz *= t;
+            x1 = x0 + dx;
+            y1 = y0 + dy;
+            z1 = z0 + dz;
+
+            collision = { x: x1, y: y1, z: z1 / unitsToPixels };
+        }
+
         const t = LimitSystem.instance.castRay(x0, y0, dx, dy, dz, token?.vision._pv_minRadius ?? 0);
 
-        return t < 1 ? { x: x0 + dx * t, y: y0 + dy * t, z: z0 + dz * t } : collision;
+        return t < 1 ? { x: x0 + dx * t, y: y0 + dy * t, z: (z0 + dz * t) / unitsToPixels } : collision;
     });
 });
