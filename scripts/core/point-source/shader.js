@@ -760,6 +760,7 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                     uniform vec2 pv_origin;
                     uniform float pv_radius;
                     uniform float pv_smoothness;
+                    uniform float pv_colorAlpha;
                     layout(location = 0) out vec4 pv_fragColor;
                     vec4 pv_unused_vec4;
                     #define gl_FragColor pv_unused_vec4
@@ -769,7 +770,6 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                     float pv_alpha;
                     float pv_darkness;
                     float pv_roofs;
-                    float pv_colorAlpha;
                     vec3 finalColor;
                     vec4 baseColor;
                     #define PV_GRADUAL_SMOOTHNESS 0.2
