@@ -17,6 +17,10 @@ import "./weather.js";
 
 import { patch } from "../utils/patch.js";
 
+// TODO: remove in v10
+PlaceableObject.prototype.cullable = true;
+ObjectHUD.prototype.cullable = true;
+
 Hooks.once("init", () => {
     // https://gitlab.com/foundrynet/foundryvtt/-/issues/6696
 

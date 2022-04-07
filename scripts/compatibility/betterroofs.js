@@ -10,7 +10,7 @@ Hooks.once("init", () => {
         this.roof = null;
 
         for (const roof of canvas.foreground.roofs) {
-            if (roof.document.getFlag("betterroofs", "brMode") === 3) {
+            if (roof.data.flags?.betterroofs?.brMode === 3) {
                 continue;
             }
 

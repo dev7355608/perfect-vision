@@ -1,29 +1,4 @@
-if (!PIXI.Rectangle.prototype.intersects) {
-    PIXI.Rectangle.prototype.intersects = function (other) {
-        const x0 = this.x < other.x ? other.x : this.x;
-        const x1 = this.right > other.right ? other.right : this.right;
-
-        if (x1 <= x0) {
-            return false;
-        }
-
-        const y0 = this.y < other.y ? other.y : this.y;
-        const y1 = this.bottom > other.bottom ? other.bottom : this.bottom;
-
-        return y1 > y0;
-    };
-}
-
 PIXI.GeometrySystem.prototype.checkCompatibility = function (geometry, program) { };
-
-Object.defineProperty(PIXI.Renderer.prototype, "globalUniforms", {
-    set(value) {
-        Object.defineProperty(this, "globalUniforms", { value });
-
-        this.globalUniforms.uniforms.projectionMatrixInverse = new PIXI.Matrix();
-        this.globalUniforms.uniforms.viewportFrame = new PIXI.Rectangle();
-    }
-});
 
 PIXI.ProjectionSystem.prototype.update = function (destinationFrame, sourceFrame, resolution, root) {
     this.destinationFrame = destinationFrame || this.destinationFrame || this.defaultFrame;
@@ -74,6 +49,7 @@ PIXI.Transform.prototype._worldTransformInverse = null;
 
 Object.defineProperties(PIXI.Transform.prototype, {
     localTransformInverse: {
+        configurable: true,
         get() {
             let lti = this._localTransformInverse;
 
@@ -90,6 +66,7 @@ Object.defineProperties(PIXI.Transform.prototype, {
         }
     },
     worldTransformInverse: {
+        configurable: true,
         get() {
             let wti = this._worldTransformInverse;
 
@@ -109,11 +86,13 @@ Object.defineProperties(PIXI.Transform.prototype, {
 
 Object.defineProperties(PIXI.DisplayObject.prototype, {
     localTransformInverse: {
+        configurable: true,
         get() {
             return this.transform.localTransformInverse;
         }
     },
     worldTransformInverse: {
+        configurable: true,
         get() {
             return this.transform.worldTransformInverse;
         }

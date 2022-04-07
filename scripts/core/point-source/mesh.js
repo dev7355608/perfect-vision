@@ -60,6 +60,7 @@ export class PointSourceMesh extends PIXI.Mesh {
 
         this.state.depthTest = true;
         this.state.depthMask = true;
+        this.cullable = true;
     }
 
     get drawMode() {
@@ -149,10 +150,6 @@ export class PointSourceMesh extends PIXI.Mesh {
     }
 
     _render(renderer) {
-        if (!this.getBounds(true).intersects(renderer.renderTexture.sourceFrame)) {
-            return;
-        }
-
         const gl = renderer.gl;
         const geometry = this.geometry;
         const drawMode = geometry.drawMode;
