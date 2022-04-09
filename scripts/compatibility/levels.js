@@ -358,6 +358,6 @@ Hooks.once("init", () => {
 
         const t = LimitSystem.instance.castRay(x0, y0, dx, dy, dz, token?.vision._pv_minRadius ?? 0);
 
-        return t < 1 ? { x: x0 + dx * t, y: y0 + dy * t, z: (z0 + dz * t) / unitsToPixels } : collision;
+        return t < 0.99999 ? { x: x0 + dx * t, y: y0 + dy * t, z: (z0 + dz * t) / unitsToPixels } : collision;
     });
 });

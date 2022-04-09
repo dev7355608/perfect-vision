@@ -417,7 +417,7 @@ Hooks.once("init", () => {
             return false;
         }
 
-        const limit = source.limited || source.los._pv_limited === true || globalLight === undefined;
+        const limit = source.limited || source.los.limited === true || globalLight === undefined;
 
         // Update explored positions
         if (CONFIG.debug.fog) {

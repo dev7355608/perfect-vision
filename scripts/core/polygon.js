@@ -2,31 +2,31 @@ import { patch } from "../utils/patch.js";
 import { LimitSystem } from "./limit-system.js";
 
 Hooks.once("init", () => {
+    ClockwiseSweepPolygon.prototype.limited = false;
+
     patch("ClockwiseSweepPolygon.prototype.initialize", "WRAPPER", function (wrapped, origin, config = {}, ...args) {
+        config.radiusMin = config.radiusMin ?? 0;
+
         if (config.type === "sight") {
-            config.density = Math.max(config.density ?? 0, 60);
-            config.radiusMin = config.radiusMin ?? 0;
-            config._pv_paddingDensity = Math.PI / config.density;
-            config._pv_precision = Math.ceil(canvas.dimensions.size / 10);
-            config._pv_limits = LimitSystem.instance.estimateRayLimits(
+            const limits = LimitSystem.instance.estimateRayLimits(
                 origin.x,
                 origin.y,
                 config.radiusMin,
                 config.radius ?? Infinity
             );
-            config._pv_castRays = config._pv_limits[0] < config._pv_limits[1];
 
-            if (Number.isFinite(config._pv_limits[1])) {
-                config.radius = Math.max(config._pv_limits[1], 1);
-                config._pv_density = Math.min(config._pv_paddingDensity, Math.asin(Math.min(0.5 * config._pv_precision / config.radius, 1)) * 2);
-
-                this._pv_limited = true;
+            if (limits[1] < canvas.dimensions.maxR) {
+                config.radius = Math.max(limits[1], 1);
             } else {
                 config.radius = undefined;
+            }
 
-                this._pv_limited = config._pv_castRays; // TODO
+            if (limits[0] < limits[1]) {
+                config._pv_limits = limits;
             }
         }
+
+        config.density = 2 * Math.sqrt(config.radius ?? canvas.dimensions.maxR);
 
         return wrapped(origin, config, ...args);
     });
@@ -72,7 +72,7 @@ Hooks.once("init", () => {
         let processRay;
         let pointQueue;
 
-        if (this.config._pv_castRays) {
+        if (this.config._pv_limits) {
             const ls = LimitSystem.instance;
             const ox = this.origin.x;
             const oy = this.origin.y;
@@ -81,8 +81,14 @@ Hooks.once("init", () => {
             const rmin = this.config.radiusMin;
             const [lmin, rmax] = this.config._pv_limits;
             const lmin2 = lmin * lmin;
-            const precision = this.config._pv_precision;
+            const precision = Math.ceil(canvas.dimensions.size / 10);
             const precision2 = precision * precision;
+            const nDensity = Math.min(
+                Math.PI / this.config.density,
+                Math.asin(Math.min(0.5 * precision / this.config.radius, 1)) * 2
+            );
+
+            delete this.config._pv_limits;
 
             pointQueue = [];
 
@@ -93,16 +99,18 @@ Hooks.once("init", () => {
                     d += 2 * Math.PI;
                 }
 
-                const nPad = Math.ceil(d / this.config._pv_density);
+                const nPad = Math.ceil(d / nDensity);
                 const delta = d / nPad;
-                const density = this.config._pv_paddingDensity - 0.5 * delta;
+                const dThreshold = Math.PI / this.config.density - 0.5 * delta;
                 const a = r0.angle;
 
-                let s = t0 === 1 ? 1 : 0;
+                let s = t0 >= 0.99999 ? 1 : 0;
 
                 if (d === 0) {
                     return s;
                 }
+
+                d = 0;
 
                 const recur = (i0, x0, y0, i2, x2, y2, p2) => {
                     if (i2 - i0 <= 1) {
@@ -130,7 +138,7 @@ Hooks.once("init", () => {
 
                     recur(i0, x0, y0, i1, x1, y1, precision2);
 
-                    if (t === 1 && s === 2) {
+                    if (t >= 0.99999 && s === 2) {
                         this.points.length -= 2;
                     }
 
@@ -138,13 +146,16 @@ Hooks.once("init", () => {
 
                     d += delta;
 
-                    if (t !== 1) {
+                    if (t < 0.99999) {
                         s = 0;
-                    } else if (d >= density) {
+                        d = 0;
+                        this.limited = true;
+                    } else if (d >= dThreshold) {
                         s = 1;
                         d = 0;
                     } else if (s === 0) {
                         s = 1;
+                        d = 0;
                     } else {
                         s = 2;
                     }
@@ -191,7 +202,7 @@ Hooks.once("init", () => {
                 const nPad = Math.ceil(Math.abs(d / Math.asinh(precision / ndd)));
                 const delta = d / nPad;
 
-                let s = t0 === 1 ? 1 : 0;
+                let s = t0 >= 0.99999 ? 1 : 0;
 
                 const recur = (i0, x0, y0, i2, x2, y2) => {
                     if (i2 - i0 <= 1) {
@@ -217,13 +228,18 @@ Hooks.once("init", () => {
 
                     recur(i0, x0, y0, i1, x1, y1);
 
-                    if (t === 1 && s === 2) {
+                    if (t >= 0.99999 && s === 2) {
                         this.points.length -= 2;
                     }
 
                     this.points.push(x1, y1);
 
-                    s = t !== 1 ? 0 : s === 0 ? 1 : 2;
+                    if (t < 0.99999) {
+                        s = 0;
+                        this.limited = true;
+                    } else {
+                        s = s === 0 ? 1 : 2;
+                    }
 
                     recur(i1, x1, y1, i2, x2, y2);
                 };
@@ -239,7 +255,12 @@ Hooks.once("init", () => {
                 const rdx = rbx - rox;
                 const rdy = rby - roy;
                 const rmax = Math.sqrt(rdx * rdx + rdy * rdy);
-                const d = ls.castRayUnsafe(rox, roy, rdx, rdy, 0, rmin, rmax) * rmax;
+                const t = ls.castRayUnsafe(rox, roy, rdx, rdy, 0, rmin, rmax);
+                const d = t * rmax;
+
+                if (t < 0.99999) {
+                    this.limited = true;
+                }
 
                 // Add collision points for the ray
                 let x0, y0;
@@ -309,7 +330,7 @@ Hooks.once("init", () => {
                     x0 = pointQueue[i + 1];
                     y0 = pointQueue[i + 2];
 
-                    if (i === 0 && t0 === 1 && s === 2) {
+                    if (i === 0 && t0 >= 0.99999 && s === 2) {
                         this.points.length -= 2;
                     }
 
@@ -347,7 +368,7 @@ Hooks.once("init", () => {
             s = processEdge(lastRay, firstRay, t0, x0, y0, x1, y1);
         }
 
-        if (t === 1 && s === 2) {
+        if (t >= 0.99999 && s === 2) {
             this.points.length -= 2;
         }
     });
