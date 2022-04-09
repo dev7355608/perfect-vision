@@ -119,7 +119,8 @@ Hooks.on("renderDrawingConfig", (sheet, html) => {
                 defaults: {
                     daylightColor: "#" + ("000000" + CONFIG.Canvas.daylightColor.toString(16)).slice(-6),
                     darknessColor: "#" + ("000000" + CONFIG.Canvas.darknessColor.toString(16)).slice(-6),
-                }
+                },
+                gridUnits: canvas.scene.data.gridUnits
             },
             {
                 allowProtoMethodsByDefault: true,

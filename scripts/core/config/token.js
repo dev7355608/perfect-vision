@@ -34,7 +34,7 @@ Hooks.on("renderTokenConfig", (sheet, html, data) => {
 
     html.find(`div[data-tab="vision"]`).append(`\
         <div class="form-group">
-            <label>Sight Limit <span class="units">(Grid Units)</span></label>
+            <label>Sight Limit <span class="units">(${canvas.scene.data.gridUnits})</span></label>
             <div class="form-fields">
                 <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number">
             </div>
@@ -54,7 +54,7 @@ Hooks.on("renderTokenConfig", (sheet, html, data) => {
             </p>
         </div>
         <div class="form-group">
-            <label>Sight Limit <span class="units">(Grid Units)</span></label>
+            <label>Sight Limit <span class="units">(${canvas.scene.data.gridUnits})</span></label>
             <div class="form-fields">
                 <label class="checkbox">Enable <input type="checkbox" id="perfect-vision.light.sightLimit.enable"></label>
                 <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.light.sightLimit" placeholder="Infinity" data-dtype="Number">

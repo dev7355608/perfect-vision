@@ -74,7 +74,7 @@ Hooks.on("renderSceneConfig", (sheet, html, data) => {
 
     html.find(`input[name="globalLight"]`).parent().after(`\
         <div class="form-group">
-            <label>Sight Limit <span class="units">(Grid Units)</span></label>
+            <label>Sight Limit <span class="units">(${canvas.scene.data.gridUnits})</span></label>
             <div class="form-fields">
                 <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Unlimited" data-dtype="Number" value="${sightLimit ?? ""}">
             </div>
