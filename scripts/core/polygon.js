@@ -186,6 +186,10 @@ Hooks.once("init", () => {
                 let cdy = c1.y - c0.y;
                 const cdd = Math.sqrt(cdx * cdx + cdy * cdy);
 
+                if (cdd <= precision) {
+                    return;
+                }
+
                 cdx /= cdd;
                 cdy /= cdd;
 
