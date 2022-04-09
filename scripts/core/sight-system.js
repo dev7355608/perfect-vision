@@ -354,7 +354,7 @@ class SightPolygons {
         let area = 0;
 
         for (let i = 0, n = paths.length; i < n; i++) {
-            area += ClipperLib.Clipper.Area(ClipperLib.Clipper.CleanPolygon(paths[i], Math.PI * 256));
+            area += ClipperLib.Clipper.Area(ClipperLib.Clipper.CleanPolygon(paths[i], Math.SQRT2 * 256));
         }
 
         return area > tolerance * (256 * 256);
