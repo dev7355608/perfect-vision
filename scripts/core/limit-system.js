@@ -577,14 +577,15 @@ export class LimitSystem {
             }
         }
 
+        rmax = rmax ?? Math.sqrt(rdx * rdx + rdy * rdy);
+
         if (rmax === 0) {
             return rdz !== 0 ? Math.min((rmin + 1 / d0) / Math.abs(rdz), 1) : 1;
         }
 
-        rmax = rmax ?? Math.sqrt(rdx * rdx + rdy * rdy);
-
         let w0 = 1 / rmax;
         const tmin = w0 * rmin;
+        const dmax = w0 / (1 / 256 / rmax);
         const dmul = rdz !== 0 ? Math.sqrt((w0 * rdz) * (w0 * rdz) + 1) : 1;
 
         d0 *= dmul;
@@ -606,7 +607,7 @@ export class LimitSystem {
                 }
 
                 const dt = t - Math.max(t0, tmin);
-                const w = dt > 0 ? w0 - dt * d0 : w0;
+                const w = w0 - dt * Math.min(d0, dmax);
 
                 if (w <= 0) {
                     break;
