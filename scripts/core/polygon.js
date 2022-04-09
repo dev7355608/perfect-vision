@@ -92,7 +92,7 @@ Hooks.once("init", () => {
 
             pointQueue = [];
 
-            addPadding = (r0, r1, t0, x0, y0, x1, y1) => {
+            addPadding = (r0, r1, s, x0, y0, x1, y1) => {
                 let d = r1.angle - r0.angle;
 
                 if (d < 0) {
@@ -103,8 +103,6 @@ Hooks.once("init", () => {
                 const delta = d / nPad;
                 const dThreshold = Math.PI / this.config.density - 0.5 * delta;
                 const a = r0.angle;
-
-                let s = t0 >= 0.99999 ? 1 : 0;
 
                 if (d === 0) {
                     return s;
@@ -138,7 +136,7 @@ Hooks.once("init", () => {
 
                     recur(i0, x0, y0, i1, x1, y1, precision2);
 
-                    if (t >= 0.99999 && s === 2) {
+                    if (t >= 0.99998 && s === 2) {
                         this.points.length -= 2;
                     }
 
@@ -146,7 +144,7 @@ Hooks.once("init", () => {
 
                     d += delta;
 
-                    if (t < 0.99999) {
+                    if (t < 0.99998) {
                         s = 0;
                         d = 0;
                         this.limited = true;
@@ -168,7 +166,7 @@ Hooks.once("init", () => {
                 return s;
             };
 
-            processEdge = (r0, r1, t0, x0, y0, x1, y1) => {
+            processEdge = (r0, r1, s, x0, y0, x1, y1) => {
                 const c0 = r0.result.collisions[r0.result.collisions.length - 1];
                 const c1 = r1.result.collisions[0];
                 const c0dx = c0.x - ox;
@@ -206,8 +204,6 @@ Hooks.once("init", () => {
                 const nPad = Math.ceil(Math.abs(d / Math.asinh(precision / ndd)));
                 const delta = d / nPad;
 
-                let s = t0 >= 0.99999 ? 1 : 0;
-
                 const recur = (i0, x0, y0, i2, x2, y2) => {
                     if (i2 - i0 <= 1) {
                         return;
@@ -232,13 +228,13 @@ Hooks.once("init", () => {
 
                     recur(i0, x0, y0, i1, x1, y1);
 
-                    if (t >= 0.99999 && s === 2) {
+                    if (t >= 0.99998 && s === 2) {
                         this.points.length -= 2;
                     }
 
                     this.points.push(x1, y1);
 
-                    if (t < 0.99999) {
+                    if (t < 0.99998) {
                         s = 0;
                         this.limited = true;
                     } else {
@@ -259,13 +255,7 @@ Hooks.once("init", () => {
                 const rdx = rbx - rox;
                 const rdy = rby - roy;
                 const rmax = Math.sqrt(rdx * rdx + rdy * rdy);
-                const t = ls.castRayUnsafe(rox, roy, rdx, rdy, 0, rmin, rmax);
-                const d = t * rmax;
-
-                if (t < 0.99999) {
-                    this.limited = true;
-                }
-
+                const d = ls.castRayUnsafe(rox, roy, rdx, rdy, 0, rmin, rmax) * rmax;
                 // Add collision points for the ray
                 let x0, y0;
 
@@ -275,7 +265,13 @@ Hooks.once("init", () => {
                     const y = oy + t * (c.y - oy);
 
                     if (!(Math.max(Math.abs(x - x0), Math.abs(y - y0)) < 0.5)) {
-                        pointQueue.push(t, x, y);
+                        pointQueue.push(t >= 0.99998 ? 1 : 0, x, y);
+                    } else {
+                        pointQueue[pointQueue.length - 3] = Math.min(pointQueue[pointQueue.length - 3], t >= 0.99998 ? 1 : 0);
+                    }
+
+                    if (t < 0.99998) {
+                        this.limited = true;
                     }
 
                     x0 = x;
@@ -304,7 +300,7 @@ Hooks.once("init", () => {
 
         // Add points for rays in the sweep
         let lastRay;
-        let t0, x0, y0, s, t;
+        let x0, y0, s, s0, s1;
 
         for (const ray of this.rays) {
             if (!ray.result.collisions.length) {
@@ -316,25 +312,28 @@ Hooks.once("init", () => {
             if (processRay) {
                 processRay(ray);
 
+                if (!lastRay) {
+                    s1 = pointQueue[0];
+                }
+
                 x1 = pointQueue[1];
                 y1 = pointQueue[2];
             }
 
             if (needsPadding(lastRay)) {
-                s = addPadding(lastRay, ray, t0, x0, y0, x1, y1);
+                s = addPadding(lastRay, ray, s0, x0, y0, x1, y1);
             } else if (processEdge && lastRay) {
-                s = processEdge(lastRay, ray, t0, x0, y0, x1, y1);
-            } else if (pointQueue && !lastRay) {
-                t = pointQueue[0];
+                s = processEdge(lastRay, ray, s0, x0, y0, x1, y1);
             }
 
-            if (processRay) {
+            if (pointQueue) {
                 for (let i = 0; i < pointQueue.length; i += 3) {
-                    t0 = pointQueue[i];
+                    s0 = pointQueue[i];
                     x0 = pointQueue[i + 1];
                     y0 = pointQueue[i + 2];
 
-                    if (i === 0 && t0 >= 0.99999 && s === 2) {
+                    if (i === 0 && s0 === 1 && s === 2) {
+                        s = 1;
                         this.points.length -= 2;
                     }
 
@@ -355,7 +354,7 @@ Hooks.once("init", () => {
         if (hasLimitedAngle) {
             this.points.push(this.origin.x, this.origin.y);
 
-            t = s = 0;
+            s = s1 = 0;
         }
         // Final padding rays, if necessary
         else if (needsPadding(lastRay)) {
@@ -363,16 +362,16 @@ Hooks.once("init", () => {
             const x1 = this.points[0];
             const y1 = this.points[1];
 
-            s = addPadding(lastRay, firstRay, t0, x0, y0, x1, y1);
+            s = addPadding(lastRay, firstRay, s0, x0, y0, x1, y1);
         } else if (processEdge && lastRay) {
             const firstRay = this.rays.find(r => r.result.collisions.length);
             const x1 = this.points[0];
             const y1 = this.points[1];
 
-            s = processEdge(lastRay, firstRay, t0, x0, y0, x1, y1);
+            s = processEdge(lastRay, firstRay, s0, x0, y0, x1, y1);
         }
 
-        if (t >= 0.99999 && s === 2) {
+        if (s1 === 1 && s === 2) {
             this.points.length -= 2;
         }
     });
