@@ -1,6 +1,7 @@
 import { patch } from "../utils/patch.js";
 import { Sprite } from "../utils/sprite.js";
 import { CanvasFramebuffer } from "../utils/canvas-framebuffer.js";
+import { hasChanged } from "../utils/helpers.js";
 
 Hooks.once("init", () => {
     patch("Tile.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
@@ -73,7 +74,7 @@ Hooks.once("init", () => {
 
         if (this.isRoof && (["z", "alpha", "hidden"].some(k => k in data)
             || foundry.utils.hasProperty(data, "occlusion.alpha")
-            || foundry.utils.hasProperty(data, "flags.perfect-vision.lighting"))) {
+            || hasChanged(data, "flags.perfect-vision.lighting"))) {
             canvas.perception.schedule({ lighting: { refresh: true } });
         }
     });
