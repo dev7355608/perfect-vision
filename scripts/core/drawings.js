@@ -215,14 +215,16 @@ Drawing.prototype._pv_getShape = function () {
         case CONST.DRAWING_TYPES.RECTANGLE:
         case CONST.DRAWING_TYPES.TEXT:
             shape = new PIXI.Rectangle(0, 0, width, height);
+
             break;
         case CONST.DRAWING_TYPES.ELLIPSE:
             shape = new PIXI.Ellipse(width / 2, height / 2, width / 2, height / 2);
+
             break;
         case CONST.DRAWING_TYPES.POLYGON:
             shape = new PIXI.Polygon();
 
-            if (!points) {
+            if (!points || points.length < 6) {
                 break;
             }
 
@@ -230,81 +232,27 @@ Drawing.prototype._pv_getShape = function () {
                 shape.points.push(point[0], point[1]);
             }
 
+            Region.dedupPolygon(shape);
+
             break;
         case CONST.DRAWING_TYPES.FREEHAND:
             shape = new PIXI.Polygon();
 
-            if (!points || points.length === 0) {
+            if (!points || points.length < 6) {
                 break;
             }
 
-            let numPoints = points.length;
-
-            shape.points.push(points[0][0], points[0][1]);
-
-            if (numPoints >= 2 && points[0].equals(points[numPoints - 1])) {
-                numPoints--;
+            for (const point of points) {
+                shape.points.push(point[0], point[1]);
             }
 
-            if (numPoints >= 2) {
-                shape.points.push(points[1][0], points[1][1]);
-            }
-
-            if (numPoints >= 3) {
-                const factor = this.data.bezierFactor ?? 0.5;
-
-                function getBezierControlPoints(previous, point, next) {
-                    const vector = { x: next[0] - previous[0], y: next[1] - previous[1] };
-                    const preDist = Math.hypot(previous[0] - point[0], previous[1] - point[1]);
-                    const postDist = Math.hypot(next[0] - point[0], next[1] - point[1]);
-                    const dist = preDist + postDist;
-                    const cp0d = dist === 0 ? 0 : factor * (preDist / dist);
-                    const cp1d = dist === 0 ? 0 : factor * (postDist / dist);
-
-                    return {
-                        cp1: {
-                            x: point[0] - (vector.x * cp0d),
-                            y: point[1] - (vector.y * cp0d)
-                        },
-                        next_cp0: {
-                            x: point[0] + (vector.x * cp1d),
-                            y: point[1] + (vector.y * cp1d)
-                        }
-                    };
-                };
-
-                let previous = points[1];
-                let current = points[2];
-                let cp0 = getBezierControlPoints(points[0], previous, current).next_cp0;
-                let cp1, next_cp0, next;
-
-                for (let i = 1; i < numPoints; i++) {
-                    next = points[i + 1];
-
-                    if (next) {
-                        const bp = getBezierControlPoints(previous, current, next);
-
-                        cp1 = bp.cp1;
-                        next_cp0 = bp.next_cp0;
-                    }
-
-                    if (i === 1) {
-                        PIXI.graphicsUtils.QuadraticUtils.curveTo(cp1.x, cp1.y, current[0], current[1], shape.points);
-                    } else if (i === points.length) {
-                        PIXI.graphicsUtils.QuadraticUtils.curveTo(cp0.x, cp0.y, current[0], current[1], shape.points);
-                    } else {
-                        PIXI.graphicsUtils.BezierUtils.curveTo(cp0.x, cp0.y, cp1.x, cp1.y, current[0], current[1], shape.points);
-                    }
-
-                    previous = current;
-                    current = next;
-                    cp0 = next_cp0;
-                }
-            }
+            Region.dedupPolygon(shape);
+            Region.smoothPolygon(shape, this.data.bezierFactor ?? 0.5);
 
             break;
         default:
             shape = PIXI.Polygon();
+
             break;
     }
 
