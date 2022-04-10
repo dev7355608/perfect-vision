@@ -10,6 +10,7 @@ export default async () => {
         WINDING_NONZERO: 1,
         WINDING_POSITIVE: 2,
         WINDING_NEGATIVE: 3,
-        WINDING_ABS_GEQ_TWO: 4
+        WINDING_ABS_GEQ_TWO: 4,
+        UNDEF: 0xffffffff
     });
 };
