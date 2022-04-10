@@ -226,15 +226,21 @@ class ComputeVisionTask extends Task {
         let clipType = ClipperLib.ClipType.ctUnion;
 
         for (let i = 0; i < stack.length; i++) {
-            const points = stack[i].points ?? stack[i];
-            const m = points.length;
-            const path = new Array(m >> 1);
+            const polygon = stack[i];
+            const paths = [];
 
-            for (let j = 0; j < m; j += 2) {
-                path[j >> 1] = new ClipperLib.IntPoint(Math.round(points[j] * 256), Math.round(points[j + 1] * 256));
+            for (const contour of polygon.contours) {
+                const m = contour.length;
+                const path = new Array(m >> 1);
+
+                for (let j = 0; j < m; j += 2) {
+                    path[j >> 1] = new ClipperLib.IntPoint(Math.round(contour[j] * 256), Math.round(contour[j + 1] * 256));
+                }
+
+                paths.push(path);
             }
 
-            const ct = ClipperLib.Clipper.Orientation(path) ? ClipperLib.ClipType.ctUnion : ClipperLib.ClipType.ctDifference;
+            const ct = polygon.hole ? ClipperLib.ClipType.ctDifference : ClipperLib.ClipType.ctUnion;
 
             if (ct !== clipType) {
                 if (clipPaths.length === 0) {
@@ -258,7 +264,7 @@ class ComputeVisionTask extends Task {
                 clipType = ct;
             }
 
-            clipPaths.push(path);
+            clipPaths.push(...paths);
         }
 
         if (subjPaths) {

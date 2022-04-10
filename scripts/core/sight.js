@@ -163,17 +163,14 @@ Hooks.once("init", () => {
             }
 
             if (exactVisibility) {
-                if (region.vision || region.globalLight) {
-                    fov.push(...region.clos1);
-                } else {
-                    fov.push(...region.clos2);
-                }
-
-                if (region.vision) {
-                    los.push(...region.clos1);
-                } else {
-                    los.push(...region.clos2);
-                }
+                fov.push({
+                    contours: region.clos1,
+                    hole: !region.vision && !region.globalLight
+                });
+                los.push({
+                    contours: region.clos1,
+                    hole: !region.vision
+                });
             }
         }
 
@@ -188,10 +185,10 @@ Hooks.once("init", () => {
             }
 
             if (exactVisibility) {
-                fov.push(source._pv_los.contour);
+                fov.push({ contours: [source._pv_los.contour] });
 
                 if (source.data.vision) {
-                    los.push(source._pv_los.contour);
+                    los.push({ contours: [source._pv_los.contour] });
                 }
             }
         }
@@ -222,10 +219,10 @@ Hooks.once("init", () => {
 
             if (exactVisibility) {
                 if (source.fov.radius > 0) {
-                    fov.push(source._pv_clos.contour);
+                    fov.push({ contours: [source._pv_clos.contour] });
                 }
 
-                los.push(source._pv_los.contour);
+                los.push({ contours: [source._pv_los.contour] });
             }
         }
 
