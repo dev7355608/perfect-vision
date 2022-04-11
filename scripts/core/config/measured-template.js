@@ -26,7 +26,7 @@ Hooks.on("renderMeasuredTemplateConfig", (sheet, html, data) => {
 
     html.find(`button[name="submit"]`).before(`\
         <div class="form-group">
-            <label>Sight Limit <span class="units">(${canvas.scene.data.gridUnits})</span></label>
+            <label>Sight Limit <span class="units">(${(document.parent?.data.gridUnits ?? game.system.data.gridUnits) || "Grid Units"})</span></label>
             <div class="form-fields">
                 <label class="checkbox">Enable <input type="checkbox" id="perfect-vision.sightLimit.enable" ${sightLimit !== undefined ? "checked" : ""}></label>
                 <input type="number" min="0.0" step="0.1" name="flags.perfect-vision.sightLimit" placeholder="Infinity" data-dtype="Number" value="${sightLimit ?? ""}">

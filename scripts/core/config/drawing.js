@@ -120,7 +120,7 @@ Hooks.on("renderDrawingConfig", (sheet, html) => {
                     daylightColor: "#" + ("000000" + CONFIG.Canvas.daylightColor.toString(16)).slice(-6),
                     darknessColor: "#" + ("000000" + CONFIG.Canvas.darknessColor.toString(16)).slice(-6),
                 },
-                gridUnits: canvas.scene.data.gridUnits
+                gridUnits: (document.parent?.data.gridUnits ?? game.system.data.gridUnits) || "Grid Units"
             },
             {
                 allowProtoMethodsByDefault: true,
