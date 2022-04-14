@@ -5,62 +5,54 @@ const wrappers = {};
 export function patch(target, type, func) {
     Logger.debug("Patching %s (%s)", target, type);
 
-    let wrapper;
-
     if (type === "PRE") {
-        wrapper = function (wrapped, ...args) {
+        type = "WRAPPER";
+        func = (func => function (wrapped, ...args) {
             return wrapped(...func.apply(this, args));
-        };
-        wrapper._pv_type = "WRAPPER";
+        })(func);
     } else if (type === "POST") {
-        wrapper = function (wrapped, ...args) {
+        type = "WRAPPER";
+        func = (func => function (wrapped, ...args) {
             return func.call(this, wrapped(...args), ...args);
-        };
-        wrapper._pv_type = "WRAPPER";
+        })(func);
+    }
+
+    let priority;
+
+    if (type === "OVERRIDE") {
+        priority = 0;
+    } else if (type === "MIXED") {
+        priority = 1;
     } else {
-        wrapper = func;
-        wrapper._pv_type = type;
+        priority = 2;
     }
 
-    if (wrapper._pv_type === "OVERRIDE") {
-        wrapper._pv_priority = 0;
-    } else if (wrapper._pv_type === "MIXED") {
-        wrapper._pv_priority = 1;
-    } else if (wrapper._pv_type === "WRAPPER") {
-        wrapper._pv_priority = 2;
-    }
+    let chain = wrappers[target];
 
-    let list = wrappers[target];
-
-    if (!list) {
-        wrappers[target] = list = [];
+    if (!chain) {
+        wrappers[target] = chain = [];
     } else {
         libWrapper.unregister("perfect-vision", target);
     }
 
-    list.push(wrapper);
-    list.sort((a, b) => a._pv_priority - b._pv_priority);
+    chain.push({ type, func, priority });
+    chain.sort((a, b) => a.priority - b.priority);
 
-    wrapper = list[0];
+    ({ type, func } = chain[0]);
 
-    for (let i = 1; i < list.length; i++) {
-        const last = wrapper;
-        const next = list[i];
-
-        if (last._pv_type !== "OVERRIDE") {
-            wrapper = function (wrapped, ...args) {
-                return next.call(this, (...args) => last.call(this, wrapped, ...args), ...args);
-            };
+    for (let i = 1; i < chain.length; i++) {
+        if (type !== "OVERRIDE") {
+            func = ((prev, next) => function (wrapped, ...args) {
+                return next.call(this, (...args) => prev.call(this, wrapped, ...args), ...args);
+            })(func, chain[i].func);
         } else {
-            console.assert(next._pv_type !== "OVERRIDE", "OVERRIDE cannot be registered more than once!");
+            console.assert(chain[i].type !== "OVERRIDE", "OVERRIDE cannot be registered more than once!");
 
-            wrapper = function (...args) {
-                return next.call(this, last.bind(this), ...args);
-            };
+            func = ((prev, next) => function (...args) {
+                return next.call(this, prev.bind(this), ...args);
+            })(func, chain[i].func);
         }
-
-        wrapper._pv_type = last._pv_type;
     }
 
-    libWrapper.register("perfect-vision", target, wrapper, wrapper._pv_type);
+    libWrapper.register("perfect-vision", target, func, type);
 }
