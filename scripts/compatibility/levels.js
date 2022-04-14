@@ -66,7 +66,7 @@ Hooks.once("init", () => {
     patch("Tile.prototype.refresh", "WRAPPER", function (wrapped, ...args) {
         wrapped(...args);
 
-        if (!this._original) {
+        if (this.id) {
             // TODO: ref count sprite?
             if (this.tile && this.data.overhead && !this.isRoof) {
                 if (!this._pv_occlusionTile) {

@@ -6,7 +6,7 @@ Hooks.once("init", () => {
     patch("MeasuredTemplate.prototype.refresh", "WRAPPER", function (wrapped, ...args) {
         wrapped(...args);
 
-        if (this.destroyed || this._original) {
+        if (this.destroyed || !this.id) {
             return this;
         }
 
@@ -17,7 +17,7 @@ Hooks.once("init", () => {
     });
 
     patch("MeasuredTemplate.prototype.destroy", "WRAPPER", function (wrapped, ...args) {
-        if (!this._original) {
+        if (this.id) {
             this._pv_updateSightLimit({ deleted: true });
         }
 

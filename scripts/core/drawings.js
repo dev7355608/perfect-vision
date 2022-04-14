@@ -5,7 +5,7 @@ import { LightingSystem } from "./lighting-system.js";
 
 Hooks.once("init", () => {
     patch("Drawing.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
-        if (!this._original) {
+        if (this.id) {
             this._pv_updateLighting();
         }
 
@@ -15,7 +15,7 @@ Hooks.once("init", () => {
     patch("Drawing.prototype.refresh", "WRAPPER", function (wrapped, ...args) {
         wrapped(...args);
 
-        if (this.destroyed || this.shape.destroyed || this._original) {
+        if (this.destroyed || this.shape.destroyed || !this.id) {
             return this;
         }
 
@@ -27,7 +27,7 @@ Hooks.once("init", () => {
     });
 
     patch("Drawing.prototype.destroy", "WRAPPER", function (wrapped, ...args) {
-        if (!this._original) {
+        if (this.id) {
             this._pv_updateLighting({ deleted: true });
         }
 

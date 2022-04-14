@@ -105,7 +105,7 @@ Hooks.once("init", () => {
 
         const object = this.object;
 
-        if ((object instanceof AmbientLight || object instanceof Token) && !this.object._original) {
+        if ((object instanceof AmbientLight || object instanceof Token) && this.object.id) {
             const sourceId = object.sourceId;
 
             let sightLimit = object.document.getFlag("perfect-vision", object instanceof AmbientLight ? "sightLimit" : "light.sightLimit");
@@ -464,9 +464,7 @@ Hooks.once("init", () => {
         this._pv_radiusColor = radiusColor;
         this._pv_radiusBoost = radiusBoost;
 
-        if (token._original?.vision) {
-            this._pv_tintMono = token._original.vision._pv_tintMono;
-        } else if (radiusSight > 0) {
+        if (radiusSight > 0) {
             this._pv_tintMono = foundry.utils.colorStringToHex(
                 document.getFlag("perfect-vision", "monoVisionColor") || game.settings.get("perfect-vision", "monoVisionColor") || "#ffffff"
             );

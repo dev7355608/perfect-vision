@@ -145,7 +145,7 @@ if (!Tile.prototype._onHandleMouseUp) {
 }
 
 Tile.prototype._pv_getOcclusionFilter = function () {
-    if (!this.data.overhead || this._original) {
+    if (!this.data.overhead || !this.id) {
         return null;
     }
 
@@ -176,7 +176,7 @@ Tile.prototype._pv_refreshOcclusionAlpha = function () {
             this.occluded && (this.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.FADE || this.data.occlusion.mode === CONST.TILE_OCCLUSION_MODES.ROOF));
     }
 
-    if (!this.data.overhead || this._original) {
+    if (!this.data.overhead || !this.id) {
         this.tile.alpha = Math.min(this.data.alpha, this.data.hidden ? 0.5 : 1.0);
     } else if (this.occlusionFilter?.enabled) {
         this.tile.alpha = 1;
@@ -202,7 +202,7 @@ Tile.prototype._pv_refreshOcclusion = function () {
         }
     }
 
-    if (!this.data.overhead || this._original) {
+    if (!this.data.overhead || !this.id) {
         this.occlusionFilter = null;
     } else {
         this.occlusionFilter = this._pv_getOcclusionFilter();
