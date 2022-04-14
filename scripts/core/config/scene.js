@@ -1,16 +1,6 @@
 import { patch } from "../../utils/patch.js";
 
 Hooks.once("init", () => {
-    patch("SceneConfig.prototype.close", "POST", async function (result) {
-        this.object.prepareData();
-
-        if (this.object.isView && canvas.ready) {
-            canvas.lighting._pv_updateLighting();
-        }
-
-        await result;
-    });
-
     patch("SceneConfig.prototype._getSubmitData", "POST", function (data) {
         if (!this.form.elements["hasGlobalThreshold"].checked) {
             data["globalLightThreshold"] = null;
@@ -116,4 +106,12 @@ Hooks.on("renderSceneConfig", (sheet, html, data) => {
     sheet.options.height = "auto";
     sheet.position.height = "auto";
     sheet.setPosition(sheet.position);
+});
+
+Hooks.on("closeSceneConfig", sheet => {
+    sheet.object.prepareData();
+
+    if (sheet.object.isView && canvas.ready) {
+        canvas.lighting._pv_updateLighting();
+    }
 });

@@ -3,26 +3,6 @@ import { patch } from "../../utils/patch.js";
 let template;
 
 Hooks.once("init", () => {
-    patch("DrawingConfig.prototype.close", "POST", async function (result, options) {
-        await result;
-
-        if (!game.user.isGM || this.options.configureDefault) {
-            return;
-        }
-
-        if (!options?.force) {
-            this.object.prepareData();
-
-            if (this.object.parent.isView && canvas.ready) {
-                this.object.object._pv_updateLighting();
-            }
-        }
-
-        if (pickerOverlay.parent) {
-            pickerOverlay.parent.removeChild(pickerOverlay);
-        }
-    });
-
     patch("DrawingConfig.prototype._getSubmitData", "POST", function (data) {
         if (!game.user.isGM || this.options.configureDefault) {
             return data;
@@ -146,6 +126,22 @@ Hooks.on("renderDrawingConfig", (sheet, html) => {
     sheet.position.width = Math.max(sheet.position.width, 600);
     sheet.position.height = "auto";
     sheet.setPosition(sheet.position);
+});
+
+Hooks.on("closeDrawingConfig", sheet => {
+    if (!game.user.isGM || sheet.options.configureDefault) {
+        return;
+    }
+
+    sheet.object.prepareData();
+
+    if (sheet.object.parent.isView && canvas.ready) {
+        sheet.object.object._pv_updateLighting();
+    }
+
+    if (pickerOverlay.parent) {
+        pickerOverlay.parent.removeChild(pickerOverlay);
+    }
 });
 
 Hooks.on("renderDrawingHUD", (hud, html, data) => {

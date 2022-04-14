@@ -58,7 +58,7 @@ Hooks.on("getSceneControlButtons", controls => {
     }
 });
 
-Hooks.on("renderSceneControls", (sheet, html, data) => {
+Hooks.on("renderSceneControls", (app, html, data) => {
     html[0].querySelector(`li[data-tool="perfect-vision.improvedGMVision"]`)?.addEventListener("wheel", event => {
         event.preventDefault();
         event.stopPropagation();
