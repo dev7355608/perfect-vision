@@ -1,69 +1,61 @@
-import { patch } from "../../utils/patch.js";
+Hooks.on("renderTileConfig", (sheet, html) => {
+    const document = sheet.object;
+    const scene = document.parent;
+    const drawings = new Map();
 
-Hooks.once("init", () => {
-    patch("TileConfig.prototype._onChangeInput", "POST", async function (result, event) {
-        await result;
+    drawings.set("", { active: true, title: "" });
 
-        updateForm(this);
-    });
-});
+    for (const drawing of Array.from(scene.drawings.values()).sort((a, b) => a.id.localeCompare(b.id))) {
+        drawings.set(drawing.id, {
+            active: isDrawingActive(scene, drawing.id),
+            title: drawing.data.text || ""
+        });
+    }
 
-Hooks.on("renderTileConfig", (sheet, html, data) => {
-    html.find(`div[data-tab="overhead"]`).append(`\
+    html.find(`.tab[data-tab="overhead"]`).append(`\
         <div class="form-group">
             <label>Roof Lighting</label>
             <div class="form-fields">
-                <select name="flags.perfect-vision.lighting" style="font-family: monospace;" data-dtype="String">
-                    <option value=""></option>
-                </select>
+                <select name="flags.perfect-vision.lighting" data-dtype="String" style="font-family: monospace;"></select>
             </div>
             <p class="notes">
                 If left blank, the roof is illuminated according to the scene's lighting settings. Otherwise, according to the chosen drawing's lighting settings.
             </p>
         </div>`);
 
-    updateForm(sheet, sheet.object.getFlag("perfect-vision", "lighting") || "");
+    const select = html.find(`select[name="flags.perfect-vision.lighting"]`);
+
+    select.css("color", "unset");
+
+    const value = sheet.object.getFlag("perfect-vision", "lighting") || "";
+    const black = select.css("color") || "black";
+
+    select.css("color", drawings.get(value)?.active ? black : "red");
+    select.on("change", () => {
+        select.css("color", drawings.get(sheet.form.elements["flags.perfect-vision.lighting"].value || "")?.active ? black : "red");
+    });
+
+    for (const [id, data] of drawings.entries()) {
+        select.append(`<option value="${id}" title="${data.title}" style="color: ${data.active ? black : "red"};">${id}</id>`);
+    }
+
+    select.val(value);
 
     sheet.options.height = "auto";
     sheet.position.height = "auto";
     sheet.setPosition(sheet.position);
 });
 
-function updateForm(sheet, value) {
-    const document = sheet.object;
-    const scene = document.parent;
-    const html = $(sheet.form);
-
-    const lighting = value ?? sheet.form.elements["flags.perfect-vision.lighting"].value;
-    const select = html.find(`select[name="flags.perfect-vision.lighting"]`);
-
-    select.css("color", "unset");
-
-    const black = select.css("color") || "black";
-
-    select.css("color", isActive(scene, lighting) ? black : "red");
-    select.empty().append(`<option value=""></id>`);
-
-    for (const other of Array.from(scene.drawings.values()).sort((a, b) => a.id.localeCompare(b.id))) {
-        const active = isActive(scene, other.id);
-
-        select.append(`<option value="${other.id}" title="${other.data.text || ""}" style="color: ${active ? black : "red"};">${other.id}</id>`);
-    }
-
-    select.val(lighting);
-}
-
-
-function isActive(scene, id) {
+function isDrawingActive(scene, id) {
     if (!id) {
         return true;
     }
 
     const document = scene.drawings.get(id);
 
-    if (!document || !document.getFlag("perfect-vision", "active")) {
+    if (!document?.getFlag("perfect-vision", "active")) {
         return false;
     }
 
-    return isActive(scene, document.getFlag("perfect-vision", "parent"));
+    return isDrawingActive(scene, document.getFlag("perfect-vision", "parent"));
 }
