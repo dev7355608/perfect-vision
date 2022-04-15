@@ -29,7 +29,7 @@ MeasuredTemplate.prototype._pv_updateSightLimit = function ({ defer = false, del
     let sightLimit;
 
     if (!deleted && (sightLimit = this.document.getFlag("perfect-vision", "sightLimit")) !== undefined) {
-        sightLimit = Math.max(sightLimit ?? Infinity, 0) / canvas.dimensions.distance * canvas.dimensions.size;
+        sightLimit = Math.max(sightLimit ?? Infinity, 0) * (canvas.dimensions.size / canvas.dimensions.distance);
 
         LimitSystem.instance.addRegion(`Template.${this.document.id}`, {
             shape: Region.from(this.shape, new PIXI.Matrix().translate(this.data.x, this.data.y)),

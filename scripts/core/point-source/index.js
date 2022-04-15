@@ -111,7 +111,7 @@ Hooks.once("init", () => {
             let sightLimit = object.document.getFlag("perfect-vision", object instanceof AmbientLight ? "sightLimit" : "light.sightLimit");
 
             if (sightLimit !== undefined) {
-                sightLimit = Math.max(sightLimit ?? Infinity, 0) / canvas.dimensions.distance * canvas.dimensions.size;
+                sightLimit = Math.max(sightLimit ?? Infinity, 0) * (canvas.dimensions.size / canvas.dimensions.distance);
             }
 
             if (sightLimit !== undefined) {
@@ -357,7 +357,7 @@ Hooks.once("init", () => {
         }
 
         if (!Number.isNaN(sightLimit)) {
-            sightLimit = Math.max(sightLimit, 0) / canvas.dimensions.distance * canvas.dimensions.size + this._pv_minRadius;
+            sightLimit = Math.max(sightLimit, 0) * (canvas.dimensions.size / canvas.dimensions.distance) + this._pv_minRadius;
         } else {
             sightLimit = undefined;
         }

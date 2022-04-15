@@ -302,7 +302,7 @@ LightingLayer.prototype._pv_updateLighting = function ({ defer = false } = {}) {
     let sightLimit = canvas.scene.getFlag("perfect-vision", "sightLimit");
 
     sightLimit = Number.isFinite(sightLimit)
-        ? Math.max(sightLimit, 0) / canvas.dimensions.distance * canvas.dimensions.size
+        ? Math.max(sightLimit, 0) * (canvas.dimensions.size / canvas.dimensions.distance)
         : Infinity;
 
     const parseColor = (color, defaultColor) => foundry.utils.rgbToHex(

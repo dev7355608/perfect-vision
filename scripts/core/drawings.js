@@ -122,7 +122,7 @@ Drawing.prototype._pv_updateLighting = function ({ defer = false, deleted = fals
 
         if (sightLimit !== undefined) {
             sightLimit = Number.isFinite(sightLimit)
-                ? Math.max(sightLimit, 0) / canvas.dimensions.distance * canvas.dimensions.size
+                ? Math.max(sightLimit, 0) * (canvas.dimensions.size / canvas.dimensions.distance)
                 : Infinity;
         }
 
