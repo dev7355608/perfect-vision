@@ -256,10 +256,7 @@ Tile.prototype._pv_createSprite = function ({ shader, blendMode, blendColor, col
     }
 
     if (colorMask) {
-        sprite.colorMask.red = !!colorMask.red;
-        sprite.colorMask.green = !!colorMask.green;
-        sprite.colorMask.blue = !!colorMask.blue;
-        sprite.colorMask.alpha = !!colorMask.alpha;
+        sprite.colorMask = colorMask;
     }
 
     return sprite;

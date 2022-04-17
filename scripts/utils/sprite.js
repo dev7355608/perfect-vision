@@ -28,19 +28,41 @@ export class Sprite extends PIXI.Mesh {
     }
 
     get blendColor() {
-        if (!this._blendColor) {
-            this._blendColor = new Float32Array(4);
-        }
-
         return this._blendColor;
     }
 
-    get colorMask() {
-        if (!this._colorMask) {
-            this._colorMask = { red: true, green: true, blue: true, alpha: true };
-        }
+    set blendColor(value) {
+        if (value) {
+            if (!this._blendColor) {
+                this._blendColor = new Float32Array(4);
+            }
 
+            this._blendColor[0] = value[0];
+            this._blendColor[1] = value[1];
+            this._blendColor[2] = value[2];
+            this._blendColor[3] = value[3];
+        } else {
+            this._blendColor = null;
+        }
+    }
+
+    get colorMask() {
         return this._colorMask;
+    }
+
+    set colorMask(value) {
+        if (value) {
+            if (!this._colorMask) {
+                this._colorMask = Object.seal([true, true, true, true]);
+            }
+
+            this._colorMask[0] = !!value[0];
+            this._colorMask[1] = !!value[1];
+            this._colorMask[2] = !!value[2];
+            this._colorMask[3] = !!value[3];
+        } else {
+            this._colorMask = null;
+        }
     }
 
     get anchor() {
@@ -134,13 +156,15 @@ export class Sprite extends PIXI.Mesh {
         const blendColor = this._blendColor;
 
         if (blendColor) {
-            gl.blendColor(...blendColor);
+            const [red, green, blue, alpha] = blendColor;
+
+            gl.blendColor(red, green, blue, alpha);
         }
 
         let colorMask = this._colorMask;
 
         if (colorMask) {
-            const { red, green, blue, alpha } = colorMask;
+            const [red, green, blue, alpha] = colorMask;
 
             if (red && green && blue && alpha) {
                 colorMask = null;
