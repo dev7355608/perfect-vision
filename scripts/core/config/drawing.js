@@ -116,12 +116,6 @@ Hooks.on("renderDrawingConfig", (sheet, html) => {
     html.find(`button[id="perfect-vision.pickOrigin"]`)
         .on("click", onPickOrigin.bind(sheet));
 
-    if (sheet._pv_onResetDefaults) {
-        delete sheet._pv_onResetDefaults;
-
-        sheet._tabs[0].activate("perfect-vision.lighting");
-    }
-
     sheet.options.height = "auto";
     sheet.position.width = Math.max(sheet.position.width, 600);
     sheet.position.height = "auto";
@@ -144,7 +138,7 @@ Hooks.on("closeDrawingConfig", sheet => {
     }
 });
 
-Hooks.on("renderDrawingHUD", (hud, html, data) => {
+Hooks.on("renderDrawingHUD", (hud, html) => {
     const toggle = document.createElement("div");
 
     toggle.classList.add("control-icon");
@@ -166,7 +160,7 @@ Hooks.on("renderDrawingHUD", (hud, html, data) => {
         );
 
         hud.render(true);
-    })
+    });
 });
 
 let pickerOverlay;
@@ -193,12 +187,15 @@ function onResetDefaults(event) {
 
     foundry.utils.mergeObject(this.object.data, { "flags.-=perfect-vision": null });
 
-    this._pv_onResetDefaults = true;
-    this.render();
-
     if (this.object.parent.isView && canvas.ready) {
         this.object.object._pv_updateLighting();
     }
+
+    Hooks.once("renderDrawingConfig", (sheet, html) => {
+        html[0].querySelector(`.tabs [data-tab="perfect-vision.lighting"]`).click();
+    });
+
+    this.render();
 }
 
 function onPickOrigin(event) {
