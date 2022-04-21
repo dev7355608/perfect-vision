@@ -19,7 +19,7 @@ class OverlaysCanvasGroup extends PIXI.Container {
 
     _createLayers() {
         this._pv_background = this.addChild(new BackgroundContainer());
-        this._pv_background.zIndex = TokenLayer.layerOptions.zIndex - 1;
+        this._pv_background.zIndex = TokenLayer.layerOptions.zIndex;
 
         for (let [name, config] of Object.entries(CONFIG.Canvas.layers)) {
             if (config.group !== this.constructor.groupName) {
