@@ -37,10 +37,27 @@ Hooks.once("init", () => {
                     o.alpha = 1.0;
                 }
 
-                c.destroy();
+                c.destroy({ children: true });
             }
         });
     }
+
+    patch("PlaceablesLayer.prototype.clearPreviewContainer", "OVERRIDE", function () {
+        if (!this.preview) return;
+
+        // Restore the original state
+        for (let c of this.preview.children) {
+            c.visible = false;
+            const o = c._original;
+            if (o) {
+                if ("locked" in o.data) o.data.locked = false;
+                o.alpha = 1.0;
+            }
+        }
+
+        // Remove and destroy previews
+        this.preview.removeChildren().forEach(c => c.destroy({ children: true }));
+    });
 
     patch("PlaceablesLayer.prototype.deactivate", "WRAPPER", function (wrapped, ...args) {
         const previewObjects = this.preview ? Array.from(this.preview.children) : null;
