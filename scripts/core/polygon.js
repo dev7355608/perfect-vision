@@ -81,7 +81,7 @@ Hooks.once("init", () => {
             const rmin = this.config.radiusMin;
             const [lmin, rmax] = this.config._pv_limits;
             const lmin2 = lmin * lmin;
-            const precision = Math.ceil(canvas.dimensions.size / 10);
+            const precision = canvas.dimensions.size / 10;
             const precision2 = precision * precision;
             const nDensity = Math.min(
                 Math.PI / this.config.density,
