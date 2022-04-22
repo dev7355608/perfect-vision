@@ -537,7 +537,7 @@ class LightingRegion {
         if (!this.mesh) {
             this.mesh = new PointSourceMesh(this.geometry, this.shader);
             this.mesh.blendMode = PIXI.BLEND_MODES.NORMAL_NPM;
-            this.mesh.colorMask.alpha = false;
+            this.mesh.colorMask = [true, true, true, false];
         }
 
         if (refreshVision) {

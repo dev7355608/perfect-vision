@@ -219,7 +219,7 @@ Hooks.once("init", () => {
 
             if (exactVisibility) {
                 if (source.fov.radius > 0) {
-                    fov.push({ contours: [source._pv_clos.contour] });
+                    fov.push({ contours: [source._pv_constrainedLos.contour] });
                 }
 
                 los.push({ contours: [source._pv_los.contour] });

@@ -4,7 +4,7 @@ import { Sprite } from "../utils/sprite.js";
 import { CanvasFramebuffer } from "../utils/canvas-framebuffer.js";
 import { LimitSystem } from "./limit-system.js";
 import { LightingSystem } from "./lighting-system.js";
-import { PointSourceContainer } from "./point-source/container.js";
+import { PointSourceContainer, IlluminationPointSourceContainer } from "./point-source/container.js";
 import createTess2, { Tess2 } from "../utils/tess2.js";
 
 Hooks.once("init", () => {
@@ -593,31 +593,6 @@ class IlluminationBackgroundShader extends PIXI.Shader {
         uniforms.uSampler2 = textures[1];
         uniforms.uSampler3 = textures[2];
         uniforms.uSampler4 = textures[3];
-    }
-}
-
-class IlluminationPointSourceContainer extends PointSourceContainer {
-    _viewportTextureBlendMode;
-
-    _render(renderer) {
-        this._viewportTextureBlendMode = undefined;
-
-        super._render(renderer);
-    }
-
-    _getViewportTexture(renderer) {
-        const blendMode = renderer.state.blendMode;
-        let texture;
-
-        if ((this._viewportTextureBlendMode ?? blendMode) !== blendMode) {
-            texture = super._getViewportTexture(renderer);
-        } else {
-            texture = this._viewportTexture ?? CanvasFramebuffer.get("lighting").textures[3];
-        }
-
-        this._viewportTextureBlendMode = blendMode;
-
-        return texture;
     }
 }
 

@@ -33,7 +33,9 @@ Hooks.once("init", () => {
 
         this._pv_fov = null;
         this._pv_los = null;
-        this._pv_clos = null;
+        this._pv_constrainedLos = null;
+        this._pv_losGeometry = null;
+        this._pv_constrainedLosGeometry = null;
         this._pv_geometry = null;
 
         if (this._pv_shader) {
@@ -43,7 +45,7 @@ Hooks.once("init", () => {
         this._pv_shader = null;
 
         if (this._pv_mesh) {
-            this._pv_mesh.destroy();
+            this._pv_mesh.destroy({ children: true });
         }
 
         this._pv_mesh = null;
@@ -92,7 +94,7 @@ Hooks.once("init", () => {
         wrapped(data, ...args);
 
         this._pv_los = this.los ? Region.from(this.los) : null;
-        this._pv_geometry = new PointSourceGeometry(null, this._pv_los, canvas.dimensions._pv_inset);
+        this._pv_geometry = this.los ? new PointSourceGeometry([this._pv_los.contour], canvas.dimensions._pv_inset, "ONE") : PointSourceGeometry.EMPTY;
         this._pv_shader = new LightSourceShader(this);
 
         if (!this._pv_mesh) {
@@ -421,44 +423,34 @@ Hooks.once("init", () => {
             radiusMin: this._pv_minRadius,
             source: this
         });
+        // TODO: calculate intersection instead
+        this.constrainedLos = CONFIG.Canvas.losBackend.create(origin, {
+            type: "sight",
+            angle: this.data.angle,
+            rotation: this.data.rotation,
+            radius: radiusSight,
+            radiusMin: this._pv_minRadius,
+            source: this
+        });
 
         // Store the FOV circle
         this.fov = new PIXI.Circle(origin.x, origin.y, radiusSight);
 
         this._pv_fov = this.fov ? Region.from(this.fov) : null;
         this._pv_los = this.los ? Region.from(this.los) : null;
-        this._pv_geometry = new PointSourceGeometry(this.radius === radiusSight ? this._pv_fov : Region.from(new PIXI.Circle(origin.x, origin.y, this.radius)), this._pv_los, canvas.dimensions._pv_inset);
+        this._pv_constrainedLos = this.constrainedLos ? Region.from(this.constrainedLos) : null;
+
+        this._pv_losGeometry = new PointSourceGeometry([this._pv_los.contour], canvas.dimensions._pv_inset, "ONE");
+        this._pv_constrainedLosGeometry = new PointSourceGeometry([this._pv_constrainedLos.contour], canvas.dimensions._pv_inset, "ONE");
+        this._pv_geometry = this.radius === radiusSight
+            ? this._pv_constrainedLosGeometry
+            : new PointSourceGeometry([this._pv_los.contour, Region.from(new PIXI.Circle(origin.x, origin.y, this.radius)).contour], canvas.dimensions._pv_inset, "ABS_GEQ_TWO");
+
         this._pv_shader = new VisionSourceShader(this);
 
         if (!this._pv_mesh) {
-            this._pv_mesh = new PointSourceMesh(this._pv_geometry, this._pv_shader);
+            this._pv_mesh = new PointSourceMesh(this._pv_losGeometry, this._pv_shader);
             this._pv_mesh.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
-            this._pv_mesh.drawMask.fov = false;
-        }
-
-        if (this.radius !== radiusSight) {
-            this._pv_geometrySight = new PointSourceGeometry(this._pv_fov, this._pv_los, canvas.dimensions._pv_inset);
-        } else {
-            this._pv_geometrySight = this._pv_geometry;
-        }
-
-        if (radiusSight > 0) {
-            if (sightLimit !== radiusSight) {
-                this._pv_clos = Region.from(
-                    CONFIG.Canvas.losBackend.create(origin, {
-                        type: "sight",
-                        angle: this.data.angle,
-                        rotation: this.data.rotation,
-                        radius: radiusSight,
-                        radiusMin: this._pv_minRadius,
-                        source: this
-                    })
-                );
-            } else {
-                this._pv_clos = this._pv_los;
-            }
-        } else {
-            this._pv_clos = this._pv_fov;
         }
 
         this._pv_radiusColor = radiusColor;
@@ -573,7 +565,7 @@ LightSource.prototype._pv_drawMesh = function () {
 
     mesh.geometry = this._pv_geometry;
     mesh.shader = shader;
-    mesh.colorMask.red = this.data.vision;
+    mesh.colorMask = [this.data.vision, true, true, true];
 
     if (this.data.walls) {
         mesh.occlusionObjects = this._pv_occlusionTiles;
@@ -590,22 +582,13 @@ LightSource.prototype._pv_drawMesh = function () {
     return mesh;
 };
 
-LightSource.prototype._pv_drawMask = function (fov, los, inset = false) {
-    const geometry = this._pv_geometry;
-    const segments = geometry.segments;
+LightSource.prototype._pv_drawMask = function (fov, los) {
+    const geometry = this._pv_geometry.fill;
 
-    fov.pushMask({ geometry: segments.los });
-
-    if (inset) {
-        fov.pushMask({ geometry: segments.edges, hole: true });
-    }
+    fov.pushMask({ geometry });
 
     if (this.data.vision) {
-        los.pushMask({ geometry: segments.los });
-
-        if (inset) {
-            los.pushMask({ geometry: segments.edges, hole: true });
-        }
+        los.pushMask({ geometry });
     }
 
     if (this._pv_occlusionTiles && this.data.walls) {
@@ -651,7 +634,7 @@ VisionSource.prototype._pv_drawMesh = function () {
     const uniforms = shader.uniforms;
     const { x, y } = this.data;
 
-    mesh.geometry = this._pv_geometry;
+    mesh.geometry = this._pv_losGeometry;
     mesh.shader = shader;
 
     uniforms.uOrigin[0] = x;
@@ -666,29 +649,12 @@ VisionSource.prototype._pv_drawMesh = function () {
     return mesh;
 };
 
-VisionSource.prototype._pv_drawMask = function (fov, los, inset = false) {
-    const geometry = this._pv_geometrySight;
-    const segments = geometry.segments;
-
+VisionSource.prototype._pv_drawMask = function (fov, los) {
     if (this.fov.radius > 0) {
-        fov.pushMask({ geometry: segments.fov });
-
-        if (inset) {
-            fov.pushMask({ geometry: segments.edges, hole: true });
-        }
-
-        fov.draw({ geometry: segments.los });
-        fov.popMasks();
+        fov.draw({ geometry: this._pv_constrainedLosGeometry.fill });
     }
 
-    los.pushMask({ geometry: segments.los });
-
-    if (inset) {
-        los.pushMask({ geometry: segments.edges, hole: true });
-    }
-
-    los.draw({ hole: false });
-    los.popMasks();
+    los.draw({ geometry: this._pv_losGeometry.fill });
 };
 
 class LightSourceShader extends PIXI.Shader {
