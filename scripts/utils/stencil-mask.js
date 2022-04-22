@@ -152,6 +152,7 @@ export class StencilMask extends PIXI.DisplayObject {
             let currentDrawGroup = this._currentDrawGroup;
 
             if (currentDrawGroup?.hole !== hole) {
+                this._combineLastDrawGroups();
                 currentDrawGroup = this._currentDrawGroup = new StencilMaskDrawGroup(hole);
 
                 this._drawGroups.push(currentDrawGroup);
@@ -169,7 +170,6 @@ export class StencilMask extends PIXI.DisplayObject {
                         } else {
                             filled = false;
                         }
-
                     } else if (!filled || mask.hole && currentDrawGroup.masks.length !== 0) {
                         currentDrawGroup.masks.push(mask);
 
@@ -251,9 +251,26 @@ export class StencilMask extends PIXI.DisplayObject {
                     currentDrawGroup.fills.push(new StencilMaskDrawCall(hole, geometry, texture, threshold));
                 }
             }
+
+            this._combineLastDrawGroups();
         }
 
         return this;
+    }
+
+    _combineLastDrawGroups() {
+        const drawGroupsCount = this._drawGroups.length;
+
+        if (drawGroupsCount > 1) {
+            const lastDrawGroup1 = this._drawGroups[drawGroupsCount - 1];
+            const lastDrawGroup2 = this._drawGroups[drawGroupsCount - 2];
+
+            if (lastDrawGroup1.hole === lastDrawGroup2.hole && lastDrawGroup1.masks.length === 0 && lastDrawGroup2.masks.length === 0) {
+                lastDrawGroup2.fills.push(...lastDrawGroup1.fills);
+                this._drawGroups.length -= 1;
+                this._currentDrawGroup = null;
+            }
+        }
     }
 
     pushMask({ hole = false, geometry = null, texture = null, threshold = 0 }) {
@@ -263,6 +280,7 @@ export class StencilMask extends PIXI.DisplayObject {
         if (!hole || this._maskStack.length !== 0) {
             this._currentDrawGroup = null;
             this._maskStack.push(new StencilMaskDrawCall(hole, geometry, texture, threshold));
+            this._combineLastDrawGroups();
         }
 
         return this;
@@ -271,6 +289,7 @@ export class StencilMask extends PIXI.DisplayObject {
     popMask() {
         this._currentDrawGroup = null;
         this._maskStack.pop();
+        this._combineLastDrawGroups();
 
         return this;
     }
@@ -278,6 +297,7 @@ export class StencilMask extends PIXI.DisplayObject {
     popMasks(count) {
         this._currentDrawGroup = count !== 0 ? null : this._currentDrawGroup;
         this._maskStack.length = count !== undefined ? Math.max(this._maskStack.length - count, 0) : 0;
+        this._combineLastDrawGroups();
 
         return this;
     }
