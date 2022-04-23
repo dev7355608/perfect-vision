@@ -164,11 +164,11 @@ Hooks.once("init", () => {
 
             if (exactVisibility) {
                 fov.push({
-                    contours: region.clos1,
+                    contours: region.contours,
                     hole: !region.vision && !region.globalLight
                 });
                 los.push({
-                    contours: region.clos1,
+                    contours: region.contours,
                     hole: !region.vision
                 });
             }

@@ -59,9 +59,10 @@ Hooks.on("updateDrawing", (document, change, options, userId) => {
 const tempMatrix = new PIXI.Matrix();
 
 Drawing.prototype._pv_updateLighting = function ({ defer = false, deleted = false, skipUpdateShape = false } = {}) {
+    const id = `Drawing.${this.document.id}`;
     let active;
 
-    if (!deleted && (active = this.document.getFlag("perfect-vision", "active"))) {
+    if (!deleted && (active = !!this.document.getFlag("perfect-vision", "active"))) {
         const hidden = !!this.skipRender /* Levels */;
 
         let parent = this.document.getFlag("perfect-vision", "parent");
@@ -71,6 +72,8 @@ Drawing.prototype._pv_updateLighting = function ({ defer = false, deleted = fals
         } else {
             parent = "Scene";
         }
+
+        const fit = !!this.document.getFlag("perfect-vision", "fit");
 
         const transform = this._pv_getTransform(tempMatrix);
 
@@ -160,24 +163,26 @@ Drawing.prototype._pv_updateLighting = function ({ defer = false, deleted = fals
 
         const z = this.data.z;
 
-        const id = `Drawing.${this.document.id}`;
-
         if (!LightingSystem.instance.hasRegion(id)) {
             const shape = Region.from(this._pv_getShape(), transform);
 
-            LightingSystem.instance.addRegion(id, {
-                active, hidden, parent, shape, z, origin, walls, vision, globalLight, globalLightThreshold,
-                sightLimit, daylightColor, darknessColor, darkness, saturation,
-                inset: canvas.dimensions._pv_inset
-            });
+            if (shape.strictlySimple) {
+                LightingSystem.instance.addRegion(id, {
+                    active, hidden, parent, shape, fit, z, origin, walls, vision, globalLight, globalLightThreshold,
+                    sightLimit, daylightColor, darknessColor, darkness, saturation,
+                    inset: canvas.dimensions._pv_inset
+                });
 
-            if (!defer) {
-                canvas.perception.schedule({ lighting: { refresh: true } });
+                if (!defer) {
+                    canvas.perception.schedule({ lighting: { refresh: true } });
+                }
+            } else {
+                ui.notifications.error(`[Perfect Vision] ${id} is invalid!`);
             }
         } else {
             if (skipUpdateShape) {
                 if (LightingSystem.instance.updateRegion(id, {
-                    active, hidden, parent, z, origin, walls, vision, globalLight, globalLightThreshold,
+                    active, hidden, parent, fit, z, origin, walls, vision, globalLight, globalLightThreshold,
                     sightLimit, daylightColor, darknessColor, darkness, saturation
                 })) {
                     if (!defer) {
@@ -187,18 +192,28 @@ Drawing.prototype._pv_updateLighting = function ({ defer = false, deleted = fals
             } else {
                 const shape = Region.from(this._pv_getShape(), transform);
 
-                if (LightingSystem.instance.updateRegion(id, {
-                    active, hidden, parent, shape, z, origin, walls, vision, globalLight, globalLightThreshold,
-                    sightLimit, daylightColor, darknessColor, darkness, saturation
-                })) {
-                    if (!defer) {
-                        canvas.perception.schedule({ lighting: { refresh: true } });
+                if (shape.strictlySimple) {
+                    if (LightingSystem.instance.updateRegion(id, {
+                        active, hidden, parent, shape, fit, z, origin, walls, vision, globalLight, globalLightThreshold,
+                        sightLimit, daylightColor, darknessColor, darkness, saturation
+                    })) {
+                        if (!defer) {
+                            canvas.perception.schedule({ lighting: { refresh: true } });
+                        }
+                    }
+                } else {
+                    ui.notifications.error(`[Perfect Vision] ${id} is invalid!`);
+
+                    if (LightingSystem.instance.deleteRegion(id)) {
+                        if (!defer) {
+                            canvas.perception.schedule({ lighting: { refresh: true } });
+                        }
                     }
                 }
             }
         }
     } else {
-        if (LightingSystem.instance.deleteRegion(`Drawing.${this.document.id}`)) {
+        if (LightingSystem.instance.deleteRegion(id)) {
             if (!defer) {
                 canvas.perception.schedule({ lighting: { refresh: true } });
             }

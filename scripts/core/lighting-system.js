@@ -1,8 +1,7 @@
-import { PointSourceGeometry } from "./point-source/geometry.js";
-import { PointSourceMesh } from "./point-source/mesh.js";
 import { Region } from "../utils/region.js";
 import { LimitSystem } from "./limit-system.js";
 import { Tess2 } from "../utils/tess2.js";
+import { SmoothGeometry, SmoothMesh } from "../utils/smooth-mesh.js";
 
 const inheritedKeys = {
     walls: false, vision: false, globalLight: false, globalLightThreshold: null, sightLimit: Infinity,
@@ -21,7 +20,7 @@ export class LightingSystem {
         darknessChanged: false
     };
 
-    addRegion(id, { shape, active = true, hidden = false, parent = null, origin = null, z = 0, inset = 0,
+    addRegion(id, { shape, active = true, hidden = false, parent = null, fit = false, origin = null, z = 0, inset = 0,
         walls, vision, globalLight, globalLightThreshold, sightLimit,
         daylightColor, darknessColor, darkness, saturation }) {
         let region = this.regions[id];
@@ -38,7 +37,7 @@ export class LightingSystem {
             t: origin?.t ?? +Infinity
         };
         region.data = {
-            active, hidden, parent, shape, z, inset, origin, walls, vision, globalLight, globalLightThreshold,
+            active, hidden, parent, shape, fit, z, inset, origin, walls, vision, globalLight, globalLightThreshold,
             sightLimit, daylightColor, darknessColor, darkness, saturation
         };
 
@@ -81,6 +80,10 @@ export class LightingSystem {
             }
 
             delete changes.shape;
+        }
+
+        if ("fit" in changes) {
+            changes.fit = changes.fit ?? false;
         }
 
         if ("z" in changes) {
@@ -169,19 +172,21 @@ export class LightingSystem {
     }
 
     getActiveRegionAtPoint(point) {
-        let result;
+        for (let i = this.activeRegions.length - 1; i >= 0; i--) {
+            const region = this.activeRegions[i];
+            const domain = region.domain;
+            let contains = false;
 
-        for (const region of this.activeRegions) {
-            if (region.los && !region.los.containsPoint(point)) {
-                continue;
+            for (let j = domain.length - 1; j >= 0; j--) {
+                if (domain[j].containsPoint(point)) {
+                    contains = !contains;
+                }
             }
 
-            if (region.fov.containsPoint(point)) {
-                result = region;
+            if (contains) {
+                return region;
             }
         }
-
-        return result;
     }
 
     refresh({ backgroundColor, forceUpdateLOS = false, forceVision = undefined } = {}) {
@@ -340,16 +345,22 @@ class LightingRegion {
             return;
         }
 
-        let updateFOV = false;
         let updateLOS = flags.forceUpdateLOS;
+        let updateFOV = updateLOS && this.data.fit;
+        let updateGeometry = false;
         let darknessChanged = false;
         let refreshVision = false;
 
         if (this.shape !== data.shape) {
-            this.shape = this.fov = data.shape;
+            this.shape = data.shape;
 
             updateFOV = true;
-            updateLOS = true;
+        }
+
+        if (this.fit !== data.fit) {
+            this.fit = data.fit;
+
+            updateFOV = true;
         }
 
         if (!this.origin || this.origin.x !== data.origin.x || this.origin.y !== data.origin.y || this.origin.b !== data.origin.b || this.origin.t !== data.origin.t) {
@@ -429,50 +440,64 @@ class LightingRegion {
             });
         }
 
-        if (this.data.walls && !this.los || !this.data.walls && this.los) {
+        if (updateFOV) {
+            if (this.fit) {
+                this.fov = this._fit(this.shape);
+            } else {
+                this.fov = [this.shape];
+            }
+
+            updateGeometry = true;
+        }
+
+        if (this.walls && !this.los || !this.walls && this.los) {
             updateLOS = true;
         }
 
         if (updateLOS) {
             if (this.data.walls) {
                 this.los = Region.from(CONFIG.Canvas.losBackend.create({ ...this.origin }, { type: "light" }));
+
+                updateGeometry = true;
             } else if (this.los) {
                 this.los = null;
+
+                updateGeometry = true;
             }
         }
 
-        if (updateFOV || updateLOS) {
-            this.clos1 = [];
-            this.clos2 = [];
-
+        if (updateGeometry) {
             if (this.los) {
+                this.domain = [];
+
                 const tess = new Tess2();
 
-                tess.addContours(this.fov.contour);
+                for (const fov of this.fov) {
+                    tess.addContours(fov.contour);
+                }
+
                 tess.addContours(this.los.contour);
 
                 const result = tess.tesselate({
                     windingRule: Tess2.WINDING_ABS_GEQ_TWO,
-                    elementType: Tess2.BOUNDARY_CONTOURS,
-                    polySize: 3,
-                    vertexSize: 2
+                    elementType: Tess2.BOUNDARY_CONTOURS
                 });
 
                 if (result) {
                     for (let i = 0, n = result.elementCount * 2; i < n; i += 2) {
                         const k = result.elements[i] * 2;
                         const m = result.elements[i + 1] * 2;
-                        const points1 = new Array(m);
+                        const points = new Array(m);
 
                         for (let j = 0; j < m; j++) {
-                            points1[j] = result.vertices[k + j];
+                            points[j] = result.vertices[k + j];
                         }
 
                         let area = 0;
 
-                        for (let i = 0, x1 = points1[m - 2], y1 = points1[m - 1]; i < m; i += 2) {
-                            const x2 = points1[i];
-                            const y2 = points1[i + 1];
+                        for (let j = 0, x1 = points[m - 2], y1 = points[m - 1]; j < m; j += 2) {
+                            const x2 = points[j];
+                            const y2 = points[j + 1];
 
                             area += (x2 - x1) * (y2 + y1);
 
@@ -480,47 +505,68 @@ class LightingRegion {
                             y1 = y2;
                         }
 
-                        if (area < 0) { // TODO
-                            this.clos1.push(points1);
-
-                            const points2 = new Array(m);
-
-                            for (let i = m - 2; i >= 0; i -= 2) {
-                                points2[i] = points1[m - i - 2];
-                                points2[i + 1] = points1[m - i - 1];
-                            }
-
-                            this.clos2.push(points2);
+                        if (area < 0) {
+                            this.domain.push(Region.from(new PIXI.Polygon(points)));
                         }
                     }
                 }
 
                 tess.dispose();
             } else {
-                const points1 = this.fov.contour;
-                const m = points1.length;
+                this.domain = this.fov;
+            }
 
-                this.clos1.push(points1);
+            this.contours = this.domain.map(r => r.contour);
+            this.geometry = null;
+        }
 
-                const points2 = new Array(m);
+        if (!this.geometry || this.geometry.inset !== this.data.inset) {
+            const alignment = 0;
+            let contours = this.contours;
 
-                for (let i = m - 2; i >= 0; i -= 2) {
-                    points2[i] = points1[m - i - 2];
-                    points2[i + 1] = points1[m - i - 1];
+            if (this.data.inset > 0 && alignment > 0) {
+                const paths = [];
+
+                for (const contour of contours) {
+                    const m = contour.length;
+                    const path = new Array(m >> 1);
+
+                    for (let j = 0; j < m; j += 2) {
+                        path[j >> 1] = new ClipperLib.IntPoint(Math.round(contour[j] * 256), Math.round(contour[j + 1] * 256));
+                    }
+
+                    paths.push(path);
                 }
 
-                this.clos2.push(points2);
+                const offset = new ClipperLib.ClipperOffset();
+
+                offset.ArcTolerance = 0.308425 * 256;
+                offset.AddPaths(paths, ClipperLib.JoinType.jtRound, ClipperLib.EndType.etClosedPolygon);
+                offset.Execute(paths, 256 * this.data.inset * alignment);
+
+                contours = [];
+
+                for (const path of paths) {
+                    const n = path.length;
+                    const contour = new Array(n << 1);
+
+                    for (let i = 0; i < n; i++) {
+                        const point = path[i];
+
+                        contour[(i << 1)] = point.X / 256;
+                        contour[(i << 1) + 1] = point.Y / 256;
+                    }
+
+                    contours.push(contour);
+                }
             }
+
+            this.geometry = new SmoothGeometry(contours, this.data.inset);
         }
 
-        if (!this.geometry || this.geometry.fov !== this.fov || this.geometry.los !== this.los || this.geometry.inset !== this.data.inset) {
-            this.geometry = new PointSourceGeometry(this.fov, this.los, this.data.inset);
-        }
-
-        if (updateFOV || updateLOS || refreshVision) {
+        if (updateGeometry || refreshVision) {
             LimitSystem.instance.addRegion(this.id, {
-                shape: this.fov,
-                mask: this.los,
+                shape: this.domain,
                 limit: this.sightLimit,
                 mode: "set",
                 index: [0, this.zIndex]
@@ -535,9 +581,10 @@ class LightingRegion {
         }
 
         if (!this.mesh) {
-            this.mesh = new PointSourceMesh(this.geometry, this.shader);
+            this.mesh = new SmoothMesh(this.geometry, this.shader);
             this.mesh.blendMode = PIXI.BLEND_MODES.NORMAL_NPM;
             this.mesh.colorMask = [true, true, true, false];
+            this.mesh.cullable = true;
         }
 
         if (refreshVision) {
@@ -552,6 +599,7 @@ class LightingRegion {
     reset() {
         this.active = false;
         this.shape = null;
+        this.fit = null;
         this.origin = null;
         this.zIndex = null;
         this.walls = undefined;
@@ -566,10 +614,12 @@ class LightingRegion {
         this.version = 0;
         this.fov = null;
         this.los = null;
+        this.domain = null;
+        this.contours = null;
         this.geometry = null;
         this.shader?.destroy();
         this.shader = null;
-        this.mesh?.destroy();
+        this.mesh?.destroy({ children: true });
         this.mesh = null;
 
         LimitSystem.instance.deleteRegion(this.id);
@@ -600,32 +650,239 @@ class LightingRegion {
         return mesh;
     }
 
-    drawSight(fov, los, inset = false) {
-        const geometry = this.geometry;
-        const segments = geometry.segments;
+    drawSight(fov, los) {
+        const geometry = this.geometry.fill;
 
-        fov.pushMask({ geometry: segments.fov });
+        fov.draw({ geometry, hole: !this.vision && !this.globalLight });
+        los.draw({ geometry, hole: !this.vision });
+    }
 
-        if (inset && (this.vision || this.globalLight)) {
-            fov.pushMask({ geometry: segments.edges, hole: true });
+    _fit(region) {
+        const vertices = new Map();
+        const graph = new Map();
+        const { x, y, width, height } = region.bounds;
+        const walls = canvas.walls.quadtree?.getObjects(new NormalizedRectangle(x, y, width, height)) ?? [];
+        const edges = [];
+
+        for (const wall of walls) {
+            const { a, b } = wall.vertices;
+
+            if (a.key === b.key) {
+                continue;
+            }
+
+            const i = wall.intersectsWith;
+
+            if (i.size === 0) {
+                if (region.containsLineSegment(a, b)) {
+                    edges.push([a, b]);
+                }
+            } else {
+                if (region.intersectsLineSegment(a, b)) {
+                    const p = Array.from(i.values(), v => PolygonVertex.fromPoint(v));
+
+                    p.push(a, b);
+                    p.sort((v, w) => v.x - w.x || v.y - w.y);
+
+                    for (let k = 1; k < p.length; k++) {
+                        const v = p[k - 1];
+                        const w = p[k];
+
+                        if (region.containsLineSegment(v, w)) {
+                            edges.push([v, w]);
+                        }
+                    }
+                }
+            }
+
+            for (let i = 0; i < edges.length; i++) {
+                for (let j = 0; j < 2; j++) {
+                    const v = edges[i][j];
+
+                    vertices.set(v.key, v);
+                }
+            }
+
+            for (const [v, w] of edges) {
+                if (v.key === w.key) {
+                    continue;
+                }
+
+                if (!graph.get(v.key)?.add(w.key)) {
+                    graph.set(v.key, new Set([w.key]));
+                }
+
+                if (!graph.get(w.key)?.add(v.key)) {
+                    graph.set(w.key, new Set([v.key]));
+                }
+            }
         }
 
-        los.pushMask({ geometry: segments.fov });
+        const queue = [];
+        const explored = new Set();
 
-        if (inset && this.vision) {
-            los.pushMask({ geometry: segments.edges, hole: true });
+        for (const [key1, neighbors] of graph.entries()) {
+            for (const key2 of neighbors) {
+                if (key1 > key2) {
+                    continue;
+                }
+
+                let current = key1;
+
+                do {
+                    if (current === key2) {
+                        break;
+                    }
+
+                    for (const next of graph.get(current)) {
+                        if (explored.has(next) || current === key1 && next === key2) {
+                            continue;
+                        }
+
+                        queue.push(next);
+                        explored.add(next);
+                    }
+                } while ((current = queue.pop()) !== undefined);
+
+                if (current !== key2) {
+                    graph.get(key1).delete(key2);
+                    graph.get(key2).delete(key1);
+                }
+
+                queue.length = 0;
+                explored.clear();
+            }
         }
 
-        if (this.los) {
-            fov.draw({ geometry: segments.los, hole: !this.vision && !this.globalLight });
-            los.draw({ geometry: segments.los, hole: !this.vision });
-        } else {
-            fov.draw({ hole: !this.vision && !this.globalLight });
-            los.draw({ hole: !this.vision });
+        for (const [key, neighbors] of graph.entries()) {
+            if (neighbors.size === 0) {
+                vertices.delete(key);
+            }
         }
 
-        fov.popMasks();
-        los.popMasks();
+        const paths = [];
+
+        while (vertices.size !== 0) {
+            let start;
+
+            for (const vertex of vertices.values()) {
+                if (!start || start.x > vertex.x || start.x === vertex.x && start.y > vertex.y) {
+                    start = vertex;
+                }
+            }
+
+            if (!start) {
+                break;
+            }
+
+            const path = [];
+            let current = start;
+            let last = { x: start.x - 1, y: start.y };
+
+            do {
+                path.push(current);
+
+                const x0 = last.x;
+                const y0 = last.y;
+                const x1 = current.x;
+                const y1 = current.y;
+
+                let next;
+
+                for (const key of graph.get(current.key)) {
+                    if (key === last.key) {
+                        continue;
+                    }
+
+                    const vertex = vertices.get(key);
+
+                    if (!vertex) {
+                        continue;
+                    }
+
+                    if (!next) {
+                        next = vertex;
+
+                        continue;
+                    }
+
+                    const x2 = next.x;
+                    const y2 = next.y;
+                    const x3 = vertex.x;
+                    const y3 = vertex.y;
+
+                    const d1 = (y0 - y1) * (x2 - x1) + (x1 - x0) * (y2 - y1);
+                    const d2 = (y0 - y1) * (x3 - x1) + (x1 - x0) * (y3 - y1);
+
+                    if (d1 <= 0 && d2 >= 0 && d1 !== d2) {
+                        continue;
+                    }
+
+                    if (d1 >= 0 && d2 <= 0 && d1 !== d2) {
+                        next = vertex;
+
+                        continue;
+                    }
+
+                    const d3 = (y1 - y2) * (x3 - x1) + (x2 - x1) * (y3 - y1);
+
+                    if (d3 > 0) {
+                        continue;
+                    }
+
+                    if (d3 < 0) {
+                        next = vertex;
+
+                        continue;
+                    }
+
+                    const d4 = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
+                    const d5 = (x3 - x1) * (x3 - x1) + (y3 - y1) * (y3 - y1);
+
+                    if (d5 > d4) {
+                        next = vertex;
+                    }
+                }
+
+                last = current;
+                current = next;
+            } while (current && current !== start);
+
+            for (const vertex of path) {
+                vertices.delete(vertex.key);
+            }
+
+            if (current === start && path.length >= 3) {
+                paths.push(path.map(vertex => new ClipperLib.IntPoint(vertex.x, vertex.y)));
+            }
+        }
+
+        const clipper = new ClipperLib.Clipper();
+
+        clipper.AddPaths(paths, ClipperLib.PolyType.ptSubject, true);
+        clipper.Execute(ClipperLib.ClipType.ctUnion, paths, ClipperLib.PolyFillType.pftPositive, ClipperLib.PolyFillType.pftEvenOdd);
+
+        const regions = [];
+
+        for (const path of paths) {
+            const n = path.length;
+            const points = new Array(n << 1);
+
+            for (let i = 0; i < n; i++) {
+                const point = path[i];
+
+                points[(i << 1)] = point.X;
+                points[(i << 1) + 1] = point.Y;
+            }
+
+            const region = Region.from(new PIXI.Polygon(points));
+
+            if (region.contour.length >= 6 && region.area > 0) {
+                regions.push(region);
+            }
+        }
+
+        return regions;
     }
 }
 
