@@ -123,6 +123,8 @@ You find these settings in the *Lighting* tab.
 
 If you check the *Active* checkbox, lighting and vision of the area below the drawing is set by the settings below. Drawings with a higher *Z-Index* override the lighting settings of overlapping drawings with a lower Z-Index. You can choose any of the drawing shapes, but it is recommended to *not* use the freehand tool and instead to use the polygon tool; try to draw your area with the fewest amount of points possible, just like you would when you add walls to the scene. *Important:* make sure that the polygon you draw does not intersect itself!
 
+The [Advanced Drawing Tools](https://github.com/dev7355608/advanced-drawing-tools) module allows you to edit polygon drawings, which comes in handy if you mess up your drawings.
+
 ![Drawing Configuration](images/drawing-config.png)
 
 - **Active**: If enabled, lighting and vision of the area below is controlled by the following settings. If disabled, then all children (and children's children ...) of the drawing are disabled as well, even if they are set to active. If the ID, which you find next to the *Reset Defaults* button, is red, the drawing is currently inactive.

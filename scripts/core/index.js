@@ -121,7 +121,7 @@ Hooks.once("ready", () => {
         config: false,
     });
 
-    const next = 7;
+    const next = 8;
     let current = game.settings.get("perfect-vision", "popup");
 
     if (game.user.isGM && current < next) {
@@ -135,9 +135,24 @@ Hooks.once("ready", () => {
             <p><strong>Please read the <a href="https://github.com/dev7355608/perfect-vision/blob/main/README.md#perfect-vision-foundry-vtt-module">documention</a>.</strong></p>
             </large>
             <hr>
-            <p>If you haven't heard, Perfect Vision makes it possible to adjust all lighting settings locally; this includes <i>Sight Limit</i> as well. To learn how to setup mixed indoor/outdoor scenes or how to create magical darkness click <a href="https://github.com/dev7355608/perfect-vision/blob/main/README.md#drawing-configuration">here</a>.</p>
-            <hr>`;
+            <p>If you haven't heard, Perfect Vision makes it possible to adjust all lighting and vision settings locally. To learn how to setup mixed indoor/outdoor scenes or how to create magical darkness click <a href="https://github.com/dev7355608/perfect-vision/blob/main/README.md#drawing-configuration">here</a>.</p>
+            <hr>
+            `;
 
+        content += templates[current < 8]
+            .replace("%HEAD%", "v3.8 (Fit To Walls)")
+            .replace("%BODY%", `\
+                <ul>
+                    <li>
+                        Added the lighting drawing option <i>Fit To Walls</i>. If enabled, the the area is automatically fit to the underlying walls structure.
+                        This makes setting up interior lighting so much quicker: draw a rectangle (or any other shape) around the building/room, enable <i>Fit To Walls</i>, and done!
+                    </li>
+                    <li>Check out the <a href="https://github.com/dev7355608/advanced-drawing-tools">Advanced Drawing Tools</a> module: it allows you to edit polygon drawings, which comes in handy if you mess up your lighting drawings.</a>
+                </ul>
+                <p><strong>Minor breaking change:</strong></p>
+                <ul>
+                    <li>The lighting drawing setting <i>Constrained By Walls</i> is no longer a property that is inherited from the parent.</li>
+                </ul>`);
         content += templates[current < 7]
             .replace("%HEAD%", "v3.7 (Roof Lighting)")
             .replace("%BODY%", `\
