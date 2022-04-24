@@ -4,7 +4,7 @@ import { Tess2 } from "../utils/tess2.js";
 import { SmoothGeometry, SmoothMesh } from "../utils/smooth-mesh.js";
 
 const inheritedKeys = {
-    walls: false, vision: false, globalLight: false, globalLightThreshold: null, sightLimit: Infinity,
+    vision: false, globalLight: false, globalLightThreshold: null, sightLimit: Infinity,
     daylightColor: CONFIG.Canvas.daylightColor, darknessColor: CONFIG.Canvas.darknessColor,
     darkness: 0, saturation: null
 };
@@ -21,7 +21,7 @@ export class LightingSystem {
     };
 
     addRegion(id, { shape, active = true, hidden = false, parent = null, fit = false, origin = null, z = 0, inset = 0,
-        walls, vision, globalLight, globalLightThreshold, sightLimit,
+        walls = false, vision, globalLight, globalLightThreshold, sightLimit,
         daylightColor, darknessColor, darkness, saturation }) {
         let region = this.regions[id];
 
@@ -266,7 +266,6 @@ export class LightingSystem {
 
         const region = this.activeRegions[0];
 
-        this.walls = region?.walls;
         this.vision = region?.vision;
         this.globalLight = region?.globalLight;
         this.sightLimit = region?.sightLimit;
@@ -277,10 +276,6 @@ export class LightingSystem {
         this.channels = region?.channels;
 
         for (const region of this.activeRegions) {
-            if (this.walls !== region.walls) {
-                this.walls = undefined;
-            }
-
             if (this.vision !== region.vision) {
                 this.vision = undefined;
             }
@@ -602,7 +597,7 @@ class LightingRegion {
         this.fit = null;
         this.origin = null;
         this.zIndex = null;
-        this.walls = undefined;
+        this.walls = null;
         this.vision = undefined;
         this.globalLight = undefined;
         this.sightLimit = undefined;

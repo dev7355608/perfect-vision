@@ -22,7 +22,7 @@ Hooks.once("init", () => {
             data["flags.perfect-vision.origin.y"] = 0.5;
         }
 
-        for (const key of ["walls", "vision", "globalLight", "sightLimit", "daylightColor",
+        for (const key of ["vision", "globalLight", "sightLimit", "daylightColor",
             "darknessColor", "darkness", "saturation", "globalLightThreshold"]) {
             if (!this.form.elements[`perfect-vision.${key}.override`].checked) {
                 delete data[`flags.perfect-vision.${key}`];
@@ -276,7 +276,7 @@ function getLightingData(scene, id) {
     data.parent = getLightingData(scene, data.parent);
     data.active = !!data.active && data.parent.active;
 
-    for (const key of ["walls", "vision", "globalLight", "sightLimit", "daylightColor",
+    for (const key of ["vision", "globalLight", "sightLimit", "daylightColor",
         "darknessColor", "darkness", "saturation", "globalLightThreshold"]) {
         if (data[key] === undefined) {
             data[key] = data.parent[key];
@@ -319,7 +319,6 @@ function updateForm(sheet) {
     parent.val(document.getFlag("perfect-vision", "parent") || "");
 
     for (const [key, defautValue] of Object.entries({
-        walls: false,
         vision: false,
         globalLight: false,
         globalLightThreshold: 0,

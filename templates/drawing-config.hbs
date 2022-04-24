@@ -78,12 +78,11 @@
         <div class="form-fields">
             <input type="checkbox" name="flags.perfect-vision.walls" {{checked data.walls}}>
             &nbsp;&nbsp;&nbsp;
-            <label class="checkbox">
-                Override <input type="checkbox" id="perfect-vision.walls.override" {{checked (ne data.walls undefined)
-                    }}>
-            </label>
+            <label class="checkbox" style="visibility: hidden;">Override <input type="checkbox"></label>
         </div>
     </div>
+
+    <hr>
 
     <div class="form-group">
         <label style="flex: 1.5;">Provides Vision</label>

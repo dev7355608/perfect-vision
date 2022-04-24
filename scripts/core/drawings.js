@@ -97,11 +97,7 @@ Drawing.prototype._pv_updateLighting = function ({ defer = false, deleted = fals
             };
         }
 
-        let walls = this.document.getFlag("perfect-vision", "walls");
-
-        if (walls !== undefined) {
-            walls = !!walls;
-        }
+        const walls = !!this.document.getFlag("perfect-vision", "walls");
 
         let vision = this.document.getFlag("perfect-vision", "vision");
 
