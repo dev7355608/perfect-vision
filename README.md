@@ -129,9 +129,8 @@ The [Advanced Drawing Tools](https://github.com/dev7355608/advanced-drawing-tool
 
 - **Active**: If enabled, lighting and vision of the area below is controlled by the following settings. If disabled, then all children (and children's children ...) of the drawing are disabled as well, even if they are set to active. If the ID, which you find next to the *Reset Defaults* button, is red, the drawing is currently inactive.
 - **Parent**: If left blank, the scene is the parent, otherwise you may choose another drawing as its parent by selecting the ID of the drawing. You find the ID of a drawing next to the *Reset Defaults* button in the *Lighting* tab. The settings below default to the parent's settings if *Override* is unchecked; settings with a *Override* checkbox are inherited from the parent unless this box is checked.
-- **Origin**: The origin of the drawing, which is set easily by clicking the crosshair button and then anywhere on the map. The origin is relative to the drawing, meaning it moves with it. The origin is only relevant if *Constrained By Walls* is enabled. The default (0.5, 0.5) is the center of the drawing.
-- **Fit To Walls**: If enabled, the area is fit to the underlying wall structure automatically.
-- **Constrained By Walls**: If enabled, the area is masked by the line-of-sight polygon originating in the origin of the area. Same setting as in the light configuration.
+- **Fit To Walls**: If enabled, the area is fit to the underlying wall structure (room/building) automatically.
+- **Constrained By Walls**: If enabled, the area is masked by the line-of-sight polygon. The origin of this polygon is set easily by clicking the crosshair button and then on the map. The origin is relative to the drawing, meaning it moves with it. The default (0.5, 0.5) is the center of the drawing.
 - **Provides Vision**: If enabled, any token has vision of this area regardless of line-of-sight restrictions. Same setting as in the light configuration.
 - **Unrestricted Vision Range**: Same setting as in the scene configuration.
 - **Sight Limit**: Same setting as in the [scene configuration](#scene-configuration).
