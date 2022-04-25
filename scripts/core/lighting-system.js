@@ -439,7 +439,7 @@ class LightingRegion {
             if (this.fit) {
                 this.fov = this._fit(this.shape);
             } else {
-                this.fov = [this.shape];
+                this.fov = this.shape.contour.length >= 6 && this.shape.area > 0 ? [this.shape] : [];
             }
 
             updateGeometry = true;
@@ -465,48 +465,50 @@ class LightingRegion {
             if (this.los) {
                 this.domain = [];
 
-                const tess = new Tess2();
+                if (this.fov.length > 0 && this.los.contour.length > 0) {
+                    const tess = new Tess2();
 
-                for (const fov of this.fov) {
-                    tess.addContours(fov.contour);
-                }
+                    for (const fov of this.fov) {
+                        tess.addContours(fov.contour);
+                    }
 
-                tess.addContours(this.los.contour);
+                    tess.addContours(this.los.contour);
 
-                const result = tess.tesselate({
-                    windingRule: Tess2.WINDING_ABS_GEQ_TWO,
-                    elementType: Tess2.BOUNDARY_CONTOURS
-                });
+                    const result = tess.tesselate({
+                        windingRule: Tess2.WINDING_ABS_GEQ_TWO,
+                        elementType: Tess2.BOUNDARY_CONTOURS
+                    });
 
-                if (result) {
-                    for (let i = 0, n = result.elementCount * 2; i < n; i += 2) {
-                        const k = result.elements[i] * 2;
-                        const m = result.elements[i + 1] * 2;
-                        const points = new Array(m);
+                    if (result) {
+                        for (let i = 0, n = result.elementCount * 2; i < n; i += 2) {
+                            const k = result.elements[i] * 2;
+                            const m = result.elements[i + 1] * 2;
+                            const points = new Array(m);
 
-                        for (let j = 0; j < m; j++) {
-                            points[j] = result.vertices[k + j];
-                        }
+                            for (let j = 0; j < m; j++) {
+                                points[j] = result.vertices[k + j];
+                            }
 
-                        let area = 0;
+                            let area = 0;
 
-                        for (let j = 0, x1 = points[m - 2], y1 = points[m - 1]; j < m; j += 2) {
-                            const x2 = points[j];
-                            const y2 = points[j + 1];
+                            for (let j = 0, x1 = points[m - 2], y1 = points[m - 1]; j < m; j += 2) {
+                                const x2 = points[j];
+                                const y2 = points[j + 1];
 
-                            area += (x2 - x1) * (y2 + y1);
+                                area += (x2 - x1) * (y2 + y1);
 
-                            x1 = x2;
-                            y1 = y2;
-                        }
+                                x1 = x2;
+                                y1 = y2;
+                            }
 
-                        if (area < 0) {
-                            this.domain.push(Region.from(new PIXI.Polygon(points)));
+                            if (area < 0) {
+                                this.domain.push(Region.from(new PIXI.Polygon(points)));
+                            }
                         }
                     }
-                }
 
-                tess.dispose();
+                    tess.dispose();
+                }
             } else {
                 this.domain = this.fov;
             }

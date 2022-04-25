@@ -762,6 +762,8 @@ export class Region {
                 points = [];
             }
 
+            this._area = w * h;
+
             return points;
         }
 
