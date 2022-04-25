@@ -235,7 +235,7 @@ Drawing.prototype._pv_getShape = function () {
         case CONST.DRAWING_TYPES.POLYGON:
             shape = new PIXI.Polygon();
 
-            if (!points || points.length < 6) {
+            if (!points || points.length < 3) {
                 break;
             }
 
@@ -249,7 +249,7 @@ Drawing.prototype._pv_getShape = function () {
         case CONST.DRAWING_TYPES.FREEHAND:
             shape = new PIXI.Polygon();
 
-            if (!points || points.length < 6) {
+            if (!points || points.length < 3) {
                 break;
             }
 
