@@ -294,15 +294,15 @@ export class SmoothGeometry extends PIXI.Geometry {
     }
 
     _buildContours(contours) {
+        contours = contours?.filter(c => c.length >= 6);
+
         if (!contours?.length) {
             return;
         }
 
         if (this.winding === "ONE") {
             for (const contour of contours) {
-                if (contour.length >= 6) {
-                    this.contours.push(Array.from(contour));
-                }
+                this.contours.push(Array.from(contour));
             }
 
             return;
@@ -310,11 +310,7 @@ export class SmoothGeometry extends PIXI.Geometry {
 
         const tess = new Tess2();
 
-        for (const contour of contours) {
-            if (contour.length >= 6) {
-                tess.addContours(contour);
-            }
-        }
+        tess.addContours(contours);
 
         const result = tess.tesselate({
             windingRule: Tess2[`WINDING_${this.winding}`],
@@ -363,12 +359,7 @@ export class SmoothGeometry extends PIXI.Geometry {
         }
 
         tess = tess ?? new Tess2();
-
-        for (const contour of this.contours) {
-            if (contour.length >= 6) {
-                tess.addContours(contour);
-            }
-        }
+        tess.addContours(this.contours);
 
         const result = tess.tesselate({
             windingRule: Tess2[`WINDING_${this.winding !== "ONE" ? this.winding : "ODD"}`],
