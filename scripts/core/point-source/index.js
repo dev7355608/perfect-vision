@@ -592,12 +592,14 @@ LightSource.prototype._pv_drawMask = function (fov, los) {
     }
 
     if (this._pv_occlusionTiles && this.data.walls) {
+        const bounds = this._pv_geometry.bounds;
+
         for (const occlusionTile of this._pv_occlusionTiles) {
             if (occlusionTile.destroyed || !occlusionTile.visible || !occlusionTile.renderable || occlusionTile.worldAlpha <= 0) {
                 continue;
             }
 
-            if (!occlusionTile.geometry.bounds.intersects(geometry.bounds)) {
+            if (!occlusionTile.geometry.bounds.intersects(bounds)) {
                 continue;
             }
 
