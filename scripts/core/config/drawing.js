@@ -22,7 +22,7 @@ Hooks.once("init", () => {
             data["flags.perfect-vision.origin.y"] = 0.5;
         }
 
-        for (const key of ["vision", "globalLight", "sightLimit", "daylightColor",
+        for (const key of ["vision", "globalLight", "sightLimit", "daylightColor", "fogExploration", "revealed",
             "darknessColor", "darkness", "saturation", "globalLightThreshold"]) {
             if (!this.form.elements[`perfect-vision.${key}.override`].checked) {
                 delete data[`flags.perfect-vision.${key}`];
@@ -249,6 +249,8 @@ function getLightingData(scene, id) {
             id: "",
             active: true,
             walls: false,
+            fogExploration: scene.data.fogExploration,
+            revealed: false,
             vision: false,
             globalLight: scene.data.globalLight,
             globalLightThreshold: scene.data.globalLightThreshold,
@@ -265,7 +267,8 @@ function getLightingData(scene, id) {
     if (!document) {
         return {
             id, active: false, walls: false, vision: false, globalLight: false, globalLightThreshold: null,
-            sightLimit: null, daylightColor: "", darknessColor: "", darkness: 0, saturation: null
+            sightLimit: null, daylightColor: "", darknessColor: "", darkness: 0, saturation: null,
+            fogExploration: false, revealed: false
         };
     }
 
@@ -276,7 +279,7 @@ function getLightingData(scene, id) {
     data.parent = getLightingData(scene, data.parent);
     data.active = !!data.active && data.parent.active;
 
-    for (const key of ["vision", "globalLight", "sightLimit", "daylightColor",
+    for (const key of ["vision", "globalLight", "sightLimit", "daylightColor", "fogExploration", "revealed",
         "darknessColor", "darkness", "saturation", "globalLightThreshold"]) {
         if (data[key] === undefined) {
             data[key] = data.parent[key];
@@ -319,6 +322,8 @@ function updateForm(sheet) {
     parent.val(document.getFlag("perfect-vision", "parent") || "");
 
     for (const [key, defautValue] of Object.entries({
+        fogExploration: false,
+        revealed: false,
         vision: false,
         globalLight: false,
         globalLightThreshold: 0,

@@ -6,7 +6,7 @@ import { SmoothGeometry, SmoothMesh } from "../utils/smooth-mesh.js";
 const inheritedKeys = {
     vision: false, globalLight: false, globalLightThreshold: null, sightLimit: Infinity,
     daylightColor: CONFIG.Canvas.daylightColor, darknessColor: CONFIG.Canvas.darknessColor,
-    darkness: 0, saturation: null
+    darkness: 0, saturation: null, fogExploration: false, revealed: false
 };
 
 export class LightingSystem {
@@ -21,7 +21,7 @@ export class LightingSystem {
     };
 
     addRegion(id, { shape, active = true, hidden = false, parent = null, fit = false, origin = null, z = 0, inset = 0,
-        walls = false, vision, globalLight, globalLightThreshold, sightLimit,
+        walls = false, vision, globalLight, globalLightThreshold, sightLimit, fogExploration, revealed,
         daylightColor, darknessColor, darkness, saturation }) {
         let region = this.regions[id];
 
@@ -38,7 +38,7 @@ export class LightingSystem {
         };
         region.data = {
             active, hidden, parent, shape, fit, z, inset, origin, walls, vision, globalLight, globalLightThreshold,
-            sightLimit, daylightColor, darknessColor, darkness, saturation
+            sightLimit, daylightColor, darknessColor, darkness, saturation, fogExploration, revealed
         };
 
         this.dirty = true;
@@ -266,8 +266,11 @@ export class LightingSystem {
 
         const region = this.activeRegions[0];
 
+        this.fogExploration = region?.fogExploration;
+        this.revealed = region?.revealed;
         this.vision = region?.vision;
         this.globalLight = region?.globalLight;
+        this.globalLightThreshold = region?.globalLightThreshold;
         this.sightLimit = region?.sightLimit;
         this.daylightColor = region?.daylightColor;
         this.darknessColor = region?.darknessColor;
@@ -276,12 +279,24 @@ export class LightingSystem {
         this.channels = region?.channels;
 
         for (const region of this.activeRegions) {
+            if (this.fogExploration !== region.fogExploration) {
+                this.fogExploration = undefined;
+            }
+
+            if (this.revealed !== region.revealed) {
+                this.revealed = undefined;
+            }
+
             if (this.vision !== region.vision) {
                 this.vision = undefined;
             }
 
             if (this.globalLight !== region.globalLight) {
                 this.globalLight = undefined;
+            }
+
+            if (this.sightLimit !== region.sightLimit) {
+                this.sightLimit = undefined;
             }
 
             if (this.daylightColor !== region.daylightColor) {
@@ -301,6 +316,10 @@ export class LightingSystem {
 
             if (this.saturationLevel !== region.saturationLevel) {
                 this.saturationLevel = undefined;
+            }
+
+            if (this.globalLightThreshold !== region.globalLightThreshold) {
+                this.globalLightThreshold = undefined;
             }
         }
 
@@ -372,6 +391,18 @@ class LightingRegion {
 
         if (this.vision !== data.vision) {
             this.vision = data.vision;
+
+            refreshVision = true;
+        }
+
+        if (this.fogExploration !== data.fogExploration) {
+            this.fogExploration = data.fogExploration;
+
+            refreshVision = true;
+        }
+
+        if (this.revealed !== data.revealed) {
+            this.revealed = data.revealed;
 
             refreshVision = true;
         }
@@ -647,11 +678,13 @@ class LightingRegion {
         return mesh;
     }
 
-    drawSight(fov, los) {
+    drawSight(fov, los, fog, revealed) {
         const geometry = this.geometry.fill;
 
         fov.draw({ geometry, hole: !this.vision && !this.globalLight });
         los.draw({ geometry, hole: !this.vision });
+        fog.draw({ geometry, hole: !this.fogExploration });
+        revealed.draw({ geometry, hole: !this.revealed });
     }
 
     _fit(region) {

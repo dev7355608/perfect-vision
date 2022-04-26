@@ -64,6 +64,7 @@ You find these settings in the *Lighting* tab.
 
 ![Scene Configuration](images/scene-config.png)
 
+- **Reveal Fog**: Reveal the fog of war. The fog is revealed even if *Fog Exploration* is disabled. Revealing the fog doesn't explore the scene automatically.
 - **Sight Limit**: Limits the sight of all tokens to the specified distance. This limit is in effect even if *Unrestricted Vision Range* is enabled. The limit can be set for each token individually in the token configuration under the *Vision* tab. You may find this script-macros useful to toggle the blindness of all controlled tokens:
 ```js
 canvas.tokens.controlled.forEach(token => {
@@ -131,6 +132,8 @@ The [Advanced Drawing Tools](https://github.com/dev7355608/advanced-drawing-tool
 - **Parent**: If left blank, the scene is the parent, otherwise you may choose another drawing as its parent by selecting the ID of the drawing. You find the ID of a drawing next to the *Reset Defaults* button in the *Lighting* tab. The settings below default to the parent's settings if *Override* is unchecked; settings with a *Override* checkbox are inherited from the parent unless this box is checked.
 - **Fit To Walls**: If enabled, the area is fit to the underlying wall structure (room/building) automatically.
 - **Constrained By Walls**: If enabled, the area is masked by the line-of-sight polygon. The origin of this polygon is set easily by clicking the crosshair button and then on the map. The origin is relative to the drawing, meaning it moves with it. The default (0.5, 0.5) is the center of the drawing.
+- **Fog Exploration**: Same setting as in the [scene configuration](#scene-configuration).
+- **Reveals Fog**: If enabled, the fog of war in this area is revealed. The fog is revealed even if *Fog Exploration* is disabled. Revealing the fog doesn't explore the area automatically. Explored areas are always revealed.
 - **Provides Vision**: If enabled, any token has vision of this area regardless of line-of-sight restrictions. Same setting as in the light configuration.
 - **Unrestricted Vision Range**: Same setting as in the scene configuration.
 - **Sight Limit**: Same setting as in the [scene configuration](#scene-configuration).

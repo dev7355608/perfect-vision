@@ -104,6 +104,18 @@ Drawing.prototype._pv_updateLighting = function ({ defer = false, deleted = fals
 
         const walls = !!this.document.getFlag("perfect-vision", "walls");
 
+        let fogExploration = this.document.getFlag("perfect-vision", "fogExploration");
+
+        if (fogExploration !== undefined) {
+            fogExploration = !!fogExploration;
+        }
+
+        let revealed = this.document.getFlag("perfect-vision", "revealed");
+
+        if (revealed !== undefined) {
+            revealed = !!revealed;
+        }
+
         let vision = this.document.getFlag("perfect-vision", "vision");
 
         if (vision !== undefined) {
@@ -170,7 +182,7 @@ Drawing.prototype._pv_updateLighting = function ({ defer = false, deleted = fals
             if (shape.strictlySimple) {
                 LightingSystem.instance.addRegion(id, {
                     active, hidden, parent, shape, fit, z, origin, walls, vision, globalLight, globalLightThreshold,
-                    sightLimit, daylightColor, darknessColor, darkness, saturation,
+                    sightLimit, daylightColor, darknessColor, darkness, saturation, fogExploration, revealed,
                     inset: canvas.dimensions._pv_inset
                 });
 
@@ -186,7 +198,7 @@ Drawing.prototype._pv_updateLighting = function ({ defer = false, deleted = fals
             if (skipUpdateShape) {
                 if (LightingSystem.instance.updateRegion(id, {
                     active, hidden, parent, fit, z, origin, walls, vision, globalLight, globalLightThreshold,
-                    sightLimit, daylightColor, darknessColor, darkness, saturation
+                    sightLimit, daylightColor, darknessColor, darkness, saturation, fogExploration, revealed
                 })) {
                     if (!defer) {
                         canvas.perception.schedule({ lighting: { refresh: true } });
@@ -198,7 +210,7 @@ Drawing.prototype._pv_updateLighting = function ({ defer = false, deleted = fals
                 if (shape.strictlySimple) {
                     if (LightingSystem.instance.updateRegion(id, {
                         active, hidden, parent, shape, fit, z, origin, walls, vision, globalLight, globalLightThreshold,
-                        sightLimit, daylightColor, darknessColor, darkness, saturation
+                        sightLimit, daylightColor, darknessColor, darkness, saturation, fogExploration, revealed
                     })) {
                         if (!defer) {
                             canvas.perception.schedule({ lighting: { refresh: true } });

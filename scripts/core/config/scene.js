@@ -4,7 +4,16 @@ Hooks.on("renderSceneConfig", (sheet, html) => {
     const sightLimit = document.getFlag("perfect-vision", "sightLimit");
     const forceSaturation = document.getFlag("perfect-vision", "forceSaturation");
     const saturation = forceSaturation !== undefined && !forceSaturation ? null : (document.getFlag("perfect-vision", "saturation") ?? null);
+    const revealed = document.getFlag("perfect-vision", "revealed");
 
+    html.find(`input[name="globalLight"]`).closest(".form-group").before(`\
+        <div class="form-group">
+            <label>Reveal Fog</label>
+            <input type="checkbox" name="flags.perfect-vision.revealed" ${revealed ? "checked" : ""}>
+            <p class="notes">
+                Reveal the fog of war. The fog is revealed even if Fog Exploration is disabled. Revealing the fog doesn't explore the Scene automatically.
+            </p>
+        </div>`);
     html.find(`input[name="globalLight"]`).closest(".form-group").after(`\
         <div class="form-group">
             <label>Sight Limit <span class="units">(${document.data.gridUnits || "Grid Units"})</span></label>

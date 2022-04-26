@@ -18,6 +18,9 @@ Hooks.once("init", () => {
         this.filter.resolution = canvas.app.renderer.resolution;
         this.filterArea = canvas.app.renderer.screen;
 
+        this._pv_revealed = this.revealed.addChild(new PIXI.LegacyGraphics().beginFill(0xFFFFFF).drawShape(this._pv_bgRect).endFill());
+        this._pv_revealed.mask = this._pv_revealed.addChild(new StencilMask());
+
         this._pv_circle = new Region(new PIXI.Circle(0, 0, canvas.dimensions.size)).contour;
 
         for (let i = 0; i < this._pv_circle.length; i++) {
@@ -55,6 +58,10 @@ Hooks.once("init", () => {
         return this;
     });
 
+    patch("SightLayer.prototype.fogExploration", "OVERRIDE", function () {
+        return LightingSystem.instance.fogExploration !== false;
+    });
+
     patch("SightLayer.prototype.tearDown", "WRAPPER", async function (wrapped, ...args) {
         if (this._pv_exactVisibility) {
             SightSystem.instance.off("vision", this._pv_debounceRestrictVisibility);
@@ -78,6 +85,7 @@ Hooks.once("init", () => {
 
         c._pv_fov = c.addChild(new StencilMask());
         c._pv_los = c.addChild(new StencilMask());
+        c._pv_fog = new StencilMask();
         c._pv_rect = c.addChild(new PIXI.LegacyGraphics().beginFill(0xFFFFFF).drawShape(this._pv_bgRect).endFill());
         c._pv_rect.mask = new StencilMaskData(c._pv_fov);
         c.mask = new StencilMaskData(c._pv_los);
@@ -120,7 +128,11 @@ Hooks.once("init", () => {
         this.explored.removeChild(prior);
 
         if (prior._explored && !skipUpdateFog) {
-            this.pending.addChild(prior);
+            const c = new PIXI.Container();
+
+            c.addChild(prior);
+            c.mask = c.addChild(prior._pv_fog);
+            this.pending.addChild(c);
 
             commitFog = this.pending.children.length >= this.constructor.FOG_COMMIT_THRESHOLD;
         } else {
@@ -133,6 +145,8 @@ Hooks.once("init", () => {
         let los;
         const fovMask = vision._pv_fov;
         const losMask = vision._pv_los;
+        const fogMask = vision._pv_fog;
+        const revealed = this._pv_revealed.mask;
         const visionTexture = !this.fogExploration && LightingSystem.instance.globalLight !== undefined;
         const exactVisibility = this._pv_exactVisibility;
 
@@ -149,6 +163,8 @@ Hooks.once("init", () => {
             this.explored.addChild(this._pv_vision);
         }
 
+        revealed.clear();
+
         // Draw standard vision sources
         let inBuffer = canvas.scene.data.padding === 0;
 
@@ -157,8 +173,10 @@ Hooks.once("init", () => {
                 if (region.id === "Scene") {
                     fovMask.draw({ hole: !region.vision && !region.globalLight });
                     losMask.draw({ hole: !region.vision });
+                    fogMask.draw({ hole: !region.fogExploration });
+                    revealed.draw({ hole: !region.revealed });
                 } else {
-                    region.drawSight(fovMask, losMask);
+                    region.drawSight(fovMask, losMask, fogMask, revealed);
                 }
             }
 
@@ -170,6 +188,25 @@ Hooks.once("init", () => {
                 los.push({
                     contours: region.contours,
                     hole: !region.vision
+                });
+            }
+        }
+
+        if (LightingSystem.instance.revealed === undefined) {
+            for (const roof of canvas.foreground.roofs) {
+                const geometry = roof._pv_getGeometry();
+
+                if (!geometry || !roof.texture) {
+                    continue;
+                }
+
+                const region = roof._pv_region;
+
+                revealed.draw({
+                    geometry: new GeometrySegment(geometry, geometry.drawMode, 4, 0),
+                    texture: roof.texture,
+                    threshold: 0.75,
+                    hole: !region.revealed
                 });
             }
         }
@@ -394,6 +431,14 @@ Hooks.once("init", () => {
         }
 
         return false;
+    });
+
+    patch("SightLayer.prototype.commitFog", "WRAPPER", function (wrapped, ...args) {
+        this._pv_revealed.visible = false;
+
+        wrapped(...args);
+
+        this._pv_revealed.visible = true;
     });
 
     patch("FogExploration.prototype.explore", "OVERRIDE", function (source, force = false) {

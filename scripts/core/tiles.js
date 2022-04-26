@@ -26,6 +26,16 @@ Hooks.once("init", () => {
     });
 
     patch("Tile.prototype.refresh", "WRAPPER", function (wrapped, ...args) {
+        if (this._pv_geometry) {
+            this._pv_geometry.refCount--;
+
+            if (this._pv_geometry.refCount === 0) {
+                this._pv_geometry.dispose();
+            }
+
+            this._pv_geometry = null;
+        }
+
         wrapped(...args);
 
         if (this._alphaMap?.texture) {
@@ -136,6 +146,16 @@ Hooks.once("init", () => {
             if (dispose) {
                 CanvasFramebuffer.get("occlusionRadial").dispose();
             }
+        }
+
+        if (this._pv_geometry) {
+            this._pv_geometry.refCount--;
+
+            if (this._pv_geometry.refCount === 0) {
+                this._pv_geometry.dispose();
+            }
+
+            this._pv_geometry = null;
         }
     });
 });
@@ -260,6 +280,79 @@ Tile.prototype._pv_createSprite = function ({ shader, blendMode, blendColor, col
     }
 
     return sprite;
+};
+
+Tile.prototype._pv_getGeometry = function () {
+    if (this._pv_geometry) {
+        return this._pv_geometry;
+    }
+
+    if (!this.tile || !this.texture) {
+        return null;
+    }
+
+    this.tile.transform.updateLocalTransform();
+
+    const data = new Float32Array(16);
+    const trim = this.texture.trim;
+    const orig = this.texture.orig;
+    const uvs = this.texture._uvs.uvsFloat32;
+    const anchor = this.tile.anchor;
+    const { a, b, c, d, tx, ty } = this.tile.transform.localTransform;
+    const { x, y } = this.data;
+
+    let w0 = 0;
+    let w1 = 0;
+    let h0 = 0;
+    let h1 = 0;
+
+    if (trim) {
+        w1 = trim.x - anchor.x * orig.width;
+        w0 = w1 + trim.width;
+
+        h1 = trim.y - anchor.y * orig.height;
+        h0 = h1 + trim.height;
+    } else {
+        w1 = -anchor.x * orig.width;
+        w0 = w1 + orig.width;
+
+        h1 = -anchor.y * orig.height;
+        h0 = h1 + orig.height;
+    }
+
+    data[0] = a * w1 + c * h1 + tx + x;
+    data[1] = d * h1 + b * w1 + ty + y;
+    data[2] = uvs[0];
+    data[3] = uvs[1];
+    data[4] = a * w0 + c * h1 + tx + x;
+    data[5] = d * h1 + b * w0 + ty + y;
+    data[6] = uvs[2];
+    data[7] = uvs[3];
+    data[8] = a * w0 + c * h0 + tx + x;
+    data[9] = d * h0 + b * w0 + ty + y;
+    data[10] = uvs[4];
+    data[11] = uvs[5];
+    data[12] = a * w1 + c * h0 + tx + x;
+    data[13] = d * h0 + b * w1 + ty + y;
+    data[14] = uvs[6];
+    data[15] = uvs[7];
+
+    const xMin = Math.min(data[0], data[4], data[8], data[12]);
+    const xMax = Math.max(data[0], data[4], data[8], data[12]);
+    const yMin = Math.min(data[1], data[5], data[9], data[13]);
+    const yMax = Math.max(data[1], data[5], data[9], data[13]);
+    const bounds = new PIXI.Rectangle(xMin, yMin, xMax - xMin, yMax - yMin);
+
+    const buffer = new PIXI.Buffer(data, true, false);
+    const geometry = new PIXI.Geometry()
+        .addAttribute("aVertexPosition", buffer, 2, false, PIXI.TYPES.FLOAT)
+        .addAttribute("aTextureCoord", buffer, 2, false, PIXI.TYPES.FLOAT);
+
+    geometry.drawMode = PIXI.DRAW_MODES.TRIANGLE_FAN;
+    geometry.bounds = bounds;
+    geometry.refCount++;
+
+    return this._pv_geometry = geometry;
 };
 
 Tile.prototype._pv_createRoofSprite = function (shader) {

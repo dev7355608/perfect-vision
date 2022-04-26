@@ -291,7 +291,7 @@ Hooks.once("canvasInit", () => {
 
 Hooks.on("updateScene", (document, change, options, userId) => {
     if (!document.isView || !canvas.ready || !("globalLight" in change || "globalLightThreshold" in change || "darkness" in change
-        || hasChanged(change, "flags.perfect-vision"))) {
+        || "fogExploration" in change || hasChanged(change, "flags.perfect-vision"))) {
         return;
     }
 
@@ -299,6 +299,8 @@ Hooks.on("updateScene", (document, change, options, userId) => {
 });
 
 LightingLayer.prototype._pv_updateLighting = function ({ defer = false } = {}) {
+    const revealed = !!canvas.scene.getFlag("perfect-vision", "revealed");
+
     let sightLimit = canvas.scene.getFlag("perfect-vision", "sightLimit");
 
     sightLimit = Number.isFinite(sightLimit)
@@ -337,14 +339,16 @@ LightingLayer.prototype._pv_updateLighting = function ({ defer = false } = {}) {
             globalLight: canvas.scene.data.globalLight,
             globalLightThreshold: canvas.scene.data.globalLightThreshold,
             darkness: canvas.scene.data.darkness,
-            sightLimit, daylightColor, darknessColor, saturation
+            sightLimit, daylightColor, darknessColor, saturation,
+            fogExploration: canvas.scene.data.fogExploration, revealed
         });
     } else {
         LightingSystem.instance.updateRegion("Scene", {
             globalLight: canvas.scene.data.globalLight,
             globalLightThreshold: canvas.scene.data.globalLightThreshold,
             darkness: canvas.scene.data.darkness,
-            sightLimit, daylightColor, darknessColor, saturation
+            sightLimit, daylightColor, darknessColor, saturation,
+            fogExploration: canvas.scene.data.fogExploration, revealed
         });
     }
 

@@ -121,7 +121,7 @@ Hooks.once("ready", () => {
         config: false,
     });
 
-    const next = 8;
+    const next = 9;
     let current = game.settings.get("perfect-vision", "popup");
 
     if (game.user.isGM && current < next) {
@@ -139,6 +139,13 @@ Hooks.once("ready", () => {
             <hr>
             `;
 
+        content += templates[current < 9]
+            .replace("%HEAD%", "v3.9 (Fog Exploration & Reveal Fog)")
+            .replace("%BODY%", `\
+                <ul>
+                    <li>Added the lighting drawing option <i>Fog Exploration</i>, which allows you to enable or disable <i>Fog Exploration</i> locally.</li>
+                    <li>Added the scene setting and lighting drawing option <i>Reveal Fog</i>. If enabled, the fog of war in the scene or area is revealed. The fog is revealed even if <i>Fog Exploration</i> is disabled. Revealing the fog doesn't explore it automatically. Explored areas are always revealed.</li>
+                </ul>`);
         content += templates[current < 8]
             .replace("%HEAD%", "v3.8 (Fit To Walls)")
             .replace("%BODY%", `\
