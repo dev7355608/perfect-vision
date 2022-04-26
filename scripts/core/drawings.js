@@ -243,7 +243,7 @@ Drawing.prototype._pv_getShape = function () {
                 shape.points.push(point[0], point[1]);
             }
 
-            Region.dedupPolygon(shape);
+            Region.dedupePolygon(shape);
 
             break;
         case CONST.DRAWING_TYPES.FREEHAND:
@@ -257,7 +257,7 @@ Drawing.prototype._pv_getShape = function () {
                 shape.points.push(point[0], point[1]);
             }
 
-            Region.dedupPolygon(shape);
+            Region.dedupePolygon(shape);
             Region.smoothPolygon(shape, this.data.bezierFactor ?? 0.5);
 
             break;

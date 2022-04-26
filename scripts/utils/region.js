@@ -209,7 +209,7 @@ export class Region {
             const points = shape.points;
 
             this.constructor.roundPolygon(points);
-            this.constructor.dedupPolygon(points);
+            this.constructor.dedupePolygon(points);
             this.constructor.cleanPolygon(points);
 
             let m = points.length;
@@ -895,7 +895,7 @@ export class Region {
         }
 
         this.constructor.roundPolygon(points);
-        this.constructor.dedupPolygon(points);
+        this.constructor.dedupePolygon(points);
         this.constructor.cleanPolygon(points);
 
         m = points.length;
@@ -953,7 +953,7 @@ export class Region {
         return polygon;
     }
 
-    static dedupPolygon(points) {
+    static dedupePolygon(points) {
         const polygon = points;
 
         if (!(points instanceof Array)) {
