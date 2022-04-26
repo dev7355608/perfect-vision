@@ -2,6 +2,7 @@ import { patch } from "../utils/patch.js";
 import { hasChanged } from "../utils/helpers.js";
 import { Region } from "../utils/region.js";
 import { LightingSystem } from "./lighting-system.js";
+import { Logger } from "../utils/logger.js";
 
 Hooks.once("init", () => {
     patch("Drawing.prototype.draw", "WRAPPER", async function (wrapped, ...args) {
@@ -18,6 +19,8 @@ Hooks.once("init", () => {
         if (this.destroyed || this.shape.destroyed || !this.id) {
             return this;
         }
+
+        this._pv_refreshWarning();
 
         if (LightingSystem.instance.updateRegion(`Drawing.${this.document.id}`, { hidden: !!this.skipRender })) {
             canvas.perception.schedule({ lighting: { refresh: true } });
@@ -61,6 +64,8 @@ const tempMatrix = new PIXI.Matrix();
 Drawing.prototype._pv_updateLighting = function ({ defer = false, deleted = false, skipUpdateShape = false } = {}) {
     const id = `Drawing.${this.document.id}`;
     let active;
+
+    this._pv_invalid = false;
 
     if (!deleted && (active = !!this.document.getFlag("perfect-vision", "active"))) {
         const hidden = !!this.skipRender /* Levels */;
@@ -174,6 +179,8 @@ Drawing.prototype._pv_updateLighting = function ({ defer = false, deleted = fals
                 }
             } else {
                 ui.notifications.error(`[Perfect Vision] ${id} is invalid!`);
+                Logger.warn(`${id} is invalid!`);
+                this._pv_invalid = true;
             }
         } else {
             if (skipUpdateShape) {
@@ -199,6 +206,8 @@ Drawing.prototype._pv_updateLighting = function ({ defer = false, deleted = fals
                     }
                 } else {
                     ui.notifications.error(`[Perfect Vision] ${id} is invalid!`);
+                    Logger.warn(`${id} is invalid!`);
+                    this._pv_invalid = true;
 
                     if (LightingSystem.instance.deleteRegion(id)) {
                         if (!defer) {
@@ -214,6 +223,27 @@ Drawing.prototype._pv_updateLighting = function ({ defer = false, deleted = fals
                 canvas.perception.schedule({ lighting: { refresh: true } });
             }
         }
+    }
+
+    this._pv_refreshWarning();
+};
+
+Drawing.prototype._pv_refreshWarning = function () {
+    if (this._pv_invalid) {
+        if (!this._pv_invalidWarning || this._pv_invalidWarning.destroyed) {
+            this._pv_invalidWarning = this.addChildAt(PIXI.Sprite.from("icons/svg/hazard.svg"), 0);
+        }
+
+        const { width, height } = this.data;
+
+        this._pv_invalidWarning.width = width;
+        this._pv_invalidWarning.height = height;
+    } else if (this._pv_invalidWarning) {
+        if (!this._pv_invalidWarning.destroyed) {
+            this._pv_invalidWarning.destroy();
+        }
+
+        this._pv_invalidWarning = null;
     }
 };
 
