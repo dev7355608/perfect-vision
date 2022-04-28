@@ -174,10 +174,15 @@ Hooks.once("init", () => {
                     fovMask.draw({ hole: !region.vision && !region.globalLight });
                     losMask.draw({ hole: !region.vision });
                     fogMask.draw({ hole: !region.fogExploration });
-                    revealed.draw({ hole: !region.revealed });
                 } else {
-                    region.drawSight(fovMask, losMask, fogMask, revealed);
+                    region.drawSight(fovMask, losMask, fogMask);
                 }
+            }
+
+            if (region.id === "Scene") {
+                revealed.draw({ hole: !region.revealed });
+            } else {
+                region.drawRevealed(revealed);
             }
 
             if (exactVisibility) {
