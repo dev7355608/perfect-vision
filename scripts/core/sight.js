@@ -19,7 +19,7 @@ Hooks.once("init", () => {
         this.filterArea = canvas.app.renderer.screen;
 
         this._pv_revealed = this.revealed.addChild(new PIXI.LegacyGraphics().beginFill(0xFFFFFF).drawShape(this._pv_bgRect).endFill());
-        this._pv_revealed.mask = this._pv_revealed.addChild(new StencilMask());
+        this._pv_revealed.mask = this._pv_revealed.msk = this._pv_revealed.addChild(new StencilMask());
 
         this._pv_circle = new Region(new PIXI.Circle(0, 0, canvas.dimensions.size)).contour;
 
@@ -85,7 +85,7 @@ Hooks.once("init", () => {
 
         c._pv_fov = c.addChild(new StencilMask());
         c._pv_los = c.addChild(new StencilMask());
-        c._pv_fog = new StencilMask();
+        c._pv_fog = LightingSystem.instance.fogExploration === undefined ? new StencilMask() : null;
         c._pv_rect = c.addChild(new PIXI.LegacyGraphics().beginFill(0xFFFFFF).drawShape(this._pv_bgRect).endFill());
         c._pv_rect.mask = new StencilMaskData(c._pv_fov);
         c.mask = new StencilMaskData(c._pv_los);
@@ -128,11 +128,15 @@ Hooks.once("init", () => {
         this.explored.removeChild(prior);
 
         if (prior._explored && !skipUpdateFog) {
-            const c = new PIXI.Container();
+            if (!prior._pv_fog) {
+                this.pending.addChild(prior);
+            } else {
+                const c = new PIXI.Container();
 
-            c.addChild(prior);
-            c.mask = c.addChild(prior._pv_fog);
-            this.pending.addChild(c);
+                c.addChild(prior);
+                c.mask = c.addChild(prior._pv_fog);
+                this.pending.addChild(c);
+            }
 
             commitFog = this.pending.children.length >= this.constructor.FOG_COMMIT_THRESHOLD;
         } else {
@@ -146,7 +150,7 @@ Hooks.once("init", () => {
         const fovMask = vision._pv_fov;
         const losMask = vision._pv_los;
         const fogMask = vision._pv_fog;
-        const revealed = this._pv_revealed.mask;
+        const revealed = this._pv_revealed.msk;
         const visionTexture = !this.fogExploration && LightingSystem.instance.globalLight !== undefined;
         const exactVisibility = this._pv_exactVisibility;
 
@@ -173,7 +177,7 @@ Hooks.once("init", () => {
                 if (region.id === "Scene") {
                     fovMask.draw({ hole: !region.vision && !region.globalLight });
                     losMask.draw({ hole: !region.vision });
-                    fogMask.draw({ hole: !region.fogExploration });
+                    fogMask?.draw({ hole: !region.fogExploration });
                 } else {
                     region.drawSight(fovMask, losMask, fogMask);
                 }
@@ -181,7 +185,7 @@ Hooks.once("init", () => {
 
             if (region.id === "Scene") {
                 revealed.draw({ hole: !region.revealed });
-            } else {
+            } else if (LightingSystem.instance.revealed === undefined) {
                 region.drawRevealed(revealed);
             }
 
@@ -287,6 +291,9 @@ Hooks.once("init", () => {
             this.explored.mask = noMask ? null : this.explored.msk;
             this.explored.msk.visible = !noMask;
         }
+
+        this._pv_revealed.visible = LightingSystem.instance.revealed !== false;
+        this._pv_revealed.mask = LightingSystem.instance.revealed === undefined ? this._pv_revealed.msk : null;
 
         // Restrict the visibility of other canvas objects
         this._inBuffer = inBuffer;
@@ -439,11 +446,13 @@ Hooks.once("init", () => {
     });
 
     patch("SightLayer.prototype.commitFog", "WRAPPER", function (wrapped, ...args) {
+        const visible = this._pv_revealed.visible;
+
         this._pv_revealed.visible = false;
 
         wrapped(...args);
 
-        this._pv_revealed.visible = true;
+        this._pv_revealed.visible = visible;
     });
 
     patch("FogExploration.prototype.explore", "OVERRIDE", function (source, force = false) {

@@ -683,7 +683,7 @@ class LightingRegion {
 
         fov.draw({ geometry, hole: !this.vision && !this.globalLight });
         los.draw({ geometry, hole: !this.vision });
-        fog.draw({ geometry, hole: !this.fogExploration });
+        fog?.draw({ geometry, hole: !this.fogExploration });
     }
 
     drawRevealed(revealed) {
