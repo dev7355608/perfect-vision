@@ -860,7 +860,18 @@ class LightingFramebuffer extends CanvasFramebuffer {
             roofs.addChild(sprite);
         }
 
-        roofs.visible = roofs.children.length !== 0;
+        regions.visible = regions.children.length !== 0
+            && !(LightingSystem.instance.vision !== undefined
+                && LightingSystem.instance.globalLight !== undefined
+                && LightingSystem.instance.darknessLevel !== undefined
+                && LightingSystem.instance.saturationLevel !== undefined
+                && LightingSystem.instance.daylightColor !== undefined
+                && LightingSystem.instance.darknessColor !== undefined);
+        roofs.visible = roofs.children.length !== 0
+            && !(LightingSystem.instance.darknessLevel !== undefined
+                && LightingSystem.instance.saturationLevel !== undefined
+                && LightingSystem.instance.daylightColor !== undefined
+                && LightingSystem.instance.darknessColor !== undefined);
 
         this.acquire();
         this.invalidate();
