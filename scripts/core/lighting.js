@@ -867,11 +867,7 @@ class LightingFramebuffer extends CanvasFramebuffer {
                 && LightingSystem.instance.saturationLevel !== undefined
                 && LightingSystem.instance.daylightColor !== undefined
                 && LightingSystem.instance.darknessColor !== undefined);
-        roofs.visible = roofs.children.length !== 0
-            && !(LightingSystem.instance.darknessLevel !== undefined
-                && LightingSystem.instance.saturationLevel !== undefined
-                && LightingSystem.instance.daylightColor !== undefined
-                && LightingSystem.instance.darknessColor !== undefined);
+        roofs.visible = roofs.children.length !== 0;
 
         this.acquire();
         this.invalidate();
