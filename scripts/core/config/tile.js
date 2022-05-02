@@ -1,4 +1,9 @@
 Hooks.on("renderTileConfig", (sheet, html) => {
+    // TODO: Remove once the Parallaxia bug is fixed
+    if (html.find(`select[name="flags.perfect-vision.lighting"]`).length > 0) {
+        return;
+    }
+
     const document = sheet.object;
     const scene = document.parent;
     const drawings = new Map();
