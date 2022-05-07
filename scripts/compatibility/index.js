@@ -1,5 +1,6 @@
 import "./betterroofs.js";
 import "./combatbooster.js";
+import "./enhanced-terrain-layer.js";
 import "./fogmanager.js";
 import "./fxmaster.js";
 import "./levels.js";
