@@ -423,25 +423,19 @@ Hooks.once("init", () => {
             radiusMin: this._pv_minRadius,
             source: this
         });
-        // TODO: calculate intersection instead
-        this.constrainedLos = CONFIG.Canvas.losBackend.create(origin, {
-            type: "sight",
-            angle: this.data.angle,
-            rotation: this.data.rotation,
-            radius: radiusSight,
-            radiusMin: this._pv_minRadius,
-            source: this
-        });
+        this.constrainedLos = constrainLos(this.los, radiusSight);
 
         // Store the FOV circle
         this.fov = new PIXI.Circle(origin.x, origin.y, radiusSight);
 
-        this._pv_fov = this.fov ? Region.from(this.fov) : null;
-        this._pv_los = this.los ? Region.from(this.los) : null;
-        this._pv_constrainedLos = this.constrainedLos ? Region.from(this.constrainedLos) : null;
+        this._pv_fov = Region.from(this.fov);
+        this._pv_los = Region.from(this.los);
+        this._pv_constrainedLos = this.constrainedLos !== this.los ? Region.from(this.constrainedLos) : this._pv_los;
 
         this._pv_losGeometry = new PointSourceGeometry([this._pv_los.contour], canvas.dimensions._pv_inset, "ONE");
-        this._pv_constrainedLosGeometry = new PointSourceGeometry([this._pv_constrainedLos.contour], canvas.dimensions._pv_inset, "ONE");
+        this._pv_constrainedLosGeometry = this._pv_constrainedLos !== this._pv_los
+            ? new PointSourceGeometry([this._pv_constrainedLos.contour], canvas.dimensions._pv_inset, "ONE")
+            : this._pv_losGeometry;
         this._pv_geometry = this.radius === radiusSight
             ? this._pv_constrainedLosGeometry
             : new PointSourceGeometry([this._pv_los.contour, Region.from(new PIXI.Circle(origin.x, origin.y, this.radius)).contour], canvas.dimensions._pv_inset, "ABS_GEQ_TWO");
@@ -862,4 +856,129 @@ class VisionSourceShader extends PIXI.Shader {
     update(renderer, mesh) {
         this.uniforms.translationMatrixInverse = mesh.worldTransformInverse.toArray(true);
     }
+}
+
+function constrainLos(polygon, radius) {
+    if (radius >= polygon.config.radius) {
+        return polygon;
+    }
+
+    if (radius <= 0) {
+        return new PIXI.Polygon();
+    }
+
+    const { origin, points } = polygon;
+    const { x: x0, y: y0 } = origin;
+    const m = points.length;
+    const rr = radius * radius;
+    const cp = [];
+    const sa = Math.PI / (polygon.config.density * Math.sqrt(radius / polygon.config.radius));
+    let x1 = points[m - 2] - x0;
+    let y1 = points[m - 1] - y0;
+
+    for (let i = 0; i < m; i += 2) {
+        const x2 = points[i] - x0;
+        const y2 = points[i + 1] - y0;
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const dd = x1 * x1 + y1 * y1;
+        const a = dx * dx + dy * dy;
+        const b = dx * x1 + dy * y1;
+        const c = dd - rr;
+        const d1 = b * b - a * c;
+
+        if (a === 0) {
+            continue;
+        }
+
+        if (c <= 0) {
+            if (x0 + x1 !== cp[cp.length - 2] || y0 + y1 !== cp[cp.length - 1]) {
+                cp.push(x0 + x1, y0 + y1);
+            }
+        }
+
+        if (d1 >= 0) {
+            const d2 = Math.sqrt(d1);
+            let t1 = (-b - d2) / a;
+            let t2 = (-b + d2) / a;
+
+            if (t2 <= -1e-6 || t2 >= 1 + 1e-6) {
+                t2 = NaN;
+            } else {
+                t2 = Math.clamped(t2, 0, 1);
+            }
+
+            if (t1 <= -1e-6 || t1 >= 1 + 1e-6) {
+                [t1, t2] = [t2, NaN];
+            } else {
+                t1 = Math.clamped(t1, 0, 1);
+            }
+
+            if (t1 === t1) {
+                const xt1 = x0 + (x1 + dx * t1);
+                const yt1 = y0 + (y1 + dy * t1);
+
+                if (c > 0) {
+                    const a0 = Math.atan2(cp[cp.length - 1] - y0, cp[cp.length - 2] - x0);
+                    const a1 = Math.atan2(yt1 - y0, xt1 - x0);
+                    const da = a1 - a0 + (a1 < a0 ? Math.PI * 2 : 0);
+                    const na = Math.ceil(da / sa);
+
+                    for (let j = 1; j < na; j++) {
+                        const a = a0 + da * (j / na);
+
+                        cp.push(
+                            x0 + Math.cos(a) * radius,
+                            y0 + Math.sin(a) * radius
+                        );
+                    }
+                }
+
+                if (xt1 !== cp[cp.length - 2] || yt1 !== cp[cp.length - 1]) {
+                    cp.push(xt1, yt1);
+                }
+
+                if (t2 > t1) {
+                    const xt2 = x0 + (x1 + dx * t2);
+                    const yt2 = y0 + (y1 + dy * t2);
+
+                    if (xt2 !== xt1 || yt2 !== yt1) {
+                        cp.push(xt2, yt2);
+                    }
+                }
+            }
+        }
+
+        x1 = x2;
+        y1 = y2;
+    }
+
+    if (cp.length === 0) {
+        const na = Math.ceil(Math.PI * 2 / sa);
+
+        for (let j = 0; j < na; j++) {
+            const a = Math.PI * 2 * (j / na);
+
+            cp.push(
+                x0 + Math.cos(a) * radius,
+                y0 + Math.sin(a) * radius
+            );
+        }
+    } else if (x1 * x1 + y1 * y1 - rr > 0) {
+        const a0 = Math.atan2(cp[cp.length - 1] - y0, cp[cp.length - 2] - x0);
+        const a1 = Math.atan2(cp[1] - y0, cp[0] - x0);
+        const da = a1 - a0 + (a1 < a0 ? Math.PI * 2 : 0);
+        const na = Math.ceil(da / sa);
+
+        for (let j = 1; j < na; j++) {
+            const a = a0 + da * (j / na);
+
+            cp.push(
+                x0 + Math.cos(a) * radius,
+                y0 + Math.sin(a) * radius
+            );
+        }
+    }
+
+    return new PIXI.Polygon(cp);
 }
