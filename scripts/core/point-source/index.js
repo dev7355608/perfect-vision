@@ -685,6 +685,7 @@ class LightSourceShader extends PIXI.Shader {
         uniform bool uDarkness;
 
         ${game.modules.get("levels")?.active ? "#define OCCLUSION_MASK" : ""}
+        ${game.modules.get("lightmask")?.active ? "#define LIGHT_MASK" : ""}
 
         #ifdef OCCLUSION_MASK
         uniform sampler2D uOcclusionMaskSampler;
@@ -693,6 +694,10 @@ class LightSourceShader extends PIXI.Shader {
         float occlusionMaskAlpha(vec2 worldPosition) {
             return texture(uOcclusionMaskSampler, (worldPosition - uOcclusionMaskFrame.xy) / uOcclusionMaskFrame.zw).r;
         }
+        #endif
+
+        #ifdef LIGHT_MASK
+        uniform float uSmoothness;
         #endif
 
         layout(location = 0) out vec3 textures[1];
@@ -719,8 +724,17 @@ class LightSourceShader extends PIXI.Shader {
             float alpha2 = alpha1;
 
             if (uGradual) {
+                #ifdef LIGHT_MASK
+                dist = min(dist, 1.0);
+                #endif
+
                 alpha2 *= fade(dist * dist);
             }
+            #ifdef LIGHT_MASK
+            else {
+                alpha2 = min(alpha2, smoothstep(uRadius, uRadius - uSmoothness, length(localPosition)));
+            }
+            #endif
 
             textures[0] = vec3(alpha1, alpha1, alpha2);
         }`;
@@ -741,7 +755,8 @@ class LightSourceShader extends PIXI.Shader {
             uGradual: false,
             uDarkness: false,
             uOcclusionMaskSampler: PIXI.Texture.WHITE,
-            uOcclusionMaskFrame: new Float32Array(4)
+            uOcclusionMaskFrame: new Float32Array(4),
+            uSmoothness: 0
         });
 
         this.source = source;
@@ -774,6 +789,8 @@ class LightSourceShader extends PIXI.Shader {
 
         occlusionMaskFrame[2] = occlusionMaskTexture.width;
         occlusionMaskFrame[3] = occlusionMaskTexture.height;
+
+        uniforms.uSmoothness = canvas.dimensions._pv_inset;
     }
 }
 

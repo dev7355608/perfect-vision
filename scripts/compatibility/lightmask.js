@@ -26,31 +26,20 @@ Hooks.once("init", () => {
     function updateShaderUniforms(wrapped, shader) {
         wrapped(shader);
 
-        let shape = 0;
+        let shape = -1;
         let rotation = (this.data.rotation * Math.PI / 180) % (Math.PI * 2);
+        const sides = Math.max(this.object.document.getFlag("lightmask", "sides") || 3, 3);
 
         switch (this.object.document.getFlag("lightmask", "shape")) {
-            case "triangle":
-                shape = 1;
+            case "polygon":
+                shape = Math.min(2, sides - 3) + Math.max(sides - 5, 0) * 2;
                 break;
-            case "square":
-                shape = 2;
-                break;
-            case "pentagon":
-                shape = 3;
-                break;
-            case "pentagram":
-                shape = 4;
-                break;
-            case "hexagon":
-                shape = 5;
-                break;
-            case "hexagram":
-                shape = 6;
+            case "star":
+                shape = 3 + (Math.max(sides, 5) - 5) * 2;
                 break;
         }
 
-        if (shape === 0) {
+        if (shape === -1) {
             rotation = 0;
         }
 

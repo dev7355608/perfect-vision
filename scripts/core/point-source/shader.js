@@ -1,55 +1,46 @@
 import { CanvasFramebuffer } from "../../utils/canvas-framebuffer.js";
 import { Logger } from "../../utils/logger.js";
 
-function generateDistanceFunction(functionName, n, k) {
-    const toFloatLiteral = x => {
-        x = Math.fround(x);
-
-        if (Math.abs(x) < 1e-8) {
-            return "0.0";
-        }
-
-        for (let n = 17; n > 0; n--) {
-            if (x !== Math.fround(x.toFixed(n))) {
-                return x.toFixed(n + 1);
-            }
-        }
-
-        return x.toFixed(1);
-    };
-
-    functionName = functionName.replace(/%n%/gm, n).replace(/%k%/gm, k);
+function getDistanceFunctionFactors(n, k) {
+    let s, t;
 
     if (k === 1) {
-        return `\
-        float ${functionName}(vec2 p, vec2 q, float r) {
-            vec2 v = p - q;
-            float a = atan(v.y, v.x) - r + ${n % 4 ? (n % 2 ? toFloatLiteral(Math.PI / 2) : "0.0") : toFloatLiteral(Math.PI / n)};
-            return ${toFloatLiteral(Math.hypot(1, Math.tan(Math.PI / n)))} * cos(a - (floor(a * ${toFloatLiteral(n / (Math.PI * 2))}) + 0.5) * ${toFloatLiteral(Math.PI * 2 / n)}) * length(v);
-        }`;
+        s = Math.hypot(1, Math.tan(Math.PI / n));
+        t = 0;
+    } else {
+        const a = Math.PI * 2 / n;
+        const p = foundry.utils.lineLineIntersection(
+            { x: 1, y: 0 },
+            { x: Math.cos(a * k), y: Math.sin(a * k) },
+            { x: Math.cos(a), y: Math.sin(a) },
+            { x: Math.cos(a * (1 - k)), y: Math.sin(a * (1 - k)) }
+        );
+        const r = Math.hypot(p.x, p.y);
+        const c = Math.cos(Math.PI / n);
+        const d = r * (c * c - 1);
+
+        s = (r * c - 1) / d;
+        t = (r - c) / d;
     }
 
-    const a = Math.PI * 2 / n;
-    const p = foundry.utils.lineLineIntersection(
-        { x: 1, y: 0 },
-        { x: Math.cos(a * k), y: Math.sin(a * k) },
-        { x: Math.cos(a), y: Math.sin(a) },
-        { x: Math.cos(a * (1 - k)), y: Math.sin(a * (1 - k)) }
-    );
-    const r = Math.hypot(p.x, p.y);
-    const c = Math.cos(Math.PI / n);
-    const d = r * (c * c - 1);
-    const s = (r * c - 1) / d;
-    const t = (r - c) / d;
-
-    return `\
-        float ${functionName}(vec2 p, vec2 q, float r) {
-            vec2 v = p - q;
-            float a = atan(v.y, v.x) - r + ${n % 4 ? (n % 2 ? toFloatLiteral(Math.PI / 2) : "0.0") : toFloatLiteral(Math.PI / n)};
-            float k = a * ${toFloatLiteral(n / (Math.PI * 2))};
-            return (${toFloatLiteral(s)} * cos(a - (floor(k) + 0.5) * ${toFloatLiteral(Math.PI * 2 / n)}) - ${toFloatLiteral(t)} * cos(a - (floor(k + 0.5)) * ${toFloatLiteral(Math.PI * 2 / n)})) * length(v);
-        }`;
+    return [(Math.PI * 2) / n, s, t];
 }
+
+const toFloatLiteral = x => {
+    x = Math.fround(x);
+
+    if (Math.abs(x) < 1e-8) {
+        return "0.0";
+    }
+
+    for (let n = 17; n > 0; n--) {
+        if (x !== Math.fround(x.toFixed(n))) {
+            return x.toFixed(n + 1);
+        }
+    }
+
+    return x.toFixed(1);
+};
 
 const OCCLUSION_MASK = `\
 uniform sampler2D pv_occlusionMaskSampler;
@@ -60,27 +51,33 @@ float pv_occlusionMaskAlpha(vec2 worldPosition) {
 }
 `;
 
-const DISTANCE_FUNCTIONS = [[3, 1], [4, 1], [5, 1], [5, 2], [6, 1], [6, 2]];
+const DISTANCE_FUNCTIONS = [[3, 1], [4, 1]];
+
+for (let i = 0; i < 31; i++) {
+    DISTANCE_FUNCTIONS.push([i + 5, 1], [i + 5, 2]);
+}
 
 const SHAPES_AND_DISTANCE = `\
 #ifdef PV_LIGHT_MASK
 uniform int pv_shape;
 uniform float pv_rotation;
 
-float pv_distance_circle(vec2 p, vec2 q, float r) {
-    return distance(p, q);
-}
-
-${DISTANCE_FUNCTIONS.map(([n, k]) => generateDistanceFunction("pv_distance_%n%_%k%", n, k)).join("\n\n")}
+const float PV_DIST_FACTORS[] = float[](
+${DISTANCE_FUNCTIONS.map(([n, k], i) => {
+    const f = getDistanceFunctionFactors(n, k).map(toFloatLiteral);
+    return `  ${f[0]}, ${f[1]}, ${f[2]},`
+}).join("\n").slice(0, -1)}
+);
 
 float pv_distance(vec2 p, vec2 q) {
-    float r = pv_rotation;
-    float d;
-    switch (pv_shape) {
-        case 0: d = pv_distance_circle(p, q, r); break;
-${DISTANCE_FUNCTIONS.map(([n, k], i) => `        case ${i + 1}: d = pv_distance_${n}_${k}(p, q, r); break;`).join("\n")}
-    }
-    return d;
+    vec2 v = p - q;
+    float d = length(v);
+    if (pv_shape < 0 || pv_shape >= ${DISTANCE_FUNCTIONS.length}) return d;
+    int i = pv_shape * 3;
+    float s1 = PV_DIST_FACTORS[i], s2 = PV_DIST_FACTORS[i + 1], s3 = PV_DIST_FACTORS[i + 2];
+    float a = atan(v.y, v.x) - pv_rotation;
+    float k = a / s1;
+    return (s2 * cos(a - (floor(k) + 0.5) * s1) - s3 * cos(a - floor(k + 0.5) * s1)) * d;
 }
 #else
 #define pv_distance distance
@@ -721,8 +718,17 @@ AdaptiveLightingShader.create = function (defaultUniforms) {
                         if (gradual) {
                             float dist = pv_dist / pv_radius;
 
+                            #ifdef PV_LIGHT_MASK
+                            dist = min(dist, 1.0);
+                            #endif
+
                             pv_alpha *= fade(dist * dist);
                         }
+                        #ifdef PV_LIGHT_MASK
+                        else {
+                            pv_alpha = min(pv_alpha, smoothstep(pv_radius, pv_radius - pv_smoothness, pv_dist));
+                        }
+                        #endif
                         ` : ""}
 
                         vec4 w = texture2D(pv_sampler3, vSamplerUvs);
