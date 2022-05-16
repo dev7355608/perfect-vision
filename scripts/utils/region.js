@@ -811,9 +811,39 @@ export class Region {
             sy *= Math.sqrt(b * b + d * d);
         }
 
+        if (!(sx >= 0 && sy >= 0 && dx >= 0 && dy >= 0)) {
+            this._area = 0;
+
+            return [];
+        }
+
         const n = Math.ceil(Math.sqrt((sx + sy) / 2));
         let m = n * 8 + (dx ? 4 : 0) + (dy ? 4 : 0);
         const points = new Array(m);
+
+        if (m === 0) {
+            this._area = 0;
+
+            return points;
+        }
+
+        if (n === 0) {
+            if (dx > 0 && dy > 0) {
+                points.length = 8;
+                points[0] = points[6] = x + dx;
+                points[1] = points[3] = y + dy;
+                points[2] = points[4] = x - dx;
+                points[5] = points[7] = y - dy;
+
+                this._area = dx * dy * 4;
+            } else {
+                points.length = 0;
+
+                this._area = 0;
+            }
+
+            return points;
+        }
 
         let j1 = 0;
         let j2 = n * 4 + (dx ? 2 : 0) + 2;

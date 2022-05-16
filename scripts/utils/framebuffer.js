@@ -420,6 +420,7 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
         displayObject.render(renderer);
 
         renderer.batch.currentRenderer.flush();
+        renderer.framebuffer.blit();
 
         for (let i = 0; i < textures.length; i++) {
             textures[i].baseTexture.update();
@@ -428,7 +429,6 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
         renderer.runners.postrender.emit();
         renderer.projection.transform = null;
         renderer.emit("postrender");
-        renderer.framebuffer.blit();
     }
 
     bind(renderer, attachments = null) {

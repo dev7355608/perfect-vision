@@ -204,12 +204,11 @@ Hooks.once("init", () => {
         if (LightingSystem.instance.revealed === undefined) {
             for (const roof of canvas.foreground.roofs) {
                 const geometry = roof._pv_getGeometry();
+                const region = roof._pv_region;
 
-                if (!geometry || !roof.texture) {
+                if (!geometry || !roof.texture || !region) {
                     continue;
                 }
-
-                const region = roof._pv_region;
 
                 revealed.draw({
                     geometry: new GeometrySegment(geometry, geometry.drawMode, 4, 0),

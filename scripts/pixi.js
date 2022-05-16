@@ -49,7 +49,6 @@ PIXI.Transform.prototype._worldTransformInverse = null;
 
 Object.defineProperties(PIXI.Transform.prototype, {
     localTransformInverse: {
-        configurable: true,
         get() {
             let lti = this._localTransformInverse;
 
@@ -66,7 +65,6 @@ Object.defineProperties(PIXI.Transform.prototype, {
         }
     },
     worldTransformInverse: {
-        configurable: true,
         get() {
             let wti = this._worldTransformInverse;
 
@@ -86,13 +84,11 @@ Object.defineProperties(PIXI.Transform.prototype, {
 
 Object.defineProperties(PIXI.DisplayObject.prototype, {
     localTransformInverse: {
-        configurable: true,
         get() {
             return this.transform.localTransformInverse;
         }
     },
     worldTransformInverse: {
-        configurable: true,
         get() {
             return this.transform.worldTransformInverse;
         }
