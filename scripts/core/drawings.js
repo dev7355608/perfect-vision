@@ -190,7 +190,10 @@ Drawing.prototype._pv_updateLighting = function ({ defer = false, deleted = fals
                     canvas.perception.schedule({ lighting: { refresh: true } });
                 }
             } else {
-                ui.notifications.error(`[Perfect Vision] ${id} is invalid!`);
+                if (game.user.isGM) {
+                    ui.notifications.error(`[Perfect Vision] ${id} is invalid!`);
+                }
+
                 Logger.warn(`${id} is invalid!`);
                 this._pv_invalid = true;
             }
@@ -217,7 +220,10 @@ Drawing.prototype._pv_updateLighting = function ({ defer = false, deleted = fals
                         }
                     }
                 } else {
-                    ui.notifications.error(`[Perfect Vision] ${id} is invalid!`);
+                    if (game.user.isGM) {
+                        ui.notifications.error(`[Perfect Vision] ${id} is invalid!`);
+                    }
+
                     Logger.warn(`${id} is invalid!`);
                     this._pv_invalid = true;
 
@@ -241,18 +247,43 @@ Drawing.prototype._pv_updateLighting = function ({ defer = false, deleted = fals
 };
 
 Drawing.prototype._pv_refreshWarning = function () {
+    if (!game.user.isGM) {
+        return;
+    }
+
     if (this._pv_invalid) {
         if (!this._pv_invalidWarning || this._pv_invalidWarning.destroyed) {
-            this._pv_invalidWarning = this.addChildAt(PIXI.Sprite.from("icons/svg/hazard.svg"), 0);
+            this._pv_invalidWarning = this.addChildAt(
+                new PIXI.Graphics()
+                    .beginFill(0xff0000)
+                    .drawPolygon([
+                        0.9238795042037964, 0.3826834261417389,
+                        0.3826834261417389, 0.9238795042037964,
+                        -0.3826834261417389, 0.9238795042037964,
+                        -0.9238795042037964, 0.3826834261417389,
+                        -0.9238795042037964, -0.3826834261417389,
+                        -0.3826834261417389, -0.9238795042037964,
+                        0.3826834261417389, -0.9238795042037964,
+                        0.9238795042037964, -0.3826834261417389
+                    ])
+                    .endFill()
+                    .beginHole()
+                    .drawRect(-0.1, -0.6, 0.2, 0.8)
+                    .drawRect(-0.1, +0.4, 0.2, 0.2)
+                    .endHole(),
+                0);
         }
 
         const { width, height } = this.data;
 
-        this._pv_invalidWarning.width = width;
-        this._pv_invalidWarning.height = height;
+        this._pv_invalidWarning.width = this._pv_invalidWarning.height = Math.max(width, height);
+        this._pv_invalidWarning.x = width / 2;
+        this._pv_invalidWarning.y = height / 2;
+        this._pv_invalidWarning.visible = this.layer._active;
+        this._pv_invalidWarning.alpha = this._controlled ? 0.25 : 0.5;
     } else if (this._pv_invalidWarning) {
         if (!this._pv_invalidWarning.destroyed) {
-            this._pv_invalidWarning.destroy();
+            this._pv_invalidWarning.destroy(true);
         }
 
         this._pv_invalidWarning = null;
