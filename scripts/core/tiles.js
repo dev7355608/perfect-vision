@@ -365,7 +365,7 @@ Tile.prototype._pv_createRoofSprite = function (shader) {
     return sprite;
 };
 
-Tile.prototype._pv_updateRoofSprite = function (sprite) {
+Tile.prototype._pv_updateRoofSprite = function (sprite, invertedAlpha = false) {
     const tile = this.tile;
     const texture = this.texture;
 
@@ -389,16 +389,28 @@ Tile.prototype._pv_updateRoofSprite = function (sprite) {
 
     const uniforms = shader.uniforms;
 
-    uniforms.uAlpha = tile.alpha;
-
     if (this.occlusionFilter?.enabled) {
-        uniforms.uTileAlpha = this.occlusionFilter.alpha;
+        uniforms.uAlpha = this.occlusionFilter.alpha;
         uniforms.uOcclusionAlpha = this.occlusionFilter.occlusionAlpha;
         uniforms.uOcclusionSampler = this.occlusionFilter.occlusionTexture;
     } else {
-        uniforms.uTileAlpha = tile.alpha;
+        uniforms.uAlpha = 1;
         uniforms.uOcclusionAlpha = 0;
         uniforms.uOcclusionSampler = PIXI.Texture.EMPTY;
+    }
+
+    uniforms.uAlpha *= tile.alpha;
+    uniforms.uOcclusionAlpha *= tile.alpha;
+
+    if (invertedAlpha) {
+        uniforms.uAlpha = 1 - uniforms.uAlpha;
+        uniforms.uOcclusionAlpha = 1 - uniforms.uOcclusionAlpha;
+    }
+
+    if (uniforms.uOcclusionSampler === PIXI.Texture.EMPTY) {
+        sprite.visible = uniforms.uAlpha > 0.001;
+    } else {
+        sprite.visible = uniforms.uAlpha > 0.001 || uniforms.uOcclusionAlpha > 0.001;
     }
 
     return sprite;
@@ -417,11 +429,7 @@ Tile.prototype._pv_drawLightingSprite = function () {
     uniforms.uColorBackground.set(region.channels.background.rgb);
     uniforms.uColorDarkness.set(region.channels.darkness.rgb);
 
-    const sprite = this._pv_updateRoofSprite(this._pv_lightingSprite);
-
-    this._pv_lightingSprite.visible = uniforms.uAlpha > 0;
-
-    return sprite;
+    return this._pv_updateRoofSprite(this._pv_lightingSprite, false);
 };
 
 Tile.prototype._pv_drawWeatherSprite = function () {
@@ -429,12 +437,7 @@ Tile.prototype._pv_drawWeatherSprite = function () {
         this._pv_weatherSprite = this._pv_createRoofSprite(new WeatherSpriteShader());
     }
 
-    const sprite = this._pv_updateRoofSprite(this._pv_weatherSprite);
-    const uniforms = this._pv_weatherSprite.shader.uniforms;
-
-    this._pv_weatherSprite.visible = !(uniforms.uAlpha === 1 && uniforms.uTileAlpha === 1 && uniforms.uOcclusionSampler === PIXI.Texture.EMPTY);
-
-    return sprite;
+    return this._pv_updateRoofSprite(this._pv_weatherSprite, true);
 };
 
 class TileOcclusionMaskFilter extends InverseOcclusionMaskFilter { // TODO
@@ -557,10 +560,9 @@ class LightingSpriteShader extends PIXI.Shader {
         in vec2 vTextureCoord;
         in vec2 vMaskCoord;
 
-        uniform float uAlpha;
         uniform sampler2D uSampler;
         uniform sampler2D uOcclusionSampler;
-        uniform float uTileAlpha;
+        uniform float uAlpha;
         uniform float uOcclusionAlpha;
         uniform float uDarknessLevel;
         uniform float uSaturationLevel;
@@ -571,7 +573,7 @@ class LightingSpriteShader extends PIXI.Shader {
 
         void main(void) {
             vec4 mask = texture(uOcclusionSampler, vMaskCoord);
-            float alpha = texture(uSampler, vTextureCoord).a * uAlpha * mix(uOcclusionAlpha, uTileAlpha, 1.0 - min(mask.r, mask.g));
+            float alpha = texture(uSampler, vTextureCoord).a * mix(uAlpha, uOcclusionAlpha, min(mask.r, mask.g));
 
             textures[0] = vec4(uDarknessLevel, uSaturationLevel, 0.0, alpha);
             textures[1] = vec4(uColorBackground, alpha);
@@ -591,7 +593,6 @@ class LightingSpriteShader extends PIXI.Shader {
             uSampler: PIXI.Texture.EMPTY,
             uOcclusionSampler: PIXI.Texture.EMPTY,
             uAlpha: 1,
-            uTileAlpha: 1,
             uOcclusionAlpha: 0,
             uDarknessLevel: 0,
             uSaturationLevel: 0,
@@ -649,17 +650,16 @@ class WeatherSpriteShader extends PIXI.Shader {
         in vec2 vTextureCoord;
         in vec2 vMaskCoord;
 
-        uniform float uAlpha;
         uniform sampler2D uSampler;
         uniform sampler2D uOcclusionSampler;
-        uniform float uTileAlpha;
+        uniform float uAlpha;
         uniform float uOcclusionAlpha;
 
         layout(location = 0) out vec4 textures[1];
 
         void main(void) {
             vec4 mask = texture(uOcclusionSampler, vMaskCoord);
-            float alpha = texture(uSampler, vTextureCoord).a * (1.0 - uAlpha * mix(uTileAlpha, uOcclusionAlpha, min(mask.r, mask.g)));
+            float alpha = texture(uSampler, vTextureCoord).a * mix(uAlpha, uOcclusionAlpha, min(mask.r, mask.g));
 
             textures[0] = vec4(0.0, 0.0, 0.0, alpha);
         }`;
@@ -677,7 +677,6 @@ class WeatherSpriteShader extends PIXI.Shader {
             uSampler: PIXI.Texture.EMPTY,
             uOcclusionSampler: PIXI.Texture.EMPTY,
             uAlpha: 1,
-            uTileAlpha: 1,
             uOcclusionAlpha: 0
         });
     }
