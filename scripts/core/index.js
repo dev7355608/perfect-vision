@@ -22,7 +22,7 @@ PlaceableObject.prototype.cullable = true;
 ObjectHUD.prototype.cullable = true;
 
 Hooks.once("init", () => {
-    // https://gitlab.com/foundrynet/foundryvtt/-/issues/6696
+    // TODO: remove in v10 (https://gitlab.com/foundrynet/foundryvtt/-/issues/6696)
 
     function destroyPreviewObjects(objects) {
         objects?.forEach(c => {
@@ -103,6 +103,36 @@ Hooks.once("init", () => {
         if (!this.object.id) {
             destroyPreviewObjects(previewObjects);
         }
+    });
+
+    // TODO: remove in v10 (https://gitlab.com/foundrynet/foundryvtt/-/issues/7122)
+    patch("TextureLoader.prototype.load", "OVERRIDE", async function (sources, { message, expireCache = false } = {}) {
+        const seen = new Set();
+        const promises = [];
+        const progress = { message: message, loaded: 0, failed: 0, total: 0, pct: 0 };
+        for (const src of sources) {
+            // De-dupe load requests
+            if (seen.has(src)) continue;
+            seen.add(src);
+
+            let promise;
+            const cached = this.getCache(src);
+            if (cached) {
+                // Load from cache
+                promise = Promise.resolve(cached);
+            } else {
+                // Load uncached textures
+                promise = VideoHelper.hasVideoExtension(src) ? this.loadVideoTexture(src) : this.loadImageTexture(src);
+            }
+            promises.push(promise.then(() => this._onProgress(src, progress)).catch(err => this._onError(src, progress, err)));
+        }
+        progress.total = promises.length;
+
+        // Expire any cached textures
+        if (expireCache) this.expireCache();
+
+        // Load all media
+        return Promise.all(promises);
     });
 });
 
