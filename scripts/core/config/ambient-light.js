@@ -34,7 +34,7 @@ Hooks.on("renderAmbientLightConfig", (sheet, html) => {
     html.find(`input[name="flags.perfect-vision.sightLimit"]`)
         .attr("value", document.getFlag("perfect-vision", "sightLimit"));
 
-    const updateSightLimit = () => {
+    const updateSightLimit = event => {
         const enabled = form.elements["perfect-vision.sightLimit:enable"].checked;
 
         form.elements["flags.perfect-vision.sightLimit"].disabled = !enabled;
@@ -44,6 +44,10 @@ Hooks.on("renderAmbientLightConfig", (sheet, html) => {
             form.elements["flags.perfect-vision.sightLimit"].value = null;
             $(form.elements["flags.perfect-vision.sightLimit"]).attr("placeholder", "");
         } else {
+            if (event?.target.id === "perfect-vision.sightLimit:enable") {
+                form.elements["flags.perfect-vision.sightLimit"].value = form.elements["config.luminosity"].value >= 0 ? null : 0;
+            }
+
             $(form.elements["flags.perfect-vision.sightLimit"]).attr("placeholder", "Infinity");
         }
     };

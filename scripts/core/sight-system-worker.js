@@ -264,7 +264,9 @@ class ComputeVisionTask extends Task {
                 clipType = ct;
             }
 
-            clipPaths.push(...paths);
+            for (const path of paths) {
+                clipPaths.push(path);
+            }
         }
 
         if (subjPaths) {

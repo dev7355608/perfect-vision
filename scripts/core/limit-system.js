@@ -3,10 +3,6 @@ import { Region } from "../utils/region.js";
 export class LimitSystem {
     static instance = new LimitSystem();
 
-    static round(x) {
-        return Math.round(x * 256) * (1 / 256);
-    }
-
     regions = {};
     dirty = false;
     n = 0;
@@ -271,68 +267,62 @@ export class LimitSystem {
         return this.lmin === this.lmax;
     }
 
-    // TODO: return limits for all four quadrants
-    estimateRayLimitsUnsafe(rax, ray, rmin = 0, rmax = Infinity) {
-        const { n, D, E, R, K, S } = this;
+    estimateRayLimits(xmin, ymin, xmax, ymax, rmin = 0, rmax = Infinity) {
+        let { lmin, lmax } = this;
 
-        rmax = Math.min(rmax, rmin + this.lmax);
+        if (lmin < lmax) {
+            const { n, D, E, R, K, S } = this;
 
-        const xmin = rax - rmax;
-        const xmax = rax + rmax;
-        const ymin = ray - rmax;
-        const ymax = ray + rmax;
+            let dmin = Infinity;
+            let dmax = 0;
+            let dadd = 0;
 
-        let dmin = Infinity;
-        let dmax = 0;
-        let dadd = 0;
+            for (let i = 0, k = 0, l = 0; i < n; i++) {
+                for (const r = l + (R[i] >> 1); l < r; l++) {
+                    const mj = K[l];
 
-        for (let i = 0, k = 0, l = 0; i < n; i++) {
-            for (const r = l + (R[i] >> 1); l < r; l++) {
-                const mj = K[l];
+                    if ((mj & 1) === 0) {
+                        const x1 = E[k++];
+                        const x2 = E[k++];
+                        const y1 = E[k++];
+                        const y2 = E[k++];
 
-                if ((mj & 1) === 0) {
-                    const x1 = E[k++];
-                    const x2 = E[k++];
-                    const y1 = E[k++];
-                    const y2 = E[k++];
+                        if (x1 < xmax && x2 > xmin && y1 < ymax && y2 > ymin) {
+                            const d = D[i];
 
-                    if (x1 < xmax && x2 > xmin && y1 < ymax && y2 > ymin) {
-                        const d = D[i];
-
-                        switch (S[i] >> 2) {
-                            case 0:
+                            if (S[i] >> 2 === 0) {
                                 dadd += d;
-                                break;
-                            default:
+                            } else {
                                 dmin = Math.min(dmin, d);
                                 dmax = Math.max(dmax, d);
+                            }
                         }
+                    } else {
+                        k += 4;
                     }
-                } else {
-                    k += 4;
+
+                    k += (mj & ~1) || 6;
                 }
-
-                k += (mj & ~1) || 6;
             }
-        }
 
-        const lmax = Math.min(rmin + Math.round(1 / Math.min(dmin, dmax)), rmax);
-        const lmin = Math.min(rmin + (dadd === 0 ? Math.round(1 / dmax) : Math.floor(1 / (dmax + dadd))), lmax);
+            lmax = Math.min(rmin + Math.round(1 / Math.min(dmin, dmax)), rmin + lmax, rmax);
+            lmin = Math.min(rmin + (dadd === 0 ? Math.round(1 / dmax) : Math.floor(1 / (dmax + dadd))), lmax);
+        } else {
+            lmin = lmax = Math.min(rmin + lmax, rmax);
+        }
 
         return [lmin, lmax];
     }
 
-    estimateRayLimits(rax, ray, rmin = 0, rmax = Infinity) {
-        rax = LimitSystem.round(rax);
-        ray = LimitSystem.round(ray);
-        rmin = Math.max(rmin, 0);
-        rmax = Math.max(rmax, 0);
+    castRay(rax, ray, rdx, rdy, rdz = 0, rmin = 0) {
+        rax = Math.round(rax * 256) * (1 / 256);
+        ray = Math.round(ray * 256) * (1 / 256);
+        rdx = Math.round(rdx * 256) * (1 / 256);
+        rdy = Math.round(rdy * 256) * (1 / 256);
+        rdz = Math.round(rdz * 256) * (1 / 256);
 
-        return this.estimateRayLimitsUnsafe(rax, ray, rmin, rmax);
-    }
+        let rmax;
 
-    // if rmax is passed, it must be equal to sqrt(rdx * rdx + rdy * rdy)
-    castRayUnsafe(rax, ray, rdx, rdy, rdz = 0, rmin = 0, rmax) {
         if (rdx === 0 && rdy === 0) {
             rdx = rdy = 1;
             rmax = 0;
@@ -723,17 +713,6 @@ export class LimitSystem {
 
         return t0;
     }
-
-    castRay(rax, ray, rdx, rdy, rdz = 0, rmin = 0) {
-        rax = LimitSystem.round(rax);
-        ray = LimitSystem.round(ray);
-        rdx = LimitSystem.round(rdx);
-        rdy = LimitSystem.round(rdy);
-        rdz = LimitSystem.round(rdz);
-        rmin = Math.max(rmin, 0);
-
-        return this.castRayUnsafe(rax, ray, rdx, rdy, rdz, rmin);
-    }
 }
 
 class LimitSystemRegion {
@@ -875,7 +854,7 @@ class LimitSystemRegion {
                 points = Array.from(region.contour);
 
                 for (let i = 0; i < points.length; i++) {
-                    points[i] = LimitSystem.round(points[i]);
+                    points[i] = Math.round(points[i] * 256) * (1 / 256);
                 }
 
                 if (points.length < 6) {
