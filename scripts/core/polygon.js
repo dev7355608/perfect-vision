@@ -7,10 +7,9 @@ Hooks.once("init", () => {
     patch("ClockwiseSweepPolygon.prototype._compute", "MIXED", function (wrapped) {
         const cfg = this.config;
 
-        if (cfg.type !== "sight") {
-            cfg.radius = Math.min(cfg.radius, canvas.dimensions.maxR);
-            cfg.density = Math.min(cfg.density, 2 * Math.sqrt(cfg.radius));
+        cfg.density = optimalDensity(cfg.radius);
 
+        if (cfg.type !== "sight") {
             return wrapped();
         }
 
@@ -65,17 +64,18 @@ Hooks.once("init", () => {
             xMin, yMin, xMax, yMax, rMin, radius
         );
 
-        if (lMax < canvas.dimensions.maxR) {
-            cfg.hasLimitedRadius = true;
+        if (cfg.radius !== lMax) {
+            cfg.hasLimitedRadius = lMax < canvas.dimensions.maxR;
             cfg.radius = lMax;
-        } else {
-            cfg.hasLimitedRadius = false;
-            cfg.radius = canvas.dimensions.maxR;
-        }
+            cfg.radius2 = Math.pow(cfg.radius, 2);
+            cfg.radiusE = 0.5 / cfg.radius;
+            cfg.density = optimalDensity(cfg.radius);
+            cfg.rMin = this._roundRayVertices(Ray.fromAngle(x, y, cfg.aMin, cfg.radius));
 
-        cfg.radius2 = Math.pow(cfg.radius, 2);
-        cfg.radiusE = 0.5 / cfg.radius;
-        cfg.density = Math.min(cfg.density, 2 * Math.sqrt(cfg.radius));
+            if (cfg.hasLimitedAngle) {
+                cfg.rMax = this._roundRayVertices(Ray.fromAngle(x, y, cfg.aMax, cfg.radius));
+            }
+        }
 
         if (cfg.radius === 0) {
             return;
@@ -88,7 +88,6 @@ Hooks.once("init", () => {
         }
 
         const rMax = cfg.radius;
-        const density = cfg.density;
         const precision = canvas.dimensions.size / 10;
         const points = [];
         let limited = false;
@@ -123,7 +122,7 @@ Hooks.once("init", () => {
             }
 
             if (lMax < rMax) {
-                path = restrictRadius(x, y, path, lMax, density * Math.sqrt(lMax / rMax));
+                path = restrictRadius(x, y, path, lMax, optimalDensity(lMax));
             }
 
             if (lMin < lMax) {
@@ -157,6 +156,10 @@ Hooks.once("init", () => {
 
     // TODO: ClockwisePolygon.prototype.getRayCollisions
 });
+
+function optimalDensity(radius) {
+    return Math.min(60, 2 * Math.sqrt(radius));
+}
 
 function cutIntoQuarters(x0, y0, points) {
     const m = points.length;
