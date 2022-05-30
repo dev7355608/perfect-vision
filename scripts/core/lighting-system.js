@@ -20,7 +20,7 @@ export class LightingSystem {
         darknessChanged: false
     };
 
-    addRegion(id, { shape, active = true, hidden = false, parent = null, fit = false, origin = null, z = 0, inset = 0,
+    addRegion(id, { shape, active = true, hidden = false, parent = null, fit = false, origin = null, elevation = 0, z = 0, inset = 0,
         walls = false, vision, globalLight, globalLightThreshold, sightLimit, fogExploration, revealed,
         daylightColor, darknessColor, darkness, saturation }) {
         let region = this.regions[id];
@@ -37,7 +37,7 @@ export class LightingSystem {
             t: origin?.t ?? +Infinity
         };
         region.data = {
-            active, hidden, parent, shape, fit, z, inset, origin, walls, vision, globalLight, globalLightThreshold,
+            active, hidden, parent, shape, fit, elevation, z, inset, origin, walls, vision, globalLight, globalLightThreshold,
             sightLimit, daylightColor, darknessColor, darkness, saturation, fogExploration, revealed
         };
 
@@ -84,6 +84,10 @@ export class LightingSystem {
 
         if ("fit" in changes) {
             changes.fit = changes.fit ?? false;
+        }
+
+        if ("elevation" in changes) {
+            changes.elevation = changes.elevation ?? 0;
         }
 
         if ("z" in changes) {
@@ -332,7 +336,7 @@ export class LightingSystem {
 
 class LightingRegion {
     static compare(region1, region2) {
-        return region1.zIndex - region2.zIndex || region1.id.localeCompare(region2.id, "en");
+        return region1.elevation - region2.elevation || region1.sort - region2.sort || region1.id.localeCompare(region2.id, "en");
     }
 
     constructor(id) {
@@ -450,8 +454,14 @@ class LightingRegion {
 
         this.saturationLevel = saturation = Math.clamped(saturation, 0, 1);
 
-        if (this.zIndex !== data.z) {
-            this.zIndex = data.z;
+        if (this.elevation !== data.elevation) {
+            this.elevation = data.elevation;
+
+            refreshVision = true;
+        }
+
+        if (this.sort !== data.z) {
+            this.sort = data.z;
 
             refreshVision = true;
         }
@@ -597,7 +607,7 @@ class LightingRegion {
                 shape: this.domain,
                 limit: this.sightLimit,
                 mode: "set",
-                index: [0, this.zIndex]
+                index: [0, this.elevation, this.sort]
             });
 
             refreshVision = true;
@@ -629,7 +639,8 @@ class LightingRegion {
         this.shape = null;
         this.fit = null;
         this.origin = null;
-        this.zIndex = null;
+        this.elevation = null;
+        this.sort = null;
         this.walls = null;
         this.vision = undefined;
         this.globalLight = undefined;
@@ -664,7 +675,6 @@ class LightingRegion {
 
         mesh.geometry = this.geometry;
         mesh.shader = shader;
-        mesh.zIndex = this.data.z;
 
         const uniforms = shader.uniforms;
 
