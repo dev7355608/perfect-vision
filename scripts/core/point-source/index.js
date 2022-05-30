@@ -889,7 +889,7 @@ function constrainLos(polygon, radius) {
     const m = points.length;
     const rr = radius * radius;
     const cp = [];
-    const sa = Math.PI / (polygon.config.density * Math.sqrt(radius / polygon.config.radius));
+    const sa = Math.PI / Math.min(60, 2 * Math.sqrt(radius));
     let x1 = points[m - 2] - x0;
     let y1 = points[m - 1] - y0;
 
