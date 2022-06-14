@@ -8,6 +8,8 @@ Hooks.once("init", () => {
             return data;
         }
 
+        data = foundry.utils.flattenObject(data);
+
         const parent = data["flags.perfect-vision.parent"];
 
         if (!parent || getLightingData(this.object.parent, parent).parents.includes(this.object.id)) {
