@@ -225,24 +225,10 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
 
                 this.textures.push(texture);
                 this.sprites.push(new FramebufferSprite(new SpriteMaterial(texture)));
-
-                const name = options.name;
-
-                if (typeof name === "string") {
-                    this.textures[name] = this.textures[i];
-                    this.sprites[name] = this.sprites[i];
-                }
             }
 
             this._defaultKey = [...Array(this.textures.length).keys()].join(",");
         } else {
-            for (const name of Object.keys(this.textures)) {
-                if (!Number.isInteger(Number(name))) {
-                    delete this.textures[name];
-                    delete this.sprites[name];
-                }
-            }
-
             const textures = this.textures;
 
             for (let i = 0; i < textures.length; i++) {
@@ -265,13 +251,6 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
                 } else {
                     baseTexture.clear = false;
                     baseTexture.clearColor.fill(0);
-                }
-
-                const name = options.name;
-
-                if (typeof name === "string") {
-                    this.textures[name] = this.textures[i];
-                    this.sprites[name] = this.sprites[i];
                 }
             }
 
