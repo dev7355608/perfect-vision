@@ -114,14 +114,6 @@ class StencilMaskTexturedShader extends PIXI.Shader {
     }
 }
 
-const quad = new PIXI.Geometry()
-    .addAttribute("aVertexPosition", new PIXI.Buffer(new Float32Array(8), false, false), 2, false, PIXI.TYPES.FLOAT);
-
-quad.drawMode = PIXI.DRAW_MODES.TRIANGLE_STRIP;
-quad.refCount++;
-
-const QUAD = new GeometrySegment(quad, quad.drawMode, 4, 0);
-
 const shaderDefault = StencilMaskShader.instance;
 const shaderTextured = StencilMaskTexturedShader.instance;
 const state = new PIXI.State();
@@ -133,7 +125,7 @@ export class StencilMask extends PIXI.DisplayObject {
     _currentDrawGroup = null;
     _drawGroups = [];
     _maskStack = [];
-    _updateID = -1;
+    _quad;
 
     constructor() {
         super();
@@ -142,11 +134,17 @@ export class StencilMask extends PIXI.DisplayObject {
         this.interactiveChildren = false;
         this.accessible = false;
         this.accessibleChildren = false;
+
+        this._quad = new GeometrySegment(new PIXI.Geometry().addAttribute("aVertexPosition", new PIXI.Buffer(new Float32Array(8), false, false), 2, false, PIXI.TYPES.FLOAT), PIXI.DRAW_MODES.TRIANGLE_STRIP, 4, 0);
+        this._quad.retain();
     }
 
-    draw({ hole = false, geometry = null, texture = null, threshold = 0 }) {
+    draw({ hole = false, geometry = null, drawMode = PIXI.DRAW_MODES.TRIANGLES, size = 0, start = 0, texture = null, threshold = 0 }) {
         hole = !!hole;
-        geometry = (geometry = geometry ?? QUAD) instanceof GeometrySegment ? geometry : new GeometrySegment(geometry);
+
+        if (!(geometry instanceof GeometrySegment)) {
+            geometry = geometry ? new GeometrySegment(geometry, drawMode, size, start) : this._quad;
+        }
 
         if (!hole || this._drawGroups.length !== 0) {
             let currentDrawGroup = this._currentDrawGroup;
@@ -160,7 +158,7 @@ export class StencilMask extends PIXI.DisplayObject {
                 let filled = false;
 
                 for (const mask of this._maskStack) {
-                    if (mask.geometry === QUAD) {
+                    if (mask.geometry === this._quad) {
                         currentDrawGroup.masks.length = 0;
 
                         if (!mask.hole) {
@@ -187,7 +185,7 @@ export class StencilMask extends PIXI.DisplayObject {
             }
 
             if (!currentDrawGroup.complete) {
-                if (geometry === QUAD) {
+                if (geometry === this._quad) {
                     for (const { geometry } of currentDrawGroup.fills) {
                         geometry.release();
                     }
@@ -275,7 +273,7 @@ export class StencilMask extends PIXI.DisplayObject {
 
     pushMask({ hole = false, geometry = null, texture = null, threshold = 0 }) {
         hole = !!hole;
-        geometry = (geometry = geometry ?? QUAD) instanceof GeometrySegment ? geometry : new GeometrySegment(geometry);
+        geometry = (geometry = geometry ?? this._quad) instanceof GeometrySegment ? geometry : new GeometrySegment(geometry);
 
         if (!hole || this._maskStack.length !== 0) {
             this._currentDrawGroup = null;
@@ -324,6 +322,8 @@ export class StencilMask extends PIXI.DisplayObject {
         this._currentDrawGroup = null;
         this._drawGroups = null;
         this._maskStack = null;
+        this._quad.release();
+        this._quad = null;
 
         return super.destroy();
     }
@@ -347,9 +347,9 @@ export class StencilMask extends PIXI.DisplayObject {
         renderer.state.set(state);
 
         const maskData = renderer.stencil.maskStack[renderer.stencil.maskStack.length - 1];
-        const buffer = quad.buffers[0];
+        const quad = this._quad;
 
-        if (maskData.maskObject === this || this._updateID !== buffer._updateID) {
+        if (maskData.maskObject === this) {
             // TODO: optimize?
             const matrix = shaderTextured.uniforms.matrix = shaderDefault.uniforms.matrix
                 .copyFrom(renderer.projection.projectionMatrix)
@@ -360,6 +360,7 @@ export class StencilMask extends PIXI.DisplayObject {
             const sx = ty * c - tx * d;
             const sy = tx * b - ty * a;
 
+            const buffer = quad.geometry.buffers[0];
             const data = buffer.data;
 
             data[0] = (sx - d + c) * id;
@@ -373,22 +374,18 @@ export class StencilMask extends PIXI.DisplayObject {
 
             buffer.update();
 
-            this._updateID = buffer._updateID;
-
             renderer.shader.bind(shaderDefault);
         } else {
             renderer.shader.bind(shaderDefault, false);
         }
 
-        const gl = renderer.gl;
-
         if (maskData.maskObject !== this) {
-            renderer.geometry.bind(quad, shaderDefault);
-            renderer.geometry.draw(quad.drawMode, 4, 0);
+            quad.draw(renderer);
 
             return;
         }
 
+        const gl = renderer.gl;
         const prevMaskCount = maskData._stencilCounter - 1;
 
         let holed = false;
@@ -417,8 +414,7 @@ export class StencilMask extends PIXI.DisplayObject {
                         renderer.shader.bind(shaderDefault, false);
                     }
 
-                    renderer.geometry.bind(quad, shaderDefault);
-                    renderer.geometry.draw(quad.drawMode, 4, 0);
+                    quad.draw(renderer);
                 }
 
                 let holing; // holed === hole || undefined
@@ -473,8 +469,7 @@ export class StencilMask extends PIXI.DisplayObject {
                         renderer.shader.bind(shaderDefault, false);
                     }
 
-                    renderer.geometry.bind(quad, shaderDefault);
-                    renderer.geometry.draw(quad.drawMode, 4, 0);
+                    quad.draw(renderer);
 
                     if (hole) {
                         gl.stencilFunc(gl.EQUAL, prevMaskCount + 1, 0xFFFFFFFF);
@@ -535,8 +530,7 @@ export class StencilMask extends PIXI.DisplayObject {
                 renderer.shader.bind(shaderDefault, false);
             }
 
-            renderer.geometry.bind(quad, shaderDefault);
-            renderer.geometry.draw(quad.drawMode, 4, 0);
+            quad.draw(renderer);
         }
     }
 }
