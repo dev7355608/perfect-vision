@@ -5,25 +5,54 @@ const tempPoint = new PIXI.Point();
 const clearDepthBuffer = new Float32Array([1]);
 const invalidateDepthAttachment = [WebGL2RenderingContext.DEPTH_ATTACHMENT];
 
-export class SmoothMesh extends PIXI.Mesh {
+export class SmoothMesh extends PIXI.Container {
     _blendColor = null;
     _colorMask = null;
 
     constructor(geometry, shader, state) {
-        super(geometry, shader, state);
+        super();
 
+        this.geometry = geometry;
+        this.shader = shader;
+        this.state = state || PIXI.State.for2d();
         this.state.depthTest = true;
         this.state.depthMask = true;
     }
 
-    get drawMode() {
-        return this.geometry.drawMode;
+    get geometry() {
+        return this._geometry;
     }
 
-    set drawMode(value) { }
+    set geometry(value) {
+        if (this._geometry === value) {
+            return;
+        }
 
-    get uvBuffer() {
-        return null;
+        if (this._geometry) {
+            this._geometry.refCount--;
+
+            if (this._geometry.refCount === 0) {
+                this._geometry.dispose();
+            }
+        }
+
+        this._geometry = value;
+
+        if (this._geometry) {
+            this._geometry.refCount++;
+        }
+    }
+
+    set blendMode(value) {
+        this.state.blendMode = value;
+    }
+
+    get blendMode() {
+        return this.state.blendMode;
+    }
+
+    get drawMode() {
+        return this.geometry.drawMode;
     }
 
     get blendColor() {
@@ -64,53 +93,17 @@ export class SmoothMesh extends PIXI.Mesh {
         }
     }
 
-    destroy(options) {
-        this._blendColor = null;
-        this._colorMask = null;
-
-        super.destroy(options);
-    }
-
-    calculateVertices() { }
-
-    calculateUvs() { }
-
-    _calculateBounds() {
-        const { x, y, width, height } = this.geometry.bounds;
-
-        this._bounds.addFrame(this.transform, x, y, x + width, y + height);
-    }
-
-    containsPoint(point) {
-        if (!this.getBounds().contains(point.x, point.y)) {
-            return false;
-        }
-
-        this.worldTransform.applyInverse(point, tempPoint);
-
-        return this.geometry.containsPoint(tempPoint);
-    }
-
     _render(renderer) {
         const gl = renderer.gl;
-        const geometry = this.geometry;
-        const drawMode = geometry.drawMode;
-
-        this.state.depthTest = !!geometry.falloff;
-
-        renderer.batch.flush();
-        renderer.state.set(this.state);
-
-        const shader = this.shader;
+        const { geometry, shader, state, drawMode } = this;
 
         shader.alpha = this.worldAlpha;
-
-        if (shader.update) {
-            shader.update(renderer, this);
-        }
-
+        shader.update?.(renderer, this);
         shader.uniforms.translationMatrix = this.worldTransform.toArray(true);
+        state.depthTest = !!geometry.falloff;
 
+        renderer.batch.flush();
+        renderer.state.set(state);
         renderer.shader.bind(shader);
         renderer.geometry.bind(geometry, shader);
 
@@ -187,6 +180,26 @@ export class SmoothMesh extends PIXI.Mesh {
                 gl.invalidateFramebuffer(gl.FRAMEBUFFER, invalidateDepthAttachment);
             }
         }
+    }
+
+    _calculateBounds() {
+        const { x, y, width, height } = this.geometry.bounds;
+
+        this._bounds.addFrame(this.transform, x, y, x + width, y + height);
+    }
+
+    containsPoint(point) {
+        this.worldTransform.applyInverse(point, tempPoint);
+
+        return this.geometry.containsPoint(tempPoint);
+    }
+
+    destroy(options) {
+        super.destroy(options);
+
+        this.geometry = null;
+        this.shader = null;
+        this.state = null;
     }
 }
 
@@ -290,7 +303,7 @@ export class SmoothGeometry extends PIXI.Geometry {
 
         this.addAttribute("aVertexPosition", buffer, 2, false, PIXI.TYPES.FLOAT)
             .addAttribute("aVertexDepth", buffer, 1, false, PIXI.TYPES.FLOAT)
-            .addIndex(new PIXI.Buffer(new (vertices.length > 0x3FFFC ? Uint32Array : Uint16Array)(indices), true, true));
+            .addIndex(new PIXI.Buffer(new (vertices.length / 3 > 65536 ? Uint32Array : Uint16Array)(indices), true, true));
     }
 
     _buildContours(contours) {
