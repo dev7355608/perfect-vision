@@ -121,11 +121,12 @@ const state = new PIXI.State();
 state.depthTest = false;
 state.depthMask = false;
 
-export class StencilMask extends PIXI.DisplayObject {
+export class StencilMask extends PIXI.Container {
     _currentDrawGroup = null;
     _drawGroups = [];
     _maskStack = [];
     _quad;
+    _renderable;
 
     constructor() {
         super();
@@ -135,8 +136,21 @@ export class StencilMask extends PIXI.DisplayObject {
         this.accessible = false;
         this.accessibleChildren = false;
 
+        this._bounds.minX = -Infinity;
+        this._bounds.minY = -Infinity;
+        this._bounds.maxX = +Infinity;
+        this._bounds.maxY = +Infinity;
+
         this._quad = new GeometrySegment(new PIXI.Geometry().addAttribute("aVertexPosition", new PIXI.Buffer(new Float32Array(8), false, false), 2, false, PIXI.TYPES.FLOAT), PIXI.DRAW_MODES.TRIANGLE_STRIP, 4, 0);
         this._quad.retain();
+    }
+
+    get renderable() {
+        return this._renderable && this.isMask;
+    }
+
+    set renderable(value) {
+        this._renderable = value;
     }
 
     draw({ hole = false, geometry = null, drawMode = PIXI.DRAW_MODES.TRIANGLES, size = 0, start = 0, texture = null, threshold = 0 }) {
@@ -330,10 +344,12 @@ export class StencilMask extends PIXI.DisplayObject {
 
     calculateBounds() { }
 
-    removeChild(child) { }
+    getBounds(skipUpdate, rect) {
+        throw new Error();
+    }
 
     render(renderer) {
-        if (!this.visible || this.worldAlpha <= 0 || !this.renderable || !this.isMask) {
+        if (!this.visible || this.worldAlpha <= 0 || !this.renderable) {
             return;
         }
 
@@ -377,9 +393,6 @@ export class StencilMask extends PIXI.DisplayObject {
             renderer.shader.bind(shaderDefault);
         } else {
             renderer.shader.bind(shaderDefault, false);
-        }
-
-        if (maskData.maskObject !== this) {
             quad.draw(renderer);
 
             return;
@@ -531,6 +544,18 @@ export class StencilMask extends PIXI.DisplayObject {
             }
 
             quad.draw(renderer);
+
+            gl.stencilFunc(gl.EQUAL, prevMaskCount, 0xFFFFFFFF);
+            gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR);
+        } else {
+            if (holed) {
+                gl.stencilFunc(gl.EQUAL, prevMaskCount, 0xFFFFFFFF);
+                gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR);
+            }
+        }
+
+        for (let i = 0, j = this.children.length; i < j; i++) {
+            this.children[i].render(renderer);
         }
     }
 }
