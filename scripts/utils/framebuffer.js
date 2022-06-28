@@ -558,6 +558,11 @@ class FramebufferSprite extends Sprite {
         this.interactiveChildren = false;
         this.accessible = false;
         this.accessibleChildren = false;
+
+        this._bounds.minX = -Infinity;
+        this._bounds.minY = -Infinity;
+        this._bounds.maxX = +Infinity;
+        this._bounds.maxY = +Infinity;
     }
 
     get renderable() {
@@ -566,8 +571,37 @@ class FramebufferSprite extends Sprite {
 
     set renderable(value) { }
 
+    calculateBounds() { }
+
+    getBounds(skipUpdate, rect) {
+        if (!skipUpdate) {
+            if (!this.parent) {
+                this.parent = this._tempDisplayObjectParent;
+                this.updateTransform();
+                this.parent = null;
+            } else {
+                this._recursivePostUpdateTransform();
+                this.updateTransform();
+            }
+        }
+
+        if (!rect) {
+            if (!this._boundsRect) {
+                this._boundsRect = new PIXI.Rectangle();
+            }
+
+            rect = this._boundsRect;
+        }
+
+        rect.x = 0;
+        rect.y = 0;
+        rect.width = this.width;
+        rect.height = this.height;
+
+        return rect;
+    }
+
     updateTransform() {
-        this._boundsID++;
         this.transform.updateTransform(PIXI.Transform.IDENTITY);
         this.worldAlpha = this.alpha;
     }
