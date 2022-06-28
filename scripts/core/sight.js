@@ -78,6 +78,60 @@ Hooks.once("init", () => {
         this.losCache.sprite = null;
     });
 
+    class VisionMaskFilter extends PIXI.SpriteMaskFilter {
+        constructor() {
+            super(`\
+                attribute vec2 aVertexPosition;
+
+                uniform mat3 projectionMatrix;
+                uniform vec2 screenDimensions;
+                uniform vec4 inputSize;
+                uniform vec4 outputFrame;
+
+                varying vec2 vTextureCoord;
+                varying vec2 vMaskTextureCoord;
+
+                vec4 filterVertexPosition( void ) {
+                    vec2 position = aVertexPosition * max(outputFrame.zw, vec2(0.)) + outputFrame.xy;
+                    return vec4((projectionMatrix * vec3(position, 1.0)).xy, 0., 1.);
+                }
+
+                vec2 filterTextureCoord( void ) {
+                    return aVertexPosition * (outputFrame.zw * inputSize.zw);
+                }
+
+                vec2 filterMaskTextureCoord( in vec2 textureCoord ) {
+                    return (textureCoord * inputSize.xy + outputFrame.xy) / screenDimensions;
+                }
+
+                void main() {
+                    vTextureCoord = filterTextureCoord();
+                    vMaskTextureCoord = filterMaskTextureCoord(vTextureCoord);
+                    gl_Position = filterVertexPosition();
+                }`, `\
+                varying vec2 vTextureCoord;
+                varying vec2 vMaskTextureCoord;
+
+                uniform sampler2D uSampler;
+                uniform sampler2D mask;
+
+                void main() {
+                    vec4 m = texture2D(mask, vMaskTextureCoord);
+                    gl_FragColor = texture2D(uSampler, vTextureCoord) * min(m.r, m.g);
+                }`, {
+                screenDimensions: canvas.screenDimensions
+            });
+        };
+
+        apply(filterManager, input, output, clearMode) {
+            this.uniforms.mask = this._maskSprite._texture;
+
+            filterManager.applyFilter(this, input, output, clearMode);
+        }
+    }
+
+    let visionMaskFilter;
+
     patch("SightLayer.prototype._createVisionContainer", "OVERRIDE", function () {
         const c = new PIXI.Container();
 
@@ -92,7 +146,10 @@ Hooks.once("init", () => {
 
         // Assign to the instance
         this.vision = c;
-        this.los = c._pv_los;
+        this.los = new PIXI.MaskData(CanvasFramebuffer.get("lighting").sprites[0]);
+        this.los.type = PIXI.MASK_TYPES.SPRITE;
+        this.los.autoDetect = false;
+        this.los.filter = visionMaskFilter ?? (visionMaskFilter = new VisionMaskFilter());
 
         return c;
     });
