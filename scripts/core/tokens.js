@@ -11,7 +11,9 @@ Hooks.once("init", () => {
             this._pv_border.removeChildren();
         }
 
-        this._pv_border.addChild(this.border);
+        if (this.border) {
+            this._pv_border.addChild(this.border);
+        }
 
         if (this._hover) {
             canvas._pv_highlights_overhead.borders.addChild(this._pv_border);

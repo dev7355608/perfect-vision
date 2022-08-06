@@ -51,7 +51,9 @@ Hooks.once("init", () => {
             this._pv_frame.removeChildren();
         }
 
-        this._pv_frame.addChild(this.frame);
+        if (this.frame) {
+            this._pv_frame.addChild(this.frame);
+        }
 
         if (this.data.overhead) {
             canvas._pv_highlights_overhead.frames.addChild(this._pv_frame);

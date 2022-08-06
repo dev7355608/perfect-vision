@@ -704,10 +704,25 @@ class LightingRegion {
 
     _fit(region) {
         const vertices = new Map();
-        const graph = new Map();
         const { x, y, width, height } = region.bounds;
         const walls = canvas.walls.quadtree?.getObjects(new NormalizedRectangle(x, y, width, height)) ?? [];
-        const edges = [];
+
+        const addEdge = (a, b) => {
+            let v, w;
+
+            if (!(v = vertices.get(a.key))) {
+                vertices.set(a.key, v = { X: a.x, Y: a.y, key: a.key, neighbors: new Set(), visited: false });
+            }
+
+            if (!(w = vertices.get(b.key))) {
+                vertices.set(b.key, w = { X: b.x, Y: b.y, key: b.key, neighbors: new Set(), visited: false });
+            }
+
+            if (v !== w) {
+                v.neighbors.add(w);
+                w.neighbors.add(v);
+            }
+        }
 
         for (const wall of walls) {
             const { a, b } = wall.vertices;
@@ -720,7 +735,7 @@ class LightingRegion {
 
             if (i.size === 0) {
                 if (region.containsLineSegment(a, b)) {
-                    edges.push([a, b]);
+                    addEdge(a, b);
                 }
             } else {
                 if (region.intersectsLineSegment(a, b)) {
@@ -730,78 +745,18 @@ class LightingRegion {
                     p.sort((v, w) => v.x - w.x || v.y - w.y);
 
                     for (let k = 1; k < p.length; k++) {
-                        const v = p[k - 1];
-                        const w = p[k];
+                        const a = p[k - 1];
+                        const b = p[k];
 
-                        if (region.containsLineSegment(v, w)) {
-                            edges.push([v, w]);
-                        }
-                    }
-                }
-            }
-
-            for (let i = 0; i < edges.length; i++) {
-                for (let j = 0; j < 2; j++) {
-                    const v = edges[i][j];
-
-                    vertices.set(v.key, v);
-                }
-            }
-
-            for (const [v, w] of edges) {
-                if (v.key === w.key) {
-                    continue;
-                }
-
-                if (!graph.get(v.key)?.add(w.key)) {
-                    graph.set(v.key, new Set([w.key]));
-                }
-
-                if (!graph.get(w.key)?.add(v.key)) {
-                    graph.set(w.key, new Set([v.key]));
-                }
-            }
-        }
-
-        const queue = [];
-        const explored = new Set();
-
-        for (const [key1, neighbors] of graph.entries()) {
-            for (const key2 of neighbors) {
-                if (key1 > key2) {
-                    continue;
-                }
-
-                let current = key1;
-
-                do {
-                    if (current === key2) {
-                        break;
-                    }
-
-                    for (const next of graph.get(current)) {
-                        if (explored.has(next) || current === key1 && next === key2) {
+                        if (a.key === b.key) {
                             continue;
                         }
 
-                        queue.push(next);
-                        explored.add(next);
+                        if (region.containsLineSegment(a, b)) {
+                            addEdge(a, b);
+                        }
                     }
-                } while ((current = queue.pop()) !== undefined);
-
-                if (current !== key2) {
-                    graph.get(key1).delete(key2);
-                    graph.get(key2).delete(key1);
                 }
-
-                queue.length = 0;
-                explored.clear();
-            }
-        }
-
-        for (const [key, neighbors] of graph.entries()) {
-            if (neighbors.size === 0) {
-                vertices.delete(key);
             }
         }
 
@@ -811,95 +766,170 @@ class LightingRegion {
             let start;
 
             for (const vertex of vertices.values()) {
-                if (!start || start.x > vertex.x || start.x === vertex.x && start.y > vertex.y) {
+                vertex.visited = false;
+
+                if (!start || start.X > vertex.X || start.X === vertex.X && start.Y > vertex.Y) {
                     start = vertex;
                 }
             }
 
-            if (!start) {
-                break;
-            }
+            if (start.neighbors.size >= 2) {
+                const path = [];
+                let current = start;
+                let previous = { X: current.X - 1, Y: current.Y - 1 };
 
-            const path = [];
-            let current = start;
-            let last = { x: start.x - 1, y: start.y };
+                for (; ;) {
+                    current.visited = true;
 
-            do {
-                path.push(current);
+                    const x0 = previous.X;
+                    const y0 = previous.Y;
+                    const x1 = current.X;
+                    const y1 = current.Y;
 
-                const x0 = last.x;
-                const y0 = last.y;
-                const x1 = current.x;
-                const y1 = current.y;
+                    let next;
 
-                let next;
+                    for (const vertex of current.neighbors) {
+                        if (vertex === previous) {
+                            continue;
+                        }
 
-                for (const key of graph.get(current.key)) {
-                    if (key === last.key) {
-                        continue;
+                        if (vertex !== start && vertex.visited) {
+                            continue;
+                        }
+
+                        if (!next) {
+                            next = vertex;
+
+                            continue;
+                        }
+
+                        const x2 = next.X;
+                        const y2 = next.Y;
+                        const a1 = (y0 - y1) * (x2 - x1) + (x1 - x0) * (y2 - y1);
+                        const x3 = vertex.X;
+                        const y3 = vertex.Y;
+                        const a2 = (y0 - y1) * (x3 - x1) + (x1 - x0) * (y3 - y1);
+
+                        if (a1 < 0) {
+                            if (a2 >= 0) {
+                                continue;
+                            }
+                        } else if (a1 > 0) {
+                            if (a2 < 0) {
+                                next = vertex;
+
+                                continue;
+                            }
+
+                            if (a2 === 0) {
+                                const b2 = (x3 - x1) * (x0 - x1) + (y3 - y1) * (y0 - y1) > 0;
+
+                                if (!b2) {
+                                    next = vertex;
+                                }
+
+                                continue;
+                            }
+                        } else {
+                            if (a2 < 0) {
+                                next = vertex;
+
+                                continue;
+                            }
+
+                            const b1 = (x2 - x1) * (x0 - x1) + (y2 - y1) * (y0 - y1) > 0;
+
+                            if (a2 > 0) {
+                                if (b1) {
+                                    next = vertex;
+                                }
+
+                                continue;
+                            }
+
+                            const b2 = (x3 - x1) * (x0 - x1) + (y3 - y1) * (y0 - y1) > 0;
+
+                            if (b1 && !b2) {
+                                next = vertex;
+                            }
+
+                            continue;
+                        }
+
+                        const c = (y1 - y2) * (x3 - x1) + (x2 - x1) * (y3 - y1);
+
+                        if (c > 0) {
+                            continue;
+                        }
+
+                        if (c < 0) {
+                            next = vertex;
+
+                            continue;
+                        }
+
+                        const d1 = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
+                        const d2 = (x3 - x1) * (x3 - x1) + (y3 - y1) * (y3 - y1);
+
+                        if (d2 < d1) {
+                            next = vertex;
+                        }
                     }
 
-                    const vertex = vertices.get(key);
+                    if (next) {
+                        path.push(current);
 
-                    if (!vertex) {
-                        continue;
-                    }
+                        previous = current;
+                        current = next;
 
-                    if (!next) {
-                        next = vertex;
+                        if (current === start) {
+                            break;
+                        }
+                    } else {
+                        current = path.pop();
 
-                        continue;
-                    }
+                        if (!current) {
+                            previous = undefined;
 
-                    const x2 = next.x;
-                    const y2 = next.y;
-                    const x3 = vertex.x;
-                    const y3 = vertex.y;
+                            break;
+                        }
 
-                    const d1 = (y0 - y1) * (x2 - x1) + (x1 - x0) * (y2 - y1);
-                    const d2 = (y0 - y1) * (x3 - x1) + (x1 - x0) * (y3 - y1);
-
-                    if (d1 <= 0 && d2 >= 0 && d1 !== d2) {
-                        continue;
-                    }
-
-                    if (d1 >= 0 && d2 <= 0 && d1 !== d2) {
-                        next = vertex;
-
-                        continue;
-                    }
-
-                    const d3 = (y1 - y2) * (x3 - x1) + (x2 - x1) * (y3 - y1);
-
-                    if (d3 > 0) {
-                        continue;
-                    }
-
-                    if (d3 < 0) {
-                        next = vertex;
-
-                        continue;
-                    }
-
-                    const d4 = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
-                    const d5 = (x3 - x1) * (x3 - x1) + (y3 - y1) * (y3 - y1);
-
-                    if (d5 > d4) {
-                        next = vertex;
+                        previous = path.length ? path[path.length - 1] : { X: current.X - 1, Y: current.Y - 1 };
                     }
                 }
 
-                last = current;
-                current = next;
-            } while (current && current !== start);
+                if (path.length) {
+                    paths.push(path);
 
-            for (const vertex of path) {
-                vertices.delete(vertex.key);
+                    previous = path[path.length - 1];
+
+                    for (const vertex of path) {
+                        previous.neighbors.delete(vertex);
+
+                        if (previous.neighbors.size === 0) {
+                            vertices.delete(previous.key);
+                        }
+
+                        vertex.neighbors.delete(previous);
+
+                        previous = vertex;
+                    }
+
+                    if (previous.neighbors.size === 0) {
+                        vertices.delete(previous.key);
+                    }
+                }
             }
 
-            if (current === start && path.length >= 3) {
-                paths.push(path.map(vertex => new ClipperLib.IntPoint(vertex.x, vertex.y)));
+            for (const vertex of start.neighbors) {
+                vertex.neighbors.delete(start);
+
+                if (vertex.neighbors.size === 0) {
+                    vertices.delete(vertex.key);
+                }
             }
+
+            vertices.delete(start.key);
         }
 
         const clipper = new ClipperLib.Clipper();
