@@ -296,10 +296,12 @@ export class LightingConfigHelper {
             if (!document.isView) {
                 return;
             }
-        } else {
+        } else if (document instanceof DrawingDocument) {
             if (!document.rendered) {
                 return;
             }
+        } else {
+            return;
         }
 
         const previewData = this.#getFormData(sheet);
@@ -328,10 +330,12 @@ export class LightingConfigHelper {
             if (!document.isView) {
                 return;
             }
-        } else {
+        } else if (document instanceof DrawingDocument) {
             if (!document.rendered) {
                 return;
             }
+        } else {
+            return;
         }
 
         if (document instanceof Scene) {
@@ -373,10 +377,12 @@ export class LightingConfigHelper {
             if (!document.isView) {
                 return;
             }
-        } else {
+        } else if (document instanceof DrawingDocument) {
             if (!document.rendered) {
                 return;
             }
+        } else {
+            return;
         }
 
         if (document instanceof Scene) {
