@@ -1,152 +1,74 @@
-import { Logger } from "./logger.js";
 import { Sprite, SpriteMaterial } from "./sprite.js";
 
-export class Framebuffer extends PIXI.utils.EventEmitter {
-    static buffers = {};
-    static debug = false;
-
-    static create({ name, dependencies = [] }, ...args) {
-        console.assert(typeof name === "string" && !this.buffers.hasOwnProperty(name));
-
-        const buffer = new this(...args);
-
-        buffer.name = name;
-        buffer.dependencies = Object.assign({}, ...Array.from(dependencies, v => ({ [v]: null })));
-        buffer.dependents = null;
-
-        this.buffers[name] = buffer;
-
-        const sorted = [];
-        const visited = {};
-
-        const visit = (buffer, dependent) => {
-            if (!buffer) {
-                return null;
-            }
-
-            if (visited.hasOwnProperty(buffer.name)) {
-                if (dependent) {
-                    buffer.dependents[dependent.name] = dependent;
-                }
-
-                return buffer;
-            } else {
-                buffer.dependents = dependent ? { [dependent.name]: dependent } : {};
-            }
-
-            visited[buffer.name] = true;
-
-            for (const name of Object.keys(buffer.dependencies)) {
-                buffer.dependencies[name] = visit(this.buffers[name], buffer);
-            }
-
-            sorted.push(buffer);
-
-            return buffer;
-        }
-
-        for (const buffer of Object.values(this.buffers)) {
-            visit(buffer);
-        }
-
-        for (const name of Object.keys(this.buffers)) {
-            delete this.buffers[name];
-        }
-
-        for (const buffer of sorted) {
-            this.buffers[buffer.name] = buffer;
-        }
-
-        return buffer;
-    }
-
-    static get(name) {
-        return this.buffers[name];
-    }
-
-    static getTexture(name, index = 0) {
-        return this.get(name)?.textures[index] ?? PIXI.Texture.EMPTY;
-    }
-
-    static getSprite(name, index = 0) {
-        return this.get(name)?.sprites[index];
-    }
-
-    static invalidateAll() {
-        for (const buffer of Object.values(this.buffers)) {
-
-            if (!(buffer instanceof this)) {
-                continue;
-            }
-
-            buffer.invalidate();
-        }
-    }
-
-    static updateAll() {
-        let updated;
-        let start;
-
-        if (this.debug) {
-            start = performance.now();
-        }
-
-        for (const buffer of Object.values(this.buffers)) {
-            if (!(buffer instanceof this)) {
-                continue;
-            }
-
-            if (buffer.dirty === true) {
-                buffer.dirty = false;
-
-                buffer.emit("preupdate", buffer);
-                buffer.emit("update", buffer);
-                buffer.emit("postupdate", buffer);
-
-                if (this.debug) {
-                    if (!updated) {
-                        updated = [];
-                    }
-
-                    updated.push(buffer.name);
-                }
-            }
-        }
-
-        if (this.debug && updated) {
-            const end = performance.now();
-            const elapsed = Math.round((end - start) * 100) / 100;
-
-            Logger.debug("Framebuffer | Updated | %fms | %s", elapsed, updated.join(" "));
-        }
-    }
-
-    static hideAll() {
-        for (const buffer of Object.values(this.buffers)) {
-
-            if (!(buffer instanceof this)) {
-                continue;
-            }
-
-            buffer.hide();
-        }
-    }
-
-    name;
+export class Framebuffer {
+    /**
+     * The textures options.
+     * @type {object}
+     * @readonly
+     */
     texturesOptions;
+
+    /**
+     * The framebuffer options.
+     * @type {object}
+     * @readonly
+     */
     framebufferOptions;
+
+    /**
+     * The render textures.
+     * @type {PIXI.RenderTexture[]}
+     * @readonly
+     */
     textures;
+
+    /**
+     * The sprites.
+     * @type {FramebufferSprite[]}
+     * @readonly
+     */
     sprites;
-    drawBuffers = [];
+
+    /**
+     * The sprites.
+     * @type {Object<string,PIXI.RenderTexture|Proxy}}
+     * @readonly
+     */
+    framebuffers;
+
+    /**
+     * Is dirty?
+     * @type {boolean|undefined}
+     * @readonly
+     */
     dirty;
+
+    /**
+     * Is destroyed?
+     * @type {boolean}
+     * @readonly
+     */
     destroyed = false;
 
-    constructor(texturesOptions, framebufferOptions) {
-        super();
+    /**
+     * Default framebuffer key.
+     * @type {string}
+     */
+    #defaultFramebufferKey;
 
+    /**
+     * @param {object} [texturesOptions] - The textures options.
+     * @param {object} [framebufferOptions] - The framebuffer options.
+     */
+    constructor(texturesOptions, framebufferOptions) {
         this.reset(texturesOptions, framebufferOptions);
     }
 
+    /**
+     * Reset.
+     * @param {object} [texturesOptions] - The textures options.
+     * @param {object} [framebufferOptions] - The framebuffer options.
+     */
     reset(texturesOptions = [], framebufferOptions = {}) {
         this.framebufferOptions = framebufferOptions = Object.assign(this.framebufferOptions ?? {
             multisample: PIXI.MSAA_QUALITY.NONE,
@@ -227,7 +149,7 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
                 this.sprites.push(new FramebufferSprite(new SpriteMaterial(texture)));
             }
 
-            this._defaultKey = [...Array(this.textures.length).keys()].join(",");
+            this.#defaultFramebufferKey = [...new Array(this.textures.length).keys()].join(",");
         } else {
             const textures = this.textures;
 
@@ -272,28 +194,62 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
         }
 
         this.dirty = undefined;
-
-        if (this.constructor.debug) {
-            Logger.debug("Framebuffer | Disposed & Reset | %s", this.name);
-        }
     }
 
+    /**
+     * Aquire.
+     * @returns {boolean} True if and only if aquired by this call.
+     */
     acquire() {
-        if (this.dirty === undefined) {
+        if (this.disposed) {
             this.dirty = true;
 
-            for (const dependent of Object.values(this.dependents)) {
-                dependent?.invalidate();
-            }
+            return true;
         }
+
+        return false;
     }
 
+    /**
+     * Invalidate.
+     * @returns {boolean} True if and only if invalidated by this call.
+     */
+    invalidate() {
+        if (this.dirty === false) {
+            this.dirty = true;
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Is disposed?
+     * @type {boolean}
+     * @readonly
+     */
+    get disposed() {
+        return this.dirty === undefined;
+    }
+
+    /**
+     * Dispose.
+     * @returns {boolean} True if and only if disposed by this call.
+     */
     dispose() {
-        if (this.dirty !== undefined) {
+        if (!this.disposed) {
             this.reset();
+
+            return true;
         }
+
+        return false;
     }
 
+    /**
+     * Destroy.
+     */
     destroy() {
         for (let i = 0; i < this.textures.length; i++) {
             this.textures[i].destroy(true);
@@ -308,57 +264,68 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
         this.textures = null;
         this.sprites = null;
         this.framebuffers = null;
-        this.drawBuffers = null;
         this.destroyed = true;
-
-        if (this.constructor.debug) {
-            Logger.debug("Framebuffer | Destroyed | %s", this.name);
-        }
-
-        delete this.constructor.buffers[this.name];
     }
 
-    get disposed() {
-        return this.dirty === undefined;
-    }
-
-    render(renderer, displayObject, clear = true, transform = null, skipUpdateTransform = false, attachments = null) {
+    /**
+     * Render the display object.
+     * @param {PIXI.renderer} renderer - The renderer.
+     * @param {PIXI.displayObject} displayObject - The display object to be rendered.
+     * @param {object} [options]
+     * @param {boolean|undefined} [options.clear=true] - Clear before rendering?
+     * @param {PIXI.Matrix} [options.transform] - The camera transform.
+     * @param {boolean} [options.skipUpdateTransform=false] - Skip transform updates?
+     * @param {number[]} [options.attachments] - The subset of attachments to render to.
+     * @param {boolean} [options.resize=true] - Resize framebuffer?
+     * @param {number} [options.width] - The width of the framebuffer. Defaults to the width of the renderer.
+     * @param {number} [options.height] - The height of the framebuffer. Defaults to the height of the renderer.
+     * @param {number} [options.resolution] - The resolution of the framebuffer. Defaults to the resolution of the renderer.
+     */
+    render(renderer, displayObject, { clear = true, transform, skipUpdateTransform = false,
+        attachments, resize = true, width, height, resolution } = {}) {
         const textures = this.textures;
-        const { width, height } = renderer.screen;
-        const resolution = renderer.resolution;
 
-        if (textures[0].width !== width || textures[0].height !== height || textures[0].resolution !== resolution) {
-            const realWidth = Math.round(width * resolution);
-            const realHeight = Math.round(height * resolution);
+        if (resize) {
+            const texture0 = textures[0];
+            const screen = renderer.screen;
 
-            for (let i = 0; i < textures.length; i++) {
-                const texture = textures[i];
-                const baseTexture = texture.baseTexture;
+            height ??= screen.height;
+            width ??= screen.width;
+            resolution ??= renderer.resolution;
 
-                texture.valid = width > 0 && height > 0;
-                texture._frame.width = texture.orig.width = width;
-                texture._frame.height = texture.orig.height = height;
-                baseTexture.setRealSize(realWidth, realHeight, resolution);
-                texture.updateUvs();
+            if (texture0.width !== width || texture0.height !== height || texture0.resolution !== resolution) {
+                const realWidth = Math.round(width * resolution);
+                const realHeight = Math.round(height * resolution);
 
-                const sprite = this.sprites[i];
+                for (let i = 0; i < textures.length; i++) {
+                    const texture = textures[i];
+                    const baseTexture = texture.baseTexture;
 
-                sprite.width = width;
-                sprite.height = height;
-                sprite.updateTransform();
-            }
+                    texture.valid = width > 0 && height > 0;
+                    texture._frame.width = texture.orig.width = width;
+                    texture._frame.height = texture.orig.height = height;
+                    baseTexture.setRealSize(realWidth, realHeight, resolution);
+                    texture.updateUvs();
 
-            for (const framebuffer of Object.values(this.framebuffers)) {
-                framebuffer.width = realWidth;
-                framebuffer.height = realHeight;
+                    const sprite = this.sprites[i];
 
-                framebuffer.dirtyId++;
-                framebuffer.dirtySize++;
+                    sprite.width = width;
+                    sprite.height = height;
+                    sprite.updateTransform();
+                }
 
-                if (framebuffer.depthTexture) {
-                    const resolution = framebuffer.depthTexture.resolution;
+                for (const framebuffer of Object.values(this.framebuffers)) {
+                    framebuffer.width = realWidth;
+                    framebuffer.height = realHeight;
 
-                    framebuffer.depthTexture.setSize(width / resolution, height / resolution);
+                    framebuffer.dirtyId++;
+                    framebuffer.dirtySize++;
+
+                    if (framebuffer.depthTexture) {
+                        const resolution = framebuffer.depthTexture.resolution;
+
+                        framebuffer.depthTexture.setSize(width / resolution, height / resolution);
+                    }
                 }
             }
         }
@@ -366,7 +333,7 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
         renderer.renderingToScreen = false;
         renderer.runners.prerender.emit();
         renderer.emit("prerender");
-        renderer.projection.transform = transform;
+        renderer.projection.transform = transform ?? null;
 
         if (renderer.context.isLost) {
             return;
@@ -410,18 +377,22 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
         renderer.emit("postrender");
     }
 
-    bind(renderer, attachments = null) {
+    /**
+     * Bind.
+     * @param {PIXI.renderer} renderer - The renderer.
+     * @param {number[]} [attachments] - The subset of attachments to render to.
+     */
+    bind(renderer, attachments) {
         if (attachments?.length === 0) {
             return;
         }
 
         renderer.batch.flush();
 
-        const drawBuffers = this.drawBuffers;
         const gl = renderer.gl;
         let framebuffer;
 
-        const key = attachments?.join(",") ?? this._defaultKey;
+        const key = attachments?.join(",") ?? this.#defaultFramebufferKey;
 
         if (!this.framebuffers.hasOwnProperty(key)) {
             const { realWidth, realHeight } = this.textures[0].baseTexture;
@@ -466,7 +437,7 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
 
         renderer.renderTexture.bind(framebuffer.renderTexture);
 
-        drawBuffers.length = 0;
+        const drawBuffers = [];
 
         for (let i = 0, n = framebuffer.colorTextures.length; i < n; i++) {
             drawBuffers.push(WebGL2RenderingContext.COLOR_ATTACHMENT0 + i);
@@ -500,52 +471,6 @@ export class Framebuffer extends PIXI.utils.EventEmitter {
             }
 
             framebuffer.cleared = true;
-        }
-    }
-
-    invalidate() {
-        if (this.dirty === false) {
-            this.dirty = true;
-
-            for (const dependent of Object.values(this.dependents)) {
-                dependent?.invalidate();
-            }
-        }
-    }
-
-    show(stage, index = 0, channel = 0, alpha = 1.0) {
-        if (this.dirty === undefined) {
-            return;
-        }
-
-        this.hide();
-
-        if (alpha > 0) {
-            const container = new PIXI.Container();
-
-            container.filters = [new FramebufferSpriteFilter(channel, alpha)];
-            container.zIndex = Infinity;
-            container.addChild(this.sprites[index]);
-
-            stage.addChild(container);
-        }
-    }
-
-    hide(index) {
-        if (this.dirty === undefined) {
-            return;
-        }
-
-        for (let i = 0; i < this.sprites.length; i++) {
-            if (index == null || index === i) {
-                const sprite = this.sprites[i];
-                const container = sprite.parent;
-
-                if (container) {
-                    container.removeChild(sprite);
-                    container.destroy(true);
-                }
-            }
         }
     }
 }
@@ -604,56 +529,5 @@ class FramebufferSprite extends Sprite {
     updateTransform() {
         this.transform.updateTransform(PIXI.Transform.IDENTITY);
         this.worldAlpha = this.alpha;
-    }
-}
-
-class FramebufferSpriteFilter extends PIXI.Filter {
-    static vertexSrc = `\
-        #version 100
-
-        precision ${PIXI.settings.PRECISION_VERTEX} float;
-
-        attribute vec2 aVertexPosition;
-
-        uniform mat3 projectionMatrix;
-        uniform vec4 inputSize;
-        uniform vec4 outputFrame;
-
-        varying vec2 vTextureCoord;
-
-        void main() {
-            vec3 position = vec3(aVertexPosition * max(outputFrame.zw, vec2(0.0)) + outputFrame.xy, 1.0);
-
-            gl_Position = vec4((projectionMatrix * position).xy, 0.0, 1.0);
-
-            vTextureCoord = aVertexPosition * (outputFrame.zw * inputSize.zw);
-        }`;
-
-    static fragmentSrc = `\
-        #version 100
-
-        precision ${PIXI.settings.PRECISION_FRAGMENT} float;
-
-        varying vec2 vTextureCoord;
-
-        uniform sampler2D uSampler;
-        uniform vec4 uWeights;
-        uniform float uAlpha;
-
-        void main() {
-            float value = dot(texture2D(uSampler, vTextureCoord), uWeights);
-
-            gl_FragColor = vec4(value, value, value, 1.0) * uAlpha;
-        }`;
-
-    constructor(channel = 0, alpha = 1) {
-        const weights = new Float32Array(4);
-
-        weights[channel] = 1;
-
-        super(FramebufferSpriteFilter.vertexSrc, FramebufferSpriteFilter.fragmentSrc, {
-            uWeights: weights,
-            uAlpha: alpha
-        });
     }
 }

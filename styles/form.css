@@ -1,0 +1,55 @@
+form .form-group.perfect-vision .form-fields input[type="range"]:disabled {
+    filter: grayscale(1.0) opacity(0.33);
+}
+
+form .form-group.perfect-vision .form-fields input[type="color"]:disabled {
+    filter: opacity(0.5);
+}
+
+form .form-group.perfect-vision .form-fields span.range-value.disabled {
+    filter: opacity(0.67);
+}
+
+form .form-group .form-fields button.perfect-vision--button {
+    font-size: var(--font-size-12);
+    flex: 1;
+}
+
+form .form-group label.perfect-vision--id {
+    font-size: var(--font-size-12);
+    font-family: monospace;
+    flex: 1;
+}
+
+form label.perfect-vision--override {
+    font-size: var(--font-size-11) !important;
+    flex: none;
+    padding: 0;
+}
+
+form .detection-modes.perfect-vision {
+    margin: 6px 0 3px 0;
+}
+
+form .detection-modes.perfect-vision .detection-mode {
+    margin: 0 0 0.25rem;
+    align-items: center;
+}
+
+form .detection-modes.perfect-vision header.detection-mode .detection-mode-range {
+    display: inline-block !important;
+}
+
+form .detection-modes.perfect-vision .detection-mode .detection-mode-range {
+    margin-right: 0;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+}
+
+form .detection-modes.perfect-vision .detection-mode .perfect-vision--detection-type {
+    font-size: var(--font-size-12);
+    color: var(--color-text-dark-secondary);
+    flex: 0;
+}

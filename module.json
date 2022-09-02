@@ -1,27 +1,51 @@
 {
+  "id": "perfect-vision",
   "name": "perfect-vision",
   "title": "Perfect Vision",
-  "description": "Darkvision and other lighting/vision improvements.",
-  "author": "dev7355608",
-  "version": "3.9.15",
-  "minimumCoreVersion": "9.245",
-  "compatibleCoreVersion": "9",
+  "description": "Lighting Drawings and Vision Limitation.",
+  "authors": [
+    {
+      "name": "dev7355608",
+      "email": "dev7355608@gmail.com"
+    }
+  ],
+  "version": "4.0.0",
+  "compatibility": {
+    "minimum": "10.282",
+    "verified": "10.284",
+    "maximum": "10"
+  },
+  "minimumCoreVersion": "10",
   "scripts": [
-    "libs/clipper.js",
-    "libs/tess2.js",
-    "libs/vlq.js"
+    "libs/glsl-optimizer.js",
+    "libs/tess2.js"
   ],
   "esmodules": [
     "scripts/index.js"
   ],
-  "dependencies": [
+  "styles": [
+    "styles/form.css"
+  ],
+  "languages": [
     {
-      "name": "lib-wrapper"
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
     }
   ],
+  "relationships": {
+    "requires": [
+      {
+        "id": "lib-wrapper",
+        "type": "module"
+      }
+    ]
+  },
   "url": "https://github.com/dev7355608/perfect-vision",
   "manifest": "https://raw.githubusercontent.com/dev7355608/perfect-vision/main/module.json",
-  "download": "https://github.com/dev7355608/perfect-vision/archive/v3.9.15.zip",
+  "download": "https://github.com/dev7355608/perfect-vision/archive/v4.0.0.zip",
+  "changelog": "https://github.com/dev7355608/perfect-vision/releases/tag/v4.0.0",
   "bugs": "https://github.com/dev7355608/perfect-vision/issues",
-  "readme": "https://raw.githubusercontent.com/dev7355608/perfect-vision/main/README.md"
+  "readme": "https://raw.githubusercontent.com/dev7355608/perfect-vision/main/README.md",
+  "license": "https://raw.githubusercontent.com/dev7355608/perfect-vision/main/LICENSE"
 }

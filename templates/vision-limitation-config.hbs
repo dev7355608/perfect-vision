@@ -1,0 +1,119 @@
+<form autocomplete="off" class="flexcol">
+    <div class="form-group">
+        <label style="flex: 3;">{{localize "PERFECTVISION.Enabled"}}</label>
+        <div class="form-fields">
+            <input name="flags.perfect-vision.{{#if isToken}}light.{{/if}}visionLimitation.enabled" type="checkbox"
+                {{checked isEnabled}}>
+            {{#if isDrawing}}
+            &nbsp;&nbsp;&nbsp;
+            <label class="checkbox perfect-vision--override">
+                {{ localize "EFFECT.MODE_OVERRIDE" }}
+                <input type="checkbox" class="perfect-vision--override" {{checked (ne isEnabled undefined)}}></label>
+            {{/if}}
+        </div>
+        <p class="hint">{{localize "PERFECTVISION.VisionLimitationEnabledHint"}}</p>
+    </div>
+
+    <div class="form-group">
+        <label style="flex: 3;">{{localize "PERFECTVISION.SightLimit"}} <span
+                class="units">({{gridUnits}})</span></label>
+        <div class="form-fields">
+            <input name="flags.perfect-vision.{{#if isToken}}light.{{/if}}visionLimitation.sight" type="number"
+                value="{{sightLimit}}" min="0" step="0.01" placeholder="{{localize 'PERFECTVISION.Infinity'}}">
+            {{#if isDrawing}}
+            &nbsp;&nbsp;&nbsp;
+            <label class="checkbox perfect-vision--override">
+                {{ localize "EFFECT.MODE_OVERRIDE" }}
+                <input type="checkbox" class="perfect-vision--override" {{checked (ne sightLimit undefined)}}></label>
+            {{/if}}
+        </div>
+        <p class="hint">{{localize "PERFECTVISION.SightLimitHint"}}</p>
+    </div>
+
+    <div class="form-group">
+        <label style="flex: 3;">{{localize "PERFECTVISION.SoundLimit"}} <span
+                class="units">({{gridUnits}})</span></label>
+        <div class="form-fields">
+            <input name="flags.perfect-vision.{{#if isToken}}light.{{/if}}visionLimitation.sound" type="number"
+                value="{{soundLimit}}" min="0" step="0.01" placeholder="{{localize 'PERFECTVISION.Infinity'}}">
+            {{#if isDrawing}}
+            &nbsp;&nbsp;&nbsp;
+            <label class="checkbox perfect-vision--override">
+                {{ localize "EFFECT.MODE_OVERRIDE" }}
+                <input type="checkbox" class="perfect-vision--override" {{checked (ne soundLimit undefined)}}></label>
+            {{/if}}
+        </div>
+        <p class="hint">{{localize "PERFECTVISION.SoundLimitHint"}}</p>
+    </div>
+
+    <div class="form-group">
+        <label style="flex: 3;">{{localize "PERFECTVISION.MoveLimit"}} <span
+                class="units">({{gridUnits}})</span></label>
+        <div class="form-fields">
+            <input name="flags.perfect-vision.{{#if isToken}}light.{{/if}}visionLimitation.move" type="number"
+                value="{{moveLimit}}" min="0" step="0.01" placeholder="{{localize 'PERFECTVISION.Infinity'}}">
+            {{#if isDrawing}}
+            &nbsp;&nbsp;&nbsp;
+            <label class="checkbox perfect-vision--override">
+                {{ localize "EFFECT.MODE_OVERRIDE" }}
+                <input type="checkbox" class="perfect-vision--override" {{checked (ne moveLimit undefined)}}></label>
+            {{/if}}
+        </div>
+        <p class="hint">{{localize "PERFECTVISION.MoveLimitHint"}}</p>
+    </div>
+
+    <div class="form-group">
+        <label style="flex: 3;">{{localize "PERFECTVISION.OtherLimit"}} <span
+                class="units">({{gridUnits}})</span></label>
+        <div class="form-fields">
+            <input name="flags.perfect-vision.{{#if isToken}}light.{{/if}}visionLimitation.other" type="number"
+                value="{{otherLimit}}" min="0" step="0.01" placeholder="{{localize 'PERFECTVISION.Infinity'}}">
+            {{#if isDrawing}}
+            &nbsp;&nbsp;&nbsp;
+            <label class="checkbox perfect-vision--override">
+                {{ localize "EFFECT.MODE_OVERRIDE" }}
+                <input type="checkbox" class="perfect-vision--override" {{checked (ne otherLimit undefined)}}></label>
+            {{/if}}
+        </div>
+        <p class="hint">{{localize "PERFECTVISION.OtherLimitHint"}}</p>
+    </div>
+
+    <div class="detection-modes perfect-vision">
+        <header class="detection-mode">
+            <div class="detection-mode-id">{{localize "TOKEN.DetectionMode"}} <span
+                    class="perfect-vision--detection-type">(Type)</span>
+            </div>
+            <div class="detection-mode-range">{{localize "PERFECTVISION.Limit"}} <span
+                    class="perfect-vision--detection-type">({{gridUnits}})</span></div>
+        </header>
+
+        {{#each detectionLimits}}
+        <fieldset class="detection-mode">
+            <div class="detection-mode-id">
+                {{label}} <span class="perfect-vision--detection-type">({{typeLabel}})</span>
+            </div>
+            <div class="detection-mode-range">
+                <input name="flags.perfect-vision.{{#if ../isToken}}light.{{/if}}visionLimitation.detection.{{id}}"
+                    type="number" value="{{limit}}" min="0" step="0.01"
+                    placeholder="{{localize 'PERFECTVISION.Infinity'}}">
+                {{#if ../isDrawing}}
+                &nbsp;&nbsp;&nbsp;
+                <label class="checkbox perfect-vision--override">
+                    {{ localize "EFFECT.MODE_OVERRIDE" }}
+                    <input type="checkbox" class="perfect-vision--override" {{checked (ne limit undefined)}}></label>
+                {{/if}}
+            </div>
+        </fieldset>
+        {{/each}}
+        <p class="hint">{{localize "PERFECTVISION.DetectionLimitsHint"}}</p>
+    </div>
+
+    <footer class="sheet-footer">
+        <button type="reset" {{#if isDrawing}}class="hidden" {{/if}}>
+            <i class="fas fa-undo"></i> {{localize "SETTINGS.Reset"}}
+        </button>
+        <button type="submit">
+            <i class="far fa-save"></i> {{submitText}}
+        </button>
+    </footer>
+</form>

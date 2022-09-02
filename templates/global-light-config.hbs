@@ -1,0 +1,318 @@
+<form autocomplete="off" class="flexcol">
+
+    <!-- Configuration Tabs -->
+    <nav class="sheet-tabs tabs">
+        <a class="item" data-tab="basic"><i class="fas fa-lightbulb"></i> {{localize "LIGHT.HeaderBasic"}}</a>
+        <a class="item" data-tab="animation"><i class="fas fa-play"></i> {{localize "LIGHT.HeaderAnimation"}}</a>
+        <a class="item" data-tab="advanced"><i class="fas fa-cogs"></i> {{localize "LIGHT.HeaderAdvanced"}}</a>
+    </nav>
+
+    <!-- Basic Tab -->
+    <div class="tab" data-tab="basic">
+        <div class="form-group perfect-vision">
+            <label>Enabled</label>
+            <div class="form-fields">
+                <input type="checkbox" {{#if isScene}} name="globalLight" {{checked data.globalLight}} {{else}}
+                    name="flags.perfect-vision.globalLight.enabled" {{checked
+                    data.flags.perfect-vision.globalLight.enabled}} {{/if}} />
+                {{#unless isScene}}
+                &nbsp;&nbsp;&nbsp;
+                <label class="checkbox perfect-vision--override">
+                    {{ localize "EFFECT.MODE_OVERRIDE" }}
+                    <input type="checkbox" class="perfect-vision--override" {{checked (ne
+                        data.flags.perfect-vision.globalLight.enabled undefined)}}></label>
+                {{/unless}}
+            </div>
+            <p class="hint">{{#if isScene}} {{ localize "PERFECTVISION.GlobalIllumEnabledHintScene" }}{{else}}{{
+                localize "PERFECTVISION.GlobalIllumEnabledHintDrawing" }}{{/if}}</p>
+        </div>
+
+        <div class="form-group slim perfect-vision">
+            <label>{{localize "LIGHT.Coordinates"}} <span class="units">({{localize "Pixels"}})</span></label>
+            <div class="form-fields">
+                <label>X</label>
+                <input type="number" name="flags.perfect-vision.globalLight.x"
+                    value="{{data.flags.perfect-vision.globalLight.x}}" />
+                <label>Y</label>
+                <input type="number" name="flags.perfect-vision.globalLight.y"
+                    value="{{data.flags.perfect-vision.globalLight.y}}" />
+                &nbsp;
+                <button class="capture-position" type="button" name="perfect-vision.pickCoordinates"
+                    data-tooltip="{{localize 'PERFECTVISION.PickCoordinatesTooltip'}}" data-tooltip-direction="LEFT">
+                    <i class="fas fa-crosshairs fa-fw" style="margin: 0;"></i>
+                </button>
+                {{#unless isScene}}
+                &nbsp;&nbsp;&nbsp;
+                <label class="checkbox perfect-vision--override">
+                    {{ localize "EFFECT.MODE_OVERRIDE" }}
+                    <input type="checkbox" class="perfect-vision--override" {{checked (and (ne
+                        data.flags.perfect-vision.globalLight undefined) (or (ne data.flags.perfect-vision.globalLight.x
+                        undefined) (ne data.flags.perfect-vision.globalLight.y undefined)))}}></label>
+                {{/unless}}
+            </div>
+        </div>
+
+        <div class="form-group perfect-vision">
+            <label>{{ localize "PERFECTVISION.BrightLight" }}</label>
+            <div class="form-fields">
+                <input type="checkbox" name="flags.perfect-vision.globalLight.bright" {{checked
+                    data.flags.perfect-vision.globalLight.bright}} />
+                {{#unless isScene}}
+                &nbsp;&nbsp;&nbsp;
+                <label class="checkbox perfect-vision--override">
+                    {{ localize "EFFECT.MODE_OVERRIDE" }}
+                    <input type="checkbox" class="perfect-vision--override" {{checked (ne
+                        data.flags.perfect-vision.globalLight.bright undefined)}}></label>
+                {{/unless}}
+            </div>
+            <p class="hint">{{ localize "PERFECTVISION.BrightLightHint" }}</p>
+        </div>
+
+        <div class="form-group perfect-vision">
+            <label>{{ localize "LIGHT.Color" }}</label>
+            <div class="form-fields">
+                {{colorPicker name="flags.perfect-vision.globalLight.color"
+                value=data.flags.perfect-vision.globalLight.color}}
+                {{#unless isScene}}
+                &nbsp;&nbsp;&nbsp;
+                <label class="checkbox perfect-vision--override">
+                    {{ localize "EFFECT.MODE_OVERRIDE" }}
+                    <input type="checkbox" class="perfect-vision--override" {{checked (ne
+                        data.flags.perfect-vision.globalLight.color undefined)}}></label>
+                {{/unless}}
+            </div>
+        </div>
+
+        <div class="form-group perfect-vision">
+            <label>{{ localize "LIGHT.Alpha" }}</label>
+            <div class="form-fields">
+                {{rangePicker name="flags.perfect-vision.globalLight.alpha"
+                value=data.flags.perfect-vision.globalLight.alpha min="0" max="1" step="0.05"}}
+                {{#unless isScene}}
+                &nbsp;&nbsp;&nbsp;
+                <label class="checkbox perfect-vision--override">
+                    {{ localize "EFFECT.MODE_OVERRIDE" }}
+                    <input type="checkbox" class="perfect-vision--override" {{checked (ne
+                        data.flags.perfect-vision.globalLight.alpha undefined)}}></label>
+                {{/unless}}
+            </div>
+            <p class="hint">{{ localize 'LIGHT.ColorHint' }}</p>
+        </div>
+
+        <div class="form-group slim">
+            <label>{{ localize "LIGHT.DarknessRange" }}</label>
+            <div class="form-fields">
+                <label>{{ localize "Between" }} 0 {{ localize "and" }}</label>
+                {{#if isScene}}
+                {{numberInput data.globalLightThreshold name="globalLightThreshold" placeholder="1"
+                min=0 max=1}}
+                {{else}}
+                {{numberInput data.perfect-vision.globalLight.darkness.max
+                name="flags.perfect-vision.globalLight.darkness.max"
+                placeholder="1" min=0 max=1}}
+                {{/if}}
+                {{#unless isScene}}
+                &nbsp;&nbsp;&nbsp;
+                <label class="checkbox perfect-vision--override">
+                    {{ localize "EFFECT.MODE_OVERRIDE" }}
+                    <input type="checkbox" class="perfect-vision--override" {{checked (ne
+                        flags.perfect-vision.globalLight.darkness.max undefined)}}></label>
+                {{/unless}}
+            </div>
+            <p class="hint">{{ localize "LIGHT.DarknessRangeHint" }}</p>
+        </div>
+
+    </div>
+
+    <!-- Animation Tab -->
+    <div class="tab" data-tab="animation">
+        <div class="form-group perfect-vision">
+            <label>{{localize "LIGHT.AnimationType"}}</label>
+            <div class="form-fields">
+                <select name="flags.perfect-vision.globalLight.animation.type">
+                    {{selectOptions lightAnimations selected=data.flags.perfect-vision.globalLight.animation.type
+                    localize=true labelAttr="label" blank="None" sort=true}}
+                </select>
+                {{#unless isScene}}
+                &nbsp;&nbsp;&nbsp;
+                <label class="checkbox perfect-vision--override">
+                    {{ localize "EFFECT.MODE_OVERRIDE" }}
+                    <input type="checkbox" class="perfect-vision--override" {{checked (ne
+                        data.flags.perfect-vision.globalLight.animation.type undefined)}}></label>
+                {{/unless}}
+            </div>
+        </div>
+
+        <div class="form-group perfect-vision">
+            <label>{{ localize "PERFECTVISION.AnimationResolution" }}</label>
+            <div class="form-fields">
+                {{rangePicker name="flags.perfect-vision.globalLight.resolution"
+                value=data.flags.perfect-vision.globalLight.resolution min="0.01" max="2" step="0.01"}}
+                {{#unless isScene}}
+                &nbsp;&nbsp;&nbsp;
+                <label class="checkbox perfect-vision--override">
+                    {{ localize "EFFECT.MODE_OVERRIDE" }}
+                    <input type="checkbox" class="perfect-vision--override" {{checked (ne
+                        data.flags.perfect-vision.globalLight.resolution undefined)}}></label>
+                {{/unless}}
+            </div>
+        </div>
+
+        <div class="form-group perfect-vision">
+            <label>{{localize "LIGHT.AnimationSpeed"}}</label>
+            <div class="form-fields">
+                {{rangePicker name="flags.perfect-vision.globalLight.animation.speed"
+                value=data.flags.perfect-vision.globalLight.animation.speed min="0" max="10" step="1"}}
+                {{#unless isScene}}
+                &nbsp;&nbsp;&nbsp;
+                <label class="checkbox perfect-vision--override">
+                    {{ localize "EFFECT.MODE_OVERRIDE" }}
+                    <input type="checkbox" class="perfect-vision--override" {{checked (ne
+                        data.flags.perfect-vision.globalLight.animation.speed undefined)}}></label>
+                {{/unless}}
+            </div>
+        </div>
+
+        <div class="form-group perfect-vision">
+            <label>{{localize "LIGHT.AnimationReverse"}}</label>
+            <div class="form-fields">
+                <input type="checkbox" name="flags.perfect-vision.globalLight.animation.reverse" {{checked
+                    data.flags.perfect-vision.globalLight.animation.reverse}} />
+                {{#unless isScene}}
+                &nbsp;&nbsp;&nbsp;
+                <label class="checkbox perfect-vision--override">
+                    {{ localize "EFFECT.MODE_OVERRIDE" }}
+                    <input type="checkbox" class="perfect-vision--override" {{checked (ne
+                        data.flags.perfect-vision.globalLight.animation.reverse undefined)}}></label>
+                {{/unless}}
+            </div>
+        </div>
+
+        <div class="form-group perfect-vision">
+            <label>{{localize "LIGHT.AnimationIntensity"}}</label>
+            <div class="form-fields">
+                {{rangePicker name="flags.perfect-vision.globalLight.animation.intensity"
+                value=data.flags.perfect-vision.globalLight.animation.intensity min="1" max="10" step="1"}}
+                {{#unless isScene}}
+                &nbsp;&nbsp;&nbsp;
+                <label class="checkbox perfect-vision--override">
+                    {{ localize "EFFECT.MODE_OVERRIDE" }}
+                    <input type="checkbox" class="perfect-vision--override" {{checked (ne
+                        data.flags.perfect-vision.globalLight.animation.intensity undefined)}}></label>
+                {{/unless}}
+            </div>
+            <p class="hint">{{ localize "LIGHT.AnimationHint" }}</p>
+        </div>
+    </div>
+
+    <!-- Advanced Tab -->
+    <div class="tab" data-tab="advanced">
+
+        <div class="form-group">
+            <label>{{localize "LIGHT.Vision"}}</label>
+            <div class="form-fields">
+                <input type="checkbox" name="flags.perfect-vision.globalLight.vision" {{checked
+                    data.flags.perfect-vision.globalLight.vision}}>
+                {{#unless isScene}}
+                &nbsp;&nbsp;&nbsp;
+                <label class="checkbox perfect-vision--override">
+                    {{ localize "EFFECT.MODE_OVERRIDE" }}
+                    <input type="checkbox" class="perfect-vision--override" {{checked (ne
+                        data.flags.perfect-vision.globalLight.vision undefined)}}></label>
+                {{/unless}}
+            </div>
+            <p class="hint">{{ localize "LIGHT.VisionHint" }}</p>
+        </div>
+
+        <div class="form-group perfect-vision">
+            <label>{{ localize 'LIGHT.ColorationTechnique' }}</label>
+            <div class="form-fields">
+                <select name="flags.perfect-vision.globalLight.coloration" data-dtype="Number">
+                    {{selectOptions colorationTechniques selected=data.flags.perfect-vision.globalLight.coloration
+                    nameAttr="id" labelAttr="label" localize=true}}
+                </select>
+                {{#unless isScene}}
+                &nbsp;&nbsp;&nbsp;
+                <label class="checkbox perfect-vision--override">
+                    {{ localize "EFFECT.MODE_OVERRIDE" }}
+                    <input type="checkbox" class="perfect-vision--override" {{checked (ne
+                        data.flags.perfect-vision.globalLight.coloration undefined)}}></label>
+                {{/unless}}
+            </div>
+            <p class="hint">{{ localize 'LIGHT.ColorationTechniqueHint' }}</p>
+        </div>
+
+        <div class="form-group perfect-vision">
+            <label>{{ localize 'LIGHT.Luminosity' }}</label>
+            <div class="form-fields">
+                {{ rangePicker name="flags.perfect-vision.globalLight.luminosity"
+                value=data.flags.perfect-vision.globalLight.luminosity min="-1" max="1" step="0.05" }}
+                {{#unless isScene}}
+                &nbsp;&nbsp;&nbsp;
+                <label class="checkbox perfect-vision--override">
+                    {{ localize "EFFECT.MODE_OVERRIDE" }}
+                    <input type="checkbox" class="perfect-vision--override" {{checked (ne
+                        data.flags.perfect-vision.globalLight.luminosity undefined)}}></label>
+                {{/unless}}
+            </div>
+            <p class="hint">{{ localize 'LIGHT.LuminosityHint' }}</p>
+        </div>
+
+        <div class="form-group perfect-vision">
+            <label>{{ localize 'LIGHT.Saturation' }}</label>
+            <div class="form-fields">
+                {{ rangePicker name="flags.perfect-vision.globalLight.saturation"
+                value=data.flags.perfect-vision.globalLight.saturation min="-1" max="1" step="0.05" }}
+                {{#unless isScene}}
+                &nbsp;&nbsp;&nbsp;
+                <label class="checkbox perfect-vision--override">
+                    {{ localize "EFFECT.MODE_OVERRIDE" }}
+                    <input type="checkbox" class="perfect-vision--override" {{checked (ne
+                        data.flags.perfect-vision.globalLight.saturation undefined)}}></label>
+                {{/unless}}
+            </div>
+            <p class="hint">{{ localize 'LIGHT.SaturationHint' }}</p>
+        </div>
+
+        <div class="form-group perfect-vision">
+            <label>{{ localize 'LIGHT.Contrast' }}</label>
+            <div class="form-fields">
+                {{ rangePicker name="flags.perfect-vision.globalLight.contrast"
+                value=data.flags.perfect-vision.globalLight.contrast min="-1" max="1" step="0.05" }}
+                {{#unless isScene}}
+                &nbsp;&nbsp;&nbsp;
+                <label class="checkbox perfect-vision--override">
+                    {{ localize "EFFECT.MODE_OVERRIDE" }}
+                    <input type="checkbox" class="perfect-vision--override" {{checked (ne
+                        data.flags.perfect-vision.globalLight.contrast undefined)}}></label>
+                {{/unless}}
+            </div>
+            <p class="hint">{{ localize 'LIGHT.ContrastHint' }}</p>
+        </div>
+
+        <div class="form-group perfect-vision">
+            <label>{{ localize 'LIGHT.Shadows' }}</label>
+            <div class="form-fields">
+                {{ rangePicker name="flags.perfect-vision.globalLight.shadows"
+                value=data.flags.perfect-vision.globalLight.shadows min="0" max="1" step="0.05" }}
+                {{#unless isScene}}
+                &nbsp;&nbsp;&nbsp;
+                <label class="checkbox perfect-vision--override">
+                    {{ localize "EFFECT.MODE_OVERRIDE" }}
+                    <input type="checkbox" class="perfect-vision--override" {{checked (ne
+                        data.flags.perfect-vision.globalLight.shadows undefined)}}></label>
+                {{/unless}}
+            </div>
+            <p class="hint">{{ localize 'LIGHT.ShadowsHint' }}</p>
+        </div>
+    </div>
+
+    <footer class="sheet-footer">
+        <button type="reset" {{#unless isScene}}class="hidden" {{/unless}}>
+            <i class="fas fa-undo"></i> {{localize "SETTINGS.Reset"}}
+        </button>
+        <button type="submit">
+            <i class="far fa-save"></i> {{submitText}}
+        </button>
+    </footer>
+</form>

@@ -462,11 +462,12 @@ export class SpriteMaterial extends PIXI.Shader {
             uColor: new Float32Array([1, 1, 1, 1]),
         };
 
-        options = Object.assign({
+        options = {
             tint: 0xFFFFFF,
             alpha: 1,
             pluginName: "batch",
-        }, options);
+            ...options
+        };
 
         if (options.uniforms) {
             Object.assign(uniforms, options.uniforms);
