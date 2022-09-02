@@ -1,0 +1,24 @@
+name: Feature Request
+description: Submit a feature request
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Your issue may already have been reported! Please search on the [issue tracker]((https://github.com/dev7355608/perfect-vision/issues) before submitting a new one.
+
+        In order to submit an effective feature request, please provide the following information.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Please describe the proposal in as much detail as you feel is necessary.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Is there anything else you can add about the proposal? You might want to link to related issues here if you haven't already.
+    validations:
+      required: false

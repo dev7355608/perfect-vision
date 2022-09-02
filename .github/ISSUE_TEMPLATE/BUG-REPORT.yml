@@ -1,0 +1,106 @@
+name: Bug Report
+description: File a bug report
+labels: ["bug", "to be confirmed"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Your issue may already have been reported! Please search on the [issue tracker](https://github.com/dev7355608/perfect-vision/issues) before submitting a new one.
+
+        Thanks for taking the time to fill out this bug report! In order to make it effective, please provide the following information.
+  - type: markdown
+    attributes:
+      value: |
+        ## Issue Description
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What is the behavior that you expected?
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current Behavior
+      description: What is the current behavior, i.e., what happens actually?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: What are the steps to reproduce the problem?
+      placeholder: |
+        1.
+        2.
+        3.
+        4.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Please provide any additional context that might be helpful, e.g. log messages (F12 / Option+Command+I → Console tab), screenshots, videos, or exports of problematic scenes or worlds.
+    validations:
+      required: false
+  - type: markdown
+    attributes:
+      value: |
+        ## Environment Details
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Which version(s) of Perfect Vision are you seeing the problem on?
+      placeholder: 4.0.0
+    validations:
+      required: true
+  - type: input
+    id: foundry-version
+    attributes:
+      label: Foundry VTT Version
+      description: Which version(s) and build of Foundry VTT are you seeing the problem on?
+      placeholder: 10.284
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      description: Which operating system are you using? (Windows, OS X, Linux (which distro))
+      placeholder: Windows
+    validations:
+      required: true
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser / App
+      description: Are you using a Browser or the native Electron application? (Select all that apply)
+      multiple: true
+      options:
+        - Native App (Electron)
+        - Chrome
+        - Firefox
+        - Edge
+        - Safari
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Game System
+      description: Which game system(s) (including their versions) are you seeing the problem on?
+      placeholder: dnd5e (2.0.2), pf2e (3.1.3), …
+    validations:
+      required: true
+  - type: input
+    id: modules
+    attributes:
+      label: Relevant Modules
+      description: Please list any other active modules (including their versions) that you think might be relevant.
+      placeholder: levels (3.0.9), betterroofs (1.6.8), …
+    validations:
+      required: false
