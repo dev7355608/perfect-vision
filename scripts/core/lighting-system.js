@@ -1509,7 +1509,7 @@ class LightingRegionSource extends GlobalLightSource {
 
         if (shaderCls === AdaptiveBackgroundShader || shaderCls.prototype instanceof AdaptiveBackgroundShader) {
             shaderType = "background";
-            eraseColor = `vec4(finalColor, 1.0) * depth`;
+            eraseColor = `vec4(0.0, 0.0, 0.0, depth)`;
         } else if (shaderCls === AdaptiveIlluminationShader || shaderCls.prototype instanceof AdaptiveIlluminationShader) {
             shaderType = "illumination";
             eraseColor = `vec4(colorBackground, 1.0) * depth`;
@@ -1574,7 +1574,15 @@ class LightingRegionSource extends GlobalLightSource {
                  * @internal
                  */
                 _updateGlobalLight(globalLight) {
-                    this.uniforms.erase = !(globalLight && super.isRequired);
+                    const erase = this.uniforms.erase = !(globalLight && super.isRequired);
+
+                    if (shaderType !== "illumination") {
+                        this.container.blendMode = erase
+                            ? PIXI.BLEND_MODES.DST_OUT
+                            : PIXI.BLEND_MODES.NORMAL;
+                    } else {
+                        this.container.blendMode = PIXI.BLEND_MODES.NORMAL;
+                    }
                 }
             }
         );
@@ -1657,15 +1665,6 @@ class LightingRegionSource extends GlobalLightSource {
     _initializeFlags() {
         this._flags.renderSoftEdges = this.#region.id !== "Scene";
         this._flags.hasColor = !!(this.data.color !== null && this.data.alpha);
-    }
-
-    /** @override */
-    _initializeBlending() {
-        super._initializeBlending();
-
-        this.background.blendMode
-            = this.illumination.blendMode
-            = this.coloration.blendMode = PIXI.BLEND_MODES.NORMAL;
     }
 
     /** @override */
