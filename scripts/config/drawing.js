@@ -88,13 +88,22 @@ Hooks.once("setup", () => {
                     new VisionLimitationConfig(document).render(true);
                 });
 
-            updateForm(this);
-
             this.options.height = "auto";
             this.position.width = Math.max(this.position.width, SceneConfig.defaultOptions.width);
             this.position.height = "auto";
 
             return result;
+        },
+        libWrapper.WRAPPER
+    );
+
+    libWrapper.register(
+        "perfect-vision",
+        "DrawingConfig.prototype._render",
+        async function (wrapped, ...args) {
+            await wrapped(...args);
+
+            updateForm(this);
         },
         libWrapper.WRAPPER
     );
