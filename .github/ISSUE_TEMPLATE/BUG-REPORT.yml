@@ -54,7 +54,7 @@ body:
     attributes:
       label: Version
       description: Which version(s) of Perfect Vision are you seeing the problem on?
-      placeholder: 4.0.0
+      placeholder: v4.0.0
     validations:
       required: true
   - type: input
@@ -62,7 +62,7 @@ body:
     attributes:
       label: Foundry VTT Version
       description: Which version(s) and build of Foundry VTT are you seeing the problem on?
-      placeholder: 10.284
+      placeholder: v10.284
     validations:
       required: true
   - type: input
@@ -93,7 +93,7 @@ body:
     attributes:
       label: Game System
       description: Which game system(s) (including their versions) are you seeing the problem on?
-      placeholder: dnd5e (2.0.2), pf2e (3.1.3), …
+      placeholder: dnd5e (2.0.2), pf2e (3.13.6), …
     validations:
       required: true
   - type: input
