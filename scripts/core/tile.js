@@ -84,5 +84,5 @@ export function updateLighting(tile, { defer = false, deleted = false } = {}) {
 
 function isActive(tile) {
     return !tile.document.hidden && !tile.occluded && !!tile.texture?.baseTexture.valid
-        && CONFIG.Levels?.handlers?.TileHandler?.isTileVisible?.(tile) === true;
+        && CONFIG.Levels?.handlers?.TileHandler?.isTileVisible?.(tile) !== false;
 }

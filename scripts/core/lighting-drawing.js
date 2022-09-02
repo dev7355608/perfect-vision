@@ -96,7 +96,7 @@ export function updateLighting(drawing, { defer = false, deleted = false } = {})
 
 function isActive(drawing) {
     return !drawing.document.hidden
-        && CONFIG.Levels?.handlers?.DrawingHandler?.isDrawingVisible?.(drawing) === true;
+        && CONFIG.Levels?.handlers?.DrawingHandler?.isDrawingVisible?.(drawing) !== false;
 }
 
 function updateVisibility(drawing) {
