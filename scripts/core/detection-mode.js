@@ -52,7 +52,7 @@ Hooks.once("setup", () => {
             const rayCaster = getRayCaster(visionSource, mode, type);
             const point = test.point;
             const sourceZ = visionSource.object.losHeight * unitsToPixels;
-            const targetZ = target ? (target.losHeight
+            const targetZ = target instanceof PlaceableObject ? (target.losHeight
                 ?? target.document.elevation
                 ?? target.document.flags.levels?.rangeBottom
                 ?? 0) * unitsToPixels : sourceZ;
