@@ -14,7 +14,7 @@ Hooks.once("setup", () => {
             const fill = vision.addChild(
                 new PIXI.LegacyGraphics()
                     .beginFill(0xFF0000)
-                    .drawShape(canvas.dimensions.sceneRect.clone())
+                    .drawShape(canvas.dimensions.rect.clone())
                     .endFill());
 
             vision.fov = vision.addChild(new GraphicsStencilMask());
