@@ -37,16 +37,12 @@ Hooks.once("setup", () => {
         updateLighting({ defer: true });
     });
 
-    Hooks.on("updateScene", (document, changes) => {
+    Hooks.on("updateScene", document => {
         if (!document.isView) {
             return;
         }
 
-        if ("fogExploration" in changes || "globalLight" in changes
-            || "globalLightThreshold" in changes || "darkness" in changes
-            || hasChanged(changes, "flags.perfect-vision")) {
-            updateLighting();
-        }
+        updateLighting();
     });
 });
 
