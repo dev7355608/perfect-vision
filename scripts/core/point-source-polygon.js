@@ -565,11 +565,12 @@ class VisionLimitation extends PIXI.Polygon {
             y + Math.sin(aStart) * radius
         );
 
+        const points = this.points;
+
         if (radius < canvas.dimensions.maxR) {
             const epsilon = 1; // PIXI.Circle.approximateVertexDensity
             const nStep = Math.ceil(aDelta / Math.sqrt(2 * epsilon / radius) - 1e-3);
             const aStep = aDelta / nStep;
-            const points = this.points;
 
             for (let i = 1; i <= nStep; i++) {
                 const a = aStart + aStep * i;
