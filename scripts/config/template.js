@@ -8,7 +8,7 @@ Hooks.on("renderMeasuredTemplateConfig", sheet => {
     const form = sheet.form;
     const document = sheet.object;
 
-    form.querySelector(`button[name="submit"]`)
+    form.querySelector(`button[type="submit"]`)
         .insertAdjacentHTML("beforebegin", `\
             <div class="form-group">
                 <label>${game.i18n.localize("PERFECTVISION.VisionLimitation")}</label>
