@@ -6,17 +6,6 @@ Hooks.once("setup", () => {
         return;
     }
 
-    let revealed;
-
-    Hooks.on("drawCanvasVisibility", visibility => {
-        revealed = visibility.explored.addChild(
-            new PIXI.LegacyGraphics()
-                .beginFill(0xFFFFFF)
-                .drawShape(canvas.dimensions.rect.clone())
-                .endFill());
-        revealed.mask = revealed.addChild(new StencilMask());
-    });
-
     libWrapper.register(
         "perfect-vision",
         "CanvasVisionMask.prototype.createVision",
@@ -43,6 +32,8 @@ Hooks.once("setup", () => {
         libWrapper.OVERRIDE
     );
 
+    let revealed;
+
     libWrapper.register(
         "perfect-vision",
         "CanvasVisibility.prototype.refresh",
@@ -51,7 +42,16 @@ Hooks.once("setup", () => {
                 return;
             }
 
-            revealed.mask.removeChildren().forEach(c => c.destroy({ children: true }));
+            if (!revealed || revealed.destroyed) {
+                revealed = this.explored.addChild(
+                    new PIXI.LegacyGraphics()
+                        .beginFill(0xFFFFFF)
+                        .drawShape(canvas.dimensions.rect.clone())
+                        .endFill());
+                revealed.mask = revealed.addChild(new StencilMask());
+            } else {
+                revealed.mask.removeChildren().forEach(c => c.destroy({ children: true }));
+            }
 
             if (!this.tokenVision) {
                 this.visible = false;

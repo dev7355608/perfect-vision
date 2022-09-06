@@ -21,16 +21,7 @@ Hooks.once("setup", () => {
             new SpriteMesh(PIXI.Texture.WHITE, IlluminationBackgroundSamplerShader), 0);
     });
 
-    Hooks.on("drawEffectsCanvasGroup", () => {
-        const bgRect = canvas.dimensions.rect;
-
-        illuminationBackground.x = bgRect.x;
-        illuminationBackground.y = bgRect.y;
-        illuminationBackground.width = bgRect.width;
-        illuminationBackground.height = bgRect.height;
-    });
-
-    Hooks.once("drawLightingLayer", () => {
+    Hooks.once("drawEffectsCanvasGroup", () => {
         const container = canvas.masks.depth.addChild(new PIXI.Container());
         const render = function (renderer) {
             for (const region of LightingSystem.instance.activeRegions) {
@@ -45,11 +36,18 @@ Hooks.once("setup", () => {
         container.render = render.bind(container);
     });
 
-    Hooks.on("drawLightingLayer", () => {
+    Hooks.on("drawEffectsCanvasGroup", () => {
+        const bgRect = canvas.dimensions.rect;
+
+        illuminationBackground.x = bgRect.x;
+        illuminationBackground.y = bgRect.y;
+        illuminationBackground.width = bgRect.width;
+        illuminationBackground.height = bgRect.height;
+
         LightingFramebuffer.instance.draw();
     });
 
-    Hooks.on("tearDownLightingLayer", () => {
+    Hooks.on("tearDownEffectsCanvasGroup", () => {
         LightingFramebuffer.instance.tearDown();
     });
 

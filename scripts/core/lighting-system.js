@@ -1819,7 +1819,7 @@ Hooks.once("setup", () => {
         return;
     }
 
-    Hooks.on("drawLightingLayer", () => {
+    Hooks.on("canvasInit", () => {
         LightingSystem._wallsID++;
     });
 

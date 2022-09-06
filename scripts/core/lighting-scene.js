@@ -33,7 +33,7 @@ Hooks.once("setup", () => {
         libWrapper.WRAPPER
     );
 
-    Hooks.on("drawLightingLayer", () => {
+    Hooks.on("drawEffectsCanvasGroup", () => {
         updateLighting({ defer: true });
     });
 
