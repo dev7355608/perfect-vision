@@ -1,6 +1,6 @@
 import { extractLightingData } from "./data-model.js";
 import { LightingSystem } from "./lighting-system.js";
-import { hasChanged, parseColor } from "../utils/helpers.js";
+import { parseColor } from "../utils/helpers.js";
 
 Hooks.once("setup", () => {
     if (game.settings.get("core", "noCanvas")) {
@@ -43,6 +43,31 @@ Hooks.once("setup", () => {
         }
 
         updateLighting();
+    });
+
+    Hooks.on("updateScene", document => {
+        if (!document.isView) {
+            return;
+        }
+
+        updateLighting();
+
+        setTimeout(() => {
+            let elevation, sort;
+            const background = canvas.primary.background;
+
+            if (background.visible) {
+                elevation = background.elevation;
+                sort = background.sort;
+            } else {
+                elevation = -Infinity;
+                sort = -Infinity;
+            }
+
+            if (LightingSystem.instance.updateRegion("Scene", { elevation, sort })) {
+                canvas.perception.update({ refreshLighting: true }, true);
+            }
+        }, 0);
     });
 });
 

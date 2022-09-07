@@ -218,8 +218,17 @@ export function extractLightingData(document) {
             height: dimensions.sceneHeight
         };
         data.fit = false;
-        data.elevation = -Infinity;
-        data.sort = -Infinity;
+
+        const background = canvas.primary.background;
+
+        if (background.visible) {
+            data.elevation = background.elevation;
+            data.sort = background.sort;
+        } else {
+            data.elevation = -Infinity;
+            data.sort = -Infinity;
+        }
+
         data.fogExploration = document.fogExploration;
         data.globalLight.enabled = document.globalLight;
         data.globalLight.darkness.max = document.globalLightThreshold ?? 1;
