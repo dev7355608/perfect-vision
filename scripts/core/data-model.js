@@ -211,7 +211,12 @@ export function extractLightingData(document) {
         data.active = true;
         data.object = null;
         data.prototype = null;
-        data.shape = { width: dimensions.width, height: dimensions.height };
+        data.shape = {
+            x: dimensions.sceneX,
+            y: dimensions.sceneY,
+            width: dimensions.sceneWidth,
+            height: dimensions.sceneHeight
+        };
         data.fit = false;
         data.elevation = -Infinity;
         data.sort = -Infinity;

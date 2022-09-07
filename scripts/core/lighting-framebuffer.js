@@ -66,7 +66,7 @@ export class LightingFramebuffer extends CanvasFramebuffer {
         stage.renderable = true;
 
         const regions = LightingSystem.instance.activeRegions;
-        const { darknessLevel, colors } = regions[0];
+        const { darknessLevel, colors } = LightingSystem.instance.getRegion("Scene");
 
         textures[0].baseTexture.clearColor[0] = darknessLevel;
         textures[0].baseTexture.clearColor[1] = 0;
@@ -74,14 +74,9 @@ export class LightingFramebuffer extends CanvasFramebuffer {
         textures[1].baseTexture.clearColor.set(this.blur ? colors.ambientDaylight.rgb : colors.background.rgb);
         textures[2].baseTexture.clearColor.set(colors.ambientDarkness.rgb);
 
-        const mesh = stage.addChild(regions[0].drawMesh());
-
-        mesh.renderable = false;
-
         let bounds;
 
-        for (let i = 1, n = regions.length; i < n; i++) {
-            const region = regions[i];
+        for (const region of LightingSystem.instance.activeRegions) {
             const mesh = stage.addChild(region.drawMesh());
 
             mesh.renderable = false;
@@ -163,7 +158,7 @@ export class LightingFramebuffer extends CanvasFramebuffer {
         stage.renderable = renderable;
 
         if (this.blur && !renderable) {
-            textures[1].baseTexture.clearColor.set(LightingSystem.instance.activeRegions[0].colors.background.rgb);
+            textures[1].baseTexture.clearColor.set(LightingSystem.instance.getRegion("Scene").colors.background.rgb);
         }
 
         this.render(renderer, stage, { skipUpdateTransform: true, resize: renderable });
@@ -205,7 +200,7 @@ export class LightingFramebuffer extends CanvasFramebuffer {
 
                 renderer.filter.returnFilterTexture(tempTexture);
             } else {
-                textures[1].baseTexture.clearColor.set(LightingSystem.instance.activeRegions[0].colors.ambientDaylight.rgb);
+                textures[1].baseTexture.clearColor.set(LightingSystem.instance.getRegion("Scene").colors.ambientDaylight.rgb);
             }
         }
 
