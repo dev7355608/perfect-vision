@@ -86,7 +86,7 @@ Hooks.once("setup", () => {
                     vision.fov.addChild(lightSource._createMask());
 
                     if (lightSource.data.vision) {
-                        vision.los.drawShape(lightSource._createMask());
+                        vision.los.addChild(lightSource._createMask());
                     }
                 }
 
