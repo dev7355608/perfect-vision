@@ -82,10 +82,7 @@ Hooks.once("setup", () => {
             wrapped(...args);
 
             for (const region of LightingSystem.instance) {
-                const source = region.source;
-                const sourceId = region.id === "Scene" ? "globalLight" : region.id;
-
-                this.lightSources.set(sourceId, source);
+                this.lightSources.set(region.id, region.source);
             }
         },
         libWrapper.WRAPPER

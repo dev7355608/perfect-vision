@@ -18,8 +18,8 @@ Hooks.once("setup", () => {
 
             const result = wrapped(colors);
 
-            if (LightingSystem.instance.hasRegion("Scene")) {
-                LightingSystem.instance.updateRegion("Scene", {
+            if (LightingSystem.instance.hasRegion("globalLight")) {
+                LightingSystem.instance.updateRegion("globalLight", {
                     darkness: this.darknessLevel,
                     lightLevels: this.weights,
                     daylightColor: this.colors.ambientDaylight.valueOf(),
@@ -64,7 +64,7 @@ Hooks.once("setup", () => {
                 sort = -Infinity;
             }
 
-            if (LightingSystem.instance.updateRegion("Scene", { elevation, sort })) {
+            if (LightingSystem.instance.updateRegion("globalLight", { elevation, sort })) {
                 canvas.perception.update({ refreshLighting: true }, true);
             }
         }, 0);
@@ -75,11 +75,11 @@ export function updateLighting({ defer = false } = {}) {
     let initializeLighting = false;
     const data = extractLightingData(canvas.scene);
 
-    if (!LightingSystem.instance.hasRegion("Scene")) {
-        LightingSystem.instance.createRegion("Scene", data);
+    if (!LightingSystem.instance.hasRegion("globalLight")) {
+        LightingSystem.instance.createRegion("globalLight", data);
 
         initializeLighting = true;
-    } else if (!LightingSystem.instance.updateRegion("Scene", data)) {
+    } else if (!LightingSystem.instance.updateRegion("globalLight", data)) {
         defer = true;
     }
 

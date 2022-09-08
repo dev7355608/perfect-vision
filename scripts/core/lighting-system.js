@@ -1231,6 +1231,7 @@ export class LightingRegion {
         this.mesh.destroy({ children: true });
 
         RayCastingSystem.instance.destroyRegion(this.id);
+        canvas.effects.lightSources.delete(this.id);
 
         if (this.constructor.debug) {
             Console.debug(
@@ -1663,7 +1664,7 @@ class LightingRegionSource extends GlobalLightSource {
 
     /** @override */
     _initializeFlags() {
-        this._flags.renderSoftEdges = this.#region.id !== "Scene";
+        this._flags.renderSoftEdges = this.#region.id !== "globalLight";
         this._flags.hasColor = !!(this.data.color !== null && this.data.alpha);
     }
 

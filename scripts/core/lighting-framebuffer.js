@@ -66,7 +66,7 @@ export class LightingFramebuffer extends CanvasFramebuffer {
         stage.renderable = true;
 
         const regions = LightingSystem.instance.activeRegions;
-        const { darknessLevel, colors } = LightingSystem.instance.getRegion("Scene");
+        const { darknessLevel, colors } = LightingSystem.instance.getRegion("globalLight");
 
         textures[0].baseTexture.clearColor[0] = darknessLevel;
         textures[0].baseTexture.clearColor[1] = 0;
@@ -158,7 +158,7 @@ export class LightingFramebuffer extends CanvasFramebuffer {
         stage.renderable = renderable;
 
         if (this.blur && !renderable) {
-            textures[1].baseTexture.clearColor.set(LightingSystem.instance.getRegion("Scene").colors.background.rgb);
+            textures[1].baseTexture.clearColor.set(LightingSystem.instance.getRegion("globalLight").colors.background.rgb);
         }
 
         this.render(renderer, stage, { skipUpdateTransform: true, resize: renderable });
@@ -200,7 +200,7 @@ export class LightingFramebuffer extends CanvasFramebuffer {
 
                 renderer.filter.returnFilterTexture(tempTexture);
             } else {
-                textures[1].baseTexture.clearColor.set(LightingSystem.instance.getRegion("Scene").colors.ambientDaylight.rgb);
+                textures[1].baseTexture.clearColor.set(LightingSystem.instance.getRegion("globalLight").colors.ambientDaylight.rgb);
             }
         }
 

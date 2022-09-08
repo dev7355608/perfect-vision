@@ -39,7 +39,7 @@ Hooks.once("setup", () => {
         updateLighting(tile, { deleted: true });
     });
 
-    Hooks.on("updateTile", (document, changes) => {
+    Hooks.on("updateTile", document => {
         if (!document.rendered) {
             return;
         }
@@ -59,7 +59,7 @@ export function updateLighting(tile, { defer = false, deleted = false } = {}) {
         if (prototype) {
             prototype = `Drawing.${prototype}`;
         } else {
-            prototype = "Scene";
+            prototype = "globalLight";
         }
 
         const { x, y, width, height, rotation, texture: { scaleX, scaleY }, elevation, sort } = document;

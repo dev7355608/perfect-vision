@@ -239,7 +239,7 @@ export function extractLightingData(document) {
 
         delete data.active;
         data.object = document.rendered ? document.object : null;
-        data.prototype = data.prototype ? `Drawing.${data.prototype}` : "Scene";
+        data.prototype = data.prototype ? `Drawing.${data.prototype}` : "globalLight";
         data.shape = { x, y, width, height, rotation, points, bezierFactor, type };
         data.elevation = elevation;
         data.sort = sort;
