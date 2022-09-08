@@ -14,8 +14,7 @@ Hooks.once("libWrapper.Ready", () => {
         function _updateLosGeometry(polygon) {
             // TODO: find a way to a handle weakly-simple polygons with "zero-one" fill rule
             const options = {
-                falloffDistance: this._flags.renderSoftEdges ? Math.abs(PointSource.EDGE_OFFSET)
-                    * (canvas.dimensions.size * 0.01) : 0,
+                falloffDistance: this._flags.renderSoftEdges ? -PointSource.EDGE_OFFSET : 0,
                 vertexTransform: new PIXI.Matrix()
                     .translate(-this.x, -this.y)
                     .scale(1 / this.radius, 1 / this.radius)
