@@ -15,23 +15,28 @@ Hooks.once("setup", () => {
         uniforms.luminosity = this.data.luminosity ?? 0;
         uniforms.resolution ??= [1, 1];
         uniforms.resolution[0] = uniforms.resolution[1] = this.data.resolution ?? 1;
-        uniforms.rotation = this.data.rotation * (Math.PI / 180);
 
         if (lightmask) {
             let radialFunction = 0;
-            const document = this.object.document;
+            let rotation;
+            const object = this.object;
 
-            if (document) {
-                const flags = document.flags.lightmask;
+            if (object instanceof AmbientLight || object instanceof Token) {
+                const flags = object.document.flags.lightmask;
                 const sides = Math.max(flags?.sides || 3, 3);
 
                 switch (flags?.shape) {
                     case "polygon": radialFunction = Math.min(3, sides - 2) + Math.max(sides - 5, 0) * 2; break;
                     case "star": radialFunction = 4 + (Math.max(sides, 5) - 5) * 2; break;
                 }
+
+                rotation = (this.data.rotation + (flags?.rotation || 0)) * (Math.PI / 180);
+            } else {
+                rotation = this.data.rotation * (Math.PI / 180);
             }
 
             uniforms.radialFunction = radialFunction;
+            uniforms.rotation = rotation;
         }
 
         uniforms.illuminationAlpha = this._flags.hasColor ? this.data.alpha : 0.5;
