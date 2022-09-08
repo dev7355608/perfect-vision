@@ -18,6 +18,7 @@
   "minimumCoreVersion": "10",
   "scripts": [
     "libs/glsl-optimizer.js",
+    "libs/sskelmesh.js",
     "libs/tess2.js"
   ],
   "esmodules": [

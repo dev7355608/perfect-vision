@@ -440,36 +440,44 @@ export class SmoothGeometry extends PIXI.Geometry {
         this.falloffDistance = Math.max(falloffDistance, 0);
         this.miterLimit = Math.max(miterLimit, 0);
 
-        let vertices = [];
-        let indices = [];
+        const triangulation = {};
 
         {
             let tess;
 
             tess = this.#computeContours(polygons, fillRule);
-            tess = this.#computeVerticesAndIndices(vertices, indices, tess);
+            tess = this.#computeTriangulation(triangulation, tess);
             tess?.dispose();
         }
 
         this.depthStencil = false;
-        this.depthStencilOffset = indices.length;
+        this.depthStencilOffset = triangulation.indices.length;
 
         if (this.depthStencilOffset > 0 && falloffDistance > 0) {
             try {
-                ([vertices, indices] = sskelmesh(vertices, indices, {
-                    distance: this.falloffDistance,
-                    miterLimit: this.miterLimit,
-                    normalize: true
-                }));
+                const [vertices, indices] = sskelmesh(
+                    triangulation.vertices,
+                    triangulation.indices,
+                    {
+                        distance: this.falloffDistance,
+                        miterLimit: this.miterLimit,
+                        normalize: true,
+                        precision: 10
+                    }
+                );
+
+                triangulation.vertices = vertices;
+                triangulation.indices = indices;
                 this.depthStencilOffset = indices.length;
             } catch (e) {
                 this.depthStencil = true;
-
-                for (const contour of this.contours) {
-                    this.#buildFalloffEdges(contour, vertices, indices);
-                }
+                this.#buildDepthStencil(triangulation);
             }
+        } else {
+            this.#buildFoundation(triangulation);
         }
+
+        const { vertices, indices } = triangulation;
 
         if (vertexTransform) {
             for (let i = 0, n = vertices.length; i < n; i += 3) {
@@ -561,13 +569,15 @@ export class SmoothGeometry extends PIXI.Geometry {
 
     /**
      * Compute the vertices and indices from the contours.
-     * @param {number[]} vertices - The output array for the vertices.
-     * @param {number[]} indices - The output array for the indices.
+     * @param {{vertices: number[], indices: number[]}} triangulation - The output for the triangulation.
      * @param {Tess2} [tess] - The Tess2 instance.
      * @returns {Tess2|undefined} The Tess2 instance.
      */
-    #computeVerticesAndIndices(vertices, indices, tess) {
+    #computeTriangulation(triangulation, tess) {
         if (this.contours.length === 0) {
+            triangulation.vertices = [];
+            triangulation.indices = [];
+
             return tess;
         }
 
@@ -575,16 +585,11 @@ export class SmoothGeometry extends PIXI.Geometry {
             const contour = this.contours[0];
 
             if (contour.length >= 6) {
-                for (let i = 0; i < contour.length; i += 2) {
-                    vertices.push(contour[i], contour[i + 1], +1);
-                }
-
-                const triangles = PIXI.utils.earcut(contour);
-                const size = triangles.length;
-
-                for (let i = 0; i < size; i++) {
-                    indices.push(triangles[i]);
-                }
+                triangulation.vertices = contour;
+                triangulation.indices = PIXI.utils.earcut(contour);
+            } else {
+                triangulation.vertices = [];
+                triangulation.indices = [];
             }
 
             return tess;
@@ -599,16 +604,46 @@ export class SmoothGeometry extends PIXI.Geometry {
         });
 
         if (result) {
-            for (let i = 0, n = result.vertexCount * 2; i < n; i += 2) {
-                vertices.push(result.vertices[i], result.vertices[i + 1], 1);
-            }
-
-            for (let i = 0, n = result.elementCount * 3; i < n; i++) {
-                indices.push(result.elements[i])
-            }
+            triangulation.vertices = Array.from(result.vertices);
+            triangulation.indices = Array.from(result.elements);
+        } else {
+            triangulation.vertices = [];
+            triangulation.indices = [];
         }
 
         return tess;
+    }
+
+    /**
+     * Build the foundation.
+     * @param {{vertices: number[], indices: number[]}} triangulation - The triangulation of the polygons.
+     */
+    #buildFoundation(triangulation) {
+        const v = triangulation.vertices;
+        const n = v.length;
+        const vertices = new Array(n / 2 * 3);
+
+        for (let i = 0, j = 0; i < n; i += 2) {
+            vertices[j++] = v[i];
+            vertices[j++] = v[i + 1];
+            vertices[j++] = 1;
+        }
+
+        triangulation.vertices = vertices;
+    }
+
+    /**
+     * Build the geometry for the depth/stencil technique.
+     * @param {{vertices: number[], indices: number[]}} triangulation - The triangulation of the polygons.
+     */
+    #buildDepthStencil(triangulation) {
+        this.#buildFoundation(triangulation);
+
+        const { vertices, indices } = triangulation;
+
+        for (const contour of this.contours) {
+            this.#buildDepthStencilFalloff(contour, vertices, indices);
+        }
     }
 
     /**
@@ -617,7 +652,7 @@ export class SmoothGeometry extends PIXI.Geometry {
      * @param {number[]} vertices - The output array for the vertices.
      * @param {number[]} indices - The output array for the indices.
      */
-    #buildFalloffEdges(contour, vertices, indices) {
+    #buildDepthStencilFalloff(contour, vertices, indices) {
         const m = contour.length;
         const r = this.falloffDistance;
         const l = this.miterLimit ** 2;

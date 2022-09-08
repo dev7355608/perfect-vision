@@ -1,5 +1,6 @@
 import { DepthStencilShader } from "./point-source-shader.js";
 import { SmoothGeometry, SmoothMesh } from "../utils/smooth-mesh.js";
+import { Console } from "../utils/console.js";
 
 Hooks.once("libWrapper.Ready", () => {
     libWrapper.register(
@@ -11,10 +12,10 @@ Hooks.once("libWrapper.Ready", () => {
          * @protected
          */
         function _updateLosGeometry(polygon) {
+            // TODO: find a way to a handle weakly-simple polygons with "zero-one" fill rule
             const options = {
                 falloffDistance: this._flags.renderSoftEdges ? Math.abs(PointSource.EDGE_OFFSET)
                     * (canvas.dimensions.size * 0.01) : 0,
-                fillRule: "zero-one",
                 vertexTransform: new PIXI.Matrix()
                     .translate(-this.x, -this.y)
                     .scale(1 / this.radius, 1 / this.radius)
@@ -25,6 +26,10 @@ Hooks.once("libWrapper.Ready", () => {
                 this._sourceGeometry = new SmoothGeometry([polygon], options);
             } else {
                 this._sourceGeometry.update([polygon], options);
+            }
+
+            if (PerfectVision.debug && this._flags.renderSoftEdges && this._sourceGeometry.depthStencil) {
+                Console.warn("PointSource (%O) | Failed to compute proper smooth geometry; falling back to depth/stencil technique", this);
             }
         },
         libWrapper.OVERRIDE,
@@ -91,12 +96,10 @@ Hooks.once("libWrapper.Ready", () => {
         function (wrapped, ...args) {
             wrapped(...args);
 
-            const options = { fillRule: "zero-one" };
-
             if (!this._sourceLosGeometry || canvas.masks.vision.vision._explored) {
-                this._sourceLosGeometry = new SmoothGeometry([this.los], options);
+                this._sourceLosGeometry = new SmoothGeometry([this.los]);
             } else {
-                this._sourceLosGeometry.update([this.los], options);
+                this._sourceLosGeometry.update([this.los]);
             }
 
             return this;
