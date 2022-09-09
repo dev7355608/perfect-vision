@@ -13,8 +13,10 @@ Hooks.once("libWrapper.Ready", () => {
          */
         function _updateLosGeometry(polygon) {
             // TODO: find a way to a handle weakly-simple polygons with "zero-one" fill rule
+            const softEdges = this._flags.renderSoftEdges;
             const options = {
-                falloffDistance: this._flags.renderSoftEdges ? -PointSource.EDGE_OFFSET : 0,
+                falloffDistance: softEdges ? -PointSource.EDGE_OFFSET : 0,
+                fillRule: softEdges ? "even-odd" : "zero-one",
                 vertexTransform: new PIXI.Matrix()
                     .translate(-this.x, -this.y)
                     .scale(1 / this.radius, 1 / this.radius)
@@ -27,7 +29,7 @@ Hooks.once("libWrapper.Ready", () => {
                 this._sourceGeometry.update([polygon], options);
             }
 
-            if (PerfectVision.debug && this._flags.renderSoftEdges && this._sourceGeometry.depthStencil) {
+            if (PerfectVision.debug && softEdges && this._sourceGeometry.depthStencil) {
                 Console.warn("PointSource (%O) | Failed to compute proper smooth geometry; falling back to depth/stencil technique", this);
             }
         },
@@ -95,10 +97,12 @@ Hooks.once("libWrapper.Ready", () => {
         function (wrapped, ...args) {
             wrapped(...args);
 
+            const options = { fillRule: "zero-one" };
+
             if (!this._sourceLosGeometry || canvas.masks.vision.vision._explored) {
-                this._sourceLosGeometry = new SmoothGeometry([this.los]);
+                this._sourceLosGeometry = new SmoothGeometry([this.los], options);
             } else {
-                this._sourceLosGeometry.update([this.los]);
+                this._sourceLosGeometry.update([this.los], options);
             }
 
             return this;
