@@ -87,10 +87,7 @@ CONFIG.Canvas.fogManager = FogManager = class FogManager {
     }
 
     /** @private */
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // The sprite needs to transparent instead of black and white for the AlphaFilterPass of CanvasVisibility to any effect.
     #sprite = new SpriteMesh(PIXI.Texture.EMPTY, FogSamplerShader);
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     /* -------------------------------------------- */
 
@@ -320,20 +317,15 @@ CONFIG.Canvas.fogManager = FogManager = class FogManager {
         let height = dims.sceneHeight;
         const maxSize = FogManager.#MAXIMUM_FOW_TEXTURE_SIZE;
 
-        // Adapt the fog texture resolution relative to some maximum size
+        // Adapt the fog texture resolution relative to some maximum size, and ensure that multiplying the scene dimensions
+        // by the resolution results in an integer number in order to avoid fog drift.
         let resolution = 1.0;
         if ((width >= height) && (width > maxSize)) {
             resolution = maxSize / width;
-            // ~~~~[ Fog Drifting Fix ]~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-            // Make sure the real height (the height in pixels) is nonfractional.
             height = Math.ceil(height * resolution) / resolution;
-            // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         } else if (height > maxSize) {
             resolution = maxSize / height;
-            // ~~~~[ Fog Drifting Fix ]~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-            // Make sure the real width (the width in pixels) is nonfractional.
             width = Math.ceil(width * resolution) / resolution;
-            // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         }
 
         // Determine the fog texture dimensions that is evenly divisible by the scaled resolution
@@ -416,24 +408,4 @@ CONFIG.Canvas.fogManager = FogManager = class FogManager {
         return texture;
         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     }
-}
-
-/**
- * The saved fog texture doesn't have an alpha channel. So this shader makes the red channel the alpha channel.
- */
-class FogSamplerShader extends BaseSamplerShader {
-    /** @override */
-    static classPluginName = null;
-
-    /** @override */
-    static fragmentShader = `
-        precision ${PIXI.settings.PRECISION_FRAGMENT} float;
-        uniform sampler2D sampler;
-        uniform vec4 tintAlpha;
-        varying vec2 vUvs;
-
-        void main() {
-            vec4 color = texture2D(sampler, vUvs);
-            gl_FragColor = (vec4(1.0, color.gb, 1.0) * color.r) * tintAlpha;
-        }`;
 }
