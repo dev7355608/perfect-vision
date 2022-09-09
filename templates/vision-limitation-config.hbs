@@ -20,6 +20,10 @@
         <div class="form-fields">
             <input name="flags.perfect-vision.{{#if isToken}}light.{{/if}}visionLimitation.sight" type="number"
                 value="{{sightLimit}}" min="0" step="0.01" placeholder="{{localize 'PERFECTVISION.Infinity'}}">
+            <button class="capture-position" type="button" data-copy-limit="0"
+                data-tooltip="{{localize 'PERFECTVISION.CopyLimitTooltip'}}" data-tooltip-direction="LEFT">
+                <i class="fas fa-share-from-square" style="margin: 0;"></i>
+            </button>
             {{#if isDrawing}}
             &nbsp;&nbsp;&nbsp;
             <label class="checkbox perfect-vision--override">
@@ -36,6 +40,10 @@
         <div class="form-fields">
             <input name="flags.perfect-vision.{{#if isToken}}light.{{/if}}visionLimitation.sound" type="number"
                 value="{{soundLimit}}" min="0" step="0.01" placeholder="{{localize 'PERFECTVISION.Infinity'}}">
+            <button class="capture-position" type="button" data-copy-limit="1"
+                data-tooltip="{{localize 'PERFECTVISION.CopyLimitTooltip'}}" data-tooltip-direction="LEFT">
+                <i class="fas fa-share-from-square" style="margin: 0;"></i>
+            </button>
             {{#if isDrawing}}
             &nbsp;&nbsp;&nbsp;
             <label class="checkbox perfect-vision--override">
@@ -52,6 +60,10 @@
         <div class="form-fields">
             <input name="flags.perfect-vision.{{#if isToken}}light.{{/if}}visionLimitation.move" type="number"
                 value="{{moveLimit}}" min="0" step="0.01" placeholder="{{localize 'PERFECTVISION.Infinity'}}">
+            <button class="capture-position" type="button" data-copy-limit="2"
+                data-tooltip="{{localize 'PERFECTVISION.CopyLimitTooltip'}}" data-tooltip-direction="LEFT">
+                <i class="fas fa-share-from-square" style="margin: 0;"></i>
+            </button>
             {{#if isDrawing}}
             &nbsp;&nbsp;&nbsp;
             <label class="checkbox perfect-vision--override">
@@ -68,6 +80,10 @@
         <div class="form-fields">
             <input name="flags.perfect-vision.{{#if isToken}}light.{{/if}}visionLimitation.other" type="number"
                 value="{{otherLimit}}" min="0" step="0.01" placeholder="{{localize 'PERFECTVISION.Infinity'}}">
+            <button class="capture-position" type="button" data-copy-limit="3"
+                data-tooltip="{{localize 'PERFECTVISION.CopyLimitTooltip'}}" data-tooltip-direction="LEFT">
+                <i class="fas fa-share-from-square" style="margin: 0;"></i>
+            </button>
             {{#if isDrawing}}
             &nbsp;&nbsp;&nbsp;
             <label class="checkbox perfect-vision--override">
@@ -95,7 +111,7 @@
             <div class="detection-mode-range">
                 <input name="flags.perfect-vision.{{#if ../isToken}}light.{{/if}}visionLimitation.detection.{{id}}"
                     type="number" value="{{limit}}" min="0" step="0.01"
-                    placeholder="{{localize 'PERFECTVISION.Infinity'}}">
+                    placeholder="{{localize 'PERFECTVISION.Infinity'}}" data-detection-type="{{type}}">
                 {{#if ../isDrawing}}
                 &nbsp;&nbsp;&nbsp;
                 <label class="checkbox perfect-vision--override">

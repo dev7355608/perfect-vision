@@ -63,10 +63,21 @@ export class VisionLimitationConfig extends DocumentSheet {
         let otherLimit = visionLimitation.other;
 
         if (!(this.object instanceof DrawingDocument)) {
-            sightLimit ??= null;
-            soundLimit ??= null;
-            moveLimit ??= null;
-            otherLimit ??= null;
+            if (!Number.isFinite(sightLimit) || !(sightLimit >= 0)) {
+                sightLimit = null;
+            }
+
+            if (!Number.isFinite(soundLimit) || !(soundLimit >= 0)) {
+                soundLimit = null;
+            }
+
+            if (!Number.isFinite(moveLimit) || !(moveLimit >= 0)) {
+                moveLimit = null;
+            }
+
+            if (!Number.isFinite(otherLimit) || !(otherLimit >= 0)) {
+                otherLimit = null;
+            }
         }
 
         const detectionLimits = [];
@@ -83,6 +94,12 @@ export class VisionLimitationConfig extends DocumentSheet {
                 }
             }
 
+            if (limit !== undefined || !(this.object instanceof DrawingDocument)) {
+                if (!Number.isFinite(limit) || !(limit >= 0)) {
+                    limit = null;
+                }
+            }
+
             let typeLabel;
 
             switch (detectionMode.type) {
@@ -94,6 +111,7 @@ export class VisionLimitationConfig extends DocumentSheet {
 
             detectionLimits.push({
                 id: detectionMode.id,
+                type: detectionMode.type,
                 label: game.i18n.localize(detectionMode.label),
                 typeLabel: game.i18n.localize(typeLabel),
                 limit
@@ -114,7 +132,7 @@ export class VisionLimitationConfig extends DocumentSheet {
                 isToken: this.object instanceof TokenDocument || this.object instanceof foundry.data.PrototypeToken,
                 isDrawing: this.object instanceof DrawingDocument,
                 gridUnits: canvas.scene.grid.units || game.i18n.localize("GridUnits"),
-                submitText: `${game.i18n.localize("PERFECTVISION.UpdateVisionLimitation")}`
+                submitText: `${game.i18n.localize("Save Changes")}`
             }
         );
     }
@@ -145,6 +163,7 @@ export class VisionLimitationConfig extends DocumentSheet {
     /** @override */
     activateListeners(html) {
         html.find('button[type="reset"]').click(this._onResetForm.bind(this));
+        html.find(`button[data-copy-limit]:not([data-copy-limit=""])`).click(this._onCopyLimit.bind(this));
 
         return super.activateListeners(html);
     }
@@ -161,6 +180,28 @@ export class VisionLimitationConfig extends DocumentSheet {
         event.preventDefault();
 
         LightingConfigHelper.resetDefaults(this);
+    }
+
+    /** @param {PointerEvent} event */
+    _onCopyLimit(event) {
+        event.preventDefault();
+
+        const type = event.currentTarget.dataset.copyLimit;
+        const value = event.currentTarget.previousElementSibling.value;
+
+        this.form
+            .querySelectorAll(`input[data-detection-type="${type}"]`)
+            .forEach(element => {
+                element.value = value;
+
+                const overrideBox = element.parentNode.querySelector(`input.perfect-vision--override[type="checkbox"]`);
+
+                if (overrideBox) {
+                    overrideBox.checked = true;
+                }
+            });
+
+        LightingConfigHelper.updateFormFields(this);
     }
 
     /** @override */

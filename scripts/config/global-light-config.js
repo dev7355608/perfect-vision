@@ -48,7 +48,7 @@ export class GlobalLightConfig extends DocumentSheet {
                 colorationTechniques: AdaptiveLightingShader.SHADER_TECHNIQUES,
                 lightAnimations: CONFIG.Canvas.lightAnimations,
                 gridUnits: canvas.scene.grid.units || game.i18n.localize("GridUnits"),
-                submitText: `${game.i18n.localize("PERFECTVISION.UpdateGlobalIllum")}`
+                submitText: `${game.i18n.localize("Save Changes")}`
             }
         );
     }
