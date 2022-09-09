@@ -49,8 +49,8 @@ export class LightingFramebuffer extends CanvasFramebuffer {
     _draw() {
         this.stage.renderable = true;
 
-        if (canvas.performance.blur.enabled) {
-            this.blur = new TextureBlur(CONFIG.Canvas.blurStrength * 0.5, 2, 5);
+        if (canvas.blur.enabled) {
+            this.blur = new TextureBlur(canvas.blur.strength, canvas.blur.passes, canvas.blur.kernels);
 
             canvas.addBlurFilter(this.blur);
         } else {
@@ -65,7 +65,6 @@ export class LightingFramebuffer extends CanvasFramebuffer {
         stage.removeChildren();
         stage.renderable = true;
 
-        const regions = LightingSystem.instance.activeRegions;
         const { darknessLevel, colors } = LightingSystem.instance.getRegion("globalLight");
 
         textures[0].baseTexture.clearColor[0] = darknessLevel;

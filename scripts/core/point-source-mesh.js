@@ -223,7 +223,7 @@ PointSourceMesh = class PointSourceMesh extends SmoothMesh {
     /** @override */
     _render(renderer) {
         if (this.uniforms.framebufferTexture !== undefined) {
-            if (canvas.performance.blur.enabled) {
+            if (canvas.blur.enabled) {
                 const priorBlendMode = PointSourceMesh._priorBlendMode;
                 let blendMode = this.state.blendMode;
 
