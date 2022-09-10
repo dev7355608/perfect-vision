@@ -119,6 +119,21 @@ Hooks.once("setup", () => {
                     vision.fog.addChild(region.createMask(!region.fogExploration));
                     revealed.mask.addChild(region.createMask(!region.fogRevealed));
                 }
+
+                if (vision._explored) {
+                    for (const source of canvas.effects.lightSources) {
+                        source._sourceGeometry._explored = true;
+                    }
+
+                    for (const source of canvas.effects.visionSources) {
+                        source._sourceGeometry._explored = true;
+                        source._sourceLosGeometry._explored = true;
+                    }
+
+                    for (const region of LightingSystem.instance.activeRegions) {
+                        region.geometry._explored = true;
+                    }
+                }
             }
 
             if (commitFog) {

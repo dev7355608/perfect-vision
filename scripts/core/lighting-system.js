@@ -1039,8 +1039,9 @@ export class LightingRegion {
                     .scale(1 / this.source.radius, 1 / this.source.radius)
             };
 
-            if (!this.geometry || canvas.masks.vision.vision._explored) {
+            if (!this.geometry || this.geometry._explored) {
                 this.geometry = new SmoothGeometry(this.polygons, options);
+                this.geometry._explored = false;
             } else {
                 this.geometry.update(this.polygons, options);
             }

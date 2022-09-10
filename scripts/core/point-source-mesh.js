@@ -22,9 +22,10 @@ Hooks.once("libWrapper.Ready", () => {
                     .scale(1 / this.radius, 1 / this.radius)
             };
 
-            if (!this._sourceGeometry || canvas.masks.vision.vision._explored) {
+            if (!this._sourceGeometry || this._sourceGeometry._explored) {
                 /** @type {SmoothGeometry} */
                 this._sourceGeometry = new SmoothGeometry([polygon], options);
+                this._sourceGeometry._explored = false;
             } else {
                 this._sourceGeometry.update([polygon], options);
             }
@@ -99,8 +100,9 @@ Hooks.once("libWrapper.Ready", () => {
 
             const options = { fillRule: "zero-one" };
 
-            if (!this._sourceLosGeometry || canvas.masks.vision.vision._explored) {
+            if (!this._sourceLosGeometry || this._sourceLosGeometry._explored) {
                 this._sourceLosGeometry = new SmoothGeometry([this.los], options);
+                this._sourceLosGeometry._explored = false;
             } else {
                 this._sourceLosGeometry.update([this.los], options);
             }
