@@ -1209,7 +1209,7 @@ export class LightingRegion {
         depthShader.texture = this.texture ?? PIXI.Texture.WHITE;
         depthShader.textureMatrix = this.source._textureMatrix ?? PIXI.Matrix.IDENTITY;
         depthShader.alphaThreshold = 0.75;
-        depthShader.depthElevation = canvas.primary.mapElevationAlpha(this.elevation);
+        depthShader.depthElevation = (canvas.primary.mapElevationAlpha(this.elevation) * 255 | 0) / 255;
 
         const originalShader = mesh.shader;
         const originalBlendMode = mesh.blendMode;
