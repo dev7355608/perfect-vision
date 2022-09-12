@@ -182,9 +182,9 @@ function prepareVisionLimitationData(data, dimensions) {
 export function extractVisionLimitationData(document) {
     const flags = document.flags["perfect-vision"];
     const data = new VisionLimitationData(
-        foundry.utils.deepClone(document instanceof AmbientLightDocument
-            ? flags?.visionLimitation
-            : flags?.light?.visionLimitation),
+        foundry.utils.deepClone(document instanceof TokenDocument
+            ? flags?.light?.visionLimitation
+            : flags?.visionLimitation),
         { strict: false }).toObject();
 
     return prepareVisionLimitationData(data, document.parent.dimensions);
