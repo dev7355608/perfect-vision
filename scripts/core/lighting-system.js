@@ -1031,8 +1031,10 @@ export class LightingRegion {
         }
 
         if (!this.geometry || "globalLight" in changes && ("x" in changes.globalLight || "y" in changes.globalLight)) {
+            const softEdges = this.source._flags.renderSoftEdges = canvas.performance.lightSoftEdges
+                && this.id !== "globalLight" && !data.texture;
             const options = {
-                falloffDistance: canvas.performance.lightSoftEdges ? Math.abs(PointSource.EDGE_OFFSET) : 0,
+                falloffDistance: softEdges ? Math.abs(PointSource.EDGE_OFFSET) : 0,
                 fillRule: "zero-one",
                 vertexTransform: new PIXI.Matrix()
                     .translate(-this.source.x, -this.source.y)
@@ -1665,7 +1667,7 @@ class LightingRegionSource extends GlobalLightSource {
 
     /** @override */
     _initializeFlags() {
-        this._flags.renderSoftEdges = this.#region.id !== "globalLight";
+        this._flags.renderSoftEdges = this.#region.geometry?.falloffDistance > 0;
         this._flags.hasColor = !!(this.data.color !== null && this.data.alpha);
     }
 
