@@ -7,7 +7,7 @@ export class ShaderPatcher {
      * @type {number}
      * @readonly
      */
-    static #seed = Math.random() * 2 ** 32 | 0;
+    static #seed = 0;
 
     /**
      * The shader type.
