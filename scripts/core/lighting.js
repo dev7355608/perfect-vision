@@ -55,6 +55,35 @@ Hooks.once("setup", () => {
         LightingSystem.instance.reset();
     });
 
+    Hooks.on("canvasReady", () => {
+        Hooks.once("lightingRefresh", () => {
+            const meshes = [];
+
+            for (const container of [
+                canvas.effects.background.vision,
+                canvas.effects.background.lighting,
+                canvas.effects.illumination.lights,
+                canvas.effects.coloration]) {
+                for (const mesh of container.children) {
+                    if (mesh.cullable) {
+                        mesh.cullable = false;
+                        meshes.push(mesh);
+                    }
+                }
+            }
+
+            canvas.app.ticker.addOnce(
+                function () {
+                    for (const mesh of meshes) {
+                        mesh.cullable = true;
+                    }
+                },
+                globalThis,
+                PIXI.UPDATE_PRIORITY.LOW - 1
+            );
+        });
+    });
+
     libWrapper.register(
         "perfect-vision",
         "CanvasIlluminationEffects.prototype.updateGlobalLight",

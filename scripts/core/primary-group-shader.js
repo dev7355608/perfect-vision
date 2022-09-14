@@ -60,7 +60,7 @@ Hooks.once("setup", () => {
                                 static defaultUniforms = foundry.utils.mergeObject(
                                     super.defaultUniforms,
                                     {
-                                        darknessLevelTexture: 0,
+                                        darknessLevelTexture: null,
                                         screenDimensions: [1, 1]
                                     },
                                     { inplace: false }
