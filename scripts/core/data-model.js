@@ -219,11 +219,9 @@ export function extractLightingData(document) {
         };
         data.fit = false;
 
-        const background = canvas.primary.background;
-
-        if (background.visible) {
-            data.elevation = background.elevation;
-            data.sort = background.sort;
+        if (getTexture(canvas.scene.background.src)) {
+            data.elevation = PrimaryCanvasGroup.BACKGROUND_ELEVATION;
+            data.sort = -9999999999;
         } else {
             data.elevation = -Infinity;
             data.sort = -Infinity;

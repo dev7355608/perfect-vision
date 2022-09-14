@@ -51,23 +51,6 @@ Hooks.once("setup", () => {
         }
 
         updateLighting();
-
-        setTimeout(() => {
-            let elevation, sort;
-            const background = canvas.primary.background;
-
-            if (background.visible) {
-                elevation = background.elevation;
-                sort = background.sort;
-            } else {
-                elevation = -Infinity;
-                sort = -Infinity;
-            }
-
-            if (LightingSystem.instance.updateRegion("globalLight", { elevation, sort })) {
-                canvas.perception.update({ refreshLighting: true }, true);
-            }
-        }, 0);
     });
 });
 
