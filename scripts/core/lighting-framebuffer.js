@@ -1,5 +1,6 @@
 import { CanvasFramebuffer } from "./canvas-framebuffer.js";
 import { LightingSystem } from "./lighting-system.js";
+import lightingUniformGroup from "./lighting-uniforms.js";
 import { Console } from "../utils/console.js";
 import { TextureBlur } from "../utils/texture-blur.js";
 
@@ -111,7 +112,12 @@ export class LightingFramebuffer extends CanvasFramebuffer {
         const renderer = canvas.app.renderer;
         const screen = renderer.screen;
         const textures = this.textures;
-        const empty = textures.map(() => true);
+        const uniform = lightingUniformGroup.uniforms.uniformLighting;
+
+        for (let i = 0; i < 4; i++) {
+            uniform[i] = true;
+        }
+
         const cacheParent = stage.enableTempParent();
 
         stage.updateTransform();
@@ -127,15 +133,15 @@ export class LightingFramebuffer extends CanvasFramebuffer {
             const bounds = mesh.getBounds(true);
 
             if (screen.intersects(bounds)) {
-                for (let i = 0; i < textures.length; i++) {
-                    if (!empty[i]) {
+                for (let i = 0; i < 3; i++) {
+                    if (!uniform[i]) {
                         continue;
                     }
 
                     const meshColor = mesh.shader.uniforms["uColor" + i];
                     const clearColor = textures[i].baseTexture.clearColor;
 
-                    empty[i] = meshColor[0] === clearColor[0]
+                    uniform[i] = meshColor[0] === clearColor[0]
                         && meshColor[1] === clearColor[1]
                         && meshColor[2] === clearColor[2];
                 }
@@ -146,7 +152,13 @@ export class LightingFramebuffer extends CanvasFramebuffer {
             mesh.cullable = false;
         }
 
-        const renderable = !empty.every(e => e);
+        const renderable = !uniform.every(e => e);
+
+        if (this.blur) {
+            uniform[1] = uniform[0] && uniform[1] && uniform[2];
+        }
+
+        uniform[3] = uniform[0] && uniform[1] && uniform[2];
 
         if (!renderable && !stage.renderable) {
             stage.children.forEach(mesh => { delete mesh.render; mesh.cullable = true; });
@@ -164,8 +176,8 @@ export class LightingFramebuffer extends CanvasFramebuffer {
         stage.children.forEach(mesh => { delete mesh.render; mesh.cullable = true; });
 
         if (this.blur) {
-            for (let i = 0; i < textures.length; i++) {
-                if (!empty[i]) {
+            for (let i = 0; i < 3; i++) {
+                if (!uniform[i]) {
                     this.blur.apply(renderer, textures[i]);
                 }
             }

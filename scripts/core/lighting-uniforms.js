@@ -8,7 +8,8 @@ const uniformGroup = new PIXI.UniformGroup({
     lightingLevels: [0, 0, 0, 0],
     darknessLevelTexture: PIXI.Texture.EMPTY,
     colorBackgroundTexture: PIXI.Texture.EMPTY,
-    ambientDarknessTexture: PIXI.Texture.EMPTY
+    ambientDarknessTexture: PIXI.Texture.EMPTY,
+    uniformLighting: [true, true, true, true]
 });
 
 export default uniformGroup;

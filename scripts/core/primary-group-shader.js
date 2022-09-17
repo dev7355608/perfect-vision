@@ -33,12 +33,12 @@ Hooks.once("setup", () => {
                                     .addUniform("screenDimensions", "vec2")
                                     .addVarying("vUvsMask", "vec2")
                                     .wrapMain(`\
-                                    void main() {
-                                        vUvsMask = aVertexPosition / screenDimensions;
+                                        void main() {
+                                            vUvsMask = aVertexPosition / screenDimensions;
 
-                                        @main();
-                                    }
-                                ` + (PerfectVision.debug ? "" : "#define OPTIMIZE_GLSL\n"))
+                                            @main();
+                                        }
+                                    ` + (PerfectVision.debug ? "" : "#define OPTIMIZE_GLSL\n"))
                                     .getSource();
 
                                 /** @override */
@@ -48,12 +48,12 @@ Hooks.once("setup", () => {
                                     .addUniform("darknessLevelTexture", "sampler2D")
                                     .overrideVariable("darknessLevel")
                                     .wrapMain(`\
-                                    void main() {
-                                        darknessLevel = texture2D(darknessLevelTexture, vUvsMask).r;
+                                        void main() {
+                                            darknessLevel = texture2D(darknessLevelTexture, vUvsMask).r;
 
-                                        @main();
-                                    }
-                                ` + (PerfectVision.debug ? "" : "#define OPTIMIZE_GLSL\n"))
+                                            @main();
+                                        }
+                                    ` + (PerfectVision.debug ? "" : "#define OPTIMIZE_GLSL\n"))
                                     .getSource();
 
                                 /** @override */
