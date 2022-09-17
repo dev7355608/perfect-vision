@@ -5,7 +5,7 @@
 
 # Perfect Vision (Foundry VTT Module)
 
-Perfect Vision offers additional lighting and vision settings and allows you control lighting and vision locally within the shape of a drawing.
+Perfect Vision offers additional lighting and vision settings and allows you to control lighting and vision locally within the shape of a drawing.
 It gives you the ability control the maximum range tokens can see based on vision type and detection mode within the area of drawings, lights, templates, or scenes.
 
 Perfect Vision adds/exposes the following lighting and vision settings.
