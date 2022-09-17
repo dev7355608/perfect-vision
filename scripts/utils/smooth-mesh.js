@@ -30,18 +30,26 @@ export class SmoothMesh extends PIXI.Container {
     state;
 
     /**
-     * The transform dirty ID.
-     * @type {number}
+     * The bounds of the geometry in world space.
+     * @type {PIXI.Bounds}
      * @protected
+     * @readonly
      */
-    _transformDirty = -1;
+    _geometryBounds = new PIXI.Bounds();
 
     /**
-     * The geometry dirty ID.
+     * The transform dirty ID of the geometry bounds.
      * @type {number}
      * @protected
      */
-    _geometryDirty = -1;
+    _geometryBoundsTransformDirty = -1;
+
+    /**
+     * The geometry dirty ID of the geometry bounds.
+     * @type {number}
+     * @protected
+     */
+    _geometryBoundsVertexDirty = -1;
 
     /**
      * The translation matrix uniform.
@@ -50,6 +58,20 @@ export class SmoothMesh extends PIXI.Container {
      * @readonly
      */
     _translationMatrix = new Float32Array(9);
+
+    /**
+     * The transform dirty ID of the translation matrix.
+     * @type {number}
+     * @protected
+     */
+    _translationMatrixTransformDirty = -1;
+
+    /**
+     * The geometry dirty ID of the translation matrix.
+     * @type {number}
+     * @protected
+     */
+    _translationMatrixVertexDirty = -1;
 
     /**
      * @param {SmoothGeometry} [geometry] - The geometry.
@@ -92,7 +114,8 @@ export class SmoothMesh extends PIXI.Container {
             this._geometry.refCount++;
         }
 
-        this._geometryDirty = -1;
+        this._geometryBoundsVertexDirty = -1;
+        this._translationMatrixVertexDirty = -1;
     }
 
     /**
@@ -192,9 +215,10 @@ export class SmoothMesh extends PIXI.Container {
     _render(renderer) {
         const { geometry, shader, state, drawMode, transform } = this;
 
-        if (this._transformDirty !== transform._worldID || this._geometryDirty !== geometry.buffers[0]._updateID) {
-            this._transformDirty = transform._worldID;
-            this._geometryDirty = geometry.buffers[0]._updateID;
+        if (this._translationMatrixTransformDirty !== transform._worldID
+            || this._translationMatrixVertexDirty !== geometry.vertexBuffer._updateID) {
+            this._translationMatrixTransformDirty = transform._worldID;
+            this._translationMatrixVertexDirty = geometry.vertexBuffer._updateID;
 
             if (geometry.inverseVertexTransform) {
                 tempMatrix.copyFrom(transform.worldTransform);
@@ -271,9 +295,25 @@ export class SmoothMesh extends PIXI.Container {
 
     /** @override */
     _calculateBounds() {
-        const { x, y, width, height } = this.geometry.bounds;
+        const { transform, geometry } = this;
+        const bounds = this._bounds;
+        const geometryBounds = this._geometryBounds;
 
-        this._bounds.addFrame(this.transform, x, y, x + width, y + height);
+        if (this._geometryBoundsTransformDirty !== transform._worldID
+            || this._geometryBoundsVertexDirty !== geometry.vertexBuffer._updateID) {
+            this._geometryBoundsTransformDirty = transform._worldID;
+            this._geometryBoundsVertexDirty = geometry.vertexBuffer._updateID;
+
+            const { x, y, width, height } = this.geometry.bounds;
+
+            geometryBounds.clear();
+            geometryBounds.addFrame(transform, x, y, x + width, y + height);
+        }
+
+        bounds.minX = geometryBounds.minX;
+        bounds.minY = geometryBounds.minY;
+        bounds.maxX = geometryBounds.maxX;
+        bounds.maxY = geometryBounds.maxY;
     }
 
     /** @override */
@@ -382,9 +422,7 @@ export class SmoothGeometry extends PIXI.Geometry {
      * @type {PIXI.Buffer}
      * @readonly
      */
-    get vertexBuffer() {
-        return this.buffers[0];
-    }
+    vertexBuffer;
 
     /**
      * Alias for {@link SmoothGeometry#vertexBuffer}.
@@ -421,7 +459,7 @@ export class SmoothGeometry extends PIXI.Geometry {
         this.addAttribute(this.vertexAttributeName, buffer, 2, false, PIXI.TYPES.FLOAT)
             .addAttribute(this.falloffAttributeName, buffer, 1, false, PIXI.TYPES.FLOAT)
             .addIndex(new PIXI.Buffer(emptyUint16Array, true, true));
-
+        this.vertexBuffer = this.buffers[0];
         this.update(polygons, options);
     }
 
@@ -736,7 +774,7 @@ export class SmoothGeometry extends PIXI.Geometry {
      * @param {number[]|Uint16Array|Uint32Array} indices - The indices.
      */
     #updateBuffers(vertices, indices) {
-        const vertexBuffer = this.buffers[0];
+        const vertexBuffer = this.vertexBuffer;
 
         if (vertices instanceof Array) {
             if (vertexBuffer.data.length === vertices.length) {
