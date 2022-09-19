@@ -1,5 +1,5 @@
+import { LightingFramebuffer } from "./lighting-framebuffer.js";
 import { ShaderPatcher } from "../utils/shader-patcher.js";
-import lightingUniformGroup from "./lighting-uniforms.js";
 
 Hooks.once("setup", () => {
     if (game.settings.get("core", "noCanvas")) {
@@ -12,7 +12,7 @@ Hooks.once("setup", () => {
         function (wrapped, ...args) {
             const filter = wrapped(...args);
 
-            filter.uniforms.replacementColorTexture = lightingUniformGroup.uniforms.colorBackgroundTexture;
+            filter.uniforms.replacementColorTexture = LightingFramebuffer.instance.textures[1];
 
             if (game.user.isGM) {
                 filter.uniforms.brightnessBoost = 0;

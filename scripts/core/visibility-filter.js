@@ -1,5 +1,5 @@
+import { LightingFramebuffer } from "./lighting-framebuffer.js";
 import { ShaderPatcher } from "../utils/shader-patcher.js";
-import lightingUniformGroup from "./lighting-uniforms.js";
 
 Hooks.once("setup", () => {
     if (game.settings.get("core", "noCanvas")) {
@@ -33,7 +33,7 @@ Hooks.once("setup", () => {
 
             const shader = wrapped(...args);
 
-            shader.uniforms.backgroundColorTexture = lightingUniformGroup.uniforms.colorBackgroundTexture;
+            shader.uniforms.backgroundColorTexture = LightingFramebuffer.instance.textures[1];
 
             return shader;
         },

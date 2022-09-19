@@ -177,15 +177,10 @@ function overrideDarknessLevelUniform(source) {
             .setSource(source)
             .requireVariable("vSamplerUvs")
             .overrideVariable("darknessLevel")
-            .addUniform("uniformLighting", "bvec4")
             .addUniform("darknessLevelTexture", "sampler2D")
             .wrapMain(`\
                 void main() {
-                    if (uniformLighting.x) {
-                        darknessLevel = @darknessLevel;
-                    } else {
-                        darknessLevel = texture2D(darknessLevelTexture, vSamplerUvs).r;
-                    }
+                    darknessLevel = texture2D(darknessLevelTexture, vSamplerUvs).r;
 
                     @main();
                 }
@@ -222,15 +217,10 @@ function overrideColorBackgroundUniform(source) {
             .setSource(source)
             .requireVariable("vSamplerUvs")
             .overrideVariable("colorBackground")
-            .addUniform("uniformLighting", "bvec4")
             .addUniform("colorBackgroundTexture", "sampler2D")
             .wrapMain(`\
                 void main() {
-                    if (uniformLighting.y) {
-                        colorBackground = @colorBackground;
-                    } else {
-                        colorBackground = texture2D(colorBackgroundTexture, vSamplerUvs).rgb;
-                    }
+                    colorBackground = texture2D(colorBackgroundTexture, vSamplerUvs).rgb;
 
                     @main();
                 }
@@ -268,15 +258,10 @@ function overrideAmbientDarknessUniform(source) {
             .setSource(source)
             .requireVariable("vSamplerUvs")
             .overrideVariable("ambientDarkness")
-            .addUniform("uniformLighting", "bvec4")
             .addUniform("ambientDarknessTexture", "sampler2D")
             .wrapMain(`\
                 void main() {
-                    if (uniformLighting.z) {
-                        ambientDarkness = @ambientDarkness;
-                    } else {
-                        ambientDarkness = texture2D(ambientDarknessTexture, vSamplerUvs).rgb;
-                    }
+                    ambientDarkness = texture2D(ambientDarknessTexture, vSamplerUvs).rgb;
 
                     @main();
                 }
@@ -297,10 +282,10 @@ function overrideColorVisionUniform(source) {
             .requireVariable("darknessPenalty")
             .requireVariable("weights")
             .overrideVariable("colorVision")
-            .addUniform("uniformLighting", "bvec4")
+            .addUniform("uniformLighting", "bool")
             .wrapMain(`\
                 void main() {
-                    if (uniformLighting.w) {
+                    if (uniformLighting) {
                         colorVision = @colorVision;
                     } else {
                         vec3 bright = mix(colorBackground, ambientBrightest, (1.0 - darknessPenalty) * weights.x);
@@ -329,56 +314,23 @@ function overrideColorDimAndBrightUniforms(source) {
             .setSource(source)
             .overrideVariable("colorDim")
             .overrideVariable("colorBright")
-            .addUniform("uniformLighting", "bvec4")
+            .addUniform("uniformLighting", "bool")
             .addUniform("lightingLevels", "vec4")
             .wrapMain(`\
                 void main() {
-                    if (uniformLighting.w) {
+                    if (uniformLighting) {
                         colorBright = @colorBright;
                         colorDim = @colorDim;
-                    } else {
-                        vec3 bright;
-                        vec3 dim;
-                        float brightLevel;
-                        float dimLevel;
+                    } else if (!darkness) {
+                        float luminosityPenalty = clamp(luminosity * 2.0, 0.0, 1.0);
+                        vec3 bright = mix(colorBackground, ambientBrightest, (1.0 - darknessPenalty) * weights.x);
 
-                        if (!darkness) {
-                            float luminosityPenalty = clamp(luminosity * 2.0, 0.0, 1.0);
+                        bright = mix(bright, ambientBrightest, clamp(luminosity * 2.0 - 1.0, 0.0, 1.0));
+                        bright = max(bright * luminosityPenalty, colorBackground);
 
-                            bright = mix(colorBackground, ambientBrightest, (1.0 - darknessPenalty) * weights.x);
-                            bright = mix(bright, ambientBrightest, clamp(luminosity * 2.0 - 1.0, 0.0, 1.0));
-                            bright = max(bright * luminosityPenalty, colorBackground);
-                            dim = mix(colorBackground, bright, weights.y);
-                            brightLevel = lightingLevels.x;
-                            dimLevel = lightingLevels.y;
-                        } else {
-                            vec3 colorDarkness = mix(ambientDarkness, colorBackground, weights.w);
-                            vec3 iMid = mix(colorBackground, colorDarkness, 0.5);
-                            vec3 mid = (color * iMid) * (illuminationAlpha * 2.0);
-                            vec3 black = (color * colorDarkness) * (illuminationAlpha * 2.0);
-
-                            float lc;
-                            vec3 cdim1, cdim2, cbr1, cbr2;
-
-                            if (luminosity < -0.5) {
-                                lc = abs(luminosity) - 0.5;
-                                cdim1 = black;
-                                cdim2 = black * 0.625;
-                                cbr1 = black * 0.5;
-                                cbr2 = black * 0.125;
-                            } else {
-                                lc = sqrt(abs(luminosity) * 2.0);
-                                cdim1 = mid;
-                                cdim2 = black;
-                                cbr1 = mid;
-                                cbr2 = black * 0.5;
-                            }
-
-                            dim = min(mix(cdim1, cdim2, lc), colorBackground);
-                            bright = min(mix(cbr1, cbr2, lc), dim);
-                            dimLevel = lightingLevels.z;
-                            brightLevel = lightingLevels.w;
-                        }
+                        vec3 dim = mix(colorBackground, bright, weights.y);
+                        float brightLevel = lightingLevels.x;
+                        float dimLevel = lightingLevels.y;
 
                         colorBright = mix(colorBackground, dim, min(brightLevel, 1.0));
                         colorBright = mix(colorBright, bright, clamp(brightLevel - 1.0, 0.0, 1.0));
@@ -386,6 +338,39 @@ function overrideColorDimAndBrightUniforms(source) {
                         colorDim = mix(colorBackground, dim, min(dimLevel, 1.0));
                         colorDim = mix(colorDim, bright, clamp(dimLevel - 1.0, 0.0, 1.0));
                         colorDim = mix(colorDim, ambientBrightest, max(dimLevel - 2.0, 0.0));
+                    } else {
+                        vec3 ambientDarkness = texture2D(ambientDarknessTexture, vSamplerUvs).rgb;
+                        vec3 colorDarkness = mix(ambientDarkness, colorBackground, weights.w);
+                        vec3 iMid = mix(colorBackground, colorDarkness, 0.5);
+                        vec3 mid = (color * iMid) * (illuminationAlpha * 2.0);
+                        vec3 black = (color * colorDarkness) * (illuminationAlpha * 2.0);
+
+                        float lc;
+                        vec3 cdim1, cdim2, cbr1, cbr2;
+
+                        if (luminosity < -0.5) {
+                            lc = abs(luminosity) - 0.5;
+                            cdim1 = black;
+                            cdim2 = black * 0.625;
+                            cbr1 = black * 0.5;
+                            cbr2 = black * 0.125;
+                        } else {
+                            lc = sqrt(abs(luminosity) * 2.0);
+                            cdim1 = mid;
+                            cdim2 = black;
+                            cbr1 = mid;
+                            cbr2 = black * 0.5;
+                        }
+
+                        vec3 dim = min(mix(cdim1, cdim2, lc), colorBackground);
+                        vec3 bright = min(mix(cbr1, cbr2, lc), dim);
+                        float dimLevel = lightingLevels.z;
+                        float brightLevel = lightingLevels.w;
+
+                        colorDim = mix(colorBackground, dim, min(dimLevel, 1.0));
+                        colorDim = mix(colorDim, bright, clamp(dimLevel - 1.0, 0.0, 1.0));
+                        colorBright = mix(colorBackground, dim, min(brightLevel, 1.0));
+                        colorBright = mix(colorBright, bright, clamp(brightLevel - 1.0, 0.0, 1.0));
                     }
 
                     @main();

@@ -1,5 +1,5 @@
+import { LightingFramebuffer } from "./lighting-framebuffer.js";
 import { ShaderPatcher } from "../utils/shader-patcher.js";
-import lightingUniformGroup from "./lighting-uniforms.js";
 
 Hooks.once("setup", () => {
     if (game.settings.get("core", "noCanvas")) {
@@ -73,7 +73,7 @@ Hooks.once("setup", () => {
                                     const uniforms = this.uniforms;
 
                                     uniforms.screenDimensions = canvas.screenDimensions;
-                                    uniforms.darknessLevelTexture = lightingUniformGroup.uniforms.darknessLevelTexture;
+                                    uniforms.darknessLevelTexture = LightingFramebuffer.instance.textures[0];
                                 }
                             };
                         } finally {

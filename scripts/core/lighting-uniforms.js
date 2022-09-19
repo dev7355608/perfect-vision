@@ -9,10 +9,7 @@ const uniformGroup = new PIXI.UniformGroup({
     darknessLevel: 0,
     darknessPenalty: 0,
     darknessLightPenalty: 0,
-    darknessLevelTexture: PIXI.Texture.EMPTY,
-    colorBackgroundTexture: PIXI.Texture.EMPTY,
-    ambientDarknessTexture: PIXI.Texture.EMPTY,
-    uniformLighting: [true, true, true, true]
+    lightingTextures: LightingFramebuffer.instance.uniformGroup
 });
 
 export default uniformGroup;
@@ -48,12 +45,6 @@ function updateUniforms() {
     uniforms.darknessLevel = canvas.colorManager.darknessLevel;
     uniforms.darknessPenalty = canvas.colorManager.darknessPenalty;
     uniforms.darknessLightPenalty = CONFIG.Canvas.darknessLightPenalty;
-
-    const textures = LightingFramebuffer.instance.textures;
-
-    uniforms.darknessLevelTexture = textures[0];
-    uniforms.colorBackgroundTexture = textures[1];
-    uniforms.ambientDarknessTexture = textures[2];
 }
 
 function getCorrectedColor(level) {

@@ -1,6 +1,5 @@
 import { CanvasFramebuffer } from "./canvas-framebuffer.js";
 import { LightingSystem } from "./lighting-system.js";
-import lightingUniformGroup from "./lighting-uniforms.js";
 import { Console } from "../utils/console.js";
 import { TextureBlur } from "../utils/texture-blur.js";
 
@@ -29,21 +28,32 @@ export class LightingFramebuffer extends CanvasFramebuffer {
             [],
             [
                 {
-                    format: PIXI.FORMATS.RGB,
+                    format: PIXI.FORMATS.RED,
                     type: PIXI.TYPES.UNSIGNED_BYTE,
-                    scaleMode: PIXI.SCALE_MODES.LINEAR
+                    scaleMode: PIXI.SCALE_MODES.NEAREST
                 },
                 {
                     format: PIXI.FORMATS.RGB,
                     type: PIXI.TYPES.UNSIGNED_BYTE,
-                    scaleMode: PIXI.SCALE_MODES.LINEAR
+                    scaleMode: PIXI.SCALE_MODES.NEAREST
                 },
                 {
                     format: PIXI.FORMATS.RGB,
                     type: PIXI.TYPES.UNSIGNED_BYTE,
-                    scaleMode: PIXI.SCALE_MODES.LINEAR
+                    scaleMode: PIXI.SCALE_MODES.NEAREST
                 }
-            ]);
+            ]
+        );
+
+        /**
+         * @type {PIXI.UniformGroup}
+         */
+        this.uniformGroup = new PIXI.UniformGroup({
+            darknessLevelTexture: this.textures[0],
+            colorBackgroundTexture: this.textures[1],
+            ambientDarknessTexture: this.textures[2],
+            uniformLighting: true
+        });
     }
 
     /** @override */
@@ -112,12 +122,7 @@ export class LightingFramebuffer extends CanvasFramebuffer {
         const renderer = canvas.app.renderer;
         const screen = renderer.screen;
         const textures = this.textures;
-        const uniform = lightingUniformGroup.uniforms.uniformLighting;
-
-        for (let i = 0; i < 4; i++) {
-            uniform[i] = true;
-        }
-
+        const uniform = [true, true, true];
         const cacheParent = stage.enableTempParent();
 
         stage.updateTransform();
@@ -152,13 +157,9 @@ export class LightingFramebuffer extends CanvasFramebuffer {
             mesh.cullable = false;
         }
 
+        this.uniformGroup.uniforms.uniformLighting = uniform[0] && uniform[1] && uniform[2];
+
         const renderable = !uniform.every(e => e);
-
-        if (this.blur) {
-            uniform[1] = uniform[0] && uniform[1] && uniform[2];
-        }
-
-        uniform[3] = uniform[0] && uniform[1] && uniform[2];
 
         if (!renderable && !stage.renderable) {
             stage.children.forEach(mesh => { delete mesh.render; mesh.cullable = true; });
