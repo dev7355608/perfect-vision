@@ -72,6 +72,26 @@ Hooks.once("setup", () => {
         { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
     );
 
+    libWrapper.register(
+        "perfect-vision",
+        "VisionSource.prototype._createRestrictedPolygon",
+        function (wrapped, ...args) {
+            const polygon = wrapped(...args);
+            const visionLimitation = polygon._visionLimitation = new VisionLimitation(polygon, 0);
+
+            visionLimitation._preCompute(polygon);
+            visionLimitation._defineBoundingBox(polygon, polygon.bounds.clone().pad(1), this.radius);
+
+            if (visionLimitation._postCompute(polygon)) {
+                polygon.bounds = polygon.getBounds();
+            }
+
+            return polygon;
+        },
+        libWrapper.WRAPPER,
+        { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
+    );
+
     // TODO: ClockwiseSweepPolygon.prototype._testCollision
 });
 
@@ -104,7 +124,7 @@ class VisionLimitation extends PIXI.Polygon {
     /**
      * @param {ClockwiseSweepPolygon} polygon
      */
-    constructor(polygon) {
+    constructor(polygon, sightRange = Infinity) {
         super();
 
         this.origin = {
@@ -112,6 +132,8 @@ class VisionLimitation extends PIXI.Polygon {
             y: polygon.origin.y,
             z: 0
         };
+
+        this.#senses[DetectionMode.DETECTION_TYPES.SIGHT] = sightRange;
 
         const source = polygon.config.source;
 
@@ -138,8 +160,9 @@ class VisionLimitation extends PIXI.Polygon {
     /**
      * @param {ClockwiseSweepPolygon} polygon
      * @param {PIXI.Rectangle} boundingBox
+     * @param {number} [radius]
      */
-    _defineBoundingBox(polygon, boundingBox) {
+    _defineBoundingBox(polygon, boundingBox, radius) {
         const { x, y, z } = this.origin;
 
         let minX = boundingBox.left + 1;
@@ -152,6 +175,10 @@ class VisionLimitation extends PIXI.Polygon {
             Math.max(x - minX, maxX - x),
             Math.max(y - minY, maxY - y)
         );
+
+        if (radius !== undefined) {
+            maxR = Math.min(maxR, radius);
+        }
 
         if (polygon.config.hasLimitedRadius) {
             maxR = Math.min(maxR, polygon.config.radius);
@@ -199,6 +226,7 @@ class VisionLimitation extends PIXI.Polygon {
 
     /**
      * @param {ClockwiseSweepPolygon} polygon
+     * @returns {boolean}
      */
     _postCompute(polygon) {
         const points = polygon.points;
@@ -516,6 +544,8 @@ class VisionLimitation extends PIXI.Polygon {
 
             this.unconstrained = polygon;
         }
+
+        return this.#constrain;
     }
 
     /**
