@@ -109,7 +109,7 @@ Hooks.on("renderSceneConfig", sheet => {
                         {
                             flags: {
                                 "perfect-vision": {
-                                    fogRevealed: form["flags.perfect-vision.fogRevealed"].value,
+                                    fogRevealed: form["flags.perfect-vision.fogRevealed"].checked,
                                     daylightColor: form["flags.perfect-vision.daylightColor"].value || null,
                                     darknessColor: form["flags.perfect-vision.darknessColor"].value || null
                                 }
