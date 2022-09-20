@@ -51,6 +51,8 @@ Hooks.once("setup", () => {
         { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
     );
 
+    const wallHeight = !!game.modules.get("wall-height")?.active;
+
     function updateLightSource(wrapped, options) {
         let defer = options?.defer ?? false;
 
@@ -103,10 +105,18 @@ Hooks.once("setup", () => {
                     [DetectionMode.DETECTION_TYPES.OTHER]: visionLimitation.other
                 },
                 shapes,
-                elevation: source.elevation,
-                height: canvas.dimensions.distance / canvas.dimensions.size,
                 priority: [source.data.z ?? (source.isDarkness ? 10 : 0)]
             };
+
+            if (wallHeight) {
+                data.elevation = document.flags?.levels?.rangeBottom ?? PrimaryCanvasGroup.BACKGROUND_ELEVATION;
+                data.height = (document.flags?.levels?.rangeBottom ?? Infinity) - data.elevation
+                    - canvas.dimensions.distance / canvas.dimensions.size;
+            } else {
+                data.elevation = PrimaryCanvasGroup.BACKGROUND_ELEVATION;
+                data.height = canvas.scene.foregroundElevation - data.elevation
+                    - canvas.dimensions.distance / canvas.dimensions.size;
+            }
 
             if (!RayCastingSystem.instance.hasRegion(sourceId)) {
                 RayCastingSystem.instance.createRegion(sourceId, data);

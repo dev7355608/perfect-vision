@@ -65,7 +65,9 @@ Hooks.once("setup", () => {
             const rayCaster = getRayCaster(visionSource, mode, type);
             const point = test.point;
             const sourceZ = visionSource.elevation * unitsToPixels;
-            const targetZ = sourceZ;
+            const targetZ = target instanceof Token
+                ? target.document.elevation * unitsToPixels
+                : sourceZ;
 
             return rayCaster
                 .moveTo(visionSource.x, visionSource.y, sourceZ)
