@@ -257,7 +257,9 @@ CONFIG.Canvas.fogManager = FogManager = class FogManager {
         // Extract the pixel data from the fog sprite without unpremultiplying.
         // The saved texture and the committed texture have the same size. No need to render to an
         // intermediate texture to scale it down.
-        const { pixels, width, height } = extractPixels(canvas.app.renderer, this.#sprite.texture);
+        const texture = this.#sprite.texture;
+        if (!texture || !texture.baseTexture || !texture.baseTexture.valid) return;
+        const { pixels, width, height } = extractPixels(canvas.app.renderer, texture);
         // We don't need to unpremultiply because the sprite texture is opaque.
         // Create a canvas element containing the pixel data.
         const canvasElement = pixelsToCanvas(pixels, width, height);
