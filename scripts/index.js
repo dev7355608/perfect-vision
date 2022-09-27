@@ -16,6 +16,14 @@ Hooks.once("setup", () => {
     }
 
     Hooks.once("canvasInit", () => {
+        if (!game.modules.get("lib-wrapper")?.active) {
+            Notifications.error(
+                `libWrapper is required!`,
+                { permanent: true, console: false }
+            );
+            Console.error("libWrapper is not enabled");
+        }
+
         if (canvas.app.renderer.context.webGLVersion !== 2) {
             Notifications.error(
                 `WebGL 2.0 is required!\
