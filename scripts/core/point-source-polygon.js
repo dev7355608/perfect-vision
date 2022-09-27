@@ -16,17 +16,45 @@ Hooks.once("setup", () => {
         libWrapper.WRAPPER
     );
 
+    function getRayCaster(visionSource) {
+        const minRadius = visionSource.object.w / 2;
+        const modeId = DetectionMode.BASIC_MODE_ID;
+        const modeRange = visionSource.data.radius;
+        const rayCasterId = `${modeId} ${minRadius} ${modeRange}+`;
+        let rayCaster = RayCastingSystem.instance.cache.get(rayCasterId);
+
+        if (!rayCaster) {
+            const senses = {
+                $: minRadius,
+                [modeId]: modeRange,
+                [DetectionMode.DETECTION_TYPES.SIGHT]: Infinity
+            };
+
+            RayCastingSystem.instance.cache.set(
+                rayCasterId,
+                rayCaster = RayCastingSystem.instance.createRayCaster(senses)
+            );
+        }
+
+        return rayCaster;
+    }
+
     libWrapper.register(
         "perfect-vision",
-        "ClockwiseSweepPolygon.prototype.initialize",
-        function (wrapped, origin, config) {
-            wrapped(origin, config);
+        "VisionSource.prototype._getPolygonConfiguration",
+        function (wrapped, ...args) {
+            const config = wrapped(...args);
+            const rayCaster = getRayCaster(this);
 
-            if (this.config.type === "sight") {
-                this._visionLimitation = new VisionLimitation(this);
-            } else {
-                delete this._visionLimitation;
+            if (rayCaster.maxD < canvas.dimensions.maxR) {
+                if (config.radius !== undefined) {
+                    config.radius = Math.min(config.radius, rayCaster.maxD);
+                } else {
+                    config.radius = rayCaster.maxD;
+                }
             }
+
+            return config;
         },
         libWrapper.WRAPPER,
         { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
@@ -34,39 +62,18 @@ Hooks.once("setup", () => {
 
     libWrapper.register(
         "perfect-vision",
-        "ClockwiseSweepPolygon.prototype._defineBoundingBox",
-        function (wrapped) {
-            const boundingBox = wrapped();
+        "VisionSource.prototype._createPolygon",
+        function (wrapped, ...args) {
+            let polygon = wrapped(...args);
+            const visionLimitation = new VisionLimitation(polygon, false);
 
-            this._visionLimitation?._defineBoundingBox(this, boundingBox);
+            if (visionLimitation.skip) {
+                polygon.config.boundaryShapes.push(visionLimitation);
+            } else {
+                polygon = polygon.applyConstraint(visionLimitation, { scalingFactor: 100 });
+            }
 
-            return boundingBox;
-        },
-        libWrapper.WRAPPER,
-        { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
-    );
-
-    libWrapper.register(
-        "perfect-vision",
-        "ClockwiseSweepPolygon.prototype._compute",
-        function (wrapped) {
-            this._visionLimitation?._preCompute(this);
-
-            wrapped();
-
-            this._visionLimitation?._postCompute(this);
-        },
-        libWrapper.WRAPPER,
-        { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
-    );
-
-    libWrapper.register(
-        "perfect-vision",
-        "ClockwiseSweepPolygon.prototype.visualize",
-        function (wrapped) {
-            wrapped();
-
-            this._visionLimitation?._visualize(this);
+            return polygon;
         },
         libWrapper.WRAPPER,
         { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
@@ -76,14 +83,13 @@ Hooks.once("setup", () => {
         "perfect-vision",
         "VisionSource.prototype._createRestrictedPolygon",
         function (wrapped, ...args) {
-            const polygon = wrapped(...args);
-            const visionLimitation = polygon._visionLimitation = new VisionLimitation(polygon, 0);
+            let polygon = wrapped(...args);
+            const visionLimitation = new VisionLimitation(polygon, true);
 
-            visionLimitation._preCompute(polygon);
-            visionLimitation._defineBoundingBox(polygon, polygon.bounds.clone().pad(1), this.radius);
-
-            if (visionLimitation._postCompute(polygon)) {
-                polygon.bounds = polygon.getBounds();
+            if (visionLimitation.skip) {
+                polygon.config.boundaryShapes.push(visionLimitation);
+            } else {
+                polygon = polygon.applyConstraint(visionLimitation, { scalingFactor: 100 });
             }
 
             return polygon;
@@ -91,21 +97,15 @@ Hooks.once("setup", () => {
         libWrapper.WRAPPER,
         { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
     );
-
-    // TODO: ClockwiseSweepPolygon.prototype._testCollision
 });
 
 class VisionLimitation extends PIXI.Polygon {
-    #senses = {
-        $: 0,
-        [DetectionMode.DETECTION_TYPES.SIGHT]: Infinity,
-        [DetectionMode.BASIC_MODE_ID]: 0
-    };
-    #rayCaster0;
-    #rayCaster1;
-    #rayCaster2;
-    #rayCaster3;
-    #rayCaster4;
+    #senses;
+    #rayCaster0 = null;
+    #rayCaster1 = null;
+    #rayCaster2 = null;
+    #rayCaster3 = null;
+    #rayCaster4 = null;
     #minX = 0;
     #minY = 0;
     #minZ = 0;
@@ -113,75 +113,65 @@ class VisionLimitation extends PIXI.Polygon {
     #maxY = 0;
     #maxZ = 0;
     #maxR = 0;
+    #maxD = 0;
     #constrain = false;
 
     /**
-     * @type {ClockwiseSweepPolygon}
-     * @readonly
+     * @param {PointSourcePolygon} polygon
+     * @param {boolean} [restricted=false]
      */
-    unconstrained;
-
-    /**
-     * @param {ClockwiseSweepPolygon} polygon
-     */
-    constructor(polygon, sightRange = Infinity) {
+    constructor(polygon, restricted = false) {
         super();
-
-        this.origin = {
-            x: polygon.origin.x,
-            y: polygon.origin.y,
-            z: 0
-        };
-
-        this.#senses[DetectionMode.DETECTION_TYPES.SIGHT] = sightRange;
 
         const source = polygon.config.source;
 
-        if (source?.object) {
-            const unitsToPixels = canvas.dimensions.size / canvas.dimensions.distance;
+        this.origin = {
+            x: source.x,
+            y: source.y,
+            z: source.elevation * (canvas.dimensions.size / canvas.dimensions.distance)
+        };
+        this.#senses = {
+            $: source.object.w / 2,
+            [DetectionMode.BASIC_MODE_ID]: source.data.radius,
+            [DetectionMode.DETECTION_TYPES.SIGHT]: restricted ? 0 : Infinity
+        };
 
-            this.origin.z = source.elevation * unitsToPixels;
-
-            if (source.object instanceof Token) {
-                const minRange = this.#senses.$ = source.object.w / 2;
-
-                for (let { id, range, enabled } of source.object.document.detectionModes) {
-                    if (enabled && range > 0 && id === DetectionMode.BASIC_MODE_ID) {
-                        this.#senses[DetectionMode.BASIC_MODE_ID] = Math.max(
-                            this.#senses[DetectionMode.BASIC_MODE_ID],
-                            minRange + range * unitsToPixels
-                        );
-                    }
-                }
-            }
-        }
+        this.#compute(polygon);
     }
 
     /**
-     * @param {ClockwiseSweepPolygon} polygon
-     * @param {PIXI.Rectangle} boundingBox
-     * @param {number} [radius]
+     * @type {boolean}
+     * @readonly
      */
-    _defineBoundingBox(polygon, boundingBox, radius) {
-        const { x, y, z } = this.origin;
+    get skip() {
+        return !this.#constrain;
+    }
 
-        let minX = boundingBox.left + 1;
-        let minY = boundingBox.top + 1;
-        let maxX = boundingBox.right - 1;
-        let maxY = boundingBox.bottom - 1;
-        const minZ = this.#minZ = z;
-        const maxZ = this.#maxZ = z;
+    /**
+     * @param {PointSourcePolygon} polygon
+     */
+    #compute(polygon) {
+        const { x: ox, y: oy, z: oz } = this.origin;
+        const bounds = polygon.bounds;
+        let minX = bounds.left;
+        let minY = bounds.top;
+        let maxX = bounds.right;
+        let maxY = bounds.bottom;
+        let minZ = this.#minZ = oz;
+        let maxZ = this.#maxZ = oz;
         let maxR = Math.hypot(
-            Math.max(x - minX, maxX - x),
-            Math.max(y - minY, maxY - y)
+            Math.max(ox - minX, maxX - ox),
+            Math.max(oy - minY, maxY - oy)
         );
-
-        if (radius !== undefined) {
-            maxR = Math.min(maxR, radius);
-        }
 
         if (polygon.config.hasLimitedRadius) {
             maxR = Math.min(maxR, polygon.config.radius);
+        }
+
+        for (const boundaryShape of polygon.config.boundaryShapes) {
+            if (boundaryShape instanceof VisionLimitation) {
+                maxR = Math.min(maxR, boundaryShape.#maxD);
+            }
         }
 
         this.#maxR = maxR;
@@ -190,63 +180,29 @@ class VisionLimitation extends PIXI.Polygon {
             this.#senses, minX, minY, minZ, maxX, maxY, maxZ, maxR
         );
 
-        rayCaster0.moveTo(x, y, z);
+        rayCaster0.moveTo(ox, oy, oz);
 
         const maxD = rayCaster0.maxD;
 
-        this.#minX = minX = Math.max(minX, x - maxD);
-        this.#minY = minY = Math.max(minY, y - maxD);
-        this.#maxX = maxX = Math.min(maxX, x + maxD);
-        this.#maxY = maxY = Math.min(maxY, y + maxD);
+        this.#minX = minX = Math.max(minX, ox - maxD);
+        this.#minY = minY = Math.max(minY, oy - maxD);
+        this.#maxX = maxX = Math.min(maxX, ox + maxD);
+        this.#maxY = maxY = Math.min(maxY, oy + maxD);
 
-        boundingBox.x = minX;
-        boundingBox.y = minY;
-        boundingBox.width = maxX - minX;
-        boundingBox.height = maxY - minY;
-        boundingBox.ceil();
-        boundingBox.pad(1);
-    }
-
-    /**
-     * @param {ClockwiseSweepPolygon} polygon
-     */
-    _preCompute(polygon) {
-        const boundaryShapes = polygon.config.boundaryShapes;
-
-        for (let i = boundaryShapes.length - 1; i >= 0; i--) {
-            if (boundaryShapes[i] instanceof VisionLimitation) {
-                const lastBoundaryShape = boundaryShapes.pop();
-
-                if (i < boundaryShapes.length) {
-                    boundaryShapes[i] = lastBoundaryShape;
-                }
-            }
-        }
-    }
-
-    /**
-     * @param {ClockwiseSweepPolygon} polygon
-     * @returns {boolean}
-     */
-    _postCompute(polygon) {
         const points = polygon.points;
-        const { x: ox, y: oy } = this.origin;
-        const rayCaster0 = this.#rayCaster0;
-        const maxD = rayCaster0.maxD;
-
-        this.points = [];
-        this.#constrain = maxD < this.#maxR;
 
         if (rayCaster0.minD === maxD) {
-            if (this.#constrain) {
+            this.#maxD = maxD;
+
+            if (maxD < maxR) {
                 this.#addCircleSegment(maxD, 0);
                 this.#addCircleSegment(maxD, Math.PI * 0.5);
                 this.#addCircleSegment(maxD, Math.PI);
                 this.#addCircleSegment(maxD, Math.PI * 1.5);
             }
-
-            this.#rayCaster1 = this.#rayCaster2 = this.#rayCaster3 = this.#rayCaster4 = null;
         } else {
+            this.#maxD = 0;
+
             const m = points.length;
             let px0, py0, px1, py1, px2, py2, px3, py3;
 
@@ -417,13 +373,6 @@ class VisionLimitation extends PIXI.Polygon {
                 }
             }
 
-            const minX = this.#minX;
-            const minY = this.#minY;
-            const minZ = this.#minZ;
-            const maxX = this.#maxX;
-            const maxY = this.#maxY;
-            const maxZ = this.#maxZ;
-
             px0 = Math.min(px0, maxX);
             px3 = Math.min(px3, maxX);
             py0 = Math.min(py0, maxY);
@@ -436,6 +385,8 @@ class VisionLimitation extends PIXI.Polygon {
             {
                 const rayCaster1 = this.#rayCaster1 = rayCaster0.crop(ox, oy, minZ, px0, py0, maxZ);
                 const { minD, maxD } = rayCaster1;
+
+                this.#maxD = Math.max(this.#maxD, maxD);
 
                 px0 = Math.min(px0, ox + maxD);
                 py0 = Math.min(py0, oy + maxD);
@@ -457,6 +408,8 @@ class VisionLimitation extends PIXI.Polygon {
                 const rayCaster2 = this.#rayCaster2 = rayCaster0.crop(px1, oy, minZ, ox, py1, maxZ);
                 const { minD, maxD } = rayCaster2;
 
+                this.#maxD = Math.max(this.#maxD, maxD);
+
                 px1 = Math.max(px1, ox - maxD);
                 py1 = Math.min(py1, oy + maxD);
 
@@ -476,6 +429,8 @@ class VisionLimitation extends PIXI.Polygon {
             {
                 const rayCaster3 = this.#rayCaster3 = rayCaster0.crop(px2, py2, minZ, ox, oy, maxZ);
                 const { minD, maxD } = rayCaster3;
+
+                this.#maxD = Math.max(this.#maxD, maxD);
 
                 px2 = Math.max(px2, ox - maxD);
                 py2 = Math.max(py2, oy - maxD);
@@ -497,6 +452,8 @@ class VisionLimitation extends PIXI.Polygon {
                 const rayCaster4 = this.#rayCaster4 = rayCaster0.crop(ox, py3, minZ, px3, oy, maxZ);
                 const { minD, maxD } = rayCaster4;
 
+                this.#maxD = Math.max(this.#maxD, maxD);
+
                 px3 = Math.min(px3, ox + maxD);
                 py3 = Math.max(py3, oy - maxD);
 
@@ -516,42 +473,18 @@ class VisionLimitation extends PIXI.Polygon {
 
         if (this.#constrain) {
             this.#closePoints();
-
-            this.unconstrained = new polygon.constructor(polygon.points);
-            this.unconstrained.config = { ...polygon.config };
-            this.unconstrained.config.boundaryShapes = Array.from(polygon.config.boundaryShapes);
-            this.unconstrained.origin = polygon.origin;
-            this.unconstrained.edges = polygon.edges;
-            this.unconstrained.rays = polygon.rays;
-            this.unconstrained.vertices = polygon.vertices;
-            this.unconstrained.bounds = this.unconstrained.getBounds();
-
-            polygon.config.boundaryShapes.push(this);
-
-            if (this.points.length >= 6) {
-                polygon.points = polygon.intersectPolygon(this).points;
-            } else {
-                polygon.points.length = 0;
-            }
         } else {
             this.points.length = 0;
             this.points.push(
-                this.#minX, this.#minY,
-                this.#maxX, this.#minY,
-                this.#maxX, this.#maxY,
-                this.#minX, this.#maxY
+                minX, minY,
+                maxX, minY,
+                maxX, maxY,
+                minX, maxY
             );
-
-            this.unconstrained = polygon;
         }
-
-        return this.#constrain;
     }
 
-    /**
-     * @param {ClockwiseSweepPolygon} polygon
-     */
-    _visualize(polygon) {
+    visualize() {
         const dg = canvas.controls.debug;
 
         dg.lineStyle(8, 0xFF00FF, 1.0)
@@ -582,6 +515,8 @@ class VisionLimitation extends PIXI.Polygon {
     }
 
     #addCircleSegment(radius, aStart, aDelta = Math.PI * 0.5) {
+        this.#constrain = true;
+
         const { x, y } = this.origin;
 
         if (radius === 0) {

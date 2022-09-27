@@ -122,6 +122,7 @@ export class LightingSystem {
         data.globalLight.darkness.max = sceneDefaults.globalLightThreshold ?? 1;
         data.globalLight.resolution = 1;
         data.globalLight.seed = CONFIG.Canvas.globalLightConfig.seed || 0;
+        data.globalLight.vision = !!CONFIG.Canvas.globalLightConfig.vision;
         data.darkness = sceneDefaults.darkness;
         data.darknessLightPenalty = CONFIG.Canvas.darknessLightPenalty;
         data.brightestColor = CONFIG.Canvas.brightestColor;
@@ -551,9 +552,9 @@ export class LightingRegion {
                 resolution: undefined,
                 seed: undefined,
                 shadows: undefined,
+                vision: undefined,
                 x: undefined,
-                y: undefined,
-                vision: undefined
+                y: undefined
             },
             lightLevels: {
                 bright: undefined,

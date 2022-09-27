@@ -14,12 +14,8 @@ Hooks.once("setup", () => {
     function getRayCaster(visionSource, mode, type) {
         const minRadius = visionSource.object.w / 2;
         const modeId = mode.id;
-        const modeRange = mode.range;
-        let rayCasterId = `${modeId} ${minRadius} `;
-
-        if (modeRange > 0) {
-            rayCasterId += modeRange;
-        }
+        const modeRange = mode.range > 0 ? minRadius + mode.range * unitsToPixels : 0;
+        let rayCasterId = `${modeId} ${minRadius} ${modeRange}`;
 
         if (type !== undefined) {
             rayCasterId += "+";
@@ -28,11 +24,10 @@ Hooks.once("setup", () => {
         let rayCaster = RayCastingSystem.instance.cache.get(rayCasterId);
 
         if (!rayCaster) {
-            const senses = { $: minRadius };
-
-            if (modeRange > 0) {
-                senses[modeId] = minRadius + modeRange * unitsToPixels;
-            }
+            const senses = {
+                $: minRadius,
+                [modeId]: modeRange
+            };
 
             if (type !== undefined) {
                 senses[type] = Infinity;
@@ -79,15 +74,32 @@ Hooks.once("setup", () => {
         "DetectionMode.prototype._testLOS",
         function (visionSource, mode, target, test) {
             if (this.walls) {
-                const losCache = test.los;
-                let hasLOS = losCache.get(visionSource);
+                let hasLOS;
 
-                if (hasLOS === undefined) {
-                    const los = visionSource.los;
-                    const { x, y } = test.point;
+                if (mode.id === DetectionMode.BASIC_MODE_ID) {
+                    hasLOS = visionSource.los.contains(test.point.x, test.point.y);
+                } else {
+                    const cacheKey = `${visionSource.object.sourceId}#${this.type}`;
 
-                    hasLOS = (los._visionLimitation?.unconstrained ?? los).contains(x, y);
-                    losCache.set(visionSource, hasLOS);
+                    hasLOS = test.los.get(cacheKey);
+
+                    if (hasLOS === undefined) {
+                        let type;
+
+                        switch (this.type) {
+                            case DetectionMode.DETECTION_TYPES.SIGHT: type = "sight"; break;
+                            case DetectionMode.DETECTION_TYPES.SOUND: type = "sound"; break;
+                            case DetectionMode.DETECTION_TYPES.MOVE: type = "move"; break;
+                            default: type = "other"; break;
+                        }
+
+                        hasLOS = !CONFIG.Canvas.losBackend.testCollision(
+                            { x: visionSource.x, y: visionSource.y },
+                            test.point,
+                            { type, mode: "any", source: visionSource }
+                        );
+                        test.los.set(cacheKey, hasLOS);
+                    }
                 }
 
                 if (!hasLOS) {

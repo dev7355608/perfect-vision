@@ -222,7 +222,7 @@ Hooks.once("setup", () => {
 
             // Lastly test special detection modes for vision sources
             if (!(object instanceof Token)) return false; // Special detection modes can only detect tokens
-            for (const visionSource of canvas.effects.visionSources.values()) {
+            for (const visionSource of visionSources) {
                 if (!visionSource.active) continue;
                 const token = visionSource.object.document;
                 for (const mode of token.detectionModes) {
@@ -235,6 +235,8 @@ Hooks.once("setup", () => {
                     }
                 }
             }
+
+            return false;
         },
         libWrapper.OVERRIDE,
         { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
