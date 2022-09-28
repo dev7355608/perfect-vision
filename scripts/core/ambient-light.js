@@ -109,9 +109,15 @@ Hooks.once("setup", () => {
             };
 
             if (wallHeight) {
-                data.elevation = document.flags?.levels?.rangeBottom ?? PrimaryCanvasGroup.BACKGROUND_ELEVATION;
-                data.height = (document.flags?.levels?.rangeBottom ?? Infinity) - data.elevation
-                    - canvas.dimensions.distance / canvas.dimensions.size;
+                if (this instanceof AmbientLight) {
+                    data.elevation = document.flags.levels?.rangeBottom ?? PrimaryCanvasGroup.BACKGROUND_ELEVATION;
+                    data.height = (document.flags.levels?.rangeTop ?? Infinity) - data.elevation
+                        - canvas.dimensions.distance / canvas.dimensions.size;
+                } else {
+                    data.elevation = document.elevation;
+                    data.height = document.object.losHeight - data.elevation
+                        - canvas.dimensions.distance / canvas.dimensions.size;
+                }
             } else {
                 data.elevation = PrimaryCanvasGroup.BACKGROUND_ELEVATION;
                 data.height = canvas.scene.foregroundElevation - data.elevation
