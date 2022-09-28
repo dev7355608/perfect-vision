@@ -119,9 +119,15 @@ Hooks.once("setup", () => {
                         - canvas.dimensions.distance / canvas.dimensions.size;
                 }
             } else {
-                data.elevation = PrimaryCanvasGroup.BACKGROUND_ELEVATION;
-                data.height = canvas.scene.foregroundElevation - data.elevation
-                    - canvas.dimensions.distance / canvas.dimensions.size;
+                if (this instanceof AmbientLight) {
+                    data.elevation = PrimaryCanvasGroup.BACKGROUND_ELEVATION;
+                    data.height = canvas.scene.foregroundElevation - data.elevation
+                        - canvas.dimensions.distance / canvas.dimensions.size;
+                } else {
+                    data.elevation = document.elevation;
+                    data.height = Math.max(document.width, document.height) * canvas.dimensions.distance
+                        - canvas.dimensions.distance / canvas.dimensions.size;
+                }
             }
 
             if (!RayCastingSystem.instance.hasRegion(sourceId)) {
