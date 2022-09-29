@@ -112,19 +112,6 @@ Hooks.once("libWrapper.Ready", () => {
         libWrapper.WRAPPER,
         { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
     );
-
-    libWrapper.register(
-        "perfect-vision",
-        "VisionSource.prototype._updateMesh",
-        function _updateMesh(wrapped, mesh) {
-            mesh = wrapped(mesh);
-            mesh.elevation = Infinity;
-
-            return mesh;
-        },
-        libWrapper.WRAPPER,
-        { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
-    );
 });
 
 /**
