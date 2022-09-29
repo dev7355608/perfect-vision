@@ -128,7 +128,8 @@ class VisionLimitation extends PIXI.Polygon {
         this.origin = {
             x: source.x,
             y: source.y,
-            z: source.elevation * (canvas.dimensions.size / canvas.dimensions.distance)
+            z: (source.object.losHeight ?? source.elevation)
+                * (canvas.dimensions.size / canvas.dimensions.distance)
         };
         this.#senses = {
             $: source.object.w / 2,

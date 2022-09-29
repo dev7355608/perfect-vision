@@ -111,12 +111,10 @@ Hooks.once("setup", () => {
             if (wallHeight) {
                 if (this instanceof AmbientLight) {
                     data.elevation = document.flags.levels?.rangeBottom ?? PrimaryCanvasGroup.BACKGROUND_ELEVATION;
-                    data.height = (document.flags.levels?.rangeTop ?? Infinity) - data.elevation
-                        - canvas.dimensions.distance / canvas.dimensions.size;
+                    data.height = (document.flags.levels?.rangeTop ?? Infinity) - data.elevation;
                 } else {
                     data.elevation = document.elevation;
-                    data.height = document.object.losHeight - data.elevation
-                        - canvas.dimensions.distance / canvas.dimensions.size;
+                    data.height = document.object.losHeight - data.elevation;
                 }
             } else {
                 if (this instanceof AmbientLight) {
@@ -125,8 +123,7 @@ Hooks.once("setup", () => {
                         - canvas.dimensions.distance / canvas.dimensions.size;
                 } else {
                     data.elevation = document.elevation;
-                    data.height = Math.max(document.width, document.height) * canvas.dimensions.distance
-                        - canvas.dimensions.distance / canvas.dimensions.size;
+                    data.height = Math.max(document.width, document.height) * canvas.dimensions.distance;
                 }
             }
 
