@@ -1,5 +1,6 @@
 import { LightingFramebuffer } from "./lighting-framebuffer.js";
 import { LightingSystem } from "./lighting-system.js";
+import { RayCastingSystem } from "./ray-casting-system.js";
 
 Hooks.once("setup", () => {
     if (game.settings.get("core", "noCanvas")) {
@@ -53,6 +54,7 @@ Hooks.once("setup", () => {
 
     Hooks.on("canvasTearDown", () => {
         LightingSystem.instance.reset();
+        RayCastingSystem.instance.reset();
     });
 
     Hooks.on("canvasReady", () => {
