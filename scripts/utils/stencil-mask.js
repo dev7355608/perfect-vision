@@ -7,7 +7,7 @@
 
 const quadGeometry = new PIXI.Geometry()
     .addAttribute("position",
-        new PIXI.Buffer(new Float32Array([-1, -1, +1, -1, +1, +1, -1, +1]), true, false),
+        new PIXI.Buffer(new Float32Array([-1, -1, +1, -1, -1, +1, +1, +1]), true, false),
         2, false, PIXI.TYPES.FLOAT
     );
 
@@ -78,7 +78,11 @@ export class StencilMask extends PIXI.Container {
             const masks = child._stencilMasks;
             const maskCount = masks?.length;
 
-            if (maskCount) {
+            if (!child.visible || !child.renderable || maskCount === 0) {
+                continue;
+            }
+
+            if (maskCount >= 0) {
                 if (i !== 0) {
                     if (lifted) {
                         gl.stencilOp(gl.KEEP, gl.KEEP, holed ? gl.INCR : gl.DECR);
@@ -97,6 +101,11 @@ export class StencilMask extends PIXI.Container {
 
                 for (let j = 0; j < maskCount; j++) {
                     const mask = masks[j];
+
+                    if (!mask.visible) {
+                        continue;
+                    }
+
                     const maskHole = !!mask._stencilHole;
 
                     if (holing !== maskHole) {
