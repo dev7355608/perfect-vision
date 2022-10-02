@@ -269,8 +269,8 @@ export class Framebuffer {
 
     /**
      * Render the display object.
-     * @param {PIXI.renderer} renderer - The renderer.
-     * @param {PIXI.displayObject} displayObject - The display object to be rendered.
+     * @param {PIXI.Renderer} renderer - The renderer.
+     * @param {PIXI.DisplayObject} displayObject - The display object to be rendered.
      * @param {object} [options]
      * @param {boolean|undefined} [options.clear=true] - Clear before rendering?
      * @param {PIXI.Matrix} [options.transform] - The camera transform.

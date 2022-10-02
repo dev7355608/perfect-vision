@@ -24,7 +24,8 @@ Hooks.once("setup", () => {
 
             if (LightingSystem.instance.hasRegion(objectId)
                 && LightingSystem.instance.updateRegion(objectId, {
-                    active: isActive(tile), elevation: document.elevation
+                    active: isActive(tile), elevation: document.elevation,
+                    occluded: tile.occluded, occlusionMode: document.occlusion.mode
                 })) {
                 canvas.perception.update({ refreshLighting: true }, true);
             }
@@ -64,7 +65,7 @@ export function updateLighting(tile, { defer = false, deleted = false } = {}) {
 
         const { x, y, width, height, rotation, texture: { scaleX, scaleY }, elevation, sort } = document;
         const data = {
-            object: tile, active, prototype, elevation, sort, roof: true,
+            object: tile, active, prototype, elevation, sort, occluded: tile.occluded, occlusionMode: document.occlusion.mode,
             shape: { x, y, width, height, scaleX, scaleY, rotation }, texture: tile.texture
         };
 
@@ -83,6 +84,6 @@ export function updateLighting(tile, { defer = false, deleted = false } = {}) {
 };
 
 function isActive(tile) {
-    return !tile.document.hidden && !tile.occluded && !!tile.texture?.baseTexture.valid
+    return !tile.document.hidden && !!tile.texture?.baseTexture.valid
         && CONFIG.Levels?.handlers?.TileHandler?.isTileVisible?.(tile) !== false;
 }

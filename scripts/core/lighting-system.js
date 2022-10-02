@@ -30,6 +30,8 @@ const tempMatrix = new PIXI.Matrix();
  * @property {boolean} fit
  * @property {number} elevation
  * @property {number} sort
+ * @property {boolean} occluded
+ * @property {number} occlusionMode
  * @property {boolean} [fogExploration]
  * @property {boolean} [fogRevealed]
  * @property {object} [globalLight]
@@ -531,6 +533,8 @@ export class LightingRegion {
             fit: false,
             elevation: 0,
             sort: 0,
+            occluded: false,
+            occlusionMode: 0,
             fogExploration: undefined,
             fogRevealed: undefined,
             globalLight: {
@@ -656,6 +660,18 @@ export class LightingRegion {
          * @readonly
          */
         this.sort = 0;
+        /**
+         * Is occluded?
+         * @type {boolean}
+         * @readonly
+         */
+        this.occluded = false;
+        /**
+         * Is occluded?
+         * @type {CONST.TILE_OCCLUSION_MODES}
+         * @readonly
+         */
+        this.occlusionMode = CONST.TILE_OCCLUSION_MODES.NONE;
         /**
          * Fog exploration?
          * @type {boolean}
@@ -829,6 +845,20 @@ export class LightingRegion {
             this.sort = data.sort;
 
             updateSource = true;
+            refreshLighting = true;
+            refreshVision = true;
+        }
+
+        if (this.occluded !== data.occluded) {
+            this.occluded = data.occluded;
+
+            refreshLighting = true;
+            refreshVision = true;
+        }
+
+        if (this.occlusionMode !== data.occlusionMode) {
+            this.occlusionMode = data.occlusionMode;
+
             refreshLighting = true;
             refreshVision = true;
         }
@@ -1162,6 +1192,10 @@ export class LightingRegion {
      * @returns {SmoothMesh}
      */
     drawMesh() {
+        if (this.occluded && this.occlusionMode === CONST.TILE_OCCLUSION_MODES.FADE) {
+            return null;
+        }
+
         const mesh = this.mesh;
 
         mesh.geometry = this.geometry;
@@ -1179,6 +1213,10 @@ export class LightingRegion {
         uniforms.uColor0[2] = 0;
         uniforms.uColor1.set(this.colors.background.rgb);
         uniforms.uColor2.set(this.colors.ambientDarkness.rgb);
+        uniforms.uDepthElevation = canvas.primary.mapElevationAlpha(this.elevation);
+        uniforms.uOcclusionTexture = canvas.masks.occlusion.renderTexture;
+        uniforms.uOcclusionMode = this.occlusionMode;
+        uniforms.uScreenDimensions = canvas.screenDimensions;
 
         return mesh;
     }
@@ -1552,9 +1590,20 @@ class LightingRegionSource extends GlobalLightSource {
                     .setSource(this.fragmentShader)
                     .addVarying("vTextureCoord", "vec2")
                     .addUniform("uSampler", "sampler2D")
+                    .addUniform("occlusionTexture", "sampler2D")
+                    .addUniform("occlusionMode", "int")
                     .addUniform("erase", "bool")
                     .replace(/float depth = smoothstep\(0\.0, 1\.0, vDepth\);/gm, `$&
-                        depth *= texture2D(uSampler, vTextureCoord).a;
+                        depth *= 1.0 - step(texture2D(uSampler, vTextureCoord).a, 0.75);
+                        float @@occlusionAlpha;
+                        if (occlusionMode == ${CONST.TILE_OCCLUSION_MODES.RADIAL}) {
+                            @@occlusionAlpha = step(depthElevation, texture2D(occlusionTexture, vSamplerUvs).g);
+                        } else if (occlusionMode == ${CONST.TILE_OCCLUSION_MODES.VISION}) {
+                            @@occlusionAlpha = step(depthElevation, texture2D(occlusionTexture, vSamplerUvs).b);
+                        } else {
+                            @@occlusionAlpha = 1.0;
+                        }
+                        depth *= @@occlusionAlpha;
                     `)
                     .replace(/texture2D\(framebufferTexture, vSamplerUvs\)\.rgb/gm, "colorBackground", false)
                     .replace(/framebufferColor = min\(framebufferColor, colorBackground\)/gm, "finalColor = max(finalColor, colorBackground)", false)
@@ -1685,8 +1734,9 @@ class LightingRegionSource extends GlobalLightSource {
 
     /** @override */
     _isSuppressed() {
+        const region = this.#region;
         // TODO: re-evaluate under which conditions to suppress
-        return !this.#region.active;
+        return !region.active || region.occluded && region.occlusionMode === CONST.TILE_OCCLUSION_MODES.FADE;
     }
 
     /** @override */
@@ -1708,6 +1758,8 @@ class LightingRegionSource extends GlobalLightSource {
 
         uniforms.uSampler = this._texture;
         uniforms.uTextureMatrix = this._textureMatrix;
+        uniforms.occlusionTexture = canvas.masks.occlusion.renderTexture;
+        uniforms.occlusionMode = this.#region.occlusionMode;
     }
 
     /** @override */
@@ -1768,12 +1820,16 @@ export class LightingRegionShader extends PIXI.Shader {
         uniform mat3 projectionMatrix;
         uniform mat3 translationMatrix;
         uniform mat3 uTextureMatrix;
+        uniform vec2 uScreenDimensions;
 
         out vec2 vTextureCoord;
+        out vec2 vScreenCoord;
 
         void main() {
             vTextureCoord = (uTextureMatrix * vec3(aVertexPosition, 1.0)).xy;
-            gl_Position = vec4((projectionMatrix * (translationMatrix * vec3(aVertexPosition, 1.0))).xy, 0.0, 1.0);
+            vec3 pos = translationMatrix * vec3(aVertexPosition, 1.0);
+            vScreenCoord = pos.xy / uScreenDimensions;
+            gl_Position = vec4((projectionMatrix * pos).xy, 0.0, 1.0);
         }`;
 
     static fragmentSrc = `\
@@ -1782,17 +1838,32 @@ export class LightingRegionShader extends PIXI.Shader {
         precision ${PIXI.settings.PRECISION_FRAGMENT} float;
 
         in vec2 vTextureCoord;
+        in vec2 vScreenCoord;
 
         uniform sampler2D uSampler;
         uniform float uAlpha;
         uniform vec3 uColor0;
         uniform vec3 uColor1;
         uniform vec3 uColor2;
+        uniform float uDepthElevation;
+        uniform sampler2D uOcclusionTexture;
+        uniform int uOcclusionMode;
 
         layout(location = 0) out vec4 textures[3];
 
         void main() {
-            float alpha = texture(uSampler, vTextureCoord).a * uAlpha;
+            float alpha = 1.0 - step(texture(uSampler, vTextureCoord).a, 0.75) * uAlpha;
+            float occlusionAlpha;
+
+            if (uOcclusionMode == ${CONST.TILE_OCCLUSION_MODES.RADIAL}) {
+                occlusionAlpha = step(uDepthElevation, texture(uOcclusionTexture, vScreenCoord).g);
+            } else if (uOcclusionMode == ${CONST.TILE_OCCLUSION_MODES.VISION}) {
+                occlusionAlpha = step(uDepthElevation, texture(uOcclusionTexture, vScreenCoord).b);
+            } else {
+                occlusionAlpha = 1.0;
+            }
+
+            alpha *= occlusionAlpha;
 
             textures[0] = vec4(uColor0, 1.0) * alpha;
             textures[1] = vec4(uColor1, 1.0) * alpha;
@@ -1810,7 +1881,11 @@ export class LightingRegionShader extends PIXI.Shader {
             uTextureMatrix: PIXI.Matrix.IDENTITY,
             uColor0: new Float32Array(3),
             uColor1: new Float32Array(3),
-            uColor2: new Float32Array(3)
+            uColor2: new Float32Array(3),
+            uDepthElevation: 0,
+            uOcclusionTexture: PIXI.Texture.EMPTY,
+            uOcclusionMode: 0,
+            uScreenDimensions: canvas.screenDimensions
         });
     }
 

@@ -19,6 +19,8 @@ export class LightingFramebuffer extends CanvasFramebuffer {
         return this.#instance ??= new LightingFramebuffer();
     }
 
+    invalidateOnOcclusionUpdate = false;
+
     #quad = new PIXI.Quad();
     #colorBackgroundShader = new ColorBackgroundShader();
 
@@ -87,7 +89,13 @@ export class LightingFramebuffer extends CanvasFramebuffer {
         let bounds;
 
         for (const region of LightingSystem.instance.activeRegions) {
-            const mesh = stage.addChild(region.drawMesh());
+            const mesh = region.drawMesh();
+
+            if (!mesh) {
+                continue;
+            }
+
+            stage.addChild(mesh);
 
             mesh.renderable = false;
 
@@ -117,9 +125,8 @@ export class LightingFramebuffer extends CanvasFramebuffer {
     }
 
     /** @override */
-    _update() {
+    _update(renderer) {
         const stage = this.stage;
-        const renderer = canvas.app.renderer;
         const screen = renderer.screen;
         const textures = this.textures;
         const uniform = [true, true, true];
@@ -129,6 +136,8 @@ export class LightingFramebuffer extends CanvasFramebuffer {
         stage.disableTempParent(cacheParent);
 
         const skipRender = () => { };
+
+        this.invalidateOnOcclusionUpdate = false;
 
         for (const mesh of stage.children) {
             if (!mesh.visible || !mesh.renderable || mesh.worldAlpha <= 0) {
@@ -143,12 +152,18 @@ export class LightingFramebuffer extends CanvasFramebuffer {
                         continue;
                     }
 
-                    const meshColor = mesh.shader.uniforms["uColor" + i];
+                    const uniforms = mesh.shader.uniforms;
+                    const meshColor = uniforms["uColor" + i];
                     const clearColor = textures[i].baseTexture.clearColor;
 
                     uniform[i] = meshColor[0] === clearColor[0]
                         && meshColor[1] === clearColor[1]
                         && meshColor[2] === clearColor[2];
+
+                    if (uniforms.uOcclusionMode === CONST.TILE_OCCLUSION_MODES.RADIAL
+                        || uniforms.uOcclusionMode === CONST.TILE_OCCLUSION_MODES.VISION) {
+                        this.invalidateOnOcclusionUpdate = true;
+                    }
                 }
             } else {
                 mesh.render = skipRender;

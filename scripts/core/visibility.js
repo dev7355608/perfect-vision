@@ -114,10 +114,86 @@ Hooks.once("setup", () => {
                 }
 
                 for (const region of LightingSystem.instance.activeRegions) {
-                    vision.fov.addChild(region.createMask(!region.globalLight));
-                    vision.los.addChild(region.createMask(!region.providesVision));
-                    vision.fog.addChild(region.createMask(!region.fogExploration));
-                    revealed.mask.addChild(region.createMask(!region.fogRevealed));
+                    let addMask;
+
+                    if (region.occluded && region.occlusionMode === CONST.TILE_OCCLUSION_MODES.RADIAL) {
+                        addMask = (container, region, hole) => {
+                            const mask = region.createMask(hole);
+                            const masks = [region.createMask(false)];
+
+                            masks[0].renderable = false;
+
+                            const radialOcclusion = new PIXI.LegacyGraphics();
+
+                            radialOcclusion.renderable = false;
+                            radialOcclusion._stencilHole = true;
+                            radialOcclusion.beginFill(0xFFFFFF, 1);
+
+                            for (const token of canvas.tokens._getOccludableTokens()) {
+                                if (token.document.elevation >= region.elevation) {
+                                    continue;
+                                }
+
+                                const c = token.center;
+                                const o = Number(token.document.getFlag("core", "occlusionRadius")) || null;
+                                const m = Math.max(token.mesh.width, token.mesh.height);
+                                const r = Number.isFinite(o) ? Math.max(m, token.getLightRadius(o)) : m;
+
+                                radialOcclusion.drawCircle(c.x, c.y, r);
+
+                                if (masks.length < 2) {
+                                    masks.push(radialOcclusion);
+                                }
+                            }
+
+                            radialOcclusion.endFill();
+
+                            if (masks.length > 1) {
+                                mask._stencilMasks = masks;
+                            } else {
+                                mask._stencilMasks = null;
+                            }
+
+                            return container.addChild(mask, ...masks);
+                        };
+                    } else if (region.occlusionMode === CONST.TILE_OCCLUSION_MODES.VISION) {
+                        addMask = (container, region, hole) => {
+                            const mask = region.createMask(hole);
+                            const masks = [region.createMask(false)];
+
+                            masks[0].renderable = false;
+
+                            for (const visionSource of canvas.effects.visionSources) {
+                                if (visionSource.elevation >= region.elevation) {
+                                    continue;
+                                }
+
+                                const losMask = visionSource._createMask(true);
+
+                                losMask.renderable = false;
+                                losMask._stencilHole = true;
+                                losMask._stencilMasks = null;
+                                masks.push(losMask);
+                            }
+
+                            if (masks.length > 1) {
+                                mask._stencilMasks = masks;
+                            } else {
+                                mask._stencilMasks = null;
+                            }
+
+                            return container.addChild(mask, ...masks);
+                        };
+                    } else if (!region.occluded) {
+                        addMask = (container, region, hole) => container.addChild(region.createMask(hole));
+                    }
+
+                    if (addMask) {
+                        addMask(vision.fov, region, !region.globalLight);
+                        addMask(vision.los, region, !region.providesVision);
+                        addMask(vision.fog, region, !region.fogExploration);
+                        addMask(revealed.mask, region, !region.fogRevealed);
+                    }
                 }
 
                 if (vision._explored) {

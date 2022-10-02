@@ -88,6 +88,20 @@ Hooks.once("setup", () => {
 
     libWrapper.register(
         "perfect-vision",
+        "CanvasOcclusionMask.prototype.updateOcclusion",
+        function (wrapped, ...args) {
+            if (LightingFramebuffer.instance.invalidateOnOcclusionUpdate) {
+                LightingFramebuffer.instance.invalidate();
+            }
+
+            return wrapped(...args);
+        },
+        libWrapper.WRAPPER,
+        { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
+    );
+
+    libWrapper.register(
+        "perfect-vision",
         "CanvasIlluminationEffects.prototype.updateGlobalLight",
         function () {
             return false;

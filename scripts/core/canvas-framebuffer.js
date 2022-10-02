@@ -152,6 +152,16 @@ export class CanvasFramebuffer extends Framebuffer {
     #ready = false;
 
     /**
+     * An object which stores a reference to the normal renderer target and source frame.
+     * We track this so we can restore them after rendering our cached texture.
+     * @type {{renderTexture: PIXI.RenderTexture, sourceFrame: PIXI.Rectangle}}
+     */
+    #backup = {
+        renderTexture: undefined,
+        sourceFrame: new PIXI.Rectangle()
+    };
+
+    /**
      * @param {string} id - The name.
      * @param {CanvasFramebuffer[]} dependencies - The dependencies.
      * @param {object} [texturesOptions] - The textures options.
@@ -415,15 +425,37 @@ export class CanvasFramebuffer extends Framebuffer {
         stageTransform.scale.copyFrom(canvasTransform.scale);
         stageTransform.skew.copyFrom(canvasTransform.skew);
 
-        this._update();
+        const renderer = canvas.app.renderer;
+        const rt = renderer.renderTexture;
+
+        this.#backup.renderTexture = rt.current;
+        this.#backup.sourceFrame.copyFrom(rt.sourceFrame);
+
+        const fs = renderer.filter.defaultFilterStack;
+
+        if (fs.length > 1) {
+            fs[fs.length - 1].renderTexture = tex;
+        }
+
+        this._update(renderer);
+
+        renderer.batch.flush();
+
+        if (fs.length > 1) {
+            fs[fs.length - 1].renderTexture = this.#backup.renderTexture;
+        }
+
+        renderer.renderTexture.bind(this.#backup.renderTexture, this.#backup.sourceFrame, undefined);
+        this.#backup.renderTexture = undefined;
     }
 
     /**
      * Update.
+     * @param {PIXI.Renderer} renderer
      * @protected
      */
-    _update() {
-        this.render(canvas.app.renderer, this.stage);
+    _update(renderer) {
+        this.render(renderer, this.stage);
     }
 
     /**
@@ -474,14 +506,13 @@ Hooks.once("setup", () => {
     }
 
     Hooks.on("canvasReady", () => {
-        canvas.app.ticker.add(CanvasFramebuffer.updateAll, CanvasFramebuffer, PIXI.UPDATE_PRIORITY.LOW + 1);
+        canvas.masks.addChild(new PIXI.Container()).render = () => CanvasFramebuffer.updateAll();
         canvas.app.renderer.on("resize", CanvasFramebuffer.invalidateAll, CanvasFramebuffer);
 
         CanvasFramebuffer.invalidateAll();
     });
 
     Hooks.on("canvasTearDown", () => {
-        canvas.app.ticker.remove(CanvasFramebuffer.updateAll, CanvasFramebuffer);
         canvas.app.renderer.off("resize", CanvasFramebuffer.invalidateAll, CanvasFramebuffer);
     });
 
