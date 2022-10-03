@@ -152,18 +152,26 @@ function prepareVisionLimitationData(data, dimensions) {
 
     if (data.sight !== undefined) {
         data.sight = convertUnitsToPixels(data.sight);
+    } else {
+        data.sight = undefined;
     }
 
     if (data.sound !== undefined) {
         data.sound = convertUnitsToPixels(data.sound);
+    } else {
+        data.sound = undefined;
     }
 
     if (data.move !== undefined) {
         data.move = convertUnitsToPixels(data.move);
+    } else {
+        data.move = undefined;
     }
 
     if (data.other !== undefined) {
         data.other = convertUnitsToPixels(data.other);
+    } else {
+        data.other = undefined;
     }
 
     data.detection ??= {};
@@ -173,6 +181,8 @@ function prepareVisionLimitationData(data, dimensions) {
 
         if (limit !== undefined) {
             data.detection[detectionMode.id] = convertUnitsToPixels(limit);
+        } else {
+            data.detection[detectionMode.id] = undefined;
         }
     }
 

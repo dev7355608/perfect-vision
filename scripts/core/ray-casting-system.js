@@ -214,6 +214,7 @@ export class RayCastingSystem {
         }
 
         this.activeRegions.length = 0;
+        this.cache.clear();
         this.#regions.clear();
         this.#dirty = true;
     }
