@@ -1647,7 +1647,7 @@ export class RayCaster {
                 if (remainingEnergy <= requiredEnergy) {
                     if (energyCost !== 0) {
                         currentDistance += remainingEnergy / energyCost;
-                    } else {
+                    } else if (remainingEnergy !== 0) {
                         currentDistance = Infinity;
                     }
 
@@ -1656,6 +1656,12 @@ export class RayCaster {
 
                 remainingEnergy -= requiredEnergy;
                 currentDistance = senseRange;
+
+                if (remainingEnergy <= 1e-12) {
+                    remainingEnergy = 0;
+
+                    break;
+                }
 
                 if (currentDistance === Infinity) {
                     break;
@@ -1789,6 +1795,7 @@ export class RayCaster {
         let currentTime = 0;
         let currentEnergyCost = this.#computeEnergyCost(activeSenses);
         let remainingEnergy = 1 / travelDistance;
+        const almostZeroEnergy = remainingEnergy * 1e-12;
 
         for (let hit; hit = this.#nextHit();) {
             const hitTime = hit.time;
@@ -1814,14 +1821,21 @@ export class RayCaster {
                 break;
             }
 
-            remainingEnergy -= requiredEnergy;
             currentTime = hitTime;
             currentEnergyCost = this.#computeEnergyCost(activeSenses);
+            remainingEnergy -= requiredEnergy;
+
+            if (remainingEnergy <= almostZeroEnergy) {
+                remainingEnergy = 0;
+                this.#hits.length = 0;
+
+                break;
+            }
         }
 
         if (currentEnergyCost !== 0) {
             currentTime = min(currentTime + remainingEnergy / currentEnergyCost, 1);
-        } else {
+        } else if (remainingEnergy !== 0) {
             currentTime = 1;
         }
 

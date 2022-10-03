@@ -42,7 +42,7 @@ Hooks.once("setup", () => {
         return rayCaster;
     }
 
-    const castRay = game.modules.get("levels")?.active
+    const castRay = game.modules.get("wall-height")?.active
         ? (visionSource, mode, target, test, type) => {
             const rayCaster = getRayCaster(visionSource, mode, type);
             const point = test.point;
