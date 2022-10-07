@@ -33,25 +33,6 @@ Hooks.once("setup", () => {
         libWrapper.WRAPPER
     );
 
-    if (game.modules.get("levels")?.active) {
-        Hooks.on("createEffectsCanvasGroup", () => {
-            let visible;
-
-            canvas.app.ticker.add(function () {
-                if (visible !== canvas.primary.background?.visible) {
-                    visible = canvas.primary.background?.visible;
-
-                    if (LightingSystem.instance.hasRegion("globalLight")
-                        && LightingSystem.instance.updateRegion("globalLight", {
-                            occluded: !visible
-                        })) {
-                        canvas.perception.update({ refreshLighting: true }, true);
-                    }
-                }
-            }, globalThis, PIXI.UPDATE_PRIORITY.HIGH + 1);
-        });
-    }
-
     Hooks.on("drawEffectsCanvasGroup", () => {
         updateLighting({ defer: true });
     });
@@ -71,6 +52,22 @@ Hooks.once("setup", () => {
 
         updateLighting();
     });
+
+    if (game.modules.get("levels")?.active) {
+        function updateOcclusion() {
+            if (LightingSystem.instance.hasRegion("globalLight")
+                && LightingSystem.instance.updateRegion("globalLight", {
+                    occluded: isOccluded()
+                })) {
+                canvas.perception.update({ refreshLighting: true }, true);
+            }
+        }
+
+        Hooks.on("updateToken", updateOcclusion);
+        Hooks.on("controlToken", updateOcclusion);
+        Hooks.on("renderLevelsUI", updateOcclusion);
+        Hooks.on("closeLevelsUI", updateOcclusion);
+    }
 });
 
 export function updateLighting({ defer = false } = {}) {
@@ -78,7 +75,7 @@ export function updateLighting({ defer = false } = {}) {
     const data = extractLightingData(canvas.scene);
 
     if (game.modules.get("levels")?.active) {
-        data.occluded = !canvas.primary.background.visible;
+        data.occluded = isOccluded();
         data.occlusionMode = CONST.TILE_OCCLUSION_MODES.FADE;
     }
 
@@ -96,3 +93,21 @@ export function updateLighting({ defer = false } = {}) {
         canvas.perception.update({ initializeLighting, refreshLighting: true }, true);
     }
 };
+
+function isOccluded() {
+    const background = canvas.primary.background;
+
+    if (!background || background.texture === PIXI.Texture.EMPTY) {
+        return false;
+    }
+
+    if (CONFIG.Levels.UI?.rangeEnabled) {
+        return (parseFloat(CONFIG.Levels.UI.range[0]) ?? Infinity) < background.elevation;
+    }
+
+    if (CONFIG.Levels.currentToken) {
+        return CONFIG.Levels.currentToken.losHeight < background.elevation;
+    }
+
+    return false;
+}
