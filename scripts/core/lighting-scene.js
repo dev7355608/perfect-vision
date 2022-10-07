@@ -33,6 +33,25 @@ Hooks.once("setup", () => {
         libWrapper.WRAPPER
     );
 
+    if (game.modules.get("levels")?.active) {
+        Hooks.on("createEffectsCanvasGroup", () => {
+            let visible;
+
+            canvas.app.ticker.add(function () {
+                if (visible !== canvas.primary.background?.visible) {
+                    visible = canvas.primary.background?.visible;
+
+                    if (LightingSystem.instance.hasRegion("globalLight")
+                        && LightingSystem.instance.updateRegion("globalLight", {
+                            occluded: !visible
+                        })) {
+                        canvas.perception.update({ refreshLighting: true }, true);
+                    }
+                }
+            }, globalThis, PIXI.UPDATE_PRIORITY.HIGH + 1);
+        });
+    }
+
     Hooks.on("drawEffectsCanvasGroup", () => {
         updateLighting({ defer: true });
     });
@@ -57,6 +76,11 @@ Hooks.once("setup", () => {
 export function updateLighting({ defer = false } = {}) {
     let initializeLighting = false;
     const data = extractLightingData(canvas.scene);
+
+    if (game.modules.get("levels")?.active) {
+        data.occluded = !canvas.primary.background.visible;
+        data.occlusionMode = CONST.TILE_OCCLUSION_MODES.FADE;
+    }
 
     if (!LightingSystem.instance.hasRegion("globalLight")) {
         LightingSystem.instance.createRegion("globalLight", data);

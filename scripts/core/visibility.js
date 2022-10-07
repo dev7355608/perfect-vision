@@ -127,6 +127,25 @@ Hooks.once("setup", () => {
                     }
                 }
 
+                const region = LightingSystem.instance.getRegion("globalLight");
+
+                if (Number.isFinite(region?.elevation)) {
+                    const addMask = (container, region, hole) => {
+                        const mask = container.addChild(region.createMask(hole));
+
+                        mask.elevation = -Infinity;
+                        mask.sort = -Infinity;
+                        mask.cullable = false;
+
+                        return mask;
+                    };
+
+                    addMask(vision.fov, region, !region.globalLight);
+                    addMask(vision.los, region, !region.providesVision);
+                    addMask(vision.fog, region, !region.fogExploration);
+                    addMask(revealed.mask, region, !region.fogRevealed);
+                }
+
                 for (const region of LightingSystem.instance.activeRegions) {
                     let addMask;
 
