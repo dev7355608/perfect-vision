@@ -18,8 +18,11 @@ Hooks.once("setup", () => {
                     .endFill());
 
             vision.fov = vision.addChild(new GraphicsStencilMask());
+            vision.fov.cullable = true;
             vision.los = vision.addChild(new GraphicsStencilMask());
+            vision.los.cullable = true;
             vision.fog = vision.addChild(new GraphicsStencilMask());
+            vision.fog.cullable = true;
             vision.base = vision.fov.addChild(new PIXI.LegacyGraphics());
             vision.base.elevation = Infinity;
             vision.base.sort = Infinity;
@@ -65,6 +68,9 @@ Hooks.once("setup", () => {
             if (priorVision._explored) {
                 const container = this.pending.addChild(new PIXI.Container());
 
+                container.fov = priorVision.fov;
+                container.los = priorVision.los;
+                container.fog = priorVision.fog;
                 container.addChild(priorVision);
                 container.mask = priorVision.fog;
 
@@ -83,10 +89,14 @@ Hooks.once("setup", () => {
                         continue;
                     }
 
-                    vision.fov.addChild(lightSource._createMask());
+                    const mask = vision.fov.addChild(lightSource._createMask());
+
+                    mask.cullable = false;
 
                     if (lightSource.data.vision) {
-                        vision.los.addChild(lightSource._createMask());
+                        const mask = vision.los.addChild(lightSource._createMask());
+
+                        mask.cullable = false;
                     }
                 }
 
@@ -94,7 +104,9 @@ Hooks.once("setup", () => {
                     visionSource.active = true;
 
                     if (visionSource.radius > 0) {
-                        vision.fov.addChild(visionSource._createMask(false));
+                        const mask = vision.fov.addChild(visionSource._createMask(false));
+
+                        mask.cullable = false;
                     } else {
                         vision.base
                             .beginFill(0xFF0000, 1.0)
@@ -106,7 +118,9 @@ Hooks.once("setup", () => {
                             .endFill();
                     }
 
-                    vision.los.addChild(visionSource._createMask(true));
+                    const mask = vision.los.addChild(visionSource._createMask(true));
+
+                    mask.cullable = false;
 
                     if (canvas.fog.update(visionSource, forceUpdateFog)) {
                         vision._explored = true;
@@ -121,6 +135,7 @@ Hooks.once("setup", () => {
                             const mask = region.createMask(hole);
                             const masks = [region.createMask(false)];
 
+                            mask.cullable = false;
                             masks[0].renderable = false;
 
                             const radialOcclusion = new PIXI.LegacyGraphics();
@@ -161,6 +176,7 @@ Hooks.once("setup", () => {
                             const mask = region.createMask(hole);
                             const masks = [region.createMask(false)];
 
+                            mask.cullable = false;
                             masks[0].renderable = false;
 
                             for (const visionSource of canvas.effects.visionSources) {
@@ -170,6 +186,7 @@ Hooks.once("setup", () => {
 
                                 const losMask = visionSource._createMask(true);
 
+                                losMask.cullable = false;
                                 losMask.renderable = false;
                                 losMask._stencilHole = true;
                                 losMask._stencilMasks = null;
@@ -185,7 +202,13 @@ Hooks.once("setup", () => {
                             return container.addChild(mask, ...masks);
                         };
                     } else if (!region.occluded) {
-                        addMask = (container, region, hole) => container.addChild(region.createMask(hole));
+                        addMask = (container, region, hole) => {
+                            const mask = container.addChild(region.createMask(hole));
+
+                            mask.cullable = false;
+
+                            return mask;
+                        };
                     }
 
                     if (addMask) {
@@ -198,6 +221,11 @@ Hooks.once("setup", () => {
 
                 if (vision._explored) {
                     for (const source of canvas.effects.lightSources) {
+                        if (!source.active || source.disabled
+                            || source instanceof GlobalLightSource) {
+                            continue;
+                        }
+
                         source._sourceGeometry._explored = true;
                     }
 
@@ -225,6 +253,21 @@ Hooks.once("setup", () => {
             revealed.mask.children.sort(PointSourceMesh._compare);
         },
         libWrapper.OVERRIDE
+    );
+
+    libWrapper.register(
+        "perfect-vision",
+        "CONFIG.Canvas.fogManager.prototype.commit",
+        async function (wrapped, ...args) {
+            for (const vision of this.pending.children) {
+                vision.fov.cullable = false;
+                vision.los.cullable = false;
+                vision.fog.cullable = false;
+            }
+
+            return await wrapped(...args);
+        },
+        libWrapper.WRAPPER
     );
 
     const simpleOffsets = [new PIXI.Point()];
