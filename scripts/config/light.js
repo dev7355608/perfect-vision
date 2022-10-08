@@ -1,5 +1,59 @@
 import { VisionLimitationConfig } from "./vision-limitation-config.js";
 
+Hooks.once("setup", () => {
+    function previewChanges(change) {
+        if (this instanceof TokenConfig) {
+            delete change.actorId;
+            delete change.actorLink;
+        }
+
+        if (this instanceof DefaultTokenConfig) {
+            this.object.updateSource(change, { recursive: false });
+        } else {
+            const flagPrefix = "flags.perfect-vision" + (this instanceof TokenConfig ? ".light" : "");
+            const visionLimitation = foundry.utils.getProperty(
+                this.object.toObject(true),
+                flagPrefix + ".visionLimitation"
+            );
+
+            change = foundry.utils.mergeObject(
+                change,
+                { [`${flagPrefix}.-=visionLimitation`]: null },
+                { inplace: false, performDeletions: true }
+            );
+            this.object.updateSource(change, { recursive: false });
+
+            if (visionLimitation !== undefined) {
+                this.object.updateSource({ [`${flagPrefix}.visionLimitation`]: visionLimitation });
+            }
+        }
+
+        if (this instanceof TokenConfig) {
+            if (this.isPrototype) {
+                return;
+            }
+
+            this.object._onUpdate(change, { animate: false, render: false }, game.user.id);
+        } else {
+            this.object._onUpdate(change, { render: false }, game.user.id);
+        }
+    }
+
+    libWrapper.register(
+        "perfect-vision",
+        "AmbientLightConfig.prototype._previewChanges",
+        previewChanges,
+        libWrapper.OVERRIDE
+    );
+
+    libWrapper.register(
+        "perfect-vision",
+        "TokenConfig.prototype._previewChanges",
+        previewChanges,
+        libWrapper.OVERRIDE
+    );
+});
+
 Hooks.on("renderAmbientLightConfig", injectLightFormFields);
 Hooks.on("renderTokenConfig", injectLightFormFields);
 
@@ -12,9 +66,6 @@ function injectLightFormFields(sheet) {
     }
 
     const isAmbientLight = document instanceof AmbientLightDocument;
-
-    sheet.original.updateSource({ [`flags.perfect-vision.${isAmbientLight ? "" : "light."}-=visionLimitation`]: null });
-
     const resolution = foundry.utils.getProperty(document, `flags.perfect-vision.${isAmbientLight ? "" : "light."}resolution`);
     const luminosity = foundry.utils.getProperty(document, `${isAmbientLight ? "config" : "light"}.luminosity`);
     const priority = foundry.utils.getProperty(document, "flags.core.priority");
