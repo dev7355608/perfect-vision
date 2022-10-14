@@ -261,6 +261,12 @@ Hooks.once("setup", () => {
 
             if (commitFog) {
                 canvas.fog.commit();
+            } else {
+                if (!this._debouncedCommitFog) {
+                    this._debouncedCommitFog = foundry.utils.debounce(canvas.fog.commit.bind(canvas.fog), 2500);
+                }
+
+                this._debouncedCommitFog();
             }
 
             this.visible = hasVisionSources || !game.user.isGM;

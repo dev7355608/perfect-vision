@@ -23,6 +23,8 @@ CONFIG.Canvas.fogManager = FogManager = class FogManager {
      */
     #updated = false;
 
+    #commitCounter = 0;
+
     /**
      * A pool of RenderTexture objects which can be cycled through to save fog exploration progress.
      * @type {PIXI.RenderTexture[]}
@@ -168,6 +170,8 @@ CONFIG.Canvas.fogManager = FogManager = class FogManager {
         if (!this.#pending.children.length) return;
         if (CONFIG.debug.fog) console.debug("SightLayer | Committing fog exploration to render texture.");
 
+        this.#commitCounter += this.#pending.children.length;
+
         // Create a staging texture and render the entire fog container to it
         const dims = canvas.dimensions;
         const tex = this.#getTexture();
@@ -186,7 +190,10 @@ CONFIG.Canvas.fogManager = FogManager = class FogManager {
 
         // Schedule saving the texture to the database
         this.#updated = true;
-        this.#debouncedSave();
+
+        if (this.#commitCounter >= this.constructor.COMMIT_THRESHOLD) {
+            this.#debouncedSave();
+        }
     }
 
     /* -------------------------------------------- */
@@ -251,6 +258,7 @@ CONFIG.Canvas.fogManager = FogManager = class FogManager {
         if (!this.tokenVision || !this.fogExploration || !this.exploration) return;
         if (!this.#updated) return;
         this.#updated = false;
+        this.#commitCounter = 0;
         if (CONFIG.debug.fog) console.debug("SightLayer | Saving exploration progress to FogExploration document.");
 
         // ~~~~[ Optimized Texture-To-Base64 Conversion ]~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
