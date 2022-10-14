@@ -68,7 +68,9 @@ Hooks.once("setup", () => {
             const visionLimitation = new VisionLimitation(polygon, false);
 
             if (visionLimitation.skip) {
-                polygon.config.boundaryShapes.push(visionLimitation);
+                if (PerfectVision.debug) {
+                    polygon.config.boundaryShapes.push(visionLimitation);
+                }
             } else {
                 polygon = polygon.applyConstraint(visionLimitation, { scalingFactor: 100 });
             }
@@ -87,7 +89,9 @@ Hooks.once("setup", () => {
             const visionLimitation = new VisionLimitation(polygon, true);
 
             if (visionLimitation.skip) {
-                polygon.config.boundaryShapes.push(visionLimitation);
+                if (PerfectVision.debug) {
+                    polygon.config.boundaryShapes.push(visionLimitation);
+                }
             } else {
                 polygon = polygon.applyConstraint(visionLimitation, { scalingFactor: 100 });
             }
