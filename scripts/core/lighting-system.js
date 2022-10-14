@@ -1539,7 +1539,7 @@ export class LightingRegion {
     }
 }
 
-class LightingRegionSource extends GlobalLightSource {
+export class LightingRegionSource extends GlobalLightSource {
     static #cache = new WeakMap();
 
     static #getShader(shaderCls) {
@@ -1877,6 +1877,7 @@ export class LightingRegionShader extends PIXI.Shader {
             LightingRegionShader.vertexSrc,
             LightingRegionShader.fragmentSrc
         ), {
+            uAlpha: 1,
             uSampler: PIXI.Texture.WHITE,
             uTextureMatrix: PIXI.Matrix.IDENTITY,
             uColor0: new Float32Array(3),

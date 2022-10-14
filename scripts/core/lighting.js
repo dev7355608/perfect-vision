@@ -1,5 +1,5 @@
 import { LightingFramebuffer } from "./lighting-framebuffer.js";
-import { LightingSystem } from "./lighting-system.js";
+import { LightingRegionSource, LightingSystem } from "./lighting-system.js";
 import { RayCastingSystem } from "./ray-casting-system.js";
 
 Hooks.once("setup", () => {
@@ -173,6 +173,15 @@ Hooks.once("setup", () => {
         },
         libWrapper.WRAPPER
     );
+
+    if (game.modules.get("levels")?.active && isNewerVersion(game.modules.get("levels").version, "3.3.1")) {
+        const original = LightingRegionSource.prototype._isSuppressed;
+        const wrapper = CONFIG.Levels.handlers.LightHandler.isLightVisibleWrapper;
+
+        LightingRegionSource.prototype._isSuppressed = function () {
+            return this.object ? wrapper.call(this, original.bind(this), ...arguments) : original.apply(this, arguments);
+        };
+    }
 });
 
 class IlluminationBackgroundSamplerShader extends BaseSamplerShader {
