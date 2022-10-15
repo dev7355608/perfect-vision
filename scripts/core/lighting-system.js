@@ -207,6 +207,7 @@ export class LightingSystem {
         forceUpdateFog: false,
         initializeLighting: false,
         initializeVision: false,
+        refreshDepth: false,
         refreshLighting: false,
         refreshLightSources: false,
         refreshPrimary: false,
@@ -400,10 +401,7 @@ export class LightingSystem {
         }
 
         if (!this.#dirty) {
-            return {
-                refreshLighting: false,
-                refreshVision: false
-            };
+            return {};
         }
 
         if (this.constructor.debug) {
@@ -484,7 +482,12 @@ export class LightingSystem {
         this.#setDirty(false);
 
         if (this.constructor.debug) {
-            Console.debug("%s (%O) | Refreshed | %O", this.constructor.name, this, { perception });
+            Console.debug(
+                "%s (%O) | Refreshed | %O",
+                this.constructor.name,
+                this,
+                { perception: { ...perception } }
+            );
         }
 
         return perception;
@@ -815,6 +818,7 @@ export class LightingRegion {
         let initializeVision = false;
         let refreshLighting = false;
         let refreshVision = false;
+        let refreshDepth = false;
 
         if (this.active !== data.active) {
             this.active = data.active;
@@ -825,6 +829,7 @@ export class LightingRegion {
 
             refreshLighting = true;
             refreshVision = true;
+            refreshDepth = true;
         }
 
         if (this.object !== data.object) {
@@ -832,6 +837,7 @@ export class LightingRegion {
 
             refreshLighting = true;
             refreshVision = true;
+            refreshDepth = true;
         }
 
         if (this.elevation !== data.elevation) {
@@ -839,6 +845,7 @@ export class LightingRegion {
 
             refreshLighting = true;
             refreshVision = true;
+            refreshDepth = true;
         }
 
         if (this.sort !== data.sort) {
@@ -847,6 +854,7 @@ export class LightingRegion {
             updateSource = true;
             refreshLighting = true;
             refreshVision = true;
+            refreshDepth = true;
         }
 
         if (this.occluded !== data.occluded) {
@@ -854,6 +862,7 @@ export class LightingRegion {
 
             refreshLighting = true;
             refreshVision = true;
+            refreshDepth = true;
         }
 
         if (this.occlusionMode !== data.occlusionMode) {
@@ -861,6 +870,7 @@ export class LightingRegion {
 
             refreshLighting = true;
             refreshVision = true;
+            refreshDepth = true;
         }
 
         if (this.fogExploration !== data.fogExploration) {
@@ -1104,6 +1114,8 @@ export class LightingRegion {
             this.source.refreshSource();
 
             refreshLighting = true;
+            refreshVision = true;
+            refreshDepth = true;
         }
 
         this.source.object = data.object;
@@ -1183,6 +1195,10 @@ export class LightingRegion {
 
             if (refreshVision) {
                 perception.refreshVision = true;
+            }
+
+            if (refreshDepth) {
+                perception.refreshDepth = true;
             }
         }
     }
