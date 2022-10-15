@@ -162,6 +162,12 @@ Hooks.once("setup", () => {
                 LightingFramebuffer.instance.refresh();
             }
 
+            if (perception.refreshDepth) {
+                canvas.masks.depth.dirty = true;
+            }
+
+            delete perception.refreshDepth;
+
             canvas.perception.update(perception, true);
 
             wrapped(...args);
