@@ -51,9 +51,13 @@ Hooks.once("setup", () => {
                         .beginFill(0xFFFFFF)
                         .drawShape(canvas.dimensions.rect.clone())
                         .endFill());
-                revealed.mask = revealed.addChild(new StencilMask());
+                revealed.msk = revealed.addChild(new StencilMask());
+                revealed.mask = null;
+                revealed.visible = false;
             } else {
-                revealed.mask.removeChildren().forEach(c => c.destroy({ children: true }));
+                revealed.msk.removeChildren().forEach(c => c.destroy({ children: true }));
+                revealed.mask = null;
+                revealed.visible = false;
             }
 
             if (!this.tokenVision) {
@@ -128,9 +132,39 @@ Hooks.once("setup", () => {
                 }
 
                 const region = LightingSystem.instance.getRegion("globalLight");
+                let fogExploration = region.fogExploration;
+                let fogRevealed = region.fogRevealed;
+
+                for (const region of LightingSystem.instance.activeRegions) {
+                    if (fogExploration !== region.fogExploration) {
+                        fogExploration = undefined;
+                    }
+
+                    if (fogRevealed !== region.fogRevealed) {
+                        fogRevealed = undefined;
+                    }
+                }
+
+                if (fogExploration !== undefined) {
+                    vision.fog = null;
+
+                    if (fogExploration === false) {
+                        vision._explored = false;
+                    }
+                }
+
+                revealed.visible = fogRevealed !== false;
+
+                if (fogRevealed === undefined) {
+                    revealed.mask = revealed.msk;
+                }
 
                 if (Number.isFinite(region?.elevation)) {
                     const addMask = (container, region, hole) => {
+                        if (hole) {
+                            return null;
+                        }
+
                         const mask = container.addChild(region.createMask(hole));
 
                         mask.elevation = -Infinity;
@@ -142,8 +176,14 @@ Hooks.once("setup", () => {
 
                     addMask(vision.fov, region, !region.globalLight);
                     addMask(vision.los, region, !region.providesVision);
-                    addMask(vision.fog, region, !region.fogExploration);
-                    addMask(revealed.mask, region, !region.fogRevealed);
+
+                    if (fogExploration === undefined) {
+                        addMask(vision.fog, region, !region.fogExploration);
+                    }
+
+                    if (fogRevealed === undefined) {
+                        addMask(revealed.msk, region, !region.fogRevealed);
+                    }
                 }
 
                 for (const region of LightingSystem.instance.activeRegions) {
@@ -233,8 +273,14 @@ Hooks.once("setup", () => {
                     if (addMask) {
                         addMask(vision.fov, region, !region.globalLight);
                         addMask(vision.los, region, !region.providesVision);
-                        addMask(vision.fog, region, !region.fogExploration);
-                        addMask(revealed.mask, region, !region.fogRevealed);
+
+                        if (fogExploration === undefined) {
+                            addMask(vision.fog, region, !region.fogExploration);
+                        }
+
+                        if (fogRevealed === undefined) {
+                            addMask(revealed.msk, region, !region.fogRevealed);
+                        }
                     }
                 }
 
@@ -274,8 +320,8 @@ Hooks.once("setup", () => {
 
             vision.fov.children.sort(PointSourceMesh._compare);
             vision.los.children.sort(PointSourceMesh._compare);
-            vision.fog.children.sort(PointSourceMesh._compare);
-            revealed.mask.children.sort(PointSourceMesh._compare);
+            vision.fog?.children.sort(PointSourceMesh._compare);
+            revealed.msk.children.sort(PointSourceMesh._compare);
         },
         libWrapper.OVERRIDE
     );
@@ -287,7 +333,10 @@ Hooks.once("setup", () => {
             for (const vision of this.pending.children) {
                 vision.fov.cullable = false;
                 vision.los.cullable = false;
-                vision.fog.cullable = false;
+
+                if (vision.fog) {
+                    vision.fog.cullable = false;
+                }
             }
 
             return await wrapped(...args);
