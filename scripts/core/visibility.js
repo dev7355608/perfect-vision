@@ -70,13 +70,17 @@ Hooks.once("setup", () => {
             const priorVision = canvas.masks.vision.detachVision();
 
             if (priorVision._explored) {
-                const container = this.pending.addChild(new PIXI.Container());
+                if (priorVision.fog) {
+                    const container = this.pending.addChild(new PIXI.Container());
 
-                container.fov = priorVision.fov;
-                container.los = priorVision.los;
-                container.fog = priorVision.fog;
-                container.addChild(priorVision);
-                container.mask = priorVision.fog;
+                    container.fov = priorVision.fov;
+                    container.los = priorVision.los;
+                    container.fog = priorVision.fog;
+                    container.addChild(priorVision);
+                    container.mask = priorVision.fog;
+                } else {
+                    this.pending.addChild(priorVision);
+                }
 
                 commitFog = this.pending.children.length >= FogManager.COMMIT_THRESHOLD;
             } else {
@@ -87,55 +91,21 @@ Hooks.once("setup", () => {
             const hasVisionSources = canvas.effects.visionSources.size > 0;
 
             if (hasVisionSources) {
-                for (const lightSource of canvas.effects.lightSources) {
-                    if (!lightSource.active || lightSource.disabled
-                        || lightSource instanceof GlobalLightSource) {
-                        continue;
-                    }
-
-                    const mask = vision.fov.addChild(lightSource._createMask());
-
-                    mask.cullable = false;
-
-                    if (lightSource.data.vision) {
-                        const mask = vision.los.addChild(lightSource._createMask());
-
-                        mask.cullable = false;
-                    }
-                }
-
-                for (const visionSource of canvas.effects.visionSources) {
-                    visionSource.active = true;
-
-                    if (visionSource.radius > 0) {
-                        const mask = vision.fov.addChild(visionSource._createMask(false));
-
-                        mask.cullable = false;
-                    } else {
-                        vision.base
-                            .beginFill(0xFF0000, 1.0)
-                            .drawCircle(
-                                visionSource.x,
-                                visionSource.y,
-                                canvas.dimensions.size / 2
-                            )
-                            .endFill();
-                    }
-
-                    const mask = vision.los.addChild(visionSource._createMask(true));
-
-                    mask.cullable = false;
-
-                    if (canvas.fog.update(visionSource, forceUpdateFog)) {
-                        vision._explored = true;
-                    }
-                }
-
                 const region = LightingSystem.instance.getRegion("globalLight");
+                let globalLight = region.globalLight;
+                let providesVision = region.providesVision;
                 let fogExploration = region.fogExploration;
                 let fogRevealed = region.fogRevealed;
 
                 for (const region of LightingSystem.instance.activeRegions) {
+                    if (globalLight !== region.globalLight) {
+                        globalLight = undefined;
+                    }
+
+                    if (providesVision !== region.providesVision) {
+                        providesVision = undefined;
+                    }
+
                     if (fogExploration !== region.fogExploration) {
                         fogExploration = undefined;
                     }
@@ -145,7 +115,18 @@ Hooks.once("setup", () => {
                     }
                 }
 
+                if (globalLight === true) {
+                    vision.fov.visible = false;
+                    vision.children[0].mask = null;
+                }
+
+                if (providesVision === true) {
+                    vision.los.visible = false;
+                    vision.mask = null;
+                }
+
                 if (fogExploration !== undefined) {
+                    vision.fog.visible = false;
                     vision.fog = null;
 
                     if (fogExploration === false) {
@@ -157,6 +138,56 @@ Hooks.once("setup", () => {
 
                 if (fogRevealed === undefined) {
                     revealed.mask = revealed.msk;
+                }
+
+                for (const lightSource of canvas.effects.lightSources) {
+                    if (!lightSource.active || lightSource.disabled
+                        || lightSource instanceof GlobalLightSource) {
+                        continue;
+                    }
+
+                    if (globalLight !== true) {
+                        const mask = vision.fov.addChild(lightSource._createMask());
+
+                        mask.cullable = false;
+                    }
+
+                    if (providesVision !== true && lightSource.data.vision) {
+                        const mask = vision.los.addChild(lightSource._createMask());
+
+                        mask.cullable = false;
+                    }
+                }
+
+                for (const visionSource of canvas.effects.visionSources) {
+                    visionSource.active = true;
+
+                    if (globalLight !== true) {
+                        if (visionSource.radius > 0) {
+                            const mask = vision.fov.addChild(visionSource._createMask(false));
+
+                            mask.cullable = false;
+                        } else {
+                            vision.base
+                                .beginFill(0xFF0000, 1.0)
+                                .drawCircle(
+                                    visionSource.x,
+                                    visionSource.y,
+                                    canvas.dimensions.size / 2
+                                )
+                                .endFill();
+                        }
+                    }
+
+                    if (providesVision !== true) {
+                        const mask = vision.los.addChild(visionSource._createMask(true));
+
+                        mask.cullable = false;
+                    }
+
+                    if (canvas.fog.update(visionSource, forceUpdateFog)) {
+                        vision._explored = true;
+                    }
                 }
 
                 if (Number.isFinite(region?.elevation)) {
@@ -174,8 +205,13 @@ Hooks.once("setup", () => {
                         return mask;
                     };
 
-                    addMask(vision.fov, region, !region.globalLight);
-                    addMask(vision.los, region, !region.providesVision);
+                    if (globalLight !== true) {
+                        addMask(vision.fov, region, !region.globalLight);
+                    }
+
+                    if (providesVision !== true) {
+                        addMask(vision.los, region, !region.providesVision);
+                    }
 
                     if (fogExploration === undefined) {
                         addMask(vision.fog, region, !region.fogExploration);
@@ -271,8 +307,13 @@ Hooks.once("setup", () => {
                     }
 
                     if (addMask) {
-                        addMask(vision.fov, region, !region.globalLight);
-                        addMask(vision.los, region, !region.providesVision);
+                        if (globalLight !== true) {
+                            addMask(vision.fov, region, !region.globalLight);
+                        }
+
+                        if (providesVision !== true) {
+                            addMask(vision.los, region, !region.providesVision);
+                        }
 
                         if (fogExploration === undefined) {
                             addMask(vision.fog, region, !region.fogExploration);
