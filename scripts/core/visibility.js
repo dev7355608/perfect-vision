@@ -183,6 +183,8 @@ Hooks.once("setup", () => {
                         const mask = vision.los.addChild(visionSource._createMask(true));
 
                         mask.cullable = false;
+                        mask.elevation = Infinity;
+                        mask.sort = Infinity;
                     }
 
                     if (canvas.fog.update(visionSource, forceUpdateFog)) {
