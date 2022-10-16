@@ -84,6 +84,19 @@ export function updateLighting(tile, { defer = false, deleted = false } = {}) {
 };
 
 function isActive(tile) {
-    return !tile.document.hidden && !!tile.texture?.baseTexture.valid
-        && CONFIG.Levels?.handlers?.TileHandler?.isTileVisible?.(tile) !== false;
+    if (tile.document.hidden || !tile.texture?.baseTexture.valid) {
+        return false;
+    }
+
+    if (CONFIG.Levels) {
+        if (!game.user.isGM || !CONFIG.Levels.UI?.rangeEnabled || CONFIG.Levels.currentToken) {
+            return !!CONFIG.Levels.handlers.TileHandler.isTileVisible(tile);
+        }
+
+        const { rangeBottom, rangeTop } = CONFIG.Levels.helpers.getRangeForDocument(tile.document)
+
+        return !!CONFIG.Levels.handlers.UIHandler.inUIRangeTile(rangeBottom, rangeTop, tile);
+    }
+
+    return true;
 }

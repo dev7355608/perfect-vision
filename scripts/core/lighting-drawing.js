@@ -95,8 +95,21 @@ export function updateLighting(drawing, { defer = false, deleted = false } = {})
 };
 
 function isActive(drawing) {
-    return !drawing.document.hidden
-        && CONFIG.Levels?.handlers?.DrawingHandler?.isDrawingVisible?.(drawing) !== false;
+    if (drawing.document.hidden) {
+        return false;
+    }
+
+    if (CONFIG.Levels) {
+        if (!game.user.isGM || !CONFIG.Levels.UI?.rangeEnabled || CONFIG.Levels.currentToken) {
+            return !!CONFIG.Levels.handlers.DrawingHandler.isDrawingVisible(drawing);
+        }
+
+        const { rangeBottom, rangeTop } = CONFIG.Levels.helpers.getRangeForDocument(drawing.document)
+
+        return !!CONFIG.Levels.handlers.UIHandler.inUIRange(rangeBottom, rangeTop);
+    }
+
+    return true;
 }
 
 function updateVisibility(drawing) {

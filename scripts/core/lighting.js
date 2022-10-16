@@ -180,15 +180,6 @@ Hooks.once("setup", () => {
         libWrapper.WRAPPER
     );
 
-    if (game.modules.get("levels")?.active && isNewerVersion(game.modules.get("levels").version, "3.3.1")) {
-        const original = LightingRegionSource.prototype._isSuppressed;
-        const wrapper = CONFIG.Levels.handlers.LightHandler.isLightVisibleWrapper;
-
-        LightingRegionSource.prototype._isSuppressed = function () {
-            return this.object ? wrapper.call(this, original.bind(this), ...arguments) : original.apply(this, arguments);
-        };
-    }
-
     if (game.modules.get("better-roofs")?.active && isNewerVersion(game.modules.get("better-roofs").version, "1.7.3")) {
         betterRoofsHelpers.prototype.computeShowHideTile = function (tile, overrideHide, controlledToken, brMode) {
             const region = LightingSystem.instance.getRegion(`Tile.${tile.document.id}`)
