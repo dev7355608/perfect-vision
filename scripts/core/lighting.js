@@ -188,6 +188,27 @@ Hooks.once("setup", () => {
             return this.object ? wrapper.call(this, original.bind(this), ...arguments) : original.apply(this, arguments);
         };
     }
+
+    if (game.modules.get("better-roofs")?.active && isNewerVersion(game.modules.get("better-roofs").version, "1.7.3")) {
+        betterRoofsHelpers.prototype.computeShowHideTile = function (tile, overrideHide, controlledToken, brMode) {
+            const region = LightingSystem.instance.getRegion(`Tile.${tile.document.id}`)
+                ?? LightingSystem.instance.getRegion("globalLight");
+            const pointSource = region?.globalLight
+                ? canvas.effects.visionSources.get(`Token.${controlledToken.id}`)?.los.points
+                : canvas.effects.visionSources.get(`Token.${controlledToken.id}`)?.fov.points
+
+            if (controlledToken &&
+                !tile.occluded &&
+                tile.visible &&
+                (controlledToken.losHeight ?? controlledToken.document.elevation) < tile.document.elevation &&
+                this.checkIfInPoly(pointSource, tile, controlledToken, 5)
+            ) {
+                this.showTileThroughFog(tile);
+            } else {
+                this.hideTileThroughFog(tile);
+            }
+        }
+    }
 });
 
 class IlluminationBackgroundSamplerShader extends BaseSamplerShader {
