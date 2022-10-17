@@ -157,7 +157,6 @@ PointSourceMesh = class PointSourceMesh extends SmoothMesh {
      */
     static _compare(mesh1, mesh2) {
         return (mesh1.elevation || 0) - (mesh2.elevation || 0)
-            || (mesh1.source?.object instanceof Drawing) - (mesh2.source?.object instanceof Drawing)
             || (mesh1.sort || 0) - (mesh2.sort || 0)
             || (mesh1._lastSortedIndex || 0) - (mesh2._lastSortedIndex || 0)
             || 0;

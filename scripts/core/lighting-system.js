@@ -1057,7 +1057,8 @@ export class LightingRegion {
 
             const radius = canvas.dimensions.maxR;
             const sourceData = foundry.utils.mergeObject(data.globalLight, {
-                z: this.sort > -Infinity ? Math.clamped(this.sort - 2 ** 31, -(2 ** 32), -1) * 2 ** (1024 - 33) : -Infinity,
+                z: this.sort > -Infinity ? Math.clamped(this.sort - 2 ** 31, -(2 ** 32), -1)
+                    * 2 ** (1024 - (this.object instanceof Drawing ? 66 : 33)) : -Infinity,
                 dim: radius,
                 bright: data.globalLight.bright ? radius : 0,
                 walls: false,
