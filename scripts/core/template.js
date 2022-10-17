@@ -53,7 +53,7 @@ function updateVisionLimitation(template, { defer = false, deleted = false } = {
             }],
             elevation: -Infinity,
             height: Infinity,
-            priority: [Infinity]
+            priority: [4]
         };
 
         if (!RayCastingSystem.instance.hasRegion(objectId)) {

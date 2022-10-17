@@ -105,7 +105,7 @@ Hooks.once("setup", () => {
                     [DetectionMode.DETECTION_TYPES.OTHER]: visionLimitation.other
                 },
                 shapes,
-                priority: [source.data.z ?? (source.isDarkness ? 10 : 0)]
+                priority: [3, source.data.z ?? (source.isDarkness ? 10 : 0)]
             };
 
             if (wallHeight) {

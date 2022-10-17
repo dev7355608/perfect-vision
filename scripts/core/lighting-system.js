@@ -507,6 +507,7 @@ export class LightingRegion {
      */
     static _compare(region1, region2) {
         return region1.elevation - region2.elevation
+            || (region1.object instanceof Drawing) - (region2.object instanceof Drawing)
             || region1.sort - region2.sort
             || 0;
     }
@@ -1150,7 +1151,7 @@ export class LightingRegion {
             limits,
             elevation: this.elevation,
             height: Infinity,
-            priority: [this.source.data.z]
+            priority: [this.object instanceof Drawing ? 2 : 1, this.sort]
         };
 
         let shapes;
