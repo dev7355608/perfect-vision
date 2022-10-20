@@ -13,19 +13,20 @@ Hooks.once("setup", () => {
         function (wrapped, colors = {}) {
             const flags = canvas.scene.flags["perfect-vision"];
 
-            colors.daylightColor = parseColor(flags?.daylightColor, colors.daylightColor ?? CONFIG.Canvas.daylightColor).maximize(0.05);
-            colors.darknessColor = parseColor(flags?.darknessColor, colors.darknessColor ?? CONFIG.Canvas.darknessColor).maximize(0.05);
+            colors.daylightColor = parseColor(flags?.daylightColor, colors.daylightColor ?? CONFIG.Canvas.daylightColor);
+            colors.darknessColor = parseColor(flags?.darknessColor, colors.darknessColor ?? CONFIG.Canvas.darknessColor);
 
             const result = wrapped(colors);
 
-            if (LightingSystem.instance.hasRegion("globalLight")) {
-                LightingSystem.instance.updateRegion("globalLight", {
+            if (LightingSystem.instance.hasRegion("globalLight")
+                && LightingSystem.instance.updateRegion("globalLight", {
                     darkness: this.darknessLevel,
                     lightLevels: this.weights,
                     daylightColor: this.colors.ambientDaylight.valueOf(),
                     darknessColor: this.colors.ambientDarkness.valueOf(),
                     brightestColor: this.colors.ambientBrightest.valueOf()
-                });
+                })) {
+                canvas.perception.update({ refreshLighting: true }, true);
             }
 
             return result;
