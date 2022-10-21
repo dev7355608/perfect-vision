@@ -361,10 +361,10 @@ Hooks.once("setup", () => {
             this.visible = hasVisionSources || !game.user.isGM;
             this.restrictVisibility();
 
-            vision.fov.children.sort(PointSourceMesh._compare);
-            vision.los.children.sort(PointSourceMesh._compare);
-            vision.fog?.children.sort(PointSourceMesh._compare);
-            revealed.msk.children.sort(PointSourceMesh._compare);
+            PointSourceMesh._sortByElevation(vision.fov.children);
+            PointSourceMesh._sortByElevation(vision.los.children);
+            PointSourceMesh._sortByElevation(vision.fog?.children ?? []);
+            PointSourceMesh._sortByElevation(revealed.msk.children);
         },
         libWrapper.OVERRIDE
     );

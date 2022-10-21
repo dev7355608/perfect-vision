@@ -74,7 +74,7 @@ Hooks.once("libWrapper.Ready", () => {
             mesh.scale.set(1);
             mesh.visible = mesh.renderable = true;
             mesh.elevation = this.elevation;
-            mesh.sort = this.data.z ?? (this.isDarkness ? 10 : 0);
+            mesh.sort = mesh.zIndex = this.data.z ?? (this.isDarkness ? 10 : 0);
 
             return mesh;
         },
@@ -149,17 +149,58 @@ VisionSource.prototype._createMask = function (los = false) {
  */
 PointSourceMesh = class PointSourceMesh extends SmoothMesh {
     /**
+     * Comparator for sorting by z-index.
+     * @param {PointSourceMesh} mesh1
+     * @param {PointSourceMesh} mesh2
+     * @returns {number}
+     * @internal
+     */
+    static _compareByZIndex(mesh1, mesh2) {
+        return (mesh1.zIndex || 0) - (mesh2.zIndex || 0)
+            || (mesh1._lastSortedIndex || 0) - (mesh2._lastSortedIndex || 0)
+            || 0;
+    }
+
+    /**
      * Comparator for sorting by elevation and sort.
      * @param {PointSourceMesh} mesh1
      * @param {PointSourceMesh} mesh2
-     * @internal
      * @returns {number}
+     * @internal
      */
-    static _compare(mesh1, mesh2) {
+    static _compareByElevation(mesh1, mesh2) {
         return (mesh1.elevation || 0) - (mesh2.elevation || 0)
             || (mesh1.sort || 0) - (mesh2.sort || 0)
             || (mesh1._lastSortedIndex || 0) - (mesh2._lastSortedIndex || 0)
             || 0;
+    }
+
+    /**
+     * Sort array by comparing z-indices.
+     * @param {PointSourceMesh[]} meshes
+     * @internal
+     * @returns {PointSourceMesh[]} The same array.
+     */
+    static _sortByZIndex(meshes) {
+        for (let i = 0, j = meshes.length; i < j; i++) {
+            meshes[i]._lastSortedIndex = i;
+        }
+
+        return meshes.sort(this._compareByZIndex);
+    }
+
+    /**
+     * Sort array by comparing elevation and sort.
+     * @param {PointSourceMesh[]} meshes
+     * @internal
+     * @returns {PointSourceMesh[]} The same array.
+     */
+    static _sortByElevation(meshes) {
+        for (let i = 0, j = meshes.length; i < j; i++) {
+            meshes[i]._lastSortedIndex = i;
+        }
+
+        return meshes.sort(this._compareByElevation);
     }
 
     /**

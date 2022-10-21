@@ -172,10 +172,10 @@ Hooks.once("setup", () => {
 
             wrapped(...args);
 
-            this.background.vision.children.sort(PointSourceMesh._compare);
-            this.background.lighting.children.sort(PointSourceMesh._compare);
-            this.illumination.lights.children.sort(PointSourceMesh._compare);
-            this.coloration.children.sort(PointSourceMesh._compare);
+            PointSourceMesh._sortByZIndex(this.background.vision.children);
+            PointSourceMesh._sortByZIndex(this.background.lighting.children);
+            PointSourceMesh._sortByZIndex(this.illumination.lights.children);
+            PointSourceMesh._sortByZIndex(this.coloration.children);
         },
         libWrapper.WRAPPER
     );

@@ -146,7 +146,7 @@ Hooks.once("setup", () => {
             }
         }
 
-        del.lights.children.sort(PointSourceMesh._compare);
+        PointSourceMesh._sortByZIndex(del.lights.children);
     });
 
     LightSource.prototype.drawDelimiter = VisionSource.prototype.drawDelimiter = function () {
