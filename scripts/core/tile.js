@@ -47,6 +47,43 @@ Hooks.once("setup", () => {
 
         updateLighting(document.object);
     });
+
+    libWrapper.register(
+        "perfect-vision",
+        "TileMesh.prototype.renderOcclusion",
+        function (renderer) {
+            if (!this.object.isRoof || !this.object._lighting?.active) return;
+            const isModeNone = (this.object.document.occlusion.mode === CONST.TILE_OCCLUSION_MODES.NONE);
+            const isModeFade = (this.object.document.occlusion.mode === CONST.TILE_OCCLUSION_MODES.FADE);
+            const occluded = this.object.occluded;
+
+            // Forcing the batch plugin to render roof mask and alphaMode to NPM
+            this.pluginName = OcclusionSamplerShader.classPluginName;
+            this.alphaMode = PIXI.ALPHA_MODES.NO_PREMULTIPLIED_ALPHA;
+
+            // Saving the value from the mesh
+            const originalTint = this.tint;
+            const originalAlpha = this.worldAlpha;
+            const originalBlendMode = this.blendMode;
+
+            // Rendering the roof sprite
+            this.tint = 0xFFFF00 + ((!isModeNone && occluded) ? 0xFF : 0x0);
+            this.worldAlpha = (isModeFade && occluded) ? 0.15 : this.object._lighting.depth;
+            this.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
+            this.render(renderer);
+
+            // Restoring original values
+            this.tint = originalTint;
+            this.worldAlpha = originalAlpha;
+            this.blendMode = originalBlendMode;
+
+            // Stop forcing alphaMode and batched plugin
+            this.alphaMode = null;
+            this.pluginName = null;
+        },
+        libWrapper.OVERRIDE,
+        { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
+    );
 });
 
 export function updateLighting(tile, { defer = false, deleted = false } = {}) {
@@ -70,12 +107,16 @@ export function updateLighting(tile, { defer = false, deleted = false } = {}) {
         };
 
         if (!LightingSystem.instance.hasRegion(objectId)) {
-            LightingSystem.instance.createRegion(objectId, data);
+            tile._lighting = LightingSystem.instance.createRegion(objectId, data);
         } else if (!LightingSystem.instance.updateRegion(objectId, data)) {
             defer = true;
         }
-    } else if (!LightingSystem.instance.destroyRegion(objectId)) {
-        defer = true;
+    } else {
+        if (!LightingSystem.instance.destroyRegion(objectId)) {
+            defer = true;
+        }
+
+        tile._lighting = null;
     }
 
     if (!defer) {

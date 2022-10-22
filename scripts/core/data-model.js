@@ -106,6 +106,12 @@ class GlobalLightData extends foundry.abstract.DataModel {
             initial: 0,
             integer: true
         });
+        schema.z = new fields.NumberField({
+            required: false,
+            nullable: true,
+            initial: null,
+            integer: true
+        });
         schema.bright = new fields.BooleanField({
             required: false,
             nullable: false,

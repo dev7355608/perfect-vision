@@ -305,6 +305,22 @@
             </div>
             <p class="hint">{{ localize 'LIGHT.ShadowsHint' }}</p>
         </div>
+
+        <div class="form-group slim perfect-vision">
+            <label>{{ localize 'PERFECTVISION.Priority' }}</label>
+            <div class="form-fields">
+                <input type="number" name="flags.perfect-vision.globalLight.z" step="1"
+                    value="{{ data.flags.perfect-vision.globalLight.z }}">
+                {{#unless isScene}}
+                &nbsp;&nbsp;&nbsp;
+                <label class="checkbox perfect-vision--override">
+                    {{ localize "EFFECT.MODE_OVERRIDE" }}
+                    <input type="checkbox" class="perfect-vision--override" {{checked (ne
+                        data.flags.perfect-vision.globalLight.z undefined)}}></label>
+                {{/unless}}
+            </div>
+            <p class="hint">{{ localize 'PERFECTVISION.PriorityHint' }}</p>
+        </div>
     </div>
 
     <footer class="sheet-footer">

@@ -74,7 +74,8 @@ Hooks.once("libWrapper.Ready", () => {
             mesh.scale.set(1);
             mesh.visible = mesh.renderable = true;
             mesh.elevation = this.elevation;
-            mesh.sort = mesh.zIndex = this.data.z ?? (this.isDarkness ? 10 : 0);
+            mesh.sort = Infinity;
+            mesh.zIndex = this.data.z ?? (this.isDarkness ? 10 : 0);
 
             return mesh;
         },
@@ -171,6 +172,7 @@ PointSourceMesh = class PointSourceMesh extends SmoothMesh {
     static _compareByElevation(mesh1, mesh2) {
         return (mesh1.elevation || 0) - (mesh2.elevation || 0)
             || (mesh1.sort || 0) - (mesh2.sort || 0)
+            || (mesh1.zIndex || 0) - (mesh2.zIndex || 0)
             || (mesh1._lastSortedIndex || 0) - (mesh2._lastSortedIndex || 0)
             || 0;
     }

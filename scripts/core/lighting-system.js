@@ -57,6 +57,7 @@ const tempMatrix = new PIXI.Matrix();
  * @property {number} [globalLight.vision]
  * @property {number} [globalLight.x]
  * @property {number} [globalLight.y]
+ * @property {number} [globalLight.z]
  * @property {object} [lightLevels]
  * @property {number} [lightLevels.bright]
  * @property {number} [lightLevels.dim]
@@ -119,6 +120,7 @@ export class LightingSystem {
         data.globalLight.enabled = sceneDefaults.globalLight;
         data.globalLight.x = CONFIG.Canvas.globalLightConfig.x ?? dimensions.sceneX ?? 0;
         data.globalLight.y = CONFIG.Canvas.globalLightConfig.y ?? dimensions.sceneY ?? 0;
+        data.globalLight.z = null;
         data.globalLight.bright = CONFIG.Canvas.globalLightConfig.bright > 0;
         data.globalLight.darkness.min = 0;
         data.globalLight.darkness.max = sceneDefaults.globalLightThreshold ?? 1;
@@ -477,6 +479,39 @@ export class LightingSystem {
 
         this.activeRegions.sort(LightingRegion._compare);
 
+        let previousRegion;
+
+        for (const region of this.activeRegions) {
+            let zIndex;
+
+            if (previousRegion) {
+                if (region.elevation !== previousRegion.elevation
+                    || region.bounds.intersects(previousRegion.bounds)) {
+                    zIndex = previousRegion.zIndex + 1;
+                } else {
+                    zIndex = previousRegion.zIndex;
+                }
+            } else {
+                zIndex = 0;
+            }
+
+            if (region.zIndex !== zIndex) {
+                region.zIndex = zIndex;
+
+                this.#perception.refreshDepth = true;
+            }
+
+            region.depth = (region.zIndex + 52) / 255;
+
+            if (region.depth > 1) {
+                region.depth = 1;
+
+                Notifications.warn("The depth buffer precision has been exceeded. Too many unique elevations.");
+            }
+
+            previousRegion = region;
+        }
+
         const perception = { ...this.#perception };
 
         this.#setDirty(false);
@@ -562,7 +597,8 @@ export class LightingRegion {
                 shadows: undefined,
                 vision: undefined,
                 x: undefined,
-                y: undefined
+                y: undefined,
+                z: undefined
             },
             lightLevels: {
                 bright: undefined,
@@ -765,6 +801,18 @@ export class LightingRegion {
          * @readonly
          */
         this.destroyed = false;
+        /**
+         * Z-Index.
+         * @type {number}
+         * @readonly
+         */
+        this.zIndex = 0;
+        /**
+         * The depth.
+         * @type {number}
+         * @readonly
+         */
+        this.depth = 0;
 
         RayCastingSystem.instance.createRegion(id);
     }
@@ -1057,8 +1105,6 @@ export class LightingRegion {
 
             const radius = canvas.dimensions.maxR;
             const sourceData = foundry.utils.mergeObject(data.globalLight, {
-                z: this.sort > -Infinity ? Math.clamped(this.sort - 2 ** 31, -(2 ** 32), -1)
-                    * 2 ** (1024 - (this.object instanceof Drawing ? 66 : 33)) : -Infinity,
                 dim: radius,
                 bright: data.globalLight.bright ? radius : 0,
                 walls: false,
@@ -1231,7 +1277,7 @@ export class LightingRegion {
         uniforms.uColor0[2] = 0;
         uniforms.uColor1.set(this.colors.background.rgb);
         uniforms.uColor2.set(this.colors.ambientDarkness.rgb);
-        uniforms.uDepthElevation = canvas.primary.mapElevationAlpha(this.elevation);
+        uniforms.uDepthElevation = this.depth;
         uniforms.uOcclusionTexture = canvas.masks.occlusion.renderTexture;
         uniforms.uOcclusionMode = this.occlusionMode;
         uniforms.uScreenDimensions = canvas.screenDimensions;
@@ -1268,7 +1314,7 @@ export class LightingRegion {
         depthShader.texture = this.texture ?? PIXI.Texture.WHITE;
         depthShader.textureMatrix = this.source._textureMatrix ?? PIXI.Matrix.IDENTITY;
         depthShader.alphaThreshold = 0.75;
-        depthShader.depthElevation = (canvas.primary.mapElevationAlpha(this.elevation) * 255 | 0) / 255;
+        depthShader.depthElevation = this.depth;
 
         const originalShader = mesh.shader;
         const originalBlendMode = mesh.blendMode;
@@ -1565,22 +1611,6 @@ export class LightingRegionSource extends GlobalLightSource {
             return this.#cache.get(shaderCls);
         }
 
-        let shaderType;
-        let eraseColor;
-
-        if (shaderCls === AdaptiveBackgroundShader || shaderCls.prototype instanceof AdaptiveBackgroundShader) {
-            shaderType = "background";
-            eraseColor = `vec4(0.0, 0.0, 0.0, depth)`;
-        } else if (shaderCls === AdaptiveIlluminationShader || shaderCls.prototype instanceof AdaptiveIlluminationShader) {
-            shaderType = "illumination";
-            eraseColor = `vec4(colorBackground, 1.0) * depth`;
-        } else if (shaderCls === AdaptiveColorationShader || shaderCls.prototype instanceof AdaptiveColorationShader) {
-            shaderType = "coloration";
-            eraseColor = `vec4(0.0, 0.0, 0.0, depth)`;
-        } else {
-            throw new Error("Unknown shader type");
-        }
-
         this.#cache.set(shaderCls,
             /**
              * Patched lighting shader for {@link LightingRegionSource}.
@@ -1610,10 +1640,11 @@ export class LightingRegionSource extends GlobalLightSource {
                     .addUniform("uSampler", "sampler2D")
                     .addUniform("occlusionTexture", "sampler2D")
                     .addUniform("occlusionMode", "int")
-                    .addUniform("erase", "bool")
                     .replace(/float depth = smoothstep\(0\.0, 1\.0, vDepth\);/gm, `$&
                         depth *= 1.0 - step(texture2D(uSampler, vTextureCoord).a, 0.75);
+
                         float @@occlusionAlpha;
+
                         if (occlusionMode == ${CONST.TILE_OCCLUSION_MODES.RADIAL}) {
                             @@occlusionAlpha = step(depthElevation, texture2D(occlusionTexture, vSamplerUvs).g);
                         } else if (occlusionMode == ${CONST.TILE_OCCLUSION_MODES.VISION}) {
@@ -1621,69 +1652,14 @@ export class LightingRegionSource extends GlobalLightSource {
                         } else {
                             @@occlusionAlpha = 1.0;
                         }
+
                         depth *= @@occlusionAlpha;
                     `)
-                    .replace(/texture2D\(framebufferTexture, vSamplerUvs\)\.rgb/gm, "colorBackground", false)
-                    .replace(/framebufferColor = min\(framebufferColor, colorBackground\)/gm, "finalColor = max(finalColor, colorBackground)", false)
-                    .replace(/framebufferColor = max\(framebufferColor, colorBackground\)/gm, "finalColor = min(finalColor, colorBackground)", false)
-                    .replace(/vec4\(mix\(framebufferColor, finalColor, depth\), depth\)/gm, "(vec4(finalColor, 1.0) * depth)", false)
-                    .replace(/vec3 finalColor = baseColor\.rgb;/gm, `$&
-                        if (erase) { gl_FragColor = ${eraseColor}; return; }
-                    `)
                     .getSource();
-
-                /** @override */
-                static defaultUniforms = foundry.utils.mergeObject(super.defaultUniforms, { erase: true }, { inplace: false });
-
-                /** @override */
-                get isRequired() {
-                    return canvas.effects.visibility.lightingVisibility[shaderType]
-                        !== VisionMode.LIGHTING_VISIBILITY.DISABLED;
-                }
-
-                /**
-                 * @param {boolean} globalLight - Global Illumination?
-                 * @internal
-                 */
-                _updateGlobalLight(globalLight) {
-                    const erase = this.uniforms.erase = !(globalLight && super.isRequired);
-
-                    if (shaderType !== "illumination") {
-                        this.container.blendMode = erase
-                            ? PIXI.BLEND_MODES.DST_OUT
-                            : PIXI.BLEND_MODES.NORMAL;
-                    } else {
-                        this.container.blendMode = PIXI.BLEND_MODES.NORMAL;
-                    }
-                }
             }
         );
 
         return shaderCls;
-    }
-
-    static #getAnimation(animation) {
-        if (!animation) {
-            return null;
-        }
-
-        if (this.#cache.has(animation)) {
-            return this.#cache.get(animation);
-        }
-
-        function wrappedAnimation() {
-            if (this.background.uniforms.erase
-                && this.illumination.uniforms.erase
-                && this.coloration.uniforms.erase) {
-                return;
-            }
-
-            return animation.apply(this, arguments);
-        }
-
-        this.#cache.set(animation, wrappedAnimation);
-
-        return wrappedAnimation;
     }
 
     _sourceGeometry = SmoothGeometry.EMPTY;
@@ -1704,11 +1680,6 @@ export class LightingRegionSource extends GlobalLightSource {
     }
 
     /** @override */
-    get disabled() {
-        return !this._meshesInit || !(this.#region.active && this.#region.globalLight);
-    }
-
-    /** @override */
     get animation() {
         return this.#animation;
     }
@@ -1718,14 +1689,13 @@ export class LightingRegionSource extends GlobalLightSource {
         value.backgroundShader = LightingRegionSource.#getShader(value.backgroundShader || AdaptiveBackgroundShader);
         value.illuminationShader = LightingRegionSource.#getShader(value.illuminationShader || AdaptiveIlluminationShader);
         value.colorationShader = LightingRegionSource.#getShader(value.colorationShader || AdaptiveColorationShader);
-        value.animation = LightingRegionSource.#getAnimation(value.animation);
 
         this.#animation = value;
     }
 
     /** @override */
     get elevation() {
-        return Infinity;
+        return this.#region.elevation;
     }
 
     /** @override */
@@ -1740,27 +1710,19 @@ export class LightingRegionSource extends GlobalLightSource {
     }
 
     /** @override */
-    updateVisibility() {
-        const globalLight = this.#region.globalLight;
-
-        this.background.shader?._updateGlobalLight(globalLight);
-        this.illumination.shader?._updateGlobalLight(globalLight);
-        this.coloration.shader?._updateGlobalLight(globalLight);
-
-        return super.updateVisibility();
-    }
-
-    /** @override */
     _isSuppressed() {
         const region = this.#region;
-        // TODO: re-evaluate under which conditions to suppress
-        return !region.active || region.occluded && region.occlusionMode === CONST.TILE_OCCLUSION_MODES.FADE;
+
+        return !region.active || !region.globalLight
+            || region.occluded && region.occlusionMode === CONST.TILE_OCCLUSION_MODES.FADE;
     }
 
     /** @override */
     _updateMesh(mesh) {
         mesh = super._updateMesh(mesh);
         mesh.elevation = this.#region.elevation;
+        mesh.sort = this.#region.sort;
+        mesh.zIndex = 0;
 
         return mesh;
     }
@@ -1778,23 +1740,16 @@ export class LightingRegionSource extends GlobalLightSource {
         uniforms.uTextureMatrix = this._textureMatrix;
         uniforms.occlusionTexture = canvas.masks.occlusion.renderTexture;
         uniforms.occlusionMode = this.#region.occlusionMode;
+        uniforms.depthElevation = this.#region.depth;
     }
 
     /** @override */
     testVisibility(config) {
-        const region = this.#region;
+        this.los._elevation = config.object?.document?.elevation ?? 0;
 
-        if (!region.active) {
-            return false;
-        }
+        const visible = LightSource.prototype.testVisibility.call(this, config);
 
-        let visible = false;
-
-        if (region.globalLight) {
-            this.los._elevation = config.object?.document?.elevation ?? 0;
-            visible = LightSource.prototype.testVisibility.call(this, config);
-            this.los._elevation = 0;
-        }
+        this.los._elevation = 0;
 
         return visible;
     }
@@ -1820,10 +1775,7 @@ class LightingRegionSourcePolygon extends PIXI.Polygon {
 
     /** @override */
     contains(x, y) {
-        const region = this.#region;
-
-        return region.active && region.globalLight
-            && region === LightingSystem.instance.getRegionAt(tempPoint.set(x, y), this._elevation);
+        return this.#region === LightingSystem.instance.getRegionAt(tempPoint.set(x, y), this._elevation);
     }
 }
 

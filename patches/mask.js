@@ -30,15 +30,15 @@ CachedContainer.prototype.dirty = undefined;
     }
 }
 
-{
-    const original = PrimaryCanvasGroup.prototype.sortChildren;
+// {
+//     const original = PrimaryCanvasGroup.prototype.sortChildren;
 
-    PrimaryCanvasGroup.prototype.sortChildren = function () {
-        canvas.masks.depth.dirty = true;
+//     PrimaryCanvasGroup.prototype.sortChildren = function () {
+//         canvas.masks.depth.dirty = true;
 
-        return original.apply(this, arguments);
-    }
-}
+//         return original.apply(this, arguments);
+//     }
+// }
 
 function setDirtyAll() {
     if (canvas.ready) {

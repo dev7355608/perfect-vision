@@ -102,6 +102,26 @@ Hooks.once("setup", () => {
 
     libWrapper.register(
         "perfect-vision",
+        "CONFIG.Canvas.groups.primary.groupClass.prototype.mapElevationAlpha",
+        function (elevation) {
+            const activeRegions = LightingSystem.instance.activeRegions;
+
+            for (let i = activeRegions.length; i--;) {
+                const region = activeRegions[i];
+
+                if (elevation >= region.elevation) {
+                    return region.depth;
+                }
+            }
+
+            return 0.2;
+        },
+        libWrapper.OVERRIDE,
+        { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
+    );
+
+    libWrapper.register(
+        "perfect-vision",
         "CanvasIlluminationEffects.prototype.updateGlobalLight",
         function () {
             return false;

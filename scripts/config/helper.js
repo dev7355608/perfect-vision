@@ -186,7 +186,7 @@ export class LightingConfigHelper {
                     element.value = prototypeValue;
                 }
 
-                element.placeholder = defaultValue;
+                element.placeholder = defaultValue ?? "";
 
                 const colorInput = element.parentNode.querySelector(`input[type="color"]`)
 
@@ -204,13 +204,13 @@ export class LightingConfigHelper {
                     }
                 }
             } else if (element.type === "number") {
-                element.placeholder = defaultValue;
+                element.placeholder = defaultValue ?? "";
 
                 if (element.disabled) {
                     element.value = Number.isFinite(prototypeValue) ? prototypeValue : null;
                 }
             } else {
-                element.placeholder = defaultValue;
+                element.placeholder = defaultValue ?? "";
 
                 if (element.disabled) {
                     element.value = prototypeValue;
@@ -321,7 +321,7 @@ export class LightingConfigHelper {
         }
 
         document.reset();
-        foundry.utils.mergeObject(document, previewData);
+        foundry.utils.mergeObject(document, previewData, { performDeletions: true });
 
         if (document instanceof Scene) {
             updateSceneLighting();
