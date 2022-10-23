@@ -1,6 +1,7 @@
 import { updateLighting as updateDrawingLighting } from "../core/lighting-drawing.js";
 import { LightingSystem } from "../core/lighting-system.js";
 import { updateLighting as updateSceneLighting } from "../core/lighting-scene.js";
+import { GlobalLightConfig } from "./global-light-config.js";
 
 export class LightingConfigHelper {
     static getComputedData(scene, id) {
@@ -236,6 +237,9 @@ export class LightingConfigHelper {
             data.fogUnexploredColor = document.fogUnexploredColor;
             data.fogExploredColor = document.fogExploredColor;
             data.darkness = document.darkness;
+        } else if (sheet instanceof GlobalLightConfig && sheet.object instanceof Scene) {
+            data.globalLight = document.globalLight;
+            data.globalLightThreshold = document.globalLightThreshold;
         }
 
         foundry.utils.mergeObject(
@@ -276,6 +280,9 @@ export class LightingConfigHelper {
             formData.fogUnexploredColor = submitData.fogUnexploredColor;
             formData.fogExploredColor = submitData.fogExploredColor;
             formData.darkness = submitData.darkness;
+        } else if (sheet instanceof GlobalLightConfig && sheet.object instanceof Scene) {
+            formData.globalLight = submitData.globalLight;
+            formData.globalLightThreshold = submitData.globalLightThreshold;
         }
 
         this.#formData.set(sheet.id, formData);
