@@ -46,6 +46,9 @@ globalThis.PerfectVision = class PerfectVision {
         LightingSystem.debug = value;
         RayCastingSystem.debug = value;
     }
+
+    /** @internal */
+    static testVisibility = undefined;
 }
 
 Hooks.once("devModeReady", ({ registerPackageDebugFlag, getPackageDebugValue }) => {

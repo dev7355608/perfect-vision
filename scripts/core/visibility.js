@@ -395,6 +395,27 @@ Hooks.once("setup", () => {
         [+Math.SQRT1_2, +Math.SQRT1_2],
         [+Math.SQRT1_2, -Math.SQRT1_2]
     ].map(args => new PIXI.Point(...args));
+    const setElevation = game.modules.get("wall-height")?.active
+        ? (visionSource, config) => {
+            const object = config.object;
+
+            config.elevation = object instanceof PlaceableObject
+                ? object.losHeight
+                ?? object.document.elevation
+                ?? object.document.flags.levels?.rangeBottom
+                ?? 0
+                : visionSource.object.losHeight;
+            config.z = config.elevation * (canvas.dimensions.size / canvas.dimensions.distance);
+        }
+        : (visionSource, config) => {
+            const object = config.object;
+
+            config.elevation = object instanceof Token
+                ? object.document.elevation
+                : visionSource.elevation;
+            config.z = config.elevation * (canvas.dimensions.size / canvas.dimensions.distance);
+        };
+    const testVisibilityStack = [];
 
     libWrapper.register(
         "perfect-vision",
@@ -435,13 +456,15 @@ Hooks.once("setup", () => {
                 tests.push({ point: new PIXI.Point(x, y), los: new Map() });
             }
 
-            const config = { object, tests };
+            testVisibilityStack.push(PerfectVision.testVisibility);
+
+            const config = PerfectVision.testVisibility = { object, tests };
 
             // First test basic detection for light sources which specifically provide vision
             for (const lightSource of lightSources) {
                 if (!lightSource.data.vision || !lightSource.active || lightSource.disabled) continue;
                 const result = lightSource.testVisibility(config);
-                if (result === true) return true;
+                if (result === true) { PerfectVision.testVisibility = testVisibilityStack.pop(); return true; }
             }
 
             const modes = CONFIG.Canvas.detectionModes;
@@ -452,14 +475,16 @@ Hooks.once("setup", () => {
                 const token = visionSource.object.document;
                 const basic = token.detectionModes.find(m => m.id === DetectionMode.BASIC_MODE_ID);
                 if (!basic) continue;
+                setElevation(visionSource, config);
                 const result = modes.basicSight.testVisibility(visionSource, basic, config);
-                if (result === true) return true;
+                if (result === true) { PerfectVision.testVisibility = testVisibilityStack.pop(); return true; }
             }
 
             // Lastly test special detection modes for vision sources
-            if (!(object instanceof Token)) return false; // Special detection modes can only detect tokens
+            if (!(object instanceof Token)) { PerfectVision.testVisibility = testVisibilityStack.pop(); return false; } // Special detection modes can only detect tokens
             for (const visionSource of visionSources) {
                 if (!visionSource.active) continue;
+                setElevation(visionSource, config);
                 const token = visionSource.object.document;
                 for (const mode of token.detectionModes) {
                     if (mode.id === DetectionMode.BASIC_MODE_ID) continue;
@@ -467,10 +492,13 @@ Hooks.once("setup", () => {
                     const result = dm?.testVisibility(visionSource, mode, config);
                     if (result === true) {
                         object.detectionFilter = dm.constructor.getDetectionFilter();
+                        PerfectVision.testVisibility = testVisibilityStack.pop();
                         return true;
                     }
                 }
             }
+
+            PerfectVision.testVisibility = testVisibilityStack.pop();
 
             return false;
         },

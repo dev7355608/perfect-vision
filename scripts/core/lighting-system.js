@@ -1742,29 +1742,11 @@ export class LightingRegionSource extends GlobalLightSource {
         uniforms.occlusionMode = this.#region.occlusionMode;
         uniforms.depthElevation = this.#region.depth;
     }
-
-    /** @override */
-    testVisibility(config) {
-        this.los._elevation = config.object?.document?.elevation ?? 0;
-
-        const visible = LightSource.prototype.testVisibility.call(this, config);
-
-        this.los._elevation = 0;
-
-        return visible;
-    }
 }
 
 class LightingRegionSourcePolygon extends PIXI.Polygon {
     /** @type {LightingRegion} */
     #region;
-
-    /**
-     * The current elevation of the object that is tested.
-     * @type {number}
-     * @internal
-     */
-    _elevation = 0;
 
     /** @param {LightingRegion} region */
     constructor(region) {
@@ -1775,7 +1757,8 @@ class LightingRegionSourcePolygon extends PIXI.Polygon {
 
     /** @override */
     contains(x, y) {
-        return this.#region === LightingSystem.instance.getRegionAt(tempPoint.set(x, y), this._elevation);
+        return this.#region === LightingSystem.instance.getRegionAt(
+            tempPoint.set(x, y), PerfectVision.testVisibility?.elevation ?? 0);
     }
 }
 
