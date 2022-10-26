@@ -180,11 +180,21 @@ Hooks.once("setup", () => {
                     }
 
                     if (providesVision !== true) {
-                        const mask = vision.los.addChild(visionSource._createMask(true));
+                        let mask;
 
-                        mask.cullable = false;
-                        mask.elevation = Infinity;
-                        mask.sort = Infinity;
+                        if (!visionSource.data.blinded) {
+                            mask = visionSource._createMask(true);
+                        } else if (visionSource.radius > 0) {
+                            mask = visionSource._createMask(false);
+                        }
+
+                        if (mask) {
+                            vision.los.addChild(mask);
+
+                            mask.cullable = false;
+                            mask.elevation = Infinity;
+                            mask.sort = Infinity;
+                        }
                     }
 
                     if (canvas.fog.update(visionSource, forceUpdateFog)) {
