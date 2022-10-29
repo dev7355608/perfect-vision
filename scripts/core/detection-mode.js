@@ -89,8 +89,7 @@ Hooks.once("setup", () => {
                         switch (this.type) {
                             case DetectionMode.DETECTION_TYPES.SIGHT: type = "sight"; break;
                             case DetectionMode.DETECTION_TYPES.SOUND: type = "sound"; break;
-                            case DetectionMode.DETECTION_TYPES.MOVE: type = "move"; break;
-                            default: type = "other"; break;
+                            default: type = "move"; break;
                         }
 
                         hasLOS = !CONFIG.Canvas.losBackend.testCollision(
