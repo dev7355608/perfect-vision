@@ -478,10 +478,12 @@ Hooks.once("setup", () => {
             }
 
             const modes = CONFIG.Canvas.detectionModes;
+            const sceneRect = canvas.dimensions.sceneRect;
+            const inBuffer = !sceneRect.contains(point.x, point.y);
 
             // Second test basic detection tests for vision sources
             for (const visionSource of visionSources) {
-                if (!visionSource.active) continue;
+                if (!visionSource.active || inBuffer && sceneRect.contains(visionSource.x, visionSource.y)) continue;
                 const token = visionSource.object.document;
                 const basic = token.detectionModes.find(m => m.id === DetectionMode.BASIC_MODE_ID);
                 if (!basic) continue;
@@ -493,7 +495,7 @@ Hooks.once("setup", () => {
             // Lastly test special detection modes for vision sources
             if (!(object instanceof Token)) { PerfectVision.testVisibility = testVisibilityStack.pop(); return false; } // Special detection modes can only detect tokens
             for (const visionSource of visionSources) {
-                if (!visionSource.active) continue;
+                if (!visionSource.active || inBuffer && sceneRect.contains(visionSource.x, visionSource.y)) continue;
                 setElevation(visionSource, config);
                 const token = visionSource.object.document;
                 for (const mode of token.detectionModes) {
