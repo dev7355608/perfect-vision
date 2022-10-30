@@ -137,7 +137,7 @@ function patchGLPosition(source) {
 function patchResolutionUniform(source) {
     try {
         // TODO: potential compatibility problems with modules that patch shaders and use vUvs
-        source = new ShaderPatcher("frag")
+        const patcher = new ShaderPatcher("frag")
             .setSource(source)
             .requireVariable("resolution")
             .overrideVariable("vUvs")
@@ -152,8 +152,13 @@ function patchResolutionUniform(source) {
             .replace(/\bfloat dist = (distance|radialDistance)\(vUvs, vec2\(0.5\)\)/gm, "float dist = radialDistance(@vUvs, vec2(0.5))")
             .replace(/\bbeamsEmanation\(uvs, dist\)/gm, "beamsEmanation(uvs, radialLength(uvs))", false)
             .replace(/\bbeamsEmanation\(uvs, dist, pCol\)/gm, "beamsEmanation(uvs, radialLength(uvs), pCol)", false)
-            .replace(/\bscale\(vUvs, 10\.0 \* ratio\)/gm, "scale(@vUvs, 10.0 * ratio)", false)
-            .replace(/\bwave\(dist\)/gm, "wave(radialDistance(vUvs, vec2(0.5)) * 2.0)", false)
+            .replace(/\bscale\(vUvs, 10\.0 \* ratio\)/gm, "scale(@vUvs, 10.0 * ratio)", false);
+
+        if (!source.includes(" forcegrid(")) {
+            patcher.replace(/\bwave\(dist\)/gm, "wave(radialDistance(vUvs, vec2(0.5)) * 2.0)", false);
+        }
+
+        patcher
             .replace(/\bdist \* 10\.0 \* intensity \* distortion\b/, "dist * (resolution.x + resolution.y) * 5.0 * intensity * distortion", false)
             .replace(/\bfloat beam = fract\(angle \* 16\.0 \+ time\);/gm, "float beam = fract(angle * 8.0 * (resolution.x + resolution.y) + time);", false)
             .replace(/\bvec2 apivot = PIVOT - dstpivot;/gm, "vec2 apivot = PIVOT - dstpivot * resolution;", false)
@@ -164,8 +169,8 @@ function patchResolutionUniform(source) {
 
                     @main();
                 }
-            `)
-            .getSource();
+            `);
+        source = patcher.getSource();
     } finally {
         return source;
     }
