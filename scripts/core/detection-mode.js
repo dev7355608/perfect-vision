@@ -47,10 +47,10 @@ Hooks.once("setup", () => {
             const rayCaster = getRayCaster(visionSource, mode, type);
             const point = test.point;
             const sourceZ = visionSource.object.losHeight * unitsToPixels;
-            const targetZ = target instanceof PlaceableObject ? (target.losHeight
+            const targetZ = point.z ?? (target instanceof PlaceableObject ? (target.losHeight
                 ?? target.document.elevation
                 ?? target.document.flags.levels?.rangeBottom
-                ?? 0) * unitsToPixels : sourceZ;
+                ?? 0) * unitsToPixels : sourceZ);
 
             return rayCaster
                 .moveTo(visionSource.x, visionSource.y, sourceZ)
@@ -60,9 +60,9 @@ Hooks.once("setup", () => {
             const rayCaster = getRayCaster(visionSource, mode, type);
             const point = test.point;
             const sourceZ = visionSource.elevation * unitsToPixels;
-            const targetZ = target instanceof Token
+            const targetZ = point.z ?? (target instanceof Token
                 ? target.document.elevation * unitsToPixels
-                : sourceZ;
+                : sourceZ);
 
             return rayCaster
                 .moveTo(visionSource.x, visionSource.y, sourceZ)
