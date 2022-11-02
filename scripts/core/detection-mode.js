@@ -77,27 +77,21 @@ Hooks.once("setup", () => {
                 let hasLOS;
 
                 if (mode.id === DetectionMode.BASIC_MODE_ID) {
-                    hasLOS = visionSource.los.contains(test.point.x, test.point.y);
-                } else {
-                    const cacheKey = `${visionSource.object.sourceId}#${this.type}`;
+                    const point = test.point;
 
-                    hasLOS = test.los.get(cacheKey);
+                    hasLOS = visionSource.los.contains(point.x, point.y);
+                } else {
+                    const los = test.los;
+
+                    hasLOS = los.get(visionSource);
 
                     if (hasLOS === undefined) {
-                        let type;
-
-                        switch (this.type) {
-                            case DetectionMode.DETECTION_TYPES.SIGHT: type = "sight"; break;
-                            case DetectionMode.DETECTION_TYPES.SOUND: type = "sound"; break;
-                            default: type = "move"; break;
-                        }
-
                         hasLOS = !CONFIG.Canvas.losBackend.testCollision(
                             { x: visionSource.x, y: visionSource.y },
                             test.point,
-                            { type, mode: "any", source: visionSource }
+                            { type: "sight", mode: "any", source: visionSource }
                         );
-                        test.los.set(cacheKey, hasLOS);
+                        los.set(visionSource, hasLOS);
                     }
                 }
 
