@@ -74,24 +74,25 @@ Hooks.once("setup", () => {
         "DetectionMode.prototype._testLOS",
         function (visionSource, mode, target, test) {
             if (this.walls) {
-                let hasLOS;
+                const losCache = test.los;
+                let hasLOS = losCache.get(visionSource);
 
-                if (mode.id === DetectionMode.BASIC_MODE_ID) {
+                if (hasLOS === undefined) {
                     const point = test.point;
 
-                    hasLOS = visionSource.los.contains(point.x, point.y);
-                } else {
-                    const los = test.los;
+                    if (mode.id === DetectionMode.BASIC_MODE_ID || !visionSource.los.isConstrained) {
+                        hasLOS = visionSource.los.contains(point.x, point.y);
 
-                    hasLOS = los.get(visionSource);
-
-                    if (hasLOS === undefined) {
+                        if (!visionSource.los.isConstrained) {
+                            losCache.set(visionSource, hasLOS);
+                        }
+                    } else {
                         hasLOS = !CONFIG.Canvas.losBackend.testCollision(
                             { x: visionSource.x, y: visionSource.y },
-                            test.point,
+                            point,
                             { type: "sight", mode: "any", source: visionSource }
                         );
-                        los.set(visionSource, hasLOS);
+                        losCache.set(visionSource, hasLOS);
                     }
                 }
 
