@@ -12,15 +12,24 @@ Hooks.once("setup", () => {
         function (wrapped, ...args) {
             if (!this.fragmentShader.includes("#define PERFECT_VISION\n")) {
                 this.fragmentShader = new ShaderPatcher("frag")
-                    .setSource(source)
+                    .setSource(this.fragmentShader)
                     .requireVariable("hasFogTexture")
                     .requireVariable("vMaskTextureCoord")
                     .overrideVariable("backgroundColor")
-                    .addUniform("backgroundColorTexture", "sampler2D")
+                    .overrideVariable("exploredColor")
+                    .overrideVariable("unexploredColor")
+                    .addUniform("colorBackgroundTexture", "sampler2D")
+                    .addUniform("uniformLighting", "bool")
                     .wrapMain(`\
                         void main() {
-                            if (hasFogTexture) {
-                                backgroundColor = texture2D(backgroundColorTexture, vMaskTextureCoord).rgb;
+                            if (uniformLighting) {
+                                backgroundColor = @backgroundColor;
+                                exploredColor = @exploredColor;
+                                unexploredColor = @unexploredColor;
+                            } else {
+                                backgroundColor = texture2D(colorBackgroundTexture, vMaskTextureCoord).rgb;
+                                exploredColor = (@exploredColor / @backgroundColor) * backgroundColor;
+                                unexploredColor = (@unexploredColor / @backgroundColor) * backgroundColor;
                             }
 
                             @main();
@@ -33,7 +42,7 @@ Hooks.once("setup", () => {
 
             const shader = wrapped(...args);
 
-            shader.uniforms.backgroundColorTexture = LightingFramebuffer.instance.textures[1];
+            shader.uniforms.lightingTextures = LightingFramebuffer.instance.uniformGroup;
 
             return shader;
         },
