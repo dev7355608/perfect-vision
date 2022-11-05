@@ -505,8 +505,16 @@ Hooks.once("setup", () => {
         return;
     }
 
+    let mask;
+
     Hooks.on("canvasReady", () => {
-        canvas.masks.addChild(new PIXI.Container()).render = () => CanvasFramebuffer.updateAll();
+        if (!mask || mask.destroyed) {
+            mask = new PIXI.Container();
+            mask.render = () => CanvasFramebuffer.updateAll();
+            mask.clear = () => { };
+        }
+
+        canvas.masks.addChild(mask);
         canvas.app.renderer.on("resize", CanvasFramebuffer.invalidateAll, CanvasFramebuffer);
 
         CanvasFramebuffer.invalidateAll();
