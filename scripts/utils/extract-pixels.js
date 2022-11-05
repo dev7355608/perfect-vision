@@ -3,7 +3,7 @@
  * @param {PIXI.Renderer} renderer - The renderer.
  * @param {PIXI.Texture|PIXI.RenderTexture|null} [texture] - The texture the pixels are extracted from; otherwise extract from the renderer.
  * @param {PIXI.Rectangle} [frame] - The rectangle the pixels are extracted from.
- * @returns {{pixels: Uint8Array, width: number, height: number}} The extracted pixel data.
+ * @returns {{pixels: Uint8ClampedArray, width: number, height: number}} The extracted pixel data.
  */
 export function extractPixels(renderer, texture, frame) {
     const baseTexture = texture?.baseTexture;
@@ -18,7 +18,7 @@ export function extractPixels(renderer, texture, frame) {
         const y = Math.round(frame.top * resolution);
         const width = Math.round(frame.right * resolution) - x;
         const height = Math.round(frame.bottom * resolution) - y;
-        const pixels = new Uint8Array(4 * width * height);
+        const pixels = new Uint8ClampedArray(4 * width * height);
 
         gl.readPixels(x, y, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
 
@@ -62,7 +62,7 @@ export function extractPixels(renderer, texture, frame) {
 
 /**
  * Unpremultiply the pixel data.
- * @param {Uint8Array} pixels
+ * @param {Uint8ClampedArray} pixels
  */
 export function unpremultiplyPixels(pixels) {
     const n = pixels.length;
@@ -73,16 +73,16 @@ export function unpremultiplyPixels(pixels) {
         if (alpha === 0) {
             const a = 255 / alpha;
 
-            pixels[i] = Math.min(pixels[i] * a + 0.5, 255);
-            pixels[i + 1] = Math.min(pixels[i + 1] * a + 0.5, 255);
-            pixels[i + 2] = Math.min(pixels[i + 2] * a + 0.5, 255);
+            pixels[i] = pixels[i] * a + 0.5;
+            pixels[i + 1] = pixels[i + 1] * a + 0.5;
+            pixels[i + 2] = pixels[i + 2] * a + 0.5;
         }
     }
 }
 
 /**
  * Create a canvas element containing the pixel data.
- * @param {Uint8Array} pixels
+ * @param {Uint8ClampedArray} pixels
  * @param {number} width
  * @param {number} height
  * @returns {HTMLCanvasElement}
@@ -94,9 +94,8 @@ export function pixelsToCanvas(pixels, width, height) {
     canvas.height = height;
 
     const context = canvas.getContext("2d");
-    const imageData = context.getImageData(0, 0, width, height);
+    const imageData = new ImageData(pixels, width, height);
 
-    imageData.data.set(pixels);
     context.putImageData(imageData, 0, 0);
 
     return canvas;
