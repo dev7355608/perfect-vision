@@ -69,6 +69,40 @@ Hooks.once("setup", () => {
                 .castTo(point.x, point.y, targetZ, true);
         };
 
+    function testAngle(visionSource, point) {
+        const { angle, rotation, externalRadius } = visionSource.data;
+
+        if (angle !== 360) {
+            const dx = point.x - visionSource.x;
+            const dy = point.y - visionSource.y;
+
+            if (dx * dx + dy * dy > externalRadius * externalRadius) {
+                const aMin = rotation + 90 - angle / 2;
+                const a = Math.toDegrees(Math.atan2(dy, dx));
+
+                if (((a - aMin) % 360 + 360) % 360 > angle) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    function isConstrained(los) {
+        const boundaryShapes = los.config.boundaryShapes;
+
+        if (boundaryShapes.length === 0) {
+            return false;
+        }
+
+        if (boundaryShapes.length >= 2) {
+            return true;
+        }
+
+        return !(boundaryShapes[0] instanceof LimitedAnglePolygon);
+    }
+
     libWrapper.register(
         "perfect-vision",
         "DetectionMode.prototype._testLOS",
@@ -79,19 +113,22 @@ Hooks.once("setup", () => {
 
                 if (hasLOS === undefined) {
                     const point = test.point;
+                    const los = visionSource.los;
+                    const constrained = isConstrained(los);
 
-                    if (mode.id === DetectionMode.BASIC_MODE_ID || !visionSource.los.isConstrained) {
-                        hasLOS = visionSource.los.contains(point.x, point.y);
+                    if (!constrained || mode.id === DetectionMode.BASIC_MODE_ID) {
+                        hasLOS = los.contains(point.x, point.y);
 
-                        if (!visionSource.los.isConstrained) {
+                        if (!constrained) {
                             losCache.set(visionSource, hasLOS);
                         }
                     } else {
-                        hasLOS = !CONFIG.Canvas.losBackend.testCollision(
-                            { x: visionSource.x, y: visionSource.y },
-                            point,
-                            { type: "sight", mode: "any", source: visionSource }
-                        );
+                        hasLOS = testAngle(visionSource, point)
+                            && !CONFIG.Canvas.losBackend.testCollision(
+                                { x: visionSource.x, y: visionSource.y },
+                                point,
+                                { type: los.config.type, mode: "any", source: visionSource }
+                            );
                         losCache.set(visionSource, hasLOS);
                     }
                 }
