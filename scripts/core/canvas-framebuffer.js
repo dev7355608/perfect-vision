@@ -154,12 +154,18 @@ export class CanvasFramebuffer extends Framebuffer {
     /**
      * An object which stores a reference to the normal renderer target and source frame.
      * We track this so we can restore them after rendering our cached texture.
-     * @type {{renderTexture: PIXI.RenderTexture, sourceFrame: PIXI.Rectangle}}
+     * @type {{renderTexture: PIXI.RenderTexture, sourceFrame: PIXI.Rectangle, filterStack: PIXI.FilterState[]}}
      */
     #backup = {
         renderTexture: undefined,
-        sourceFrame: new PIXI.Rectangle()
+        sourceFrame: new PIXI.Rectangle(),
+        filterStack: undefined
     };
+
+    /**
+    * @type {PIXI.FilterState[]}
+    */
+    #defaultFilterStack = [{}];
 
     /**
      * @param {string} id - The name.
@@ -430,23 +436,18 @@ export class CanvasFramebuffer extends Framebuffer {
 
         this.#backup.renderTexture = rt.current;
         this.#backup.sourceFrame.copyFrom(rt.sourceFrame);
+        this.#backup.filterStack = renderer.filter.defaultFilterStack;
 
-        const fs = renderer.filter.defaultFilterStack;
-
-        if (fs.length > 1) {
-            fs[fs.length - 1].renderTexture = tex;
-        }
+        renderer.filter.defaultFilterStack = this.#defaultFilterStack;
 
         this._update(renderer);
 
         renderer.batch.flush();
-
-        if (fs.length > 1) {
-            fs[fs.length - 1].renderTexture = this.#backup.renderTexture;
-        }
-
         renderer.renderTexture.bind(this.#backup.renderTexture, this.#backup.sourceFrame, undefined);
+        renderer.filter.defaultFilterStack = this.#backup.filterStack;
+
         this.#backup.renderTexture = undefined;
+        this.#backup.filterStack = undefined;
     }
 
     /**
