@@ -130,7 +130,7 @@ function isActive(tile) {
     }
 
     if (CONFIG.Levels) {
-        if (!game.user.isGM || !CONFIG.Levels.UI?.rangeEnabled || CONFIG.Levels.currentToken) {
+        if (!game.user.isGM || !CONFIG.Levels.UI?.rangeEnabled || canvas.tokens.controlled.length) {
             return !!CONFIG.Levels.handlers.TileHandler.isTileVisible(tile);
         }
 

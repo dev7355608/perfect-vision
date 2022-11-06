@@ -55,19 +55,21 @@ Hooks.once("setup", () => {
     });
 
     if (game.modules.get("levels")?.active) {
-        function updateOcclusion() {
+        function updateBackground() {
             if (LightingSystem.instance.hasRegion("globalLight")
                 && LightingSystem.instance.updateRegion("globalLight", {
+                    active: isActive(),
                     occluded: isOccluded()
                 })) {
                 canvas.perception.update({ refreshLighting: true }, true);
             }
         }
 
-        Hooks.on("updateToken", updateOcclusion);
-        Hooks.on("controlToken", updateOcclusion);
-        Hooks.on("renderLevelsUI", updateOcclusion);
-        Hooks.on("closeLevelsUI", updateOcclusion);
+        Hooks.on("updateToken", updateBackground);
+        Hooks.on("controlToken", updateBackground);
+        Hooks.on("levelsUiChangeLevel", updateBackground);
+        Hooks.on("renderLevelsUI", updateBackground);
+        Hooks.on("closeLevelsUI", updateBackground);
     }
 });
 
@@ -76,6 +78,7 @@ export function updateLighting({ defer = false } = {}) {
     const data = extractLightingData(canvas.scene);
 
     if (game.modules.get("levels")?.active) {
+        data.active = isActive();
         data.occluded = isOccluded();
         data.occlusionMode = CONST.TILE_OCCLUSION_MODES.FADE;
     }
@@ -95,19 +98,19 @@ export function updateLighting({ defer = false } = {}) {
     }
 };
 
+function isActive() {
+    if (CONFIG.Levels.UI?.rangeEnabled && !canvas.tokens.controlled.length) {
+        return (parseFloat(CONFIG.Levels.UI.range?.[0]) ?? Infinity)
+            >= (canvas.primary.background?.elevation ?? PrimaryCanvasGroup.BACKGROUND_ELEVATION);
+    }
+
+    return true;
+}
+
 function isOccluded() {
-    const background = canvas.primary.background;
-
-    if (!background || background.texture === PIXI.Texture.EMPTY) {
-        return false;
-    }
-
-    if (CONFIG.Levels.UI?.rangeEnabled) {
-        return (parseFloat(CONFIG.Levels.UI.range[0]) ?? Infinity) < background.elevation;
-    }
-
-    if (CONFIG.Levels.currentToken) {
-        return CONFIG.Levels.currentToken.losHeight < background.elevation;
+    if (canvas.tokens.controlled.length) {
+        return (CONFIG.Levels.currentToken ?? canvas.tokens.controlled[0]).losHeight
+            < (canvas.primary.background?.elevation ?? PrimaryCanvasGroup.BACKGROUND_ELEVATION);
     }
 
     return false;

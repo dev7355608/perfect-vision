@@ -100,7 +100,7 @@ function isActive(drawing) {
     }
 
     if (CONFIG.Levels) {
-        if (!game.user.isGM || !CONFIG.Levels.UI?.rangeEnabled || CONFIG.Levels.currentToken) {
+        if (!game.user.isGM || !CONFIG.Levels.UI?.rangeEnabled || canvas.tokens.controlled.length) {
             return !!CONFIG.Levels.handlers.DrawingHandler.isDrawingVisible(drawing);
         }
 
