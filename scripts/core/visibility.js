@@ -358,6 +358,11 @@ Hooks.once("setup", () => {
                 }
             }
 
+            PointSourceMesh._sortByElevation(vision.fov.children);
+            PointSourceMesh._sortByElevation(vision.los.children);
+            PointSourceMesh._sortByElevation(vision.fog?.children ?? []);
+            PointSourceMesh._sortByElevation(revealed.msk.children);
+
             if (commitFog) {
                 canvas.fog.commit();
             } else {
@@ -370,11 +375,6 @@ Hooks.once("setup", () => {
 
             this.visible = hasVisionSources || !game.user.isGM;
             this.restrictVisibility();
-
-            PointSourceMesh._sortByElevation(vision.fov.children);
-            PointSourceMesh._sortByElevation(vision.los.children);
-            PointSourceMesh._sortByElevation(vision.fog?.children ?? []);
-            PointSourceMesh._sortByElevation(revealed.msk.children);
         },
         libWrapper.OVERRIDE
     );
