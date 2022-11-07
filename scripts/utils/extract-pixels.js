@@ -112,9 +112,83 @@ export async function canvasToBase64(canvas, type, quality) {
     return new Promise((resolve, reject) => {
         canvas.toBlob(blob => {
             const reader = new FileReader();
+
             reader.onload = () => resolve(reader.result);
             reader.onerror = reject;
             reader.readAsDataURL(blob);
         }, type, quality);
     });
+}
+
+/**
+ * Asynchronously convert the pixel data to base64. Uses a web worker if `OffscreenCanvas` is supported.
+ * @param {Uint8ClampedArray} pixels
+ * @param {number} width
+ * @param {number} height
+ * @param {string} [type="image/png"]
+ * @param {number} [quality]
+ * @param {boolean} [transfer=false] - Transfer the pixel data to the web worker?
+ * @returns {Promise<string>} The base64 string of the canvas.
+ */
+export async function pixelsToBase64(pixels, width, height, type, quality, transfer) {
+    if (typeof OffscreenCanvas !== "undefined") {
+        return ExtractPixelsWorker.instance.pixelsToBase64(
+            pixels, width, height, type, quality, transfer);
+    }
+
+    return canvasToBase64(pixelsToCanvas(pixels, width, height), type, quality);
+}
+
+class ExtractPixelsWorker extends Worker {
+    static #instance;
+
+    static get instance() {
+        return this.#instance ??= new this();
+    }
+
+    #tasks = new Map();
+    #nextTaskId = 0;
+
+    constructor() {
+        super("modules/perfect-vision/scripts/utils/extract-pixels-worker.js");
+
+        this.onmessage = this.#onMessage.bind(this);
+    }
+
+    /**
+     * Convert the pixel data to base64.
+     * @param {Uint8ClampedArray} pixels
+     * @param {number} width
+     * @param {number} height
+     * @param {string} [type="image/png"]
+     * @param {number} [quality]
+     * @param {boolean} [transfer=false] - Transfer the pixel data to the web worker?
+     * @returns {Promise<string>} The base64 string of the canvas.
+     */
+    async pixelsToBase64(pixels, width, height, type, quality, transfer) {
+        const taskId = this.#nextTaskId++;
+        const taskData = { id: taskId, pixels, width, height, type, quality };
+
+        return new Promise((resolve, reject) => {
+            this.#tasks.set(taskId, { resolve, reject });
+            this.postMessage(taskData, transfer ? [pixels.buffer] : undefined);
+        });
+    }
+
+    #onMessage(event) {
+        const { id, result, error } = event.data;
+        const task = this.#tasks.get(id);
+
+        if (!task) {
+            return;
+        }
+
+        this.#tasks.delete(id);
+
+        if (error) {
+            return task.reject(new Error(error));
+        } else {
+            return task.resolve(result);
+        }
+    }
 }

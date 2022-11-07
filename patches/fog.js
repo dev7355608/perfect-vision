@@ -1,4 +1,4 @@
-import { canvasToBase64, extractPixels, pixelsToCanvas } from "../scripts/utils/extract-pixels.js";
+import { extractPixels, pixelsToBase64 } from "../scripts/utils/extract-pixels.js";
 
 /** Patched FogManager of Foundry VTT */
 CONFIG.Canvas.fogManager = FogManager = class FogManager {
@@ -269,11 +269,9 @@ CONFIG.Canvas.fogManager = FogManager = class FogManager {
         if (!texture || !texture.baseTexture || !texture.baseTexture.valid) return;
         const { pixels, width, height } = extractPixels(canvas.app.renderer, texture);
         // We don't need to unpremultiply because the sprite texture is opaque.
-        // Create a canvas element containing the pixel data.
-        const canvasElement = pixelsToCanvas(pixels, width, height);
-        // Convert the canvas element to a base64 string.
+        // Convert the pixels data to a base64 string.
         const updateData = {
-            explored: await canvasToBase64(canvasElement, "image/jpeg", 0.8),
+            explored: await pixelsToBase64(pixels, width, height, "image/jpeg", 0.8, true),
             timestamp: Date.now()
         };
         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
