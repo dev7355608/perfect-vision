@@ -52,11 +52,11 @@ Hooks.on("canvasReady", setDirtyAll);
 Hooks.on("canvasTearDown", setDirtyAll);
 Hooks.on("canvasPan", setDirtyAll);
 
-Hooks.on("refreshTile", tile => {
-    if (tile.isRoof) {
-        canvas.masks.depth.dirty = true;
-    }
-});
+// Hooks.on("refreshTile", tile => {
+//     if (tile.isRoof) {
+//         canvas.masks.depth.dirty = true;
+//     }
+// });
 
 Hooks.on("sightRefresh", () => {
     canvas.masks.vision.dirty = true;

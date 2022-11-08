@@ -515,7 +515,7 @@ Hooks.once("setup", () => {
             mask.clear = () => { };
         }
 
-        canvas.masks.addChild(mask);
+        canvas.masks.addChildAt(mask, canvas.masks.getChildIndex(canvas.masks.depth));
         canvas.app.renderer.on("resize", CanvasFramebuffer.invalidateAll, CanvasFramebuffer);
 
         CanvasFramebuffer.invalidateAll();
