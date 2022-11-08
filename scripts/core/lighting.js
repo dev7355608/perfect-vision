@@ -184,6 +184,12 @@ Hooks.once("setup", () => {
 
             if (perception.refreshDepth) {
                 canvas.masks.depth.dirty = true;
+
+                for (const region of LightingSystem.instance.activeRegions) {
+                    if (region.object instanceof Tile && region.object.mesh) {
+                        region.object.mesh.shader.uniforms.depthElevation = region.depth;
+                    }
+                }
             }
 
             delete perception.refreshDepth;

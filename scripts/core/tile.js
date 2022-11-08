@@ -18,6 +18,10 @@ Hooks.once("setup", () => {
             return;
         }
 
+        if (tile._lighting && tile.mesh) {
+            tile.mesh.shader.uniforms.depthElevation = tile._lighting.depth;
+        }
+
         setTimeout(() => {
             const document = tile.document;
             const objectId = `Tile.${document.id}`;
