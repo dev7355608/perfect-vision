@@ -22,3 +22,33 @@ void main() {
   gl_FragColor = texture2D(sampler, vUvs) * mask * calpha * tintAlpha;
 }
 `;
+
+Drawing.prototype._onUpdate = function (changed, options, userId) {
+  // Fully re-draw when some drawing elements have changed
+  const textChanged = ("text" in changed)
+    || (this.document.text && ["fontFamily", "fontSize", "textColor", "width"].some(k => k in changed));
+  if (changed.shape?.type || ("texture" in changed) || textChanged) {
+    this.draw().then(() => PlaceableObject.prototype._onUpdate.call(this, changed, options, userId));
+  }
+  // Otherwise, simply refresh the existing drawing
+  else PlaceableObject.prototype._onUpdate.call(this, changed, options, userId);
+};
+
+Hooks.once("init", () => {
+  if (!game.modules.get("levels")?.active) {
+    const elevation = Symbol("elevation");
+
+    Object.defineProperty(DrawingDocument.prototype, "elevation", {
+      get() {
+        return this[elevation] ?? 0;
+      },
+      set(value) {
+        this[elevation] = value;
+
+        if (this.rendered) {
+          canvas.primary.sortChildren();
+        }
+      }
+    });
+  }
+});

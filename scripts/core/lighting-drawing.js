@@ -59,23 +59,6 @@ Hooks.once("setup", () => {
             updateVisibility(drawing);
         }
     });
-
-    if (!game.modules.get("levels")?.active) {
-        const elevation = Symbol("elevation");
-
-        Object.defineProperty(DrawingDocument.prototype, "elevation", {
-            get() {
-                return this[elevation] ?? 0;
-            },
-            set(value) {
-                this[elevation] = value;
-
-                if (this.rendered) {
-                    canvas.primary.sortChildren();
-                }
-            }
-        });
-    }
 });
 
 export function updateLighting(drawing, { defer = false, deleted = false } = {}) {
