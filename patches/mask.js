@@ -25,6 +25,7 @@ CachedContainer.prototype.dirty = undefined;
 
     CanvasOcclusionMask.prototype.updateOcclusion = function () {
         this.dirty = true;
+        canvas.masks.depth.dirty = true;
 
         return original.apply(this, arguments);
     }
