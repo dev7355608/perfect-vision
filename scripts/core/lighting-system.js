@@ -1124,7 +1124,8 @@ export class LightingRegion {
         }
 
         if (!this.geometry || "globalLight" in changes && ("x" in changes.globalLight || "y" in changes.globalLight)) {
-            const softEdges = this.source._flags.renderSoftEdges = canvas.performance.lightSoftEdges
+            // TODO: bring soft edges back
+            const softEdges = this.source._flags.renderSoftEdges = false && canvas.performance.lightSoftEdges
                 && this.id !== "globalLight" && !data.texture;
             const options = {
                 falloffDistance: softEdges ? Math.abs(PointSource.EDGE_OFFSET) : 0,
