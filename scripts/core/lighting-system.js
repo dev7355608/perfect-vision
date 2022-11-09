@@ -479,17 +479,21 @@ export class LightingSystem {
 
         this.activeRegions.sort(LightingRegion._compare);
 
-        let previousRegion;
+        const previousRegions = [];
 
         for (const region of this.activeRegions) {
             let zIndex;
 
-            if (previousRegion) {
-                if (region.elevation !== previousRegion.elevation
-                    || region.bounds.intersects(previousRegion.bounds)) {
-                    zIndex = previousRegion.zIndex + 1;
+            if (previousRegions.length) {
+                const r = previousRegions[previousRegions.length - 1];
+
+                if (region.elevation !== r.elevation) {
+                    zIndex = r.zIndex + 1;
+                    previousRegions.length = 0;
+                } else if (previousRegions.some(r => region.bounds.intersects(r.bounds))) {
+                    zIndex = r.zIndex + 1;
                 } else {
-                    zIndex = previousRegion.zIndex;
+                    zIndex = r.zIndex;
                 }
             } else {
                 zIndex = 0;
@@ -509,7 +513,7 @@ export class LightingSystem {
                 Notifications.warn("The depth buffer precision has been exceeded. Too many unique elevations.");
             }
 
-            previousRegion = region;
+            previousRegions.push(region);
         }
 
         const perception = { ...this.#perception };
