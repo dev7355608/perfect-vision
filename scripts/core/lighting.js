@@ -190,6 +190,10 @@ Hooks.once("setup", () => {
                         region.object.mesh.shader.uniforms.depthElevation = region.depth;
                     }
                 }
+
+                this.refreshLightSources();
+                this.refreshVisionSources();
+                canvas.masks.occlusion.updateOcclusion();
             }
 
             delete perception.refreshDepth;
