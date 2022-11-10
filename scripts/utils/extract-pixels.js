@@ -70,7 +70,7 @@ export function unpremultiplyPixels(pixels) {
     for (let i = 0; i < n; i += 4) {
         const alpha = pixels[i + 3];
 
-        if (alpha === 0) {
+        if (alpha !== 0) {
             const a = 255 / alpha;
 
             pixels[i] = pixels[i] * a + 0.5;

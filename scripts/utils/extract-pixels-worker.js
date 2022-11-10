@@ -23,14 +23,14 @@ function pixelsToCanvas(pixels, width, height) {
  * @returns {Promise<string>} The base64 string of the canvas.
  */
 async function canvasToBase64(canvas, type, quality) {
-    return canvas.convertToBlob().then(
+    return canvas.convertToBlob({ type, quality }).then(
         blob => new Promise((resolve, reject) => {
             const reader = new FileReader();
 
             reader.onload = () => resolve(reader.result);
             reader.onerror = reject;
             reader.readAsDataURL(blob);
-        }, type, quality)
+        })
     );
 }
 
