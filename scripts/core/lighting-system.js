@@ -5,7 +5,7 @@ import { Notifications } from "../utils/notifications.js";
 import { Shape } from "../utils/shape.js";
 import { SmoothGeometry, SmoothMesh } from "../utils/smooth-mesh.js";
 import { ShaderPatcher } from "../utils/shader-patcher.js";
-import { DepthStencilShader } from "./point-source-shader.js";
+import { DepthShader } from "./point-source-shader.js";
 
 const tempPoint = new PIXI.Point();
 const tempMatrix = new PIXI.Matrix();
@@ -1314,11 +1314,10 @@ export class LightingRegion {
             return;
         }
 
-        const depthShader = DepthStencilShader.instance;
+        const depthShader = DepthShader.instance;
 
         depthShader.texture = this.texture ?? PIXI.Texture.WHITE;
         depthShader.textureMatrix = this.source._textureMatrix ?? PIXI.Matrix.IDENTITY;
-        depthShader.alphaThreshold = 0.75;
         depthShader.depthElevation = this.depth;
 
         const originalShader = mesh.shader;

@@ -1,6 +1,6 @@
 import { ShaderPatcher } from "../utils/shader-patcher.js";
 
-export class DepthStencilShader extends PIXI.Shader {
+export class StencilShader extends PIXI.Shader {
     static vertexShader = `\
         attribute vec2 aVertexPosition;
 
@@ -19,15 +19,11 @@ export class DepthStencilShader extends PIXI.Shader {
         varying vec2 vTextureCoord;
 
         uniform sampler2D sampler;
-        uniform float alphaThreshold;
-        uniform float depthElevation;
 
         void main() {
-            if (texture2D(sampler, vTextureCoord).a <= alphaThreshold) {
+            if (texture2D(sampler, vTextureCoord).a <= 0.75) {
                 discard;
             }
-
-            gl_FragColor = vec4(0.0, 0.0, 0.0, depthElevation);
         }`;
 
     /**
@@ -37,9 +33,7 @@ export class DepthStencilShader extends PIXI.Shader {
      */
     static defaultUniforms = {
         sampler: PIXI.Texture.WHITE,
-        textureMatrix: PIXI.Matrix.IDENTITY,
-        alphaThreshold: 0.75,
-        depthElevation: 0
+        textureMatrix: PIXI.Matrix.IDENTITY
     };
 
     static #program;
@@ -47,12 +41,12 @@ export class DepthStencilShader extends PIXI.Shader {
     /**
      * Create a new instance.
      * @param {object} [defaultUniforms]- The default uniforms.
-     * @returns {DepthStencilShader}
+     * @returns {StencilShader}
      */
     static create(defaultUniforms = {}) {
-        const program = DepthStencilShader.#program ??= PIXI.Program.from(
-            DepthStencilShader.vertexShader,
-            DepthStencilShader.fragmentShader
+        const program = StencilShader.#program ??= PIXI.Program.from(
+            StencilShader.vertexShader,
+            StencilShader.fragmentShader
         );
         const uniforms = foundry.utils.mergeObject(
             this.defaultUniforms,
@@ -65,10 +59,10 @@ export class DepthStencilShader extends PIXI.Shader {
 
     /**
      * A shared instance.
-     * @type {DepthStencilShader}
+     * @type {StencilShader}
      * @readonly
      */
-    static instance = DepthStencilShader.create();
+    static instance = StencilShader.create();
 
     /**
      * The texture.
@@ -93,17 +87,98 @@ export class DepthStencilShader extends PIXI.Shader {
     set textureMatrix(value) {
         this.uniforms.textureMatrix = value;
     }
+}
+
+export class DepthShader extends PIXI.Shader {
+    static vertexShader = `\
+        attribute vec2 aVertexPosition;
+
+        uniform mat3 projectionMatrix;
+        uniform mat3 translationMatrix;
+        uniform mat3 textureMatrix;
+
+        varying vec2 vTextureCoord;
+
+        void main() {
+            vTextureCoord = (textureMatrix * vec3(aVertexPosition, 1.0)).xy;
+            gl_Position = vec4((projectionMatrix * (translationMatrix * vec3(aVertexPosition, 1.0))).xy, 0.0, 1.0);
+        }`;
+
+    static fragmentShader = `\
+        varying vec2 vTextureCoord;
+
+        uniform sampler2D sampler;
+        uniform float depthElevation;
+
+        void main() {
+            if (texture2D(sampler, vTextureCoord).a <= 0.75) {
+                discard;
+            }
+
+            gl_FragColor = vec4(0.0, 0.0, 0.0, depthElevation);
+        }`;
 
     /**
-     * The alpha threshold.
-     * @type {number}
+     * The default uniforms.
+     * @type {object}
+     * @readonly
      */
-    get alphaThreshold() {
-        return this.uniforms.alphaThreshold;
+    static defaultUniforms = {
+        sampler: PIXI.Texture.WHITE,
+        textureMatrix: PIXI.Matrix.IDENTITY,
+        depthElevation: 0
+    };
+
+    static #program;
+
+    /**
+     * Create a new instance.
+     * @param {object} [defaultUniforms]- The default uniforms.
+     * @returns {DepthShader}
+     */
+    static create(defaultUniforms = {}) {
+        const program = DepthShader.#program ??= PIXI.Program.from(
+            DepthShader.vertexShader,
+            DepthShader.fragmentShader
+        );
+        const uniforms = foundry.utils.mergeObject(
+            this.defaultUniforms,
+            defaultUniforms,
+            { inplace: false, insertKeys: false }
+        );
+
+        return new this(program, uniforms);
     }
 
-    set alphaThreshold(value) {
-        this.uniforms.alphaThreshold = value;
+    /**
+     * A shared instance.
+     * @type {DepthShader}
+     * @readonly
+     */
+    static instance = DepthShader.create();
+
+    /**
+     * The texture.
+     * @type {PIXI.Texture}
+     */
+    get texture() {
+        return this.uniforms.sampler;
+    }
+
+    set texture(value) {
+        this.uniforms.sampler = value;
+    }
+
+    /**
+     * The texture matrix.
+     * @type {PIXI.Texture}
+     */
+    get textureMatrix() {
+        return this.uniforms.textureMatrix;
+    }
+
+    set textureMatrix(value) {
+        this.uniforms.textureMatrix = value;
     }
 
     /**

@@ -1,4 +1,4 @@
-import { DepthStencilShader } from "./point-source-shader.js";
+import { StencilShader } from "./point-source-shader.js";
 import { SmoothGeometry, SmoothMesh } from "../utils/smooth-mesh.js";
 import { Console } from "../utils/console.js";
 
@@ -120,12 +120,11 @@ Hooks.once("libWrapper.Ready", () => {
  * @returns {PointSourceMesh}
  */
 PointSource.prototype._createMask = function () {
-    const mesh = this._updateMesh(this._createMesh(DepthStencilShader));
+    const mesh = this._updateMesh(this._createMesh(StencilShader));
     const shader = mesh.shader;
 
     shader.texture = this._texture ?? PIXI.Texture.WHITE;
     shader.textureMatrix = this._textureMatrix?.clone() ?? PIXI.Matrix.IDENTITY;
-    shader.alphaThreshold = 0.75;
 
     return mesh;
 };
