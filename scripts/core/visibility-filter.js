@@ -15,21 +15,16 @@ Hooks.once("setup", () => {
                     .setSource(this.fragmentShader)
                     .requireVariable("hasFogTexture")
                     .requireVariable("vMaskTextureCoord")
-                    .overrideVariable("backgroundColor")
                     .overrideVariable("exploredColor")
-                    .overrideVariable("unexploredColor")
                     .addUniform("colorBackgroundTexture", "sampler2D")
                     .addUniform("uniformLighting", "bool")
                     .wrapMain(`\
                         void main() {
                             if (uniformLighting) {
-                                backgroundColor = @backgroundColor;
                                 exploredColor = @exploredColor;
-                                unexploredColor = @unexploredColor;
                             } else {
-                                backgroundColor = texture2D(colorBackgroundTexture, vMaskTextureCoord).rgb;
-                                exploredColor = (@exploredColor / @backgroundColor) * backgroundColor;
-                                unexploredColor = (@unexploredColor / @backgroundColor) * backgroundColor;
+                                exploredColor = (@exploredColor / @backgroundColor)
+                                    * texture2D(colorBackgroundTexture, vMaskTextureCoord).rgb;
                             }
 
                             @main();
