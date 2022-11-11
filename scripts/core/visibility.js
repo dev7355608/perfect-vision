@@ -436,6 +436,10 @@ Hooks.once("setup", () => {
             // If no vision sources are present, the visibility is dependant of the type of user
             if (!visionSources.size) return game.user.isGM;
 
+            // Get scene rect to test that some points are not detected into the padding
+            const sr = canvas.dimensions.sceneRect;
+            const inBuffer = !sr.contains(point.x, point.y);
+
             // Prepare an array of test points depending on the requested tolerance
             let polygon;
             const offsets = tolerance > 0 ? radialOffsets : simpleOffsets;
@@ -478,12 +482,12 @@ Hooks.once("setup", () => {
             }
 
             const modes = CONFIG.Canvas.detectionModes;
-            const sceneRect = canvas.dimensions.sceneRect;
-            const inBuffer = !sceneRect.contains(point.x, point.y);
 
             // Second test basic detection tests for vision sources
             for (const visionSource of visionSources) {
-                if (!visionSource.active || inBuffer && sceneRect.contains(visionSource.x, visionSource.y)) continue;
+                if (!visionSource.active) continue;
+                // Skip sources that are not both inside the scene or both inside the buffer
+                if (inBuffer === sr.contains(visionSource.x, visionSource.y)) continue;
                 const token = visionSource.object.document;
                 const basic = token.detectionModes.find(m => m.id === DetectionMode.BASIC_MODE_ID);
                 if (!basic) continue;
@@ -495,7 +499,9 @@ Hooks.once("setup", () => {
             // Lastly test special detection modes for vision sources
             if (!(object instanceof Token)) { PerfectVision.testVisibility = testVisibilityStack.pop(); return false; } // Special detection modes can only detect tokens
             for (const visionSource of visionSources) {
-                if (!visionSource.active || inBuffer && sceneRect.contains(visionSource.x, visionSource.y)) continue;
+                if (!visionSource.active) continue;
+                // Skip sources that are not both inside the scene or both inside the buffer
+                if (inBuffer === sr.contains(visionSource.x, visionSource.y)) continue;
                 setElevation(visionSource, config);
                 const token = visionSource.object.document;
                 for (const mode of token.detectionModes) {

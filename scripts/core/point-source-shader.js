@@ -115,7 +115,9 @@ export class DepthShader extends PIXI.Shader {
                 discard;
             }
 
-            gl_FragColor = vec4(0.0, 0.0, 0.0, depthElevation);
+            gl_FragColor = ${!isNewerVersion("10.290", game.version)
+            ? "vec4(depthElevation, depthElevation, 0.0, 0.0)"
+            : "vec4(0.0, 0.0, 0.0, depthElevation)"};
         }`;
 
     /**

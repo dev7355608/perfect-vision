@@ -23,6 +23,9 @@ void main() {
 }
 `;
 
+OcclusionSamplerShader.batchFragmentShader = OcclusionSamplerShader.batchFragmentShader.replace(
+  /\bvDepthElevation \* rAlpha \* vColor\.a\b/, "rAlpha * vColor.a");
+
 Drawing.prototype._onUpdate = function (changed, options, userId) {
   // Fully re-draw when some drawing elements have changed
   const textChanged = ("text" in changed)

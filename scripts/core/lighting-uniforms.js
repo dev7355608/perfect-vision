@@ -63,6 +63,8 @@ function getCorrectedColor(level) {
             return 2;
         case levels.BRIGHTEST:
             return 3;
+        default:
+            return 1;
     }
 };
 

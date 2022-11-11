@@ -1314,6 +1314,10 @@ export class LightingRegion {
             return;
         }
 
+        if (this.occluded && this.occlusionMode === CONST.TILE_OCCLUSION_MODES.FADE) {
+            return;
+        }
+
         const depthShader = DepthShader.instance;
 
         depthShader.texture = this.texture ?? PIXI.Texture.WHITE;

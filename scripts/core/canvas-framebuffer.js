@@ -509,10 +509,19 @@ Hooks.once("setup", () => {
     let mask;
 
     Hooks.on("canvasReady", () => {
+        canvas.masks.depth.renderTexture.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+        canvas.masks.depth.renderTexture.baseTexture.update();
+        canvas.masks.occlusion.renderTexture.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+        canvas.masks.occlusion.renderTexture.baseTexture.update();
+
         if (!mask || mask.destroyed) {
             mask = new PIXI.Container();
             mask.render = () => CanvasFramebuffer.updateAll();
             mask.clear = () => { };
+        }
+
+        if (mask.parent) {
+            mask.parent.removeChild(mask);
         }
 
         canvas.masks.addChildAt(mask, canvas.masks.getChildIndex(canvas.masks.depth));

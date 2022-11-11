@@ -7,6 +7,8 @@ Hooks.once("setup", () => {
             delete change.actorLink;
         }
 
+        change = foundry.utils.mergeObject(this.original, change, { inplace: false });
+
         if (this instanceof DefaultTokenConfig) {
             this.object.updateSource(change, { recursive: false });
         } else {
