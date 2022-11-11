@@ -131,7 +131,7 @@ export async function canvasToBase64(canvas, type, quality) {
  * @returns {Promise<string>} The base64 string of the canvas.
  */
 export async function pixelsToBase64(pixels, width, height, type, quality, transfer) {
-    if (typeof OffscreenCanvas !== "undefined") {
+    if (ExtractPixelsWorker.supported) {
         return ExtractPixelsWorker.instance.pixelsToBase64(
             pixels, width, height, type, quality, transfer);
     }
@@ -140,6 +140,12 @@ export async function pixelsToBase64(pixels, width, height, type, quality, trans
 }
 
 class ExtractPixelsWorker extends Worker {
+    /**
+     * @type {boolean}
+     * @readonly
+     */
+    static supported = typeof OffscreenCanvas !== "undefined" && !!new OffscreenCanvas(0, 0).getContext("2d");
+
     static #instance;
 
     static get instance() {
