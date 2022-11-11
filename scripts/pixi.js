@@ -96,3 +96,47 @@ Object.defineProperties(
         }
     }
 );
+
+PIXI.Container.prototype._renderWithCulling = function (renderer) {
+    const sourceFrame = renderer.renderTexture.sourceFrame;
+
+    if (!(sourceFrame.width > 0 && sourceFrame.height > 0)) {
+        return;
+    }
+
+    let bounds;
+    let transform;
+
+    if (this.cullArea) {
+        bounds = this.cullArea;
+        transform = this.worldTransform;
+    } else if (this._render !== PIXI.Container.prototype._render) {
+        bounds = this.getBounds(true);
+    }
+
+    const projectionTransform = renderer.projection.transform;
+
+    if (projectionTransform) {
+        if (transform) {
+            transform = tempMatrix.copyFrom(transform);
+            transform.prepend(projectionTransform);
+        } else {
+            transform = projectionTransform;
+        }
+    }
+
+    if (bounds && sourceFrame.intersects(bounds, transform)) {
+        this._render(renderer);
+    } else if (this.cullArea) {
+        return;
+    }
+
+    for (let i = 0, j = this.children.length; i < j; ++i) {
+        const child = this.children[i];
+        const childCullable = child.cullable;
+
+        child.cullable = childCullable || !this.cullArea;
+        child.render(renderer);
+        child.cullable = childCullable;
+    }
+};

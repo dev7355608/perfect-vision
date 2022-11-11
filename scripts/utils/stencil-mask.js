@@ -26,6 +26,8 @@ function quadRender(renderer) {
     renderer.geometry.draw(PIXI.DRAW_MODES.TRIANGLE_STRIP, 4, 0);
 }
 
+const tempMatrix = new PIXI.Matrix();
+
 export class StencilMask extends PIXI.Container {
     /** @override */
     render(renderer) {
@@ -56,6 +58,17 @@ export class StencilMask extends PIXI.Container {
                 transform = this.worldTransform;
             } else if (this._render !== StencilMask.prototype._render) {
                 bounds = this.getBounds(true);
+            }
+
+            const projectionTransform = renderer.projection.transform;
+
+            if (projectionTransform) {
+                if (transform) {
+                    transform = tempMatrix.copyFrom(transform);
+                    transform.prepend(projectionTransform);
+                } else {
+                    transform = projectionTransform;
+                }
             }
 
             if (bounds && sourceFrame.intersects(bounds, transform)) {
