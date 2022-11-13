@@ -434,6 +434,8 @@ async function migratePreV10Packs(packs) {
                 }
             }
         } finally {
+            pack.clear();
+
             if (wasLocked) {
                 Console.info(`Relocking Compendium.${pack.collection}`);
 
