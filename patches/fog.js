@@ -1,5 +1,3 @@
-import { extractPixels, pixelsToBase64 } from "../scripts/utils/extract-pixels.js";
-
 /** Patched FogManager of Foundry VTT */
 CONFIG.Canvas.fogManager = FogManager = class FogManager {
 
@@ -267,11 +265,9 @@ CONFIG.Canvas.fogManager = FogManager = class FogManager {
         // intermediate texture to scale it down.
         const texture = this.#sprite.texture;
         if (!texture || !texture.baseTexture || !texture.baseTexture.valid) return;
-        const { pixels, width, height } = extractPixels(canvas.app.renderer, texture);
-        // We don't need to unpremultiply because the sprite texture is opaque.
-        // Convert the pixels data to a base64 string.
+        // Convert the pixels data to a base64 string asynchronously.
         const updateData = {
-            explored: await pixelsToBase64(pixels, width, height, "image/jpeg", 0.8, true),
+            explored: await canvas.app.renderer.plugins.extractAsync.base64(texture, "image/jpeg", 0.8),
             timestamp: Date.now()
         };
         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -343,7 +339,10 @@ CONFIG.Canvas.fogManager = FogManager = class FogManager {
             height,
             mipmap: PIXI.MIPMAP_MODES.OFF,
             scaleMode: PIXI.SCALE_MODES.LINEAR,
-            multisample: PIXI.MSAA_QUALITY.NONE
+            multisample: PIXI.MSAA_QUALITY.NONE,
+            // ~~~~[ Optimized Texture-To-Base64 Conversion ]~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            alphaMode: PIXI.ALPHA_MODES.NPM
+            // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         };
     }
 

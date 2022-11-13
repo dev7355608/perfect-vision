@@ -1,3 +1,5 @@
+import "./utils/extract.js";
+
 PIXI.GeometrySystem.prototype.checkCompatibility = function (geometry, program) { };
 
 const GLSLOptimizer = typeof WebAssembly === "object" ? await createGLSLOptimizerWasm() : undefined;
