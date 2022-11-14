@@ -12,7 +12,7 @@ Hooks.once("setup", () => {
         }
 
         if (this instanceof DefaultTokenConfig) {
-            this.object.updateSource(change, { recursive: false });
+            change = this.object.updateSource(change, { recursive: false });
         } else {
             const flagPrefix = "flags.perfect-vision" + (this instanceof TokenConfig ? ".light" : "");
             const visionLimitation = foundry.utils.getProperty(
@@ -25,7 +25,7 @@ Hooks.once("setup", () => {
                 { [`${flagPrefix}.-=visionLimitation`]: null },
                 { inplace: false, performDeletions: true }
             );
-            this.object.updateSource(change, { recursive: false });
+            change = this.object.updateSource(change, { recursive: false });
 
             if (visionLimitation !== undefined) {
                 this.object.updateSource({ [`${flagPrefix}.visionLimitation`]: visionLimitation });
