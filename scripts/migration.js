@@ -90,7 +90,7 @@ async function migratePreV10Scenes(scenes) {
     for (const scene of scenes) {
         Console.info(`Migrating ${scene.uuid}`);
 
-        {
+        if ("perfect-vision" in scene.flags) {
             const flags = scene.flags["perfect-vision"] ?? {};
             const update = {
                 "flags.perfect-vision.-=_version": null,
@@ -132,31 +132,33 @@ async function migratePreV10Scenes(scenes) {
 
         await scene.updateEmbeddedDocuments(
             "Token",
-            scene.tokens.map(document => {
-                const flags = document.flags["perfect-vision"] ?? {};
-                const update = {
-                    _id: document.id,
-                    "flags.perfect-vision.-=_version": null,
-                    "flags.perfect-vision.-=brightVisionInDarkness": null,
-                    "flags.perfect-vision.-=brightVisionInDimLight": null,
-                    "flags.perfect-vision.-=dimVisionInDarkness": null,
-                    "flags.perfect-vision.-=dimVisionInDimLight": null,
-                    "flags.perfect-vision.-=monoVisionColor": null,
-                    "flags.perfect-vision.-=sightLimit": null,
-                    "flags.perfect-vision.-=visionRules": null,
-                    "flags.perfect-vision.light.-=sightLimit": null
-                };
+            scene.tokens
+                .filter(document => "perfect-vision" in document.flags)
+                .map(document => {
+                    const flags = document.flags["perfect-vision"] ?? {};
+                    const update = {
+                        _id: document.id,
+                        "flags.perfect-vision.-=_version": null,
+                        "flags.perfect-vision.-=brightVisionInDarkness": null,
+                        "flags.perfect-vision.-=brightVisionInDimLight": null,
+                        "flags.perfect-vision.-=dimVisionInDarkness": null,
+                        "flags.perfect-vision.-=dimVisionInDimLight": null,
+                        "flags.perfect-vision.-=monoVisionColor": null,
+                        "flags.perfect-vision.-=sightLimit": null,
+                        "flags.perfect-vision.-=visionRules": null,
+                        "flags.perfect-vision.light.-=sightLimit": null
+                    };
 
-                if (flags.light?.sightLimit !== undefined) {
-                    update["flags.perfect-vision.light.visionLimitation.enabled"] = true;
-                    update["flags.perfect-vision.light.visionLimitation.sight"] = migrateNonnegativeNumber(flags.light.sightLimit);
-                } else if (!isPlainObject(flags.light) || Object.keys(flags.light).length === 0) {
-                    delete update["flags.perfect-vision.light.-=sightLimit"];
-                    update["flags.perfect-vision.-=light"] = null;
-                }
+                    if (flags.light?.sightLimit !== undefined) {
+                        update["flags.perfect-vision.light.visionLimitation.enabled"] = true;
+                        update["flags.perfect-vision.light.visionLimitation.sight"] = migrateNonnegativeNumber(flags.light.sightLimit);
+                    } else if (!isPlainObject(flags.light) || Object.keys(flags.light).length === 0) {
+                        delete update["flags.perfect-vision.light.-=sightLimit"];
+                        update["flags.perfect-vision.-=light"] = null;
+                    }
 
-                return prepareUpdate(document, update);
-            }),
+                    return prepareUpdate(document, update);
+                }),
             { noHook: true }
         );
 
@@ -164,22 +166,24 @@ async function migratePreV10Scenes(scenes) {
 
         await scene.updateEmbeddedDocuments(
             "AmbientLight",
-            scene.lights.map(document => {
-                const flags = document.flags["perfect-vision"] ?? {};
-                const update = {
-                    _id: document.id,
-                    "flags.perfect-vision.-=_version": null,
-                    "flags.perfect-vision.-=unrestricted": null,
-                    "flags.perfect-vision.-=sightLimit": null
-                };
+            scene.lights
+                .filter(document => "perfect-vision" in document.flags)
+                .map(document => {
+                    const flags = document.flags["perfect-vision"] ?? {};
+                    const update = {
+                        _id: document.id,
+                        "flags.perfect-vision.-=_version": null,
+                        "flags.perfect-vision.-=unrestricted": null,
+                        "flags.perfect-vision.-=sightLimit": null
+                    };
 
-                if (flags.sightLimit !== undefined) {
-                    update["flags.perfect-vision.visionLimitation.enabled"] = true;
-                    update["flags.perfect-vision.visionLimitation.sight"] = migrateNonnegativeNumber(flags.sightLimit);
-                }
+                    if (flags.sightLimit !== undefined) {
+                        update["flags.perfect-vision.visionLimitation.enabled"] = true;
+                        update["flags.perfect-vision.visionLimitation.sight"] = migrateNonnegativeNumber(flags.sightLimit);
+                    }
 
-                return prepareUpdate(document, update);
-            }),
+                    return prepareUpdate(document, update);
+                }),
             { noHook: true }
         );
 
@@ -187,21 +191,23 @@ async function migratePreV10Scenes(scenes) {
 
         await scene.updateEmbeddedDocuments(
             "MeasuredTemplate",
-            scene.templates.map(document => {
-                const flags = document.flags["perfect-vision"] ?? {};
-                const update = {
-                    _id: document.id,
-                    "flags.perfect-vision.-=_version": null,
-                    "flags.perfect-vision.-=sightLimit": null
-                };
+            scene.templates
+                .filter(document => "perfect-vision" in document.flags)
+                .map(document => {
+                    const flags = document.flags["perfect-vision"] ?? {};
+                    const update = {
+                        _id: document.id,
+                        "flags.perfect-vision.-=_version": null,
+                        "flags.perfect-vision.-=sightLimit": null
+                    };
 
-                if (flags.sightLimit !== undefined) {
-                    update["flags.perfect-vision.visionLimitation.enabled"] = true;
-                    update["flags.perfect-vision.visionLimitation.sight"] = migrateNonnegativeNumber(flags.sightLimit);
-                }
+                    if (flags.sightLimit !== undefined) {
+                        update["flags.perfect-vision.visionLimitation.enabled"] = true;
+                        update["flags.perfect-vision.visionLimitation.sight"] = migrateNonnegativeNumber(flags.sightLimit);
+                    }
 
-                return prepareUpdate(document, update);
-            }),
+                    return prepareUpdate(document, update);
+                }),
             { noHook: true }
         );
 
@@ -209,96 +215,98 @@ async function migratePreV10Scenes(scenes) {
 
         await scene.updateEmbeddedDocuments(
             "Drawing",
-            scene.drawings.map(document => {
-                const flags = document.flags["perfect-vision"] ?? {};
-                const update = {
-                    _id: document.id,
-                    "flags.perfect-vision.-=_version": null,
-                    "flags.perfect-vision.-=active": null,
-                    "flags.perfect-vision.-=origin": null,
-                    "flags.perfect-vision.-=parent": null,
-                    "flags.perfect-vision.-=revealed": null,
-                    "flags.perfect-vision.-=saturation": null,
-                    "flags.perfect-vision.-=sightLimit": null,
-                    "flags.perfect-vision.-=vision": null,
-                    "flags.perfect-vision.-=walls": null
-                };
+            scene.drawings
+                .filter(document => "perfect-vision" in document.flags)
+                .map(document => {
+                    const flags = document.flags["perfect-vision"] ?? {};
+                    const update = {
+                        _id: document.id,
+                        "flags.perfect-vision.-=_version": null,
+                        "flags.perfect-vision.-=active": null,
+                        "flags.perfect-vision.-=origin": null,
+                        "flags.perfect-vision.-=parent": null,
+                        "flags.perfect-vision.-=revealed": null,
+                        "flags.perfect-vision.-=saturation": null,
+                        "flags.perfect-vision.-=sightLimit": null,
+                        "flags.perfect-vision.-=vision": null,
+                        "flags.perfect-vision.-=walls": null
+                    };
 
-                if (flags.active && document.hidden) {
-                    update["hidden"] = false;
-                }
+                    if (flags.active && document.hidden) {
+                        update["hidden"] = false;
+                    }
 
-                if (flags.active) {
-                    update["flags.perfect-vision.enabled"] = true;
-                }
+                    if (flags.active) {
+                        update["flags.perfect-vision.enabled"] = true;
+                    }
 
-                if (flags.fit) {
-                    update["flags.perfect-vision.fit"] = true;
-                } else {
-                    update["flags.perfect-vision.-=fit"] = null;
-                }
+                    if (flags.fit) {
+                        update["flags.perfect-vision.fit"] = true;
+                    } else {
+                        update["flags.perfect-vision.-=fit"] = null;
+                    }
 
-                if (flags.parent && typeof flags.parent === "string") {
-                    update["flags.perfect-vision.prototype"] = flags.parent;
-                }
+                    if (flags.parent && typeof flags.parent === "string") {
+                        update["flags.perfect-vision.prototype"] = flags.parent;
+                    }
 
-                if (flags.revealed) {
-                    update["flags.perfect-vision.fogRevealed"] = true;
-                }
+                    if (flags.revealed) {
+                        update["flags.perfect-vision.fogRevealed"] = true;
+                    }
 
-                if (flags.globalLight !== undefined && !isPlainObject(flags.globalLight)) {
-                    update["flags.perfect-vision.globalLight.enabled"] = !!flags.globalLight;
-                }
+                    if (flags.globalLight !== undefined && !isPlainObject(flags.globalLight)) {
+                        update["flags.perfect-vision.globalLight.enabled"] = !!flags.globalLight;
+                    }
 
-                if (flags.globalLightThreshold !== undefined) {
-                    update["flags.perfect-vision.globalLight.darkness.max"] = migrateNonnegativeNumber(flags.globalLightThreshold) ?? 1;
-                }
+                    if (flags.globalLightThreshold !== undefined) {
+                        update["flags.perfect-vision.globalLight.darkness.max"] = migrateNonnegativeNumber(flags.globalLightThreshold) ?? 1;
+                    }
 
-                if (flags.vision !== undefined) {
-                    update["flags.perfect-vision.globalLight.vision"] = !!flags.vision;
-                }
+                    if (flags.vision !== undefined) {
+                        update["flags.perfect-vision.globalLight.vision"] = !!flags.vision;
+                    }
 
-                if (flags.darkness !== undefined) {
-                    update["flags.perfect-vision.darkness"] = Number.isFinite(flags.darkness) ? Math.clamped(flags.darkness, 0, 1) : 0;
-                }
+                    if (flags.darkness !== undefined) {
+                        update["flags.perfect-vision.darkness"] = Number.isFinite(flags.darkness) ? Math.clamped(flags.darkness, 0, 1) : 0;
+                    }
 
-                if (flags.sightLimit !== undefined) {
-                    update["flags.perfect-vision.visionLimitation.sight"] = migrateNonnegativeNumber(flags.sightLimit);
-                }
+                    if (flags.sightLimit !== undefined) {
+                        update["flags.perfect-vision.visionLimitation.sight"] = migrateNonnegativeNumber(flags.sightLimit);
+                    }
 
-                if (flags.walls && isPlainObject(flags.origin)) {
-                    const toNumber = x => Number.isFinite(x) ? x : 0;
-                    const origin = new PIXI.Point(
-                        toNumber(flags.origin.x ?? 0.5),
-                        toNumber(flags.origin.y ?? 0.5)
-                    );
-                    const transform = new PIXI.Matrix();
+                    if (flags.walls && isPlainObject(flags.origin)) {
+                        const toNumber = x => Number.isFinite(x) ? x : 0;
+                        const origin = new PIXI.Point(
+                            toNumber(flags.origin.x ?? 0.5),
+                            toNumber(flags.origin.y ?? 0.5)
+                        );
+                        const transform = new PIXI.Matrix();
 
-                    transform.translate(
-                        -document.shape.width / 2, -document.shape.height / 2);
-                    transform.rotate(Math.toRadians(document.rotation || 0));
-                    transform.translate(
-                        document.x + document.shape.width / 2,
-                        document.y + document.shape.height / 2);
-                    transform.apply(origin, origin);
+                        transform.translate(
+                            -document.shape.width / 2, -document.shape.height / 2);
+                        transform.rotate(Math.toRadians(document.rotation || 0));
+                        transform.translate(
+                            document.x + document.shape.width / 2,
+                            document.y + document.shape.height / 2);
+                        transform.apply(origin, origin);
 
-                    origin.x = Math.clamped(Math.round(origin.x), 0, scene.width);
-                    origin.y = Math.clamped(Math.round(origin.y), 0, scene.height);
+                        origin.x = Math.clamped(Math.round(origin.x), 0, scene.width);
+                        origin.y = Math.clamped(Math.round(origin.y), 0, scene.height);
 
-                    update["flags.perfect-vision.globalLight.x"] = toNumber(origin.x);
-                    update["flags.perfect-vision.globalLight.y"] = toNumber(origin.y);
-                }
+                        update["flags.perfect-vision.globalLight.x"] = toNumber(origin.x);
+                        update["flags.perfect-vision.globalLight.y"] = toNumber(origin.y);
+                    }
 
-                if (flags.daylightColor !== undefined) {
-                    update["flags.perfect-vision.daylightColor"] = migrateColorString(flags.daylightColor, 0x0F0F0F);
-                }
+                    if (flags.daylightColor !== undefined) {
+                        update["flags.perfect-vision.daylightColor"] = migrateColorString(flags.daylightColor, 0x0F0F0F);
+                    }
 
-                if (flags.darknessColor !== undefined) {
-                    update["flags.perfect-vision.darknessColor"] = migrateColorString(flags.darknessColor, 0x0F0F0F);
-                }
+                    if (flags.darknessColor !== undefined) {
+                        update["flags.perfect-vision.darknessColor"] = migrateColorString(flags.darknessColor, 0x0F0F0F);
+                    }
 
-                return prepareUpdate(document, update);
-            }),
+                    return prepareUpdate(document, update);
+                }),
             { noHook: true }
         );
     }
@@ -308,31 +316,33 @@ async function migratePreV10Actors(actors, pack) {
     Console.info(`Migrating ${pack ? pack + "." : ""}Actor`);
 
     await Actor.updateDocuments(
-        actors.map(document => {
-            const flags = document.prototypeToken?.flags["perfect-vision"] ?? {};
-            const update = {
-                _id: document.id,
-                "prototypeToken.flags.perfect-vision.-=_version": null,
-                "prototypeToken.flags.perfect-vision.-=brightVisionInDarkness": null,
-                "prototypeToken.flags.perfect-vision.-=brightVisionInDimLight": null,
-                "prototypeToken.flags.perfect-vision.-=dimVisionInDarkness": null,
-                "prototypeToken.flags.perfect-vision.-=dimVisionInDimLight": null,
-                "prototypeToken.flags.perfect-vision.-=monoVisionColor": null,
-                "prototypeToken.flags.perfect-vision.-=sightLimit": null,
-                "prototypeToken.flags.perfect-vision.-=visionRules": null,
-                "prototypeToken.flags.perfect-vision.light.-=sightLimit": null
-            };
+        actors
+            .filter(document => document.prototypeToken && "perfect-vision" in document.prototypeToken.flags)
+            .map(document => {
+                const flags = document.prototypeToken.flags["perfect-vision"] ?? {};
+                const update = {
+                    _id: document.id,
+                    "prototypeToken.flags.perfect-vision.-=_version": null,
+                    "prototypeToken.flags.perfect-vision.-=brightVisionInDarkness": null,
+                    "prototypeToken.flags.perfect-vision.-=brightVisionInDimLight": null,
+                    "prototypeToken.flags.perfect-vision.-=dimVisionInDarkness": null,
+                    "prototypeToken.flags.perfect-vision.-=dimVisionInDimLight": null,
+                    "prototypeToken.flags.perfect-vision.-=monoVisionColor": null,
+                    "prototypeToken.flags.perfect-vision.-=sightLimit": null,
+                    "prototypeToken.flags.perfect-vision.-=visionRules": null,
+                    "prototypeToken.flags.perfect-vision.light.-=sightLimit": null
+                };
 
-            if (flags.light?.sightLimit !== undefined) {
-                update["prototypeToken.flags.perfect-vision.light.visionLimitation.enabled"] = true;
-                update["prototypeToken.flags.perfect-vision.light.visionLimitation.sight"] = migrateNonnegativeNumber(flags.light.sightLimit);
-            } else if (!isPlainObject(flags.light) || Object.keys(flags.light).length === 0) {
-                delete update["prototypeToken.flags.perfect-vision.light.-=sightLimit"];
-                update["prototypeToken.flags.perfect-vision.-=light"] = null;
-            }
+                if (flags.light?.sightLimit !== undefined) {
+                    update["prototypeToken.flags.perfect-vision.light.visionLimitation.enabled"] = true;
+                    update["prototypeToken.flags.perfect-vision.light.visionLimitation.sight"] = migrateNonnegativeNumber(flags.light.sightLimit);
+                } else if (!isPlainObject(flags.light) || Object.keys(flags.light).length === 0) {
+                    delete update["prototypeToken.flags.perfect-vision.light.-=sightLimit"];
+                    update["prototypeToken.flags.perfect-vision.-=light"] = null;
+                }
 
-            return prepareUpdate(document, update, "prototypeToken");
-        }),
+                return prepareUpdate(document, update, "prototypeToken");
+            }),
         { noHook: true, pack }
     );
 }
