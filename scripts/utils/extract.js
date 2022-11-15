@@ -143,11 +143,11 @@ class ExtractSystem {
      * Extract a rectangular block of pixels from the texture.
      * @param {PIXI.DisplayObject|PIXI.RenderTexture|null} target - The target the pixels are extracted from; if `null`, the pixels are extracted from the renderer.
      * @param {PIXI.Rectangle} [frame] - The rectangle the pixels are extracted from.
-     * @param {"base64"|"bitmap"|"canvas"|"pixels"} type
+     * @param {"base64"|"bitmap"|"canvas"|"pixels"} func
      * @param {...*} args
      * @returns {Promise<string|ImageBitmap|HTMLCanvasElement|Uint8ClampedArray>}
      */
-    async #extract(target, frame, type, ...args) {
+    async #extract(target, frame, func, ...args) {
         const renderer = this.renderer;
         let renderTexture;
         let resolution;
@@ -184,14 +184,13 @@ class ExtractSystem {
         const height = Math.round(frame.bottom * resolution) - y;
         const pixelsSize = width * height * 4;
         const bufferSize = PIXI.utils.nextPow2(pixelsSize);
-        const pixels = type !== "pixels"
-            ? this.#getArray(bufferSize)
-            : new Uint8ClampedArray(pixelsSize);
-        const extract = { pixels, x, y, width, height, flipped, premultiplied };
+        const extract = { pixels: null, x, y, width, height, flipped, premultiplied };
         const gl = renderer.gl;
 
         try {
             if (renderer.context.webGLVersion === 1) {
+                const pixels = extract.pixels = this.#getArray(bufferSize);
+
                 gl.readPixels(x, y, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
             } else {
                 const buffer = this.#getBuffer(bufferSize);
@@ -221,6 +220,8 @@ class ExtractSystem {
                         setTimeout(wait, 0, gl.SYNC_FLUSH_COMMANDS_BIT);
                     });
 
+                    const pixels = extract.pixels = this.#getArray(bufferSize);
+
                     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, buffer);
                     gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, pixels, 0, pixelsSize);
                     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
@@ -234,11 +235,9 @@ class ExtractSystem {
             }
         }
 
-        const result = await this.#worker[type](extract, ...args);
+        const result = await this.#worker[func](extract, ...args);
 
-        if (type !== "pixels") {
-            this.#returnArray(extract.pixels);
-        }
+        this.#returnArray(extract.pixels);
 
         return result;
     }
@@ -256,6 +255,10 @@ class ExtractSystem {
      * @param {Uint8ClampedArray} array
      */
     #returnArray(array) {
+        if (!array?.byteLength) {
+            return;
+        }
+
         this.#arrays[array.length].push({ reference: array, touched: this.#count });
     }
 
@@ -419,11 +422,7 @@ class ExtractWorker extends Worker {
      * @returns {Promise<Uint8ClampedArray>}
      */
     async pixels(extract) {
-        if (extract.flipped || extract.premultiplied) {
-            return this.#process(extract);
-        }
-
-        return extract.pixels;
+        return this.#process(extract);
     }
 
     /**
@@ -570,11 +569,13 @@ onmessage = function (event) {
             }
 
             if (type !== undefined) {
-                const base64 = await pixelsToBase64(pixels, width, height, type, quality);
+                const result = await pixelsToBase64(pixels, width, height, type, quality);
 
-                postMessage({ id, result: base64, pixels }, [pixels.buffer]);
+                postMessage({ id, result, pixels }, [pixels.buffer]);
             } else {
-                postMessage({ id, result: pixels, pixels }, [pixels.buffer]);
+                const result = pixels.slice(0, width * height * 4);
+
+                postMessage({ id, result, pixels }, [pixels.buffer, result.buffer]);
             }
         } catch (e) {
             postMessage({ id, error: e.message, pixels }, [pixels.buffer]);
