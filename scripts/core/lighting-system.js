@@ -416,6 +416,9 @@ export class LightingSystem {
             }
         }
 
+        const suppressDepthWarning = this.activeRegions.length
+            && this.activeRegions[this.activeRegions.length - 1].zIndex > 255;
+
         this.activeRegions.length = 0;
 
         const visitedRegions = new Map();
@@ -479,41 +482,31 @@ export class LightingSystem {
 
         this.activeRegions.sort(LightingRegion._compare);
 
-        const previousRegions = [];
+        if (this.#perception.refreshDepth) {
+            const regionsAtSameElevation = [];
+            let zIndex = 0;
 
-        for (const region of this.activeRegions) {
-            let zIndex;
-
-            if (previousRegions.length) {
-                const r = previousRegions[previousRegions.length - 1];
-
-                if (region.elevation !== r.elevation) {
-                    zIndex = r.zIndex + 1;
-                    previousRegions.length = 0;
-                } else if (previousRegions.some(r => region.bounds.intersects(r.bounds))) {
-                    zIndex = r.zIndex + 1;
-                } else {
-                    zIndex = r.zIndex;
+            for (const region of this.activeRegions) {
+                if (regionsAtSameElevation.length) {
+                    if (region.elevation !== regionsAtSameElevation[0].elevation) {
+                        regionsAtSameElevation.length = 0;
+                        zIndex++;
+                    } else {
+                        zIndex = Math.max(zIndex, ...regionsAtSameElevation.filter(r =>
+                            region.globalLight !== r.globalLight &&
+                            region.bounds.intersects(r.bounds)).map(r => r.zIndex + 1));
+                    }
                 }
-            } else {
-                zIndex = 0;
-            }
 
-            if (region.zIndex !== zIndex) {
                 region.zIndex = zIndex;
-
-                this.#perception.refreshDepth = true;
+                region.depth = Math.min((zIndex + 52) / 255, 1);
+                regionsAtSameElevation.push(region);
             }
 
-            region.depth = (region.zIndex + 52) / 255;
-
-            if (region.depth > 1) {
-                region.depth = 1;
-
+            if (!suppressDepthWarning && this.activeRegions.length
+                && this.activeRegions[this.activeRegions.length - 1].zIndex > 255) {
                 Notifications.warn("The depth buffer precision has been exceeded. Too many unique elevations.");
             }
-
-            previousRegions.push(region);
         }
 
         const perception = { ...this.#perception };
@@ -879,10 +872,6 @@ export class LightingRegion {
             for (const key in perception) {
                 perception[key] = true;
             }
-
-            refreshLighting = true;
-            refreshVision = true;
-            refreshDepth = true;
         }
 
         if (this.object !== data.object) {
@@ -1102,6 +1091,7 @@ export class LightingRegion {
 
             this.geometry = null;
             polygonsChanged = true;
+            refreshDepth = true;
         }
 
         if (updateSource || "globalLight" in changes) {
