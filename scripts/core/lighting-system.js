@@ -1261,6 +1261,8 @@ export class LightingRegion {
         mesh.position.set(0, 0);
         mesh.scale.set(1);
         mesh.alpha = 1;
+        mesh.visible = true;
+        mesh.renderable = true;
         mesh.cullable = true;
 
         const uniforms = mesh.shader.uniforms;

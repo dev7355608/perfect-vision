@@ -95,22 +95,21 @@ export class LightingFramebuffer extends CanvasFramebuffer {
                 continue;
             }
 
-            stage.addChild(mesh);
+            const clear = region.darknessLevel === darknessLevel
+                && region.colors.background.equals(colors.background)
+                && region.colors.ambientDarkness.equals(colors.ambientDarkness);
 
-            mesh.renderable = false;
-
-            if (region.darknessLevel !== darknessLevel
-                || !region.colors.background.equals(colors.background)
-                || !region.colors.ambientDarkness.equals(colors.ambientDarkness)
-                || bounds?.some(b => b.intersects(region.bounds))) {
-                mesh.renderable = true;
+            if (!clear || bounds?.some(b => b.intersects(region.bounds))) {
+                stage.addChild(mesh);
 
                 if (this.blur) {
                     mesh.shader.uniforms.uColor1.set(region.colors.ambientDaylight.rgb);
                 }
 
-                bounds ??= [];
-                bounds.push(region.bounds);
+                if (!clear) {
+                    bounds ??= [];
+                    bounds.push(region.bounds);
+                }
             }
         }
 
@@ -135,12 +134,10 @@ export class LightingFramebuffer extends CanvasFramebuffer {
         stage.updateTransform();
         stage.disableTempParent(cacheParent);
 
-        const skipRender = () => { };
-
         this.invalidateOnOcclusionUpdate = false;
 
         for (const mesh of stage.children) {
-            if (!mesh.visible || !mesh.renderable || mesh.worldAlpha <= 0) {
+            if (!mesh.visible) {
                 continue;
             }
 
@@ -165,8 +162,10 @@ export class LightingFramebuffer extends CanvasFramebuffer {
                         this.invalidateOnOcclusionUpdate = true;
                     }
                 }
+
+                mesh.renderable = true;
             } else {
-                mesh.render = skipRender;
+                mesh.renderable = false;
             }
 
             mesh.cullable = false;
@@ -177,7 +176,7 @@ export class LightingFramebuffer extends CanvasFramebuffer {
         const renderable = !uniform.every(e => e);
 
         if (!renderable && !stage.renderable) {
-            stage.children.forEach(mesh => { delete mesh.render; mesh.cullable = true; });
+            stage.children.forEach(mesh => mesh.renderable = mesh.cullable = true);
 
             return;
         }
@@ -189,7 +188,7 @@ export class LightingFramebuffer extends CanvasFramebuffer {
         }
 
         this.render(renderer, stage, { skipUpdateTransform: true, resize: renderable });
-        stage.children.forEach(mesh => { delete mesh.render; mesh.cullable = true; });
+        stage.children.forEach(mesh => mesh.renderable = mesh.cullable = true);
 
         if (this.blur) {
             for (let i = 0; i < 3; i++) {
