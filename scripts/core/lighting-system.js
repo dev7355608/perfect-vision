@@ -503,9 +503,12 @@ export class LightingSystem {
                 regionsAtSameElevation.push(region);
             }
 
-            if (!suppressDepthWarning && this.activeRegions.length
+            if (game.user.isGM && !suppressDepthWarning && this.activeRegions.length
                 && this.activeRegions[this.activeRegions.length - 1].zIndex > 255) {
-                Notifications.warn("The depth buffer precision has been exceeded. Too many unique elevations.");
+                Notifications.warn(
+                    "The depth buffer precision has been exceeded. Too many unique elevations.",
+                    { permanent: true }
+                );
             }
         }
 
@@ -974,10 +977,18 @@ export class LightingRegion {
             refreshLighting = true;
         }
 
+        if ("daylightColor" in changes && data.daylightColor === 0 && this.data.daylightColor !== undefined && game.user.isGM) {
+            this.#notify("warn", "Daylight Color is black (#000000).");
+        }
+
         if (!this.colors.ambientDarkness.equals(data.darknessColor ?? defaults.darknessColor)) {
             this.colors.ambientDarkness = new foundry.utils.Color(data.darknessColor ?? defaults.darknessColor);
 
             refreshLighting = true;
+        }
+
+        if ("darknessColor" in changes && data.darknessColor === 0 && this.data.darknessColor !== undefined && game.user.isGM) {
+            this.#notify("warn", "Darkness Color is black (#000000).");
         }
 
         const backgroundColor = this.colors.ambientDaylight.mix(this.colors.ambientDarkness, this.darknessLevel);
@@ -1047,27 +1058,7 @@ export class LightingRegion {
             this.#shape = Shape.from(shape ?? new PIXI.Polygon(), transform);
 
             if (game.user.isGM && !this.#shape.strictlySimple) {
-                Notifications.error(
-                    `${this.object.constructor.name} `
-                    + `<tt>${this.object.id}</tt> is self-intersecting. `
-                    + `Click <a href="javascript:void(0);" onclick="(function() {`
-                    + `const layer = canvas.getLayerByEmbeddedName('${this.object.constructor.name}');`
-                    + `const object = layer.get('${this.object.id}');`
-                    + `if (!object) return;`
-                    + `layer.activate();`
-                    + `const bounds = object.bounds;`
-                    + `const x = bounds.x + bounds.width / 2;`
-                    + `const y = bounds.y + bounds.height / 2;`
-                    + `const scale = 0.5 * Math.min(`
-                    + `    canvas.app.screen.width / bounds.width,`
-                    + `    canvas.app.screen.height / bounds.height`
-                    + `);`
-                    + `object.control();`
-                    + `canvas.pan({ x, y, scale });`
-                    + `})();">here</a> to select it.`,
-                    { permanent: true, console: false }
-                );
-                Console.error(`${this.object.document.uuid} is self-intersecting`);
+                this.#notify("error", "The shape is self-intersecting.");
             }
         }
 
@@ -1600,6 +1591,38 @@ export class LightingRegion {
         clipper.Execute(ClipperLib.ClipType.ctUnion, paths, ClipperLib.PolyFillType.pftPositive, ClipperLib.PolyFillType.pftEvenOdd);
 
         return paths.map(p => Shape.createPolygonFromClipper(p, 1));
+    }
+
+    #notify(type, message) {
+        const object = this.object;
+
+        if (object) {
+            Console[type](`[${object.document.uuid}] ${message}`);
+
+            message = `<tt>[${object.constructor.name}.${object.id}]</tt> `
+                + message
+                + ` Click <a href="javascript:void(0);" onclick="(function() {`
+                + `const layer = canvas.getLayerByEmbeddedName('${object.constructor.name}');`
+                + `const object = layer.get('${object.id}');`
+                + `if (!object) return;`
+                + `layer.activate();`
+                + `const bounds = object.bounds;`
+                + `const x = bounds.x + bounds.width / 2;`
+                + `const y = bounds.y + bounds.height / 2;`
+                + `const scale = 0.5 * Math.min(`
+                + `    canvas.app.screen.width / bounds.width,`
+                + `    canvas.app.screen.height / bounds.height`
+                + `);`
+                + `object.control();`
+                + `canvas.pan({ x, y, scale });`
+                + `})();">here</a> to select it.`
+        } else {
+            Console[type](`[Scene] ${message}`);
+
+            message = `<tt>[Scene]</tt> ` + message;
+        }
+
+        Notifications[type](message, { permanent: true, console: false });
     }
 }
 
