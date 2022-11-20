@@ -172,15 +172,16 @@ CONFIG.Canvas.fogManager = FogManager = class FogManager {
 
         // Create a staging texture and render the entire fog container to it
         const dims = canvas.dimensions;
-        const tex = this.#getTexture();
+        const isRT = this.#sprite.texture instanceof PIXI.RenderTexture;
+        const tex = isRT ? this.#sprite.texture : this.#getTexture();
         const transform = new PIXI.Matrix(1, 0, 0, 1, -dims.sceneX, -dims.sceneY);
 
         // Render the currently revealed vision to the texture
-        canvas.app.renderer.render(this.#revealed, tex, undefined, transform);
+        this.#sprite.visible = !isRT;
+        canvas.app.renderer.render(this.#revealed, tex, !isRT, transform);
+        this.#sprite.visible = true;
 
-        // Return reusable RenderTexture to the pool, destroy past exploration textures
-        if (this.#sprite.texture instanceof PIXI.RenderTexture) this.#textures.push(this.#sprite.texture);
-        else this.#sprite.texture?.destroy();
+        if (!isRT) this.#sprite.texture?.destroy(true);
         this.#sprite.texture = tex;
 
         // Clear the pending container
@@ -194,6 +195,8 @@ CONFIG.Canvas.fogManager = FogManager = class FogManager {
         }
     }
 
+    _debouncedCommit = foundry.utils.debounce(this.commit.bind(this), 3000);
+
     /* -------------------------------------------- */
 
     /**
@@ -204,7 +207,9 @@ CONFIG.Canvas.fogManager = FogManager = class FogManager {
         if (CONFIG.debug.fog) console.debug("SightLayer | Loading saved FogExploration for Scene.");
 
         // Remove the previous render texture if one exists
-        if (this.#sprite?.texture?.valid) {
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        if (this.#sprite?.texture instanceof PIXI.RenderTexture) {
+            // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             this.#textures.push(this.#sprite.texture);
             this.#sprite.texture = null;
         }
@@ -255,6 +260,7 @@ CONFIG.Canvas.fogManager = FogManager = class FogManager {
     async save() {
         if (!this.tokenVision || !this.fogExploration || !this.exploration) return;
         if (!this.#updated) return;
+        this._debouncedCommit();
         this.#updated = false;
         this.#commitCounter = 0;
         if (CONFIG.debug.fog) console.debug("SightLayer | Saving exploration progress to FogExploration document.");
@@ -372,6 +378,7 @@ CONFIG.Canvas.fogManager = FogManager = class FogManager {
             const t = this.#textures.pop();
             t.destroy(true);
         }
+        this.#sprite.texture.destroy(true);
         this.#sprite.texture = PIXI.Texture.EMPTY;
     }
 
