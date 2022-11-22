@@ -7,7 +7,6 @@ import { SmoothGeometry, SmoothMesh } from "../utils/smooth-mesh.js";
 import { ShaderPatcher } from "../utils/shader-patcher.js";
 import { DepthShader } from "./point-source-shader.js";
 
-const tempPoint = new PIXI.Point();
 const tempMatrix = new PIXI.Matrix();
 
 /**
@@ -71,10 +70,7 @@ const tempMatrix = new PIXI.Matrix();
  * @property {object} [visionLimitation]
  * @property {object} [visionLimitation.detection]
  * @property {boolean} [visionLimitation.enabled]
- * @property {number} [visionLimitation.move]
- * @property {number} [visionLimitation.other]
  * @property {number} [visionLimitation.sight]
- * @property {number} [visionLimitation.sound]
  */
 
 /**
@@ -139,12 +135,9 @@ export class LightingSystem {
         data.lightLevels.dim = lightLevels.dim;
         data.lightLevels.halfdark = lightLevels.halfdark;
         data.lightLevels.dark = lightLevels.dark;
+        data.visionLimitation.detection = {};
         data.visionLimitation.enabled = false;
         data.visionLimitation.sight = Infinity;
-        data.visionLimitation.sound = Infinity;
-        data.visionLimitation.move = Infinity;
-        data.visionLimitation.other = Infinity;
-        data.visionLimitation.detection = {};
 
         for (const detectionMode of Object.values(CONFIG.Canvas.detectionModes)) {
             data.visionLimitation.detection[detectionMode.id] = Infinity;
@@ -352,8 +345,8 @@ export class LightingSystem {
 
     /**
      * Get the active region at the point and elevation.
-     * @param {{x: number, y: number}} point - The point.
-     * @param {number} [elevation=0] - The elevation.
+     * @param {{x: number, y: number, z: number|undefined}} point - The point.
+     * @param {number} [elevation] - The elevation.
      * @returns {LightingRegion|undefined} The region at this point and elevation if there is one.
      */
     getRegionAt(point, elevation) {
@@ -614,10 +607,7 @@ export class LightingRegion {
             visionLimitation: {
                 detection: undefined,
                 enabled: undefined,
-                move: undefined,
-                other: undefined,
-                sight: undefined,
-                sound: undefined,
+                sight: undefined
             }
         };
     }
@@ -689,11 +679,17 @@ export class LightingRegion {
          */
         this.bounds = null;
         /**
-         * The elevation.
+         * The elevation in grid units.
          * @type {number}
          * @readonly
          */
         this.elevation = 0;
+        /**
+         * The elevation in pixels.
+         * @type {number}
+         * @readonly
+         */
+        this.elevationZ = 0;
         /**
          * The sort.
          * @type {number}
@@ -819,13 +815,19 @@ export class LightingRegion {
 
     /**
      * Test whether the point at the elevation is in the region.
-     * @param {{x: number, y: number}} point - The point.
-     * @param {number} [elevation=0] - The elevation.
+     * @param {{x: number, y: number, z: number|undefined}} point - The point.
+     * @param {number} [elevation] - The elevation.
      * @returns {boolean} True if and only if the point at the elevation is contained in this region.
      */
     containsPoint(point, elevation) {
-        if ((elevation || 0) < this.elevation) {
-            return false;
+        if (elevation !== undefined) {
+            if (elevation < this.elevation) {
+                return false;
+            }
+        } else if (point.z !== undefined) {
+            if (point.z < this.elevationZ) {
+                return false;
+            }
         }
 
         if (this.texture && this.object?.containsPixel) {
@@ -887,6 +889,7 @@ export class LightingRegion {
 
         if (this.elevation !== data.elevation) {
             this.elevation = data.elevation;
+            this.elevationZ = data.elevation * (canvas.dimensions.size / canvas.dimensions.distance);
 
             refreshLighting = true;
             refreshVision = true;
@@ -1159,22 +1162,16 @@ export class LightingRegion {
         if (data.visionLimitation.enabled) {
             limits = {
                 ...data.visionLimitation.detection,
-                [DetectionMode.DETECTION_TYPES.SIGHT]: data.visionLimitation.sight,
-                [DetectionMode.DETECTION_TYPES.SOUND]: data.visionLimitation.sound,
-                [DetectionMode.DETECTION_TYPES.MOVE]: data.visionLimitation.move,
-                [DetectionMode.DETECTION_TYPES.OTHER]: data.visionLimitation.other
+                [DetectionMode.BASIC_MODE_ID]: data.visionLimitation.sight
             };
         } else {
-            limits = {
-                [DetectionMode.DETECTION_TYPES.SIGHT]: Infinity,
-                [DetectionMode.DETECTION_TYPES.SOUND]: Infinity,
-                [DetectionMode.DETECTION_TYPES.MOVE]: Infinity,
-                [DetectionMode.DETECTION_TYPES.OTHER]: Infinity
-            };
+            limits = {};
 
             for (const id in data.visionLimitation.detection) {
                 limits[id] = Infinity;
             }
+
+            limits[DetectionMode.BASIC_MODE_ID] = Infinity;
         }
 
         const limitData = {
@@ -1766,6 +1763,8 @@ export class LightingRegionSource extends GlobalLightSource {
     }
 }
 
+const tempPoint = { x: 0, y: 0, z: 0 };
+
 class LightingRegionSourcePolygon extends PIXI.Polygon {
     /** @type {LightingRegion} */
     #region;
@@ -1778,9 +1777,12 @@ class LightingRegionSourcePolygon extends PIXI.Polygon {
     }
 
     /** @override */
-    contains(x, y) {
-        return this.#region === LightingSystem.instance.getRegionAt(
-            tempPoint.set(x, y), PerfectVision.testVisibility?.elevation ?? 0);
+    contains(x, y, z = 0) {
+        tempPoint.x = x;
+        tempPoint.y = y;
+        tempPoint.z = z;
+
+        return this.#region === LightingSystem.instance.getRegionAt(tempPoint);
     }
 }
 

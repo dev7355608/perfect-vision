@@ -40,10 +40,7 @@ function updateVisionLimitation(template, { defer = false, deleted = false } = {
             mode: "min",
             limits: {
                 ...visionLimitation.detection,
-                [DetectionMode.DETECTION_TYPES.SIGHT]: visionLimitation.sight,
-                [DetectionMode.DETECTION_TYPES.SOUND]: visionLimitation.sound,
-                [DetectionMode.DETECTION_TYPES.MOVE]: visionLimitation.move,
-                [DetectionMode.DETECTION_TYPES.OTHER]: visionLimitation.other
+                [DetectionMode.BASIC_MODE_ID]: visionLimitation.sight
             },
             shapes: [{
                 points: Shape.from(

@@ -99,10 +99,7 @@ Hooks.once("setup", () => {
                 mode: source.isDarkness ? "min" : "max",
                 limits: {
                     ...visionLimitation.detection,
-                    [DetectionMode.DETECTION_TYPES.SIGHT]: visionLimitation.sight,
-                    [DetectionMode.DETECTION_TYPES.SOUND]: visionLimitation.sound,
-                    [DetectionMode.DETECTION_TYPES.MOVE]: visionLimitation.move,
-                    [DetectionMode.DETECTION_TYPES.OTHER]: visionLimitation.other
+                    [DetectionMode.BASIC_MODE_ID]: visionLimitation.sight
                 },
                 shapes,
                 priority: [2, source.data.z ?? (source.isDarkness ? 10 : 0)]

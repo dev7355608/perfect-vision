@@ -1423,6 +1423,24 @@ export class RayCaster {
     #originZ = 0;
 
     /**
+     * The x-coordinate of the current target.
+     * @type {number}
+     */
+    #targetX = 0;
+
+    /**
+     * The y-coordinate of the current target.
+     * @type {number}
+     */
+    #targetY = 0;
+
+    /**
+     * The z-coordinate of the current target.
+     * @type {number}
+     */
+    #targetZ = 0;
+
+    /**
      * @param {VolumetricRegion[]|RayCasterVolume[]} regions - The regions/volumes.
      * @param {Object<string,number>|Float64Array} senses - The senses.
      * @param {number} [minX] - The minimum x-coordinate.
@@ -1748,7 +1766,7 @@ export class RayCaster {
      * @param {number} originZ - The z-coordinate of the origin.
      * @returns {this}
      */
-    moveTo(originX, originY, originZ) {
+    setOrigin(originX, originY, originZ) {
         this.#originX = Math.round(originX * 256) / 256;
         this.#originY = Math.round(originY * 256) / 256;
         this.#originZ = Math.round(originZ * 256) / 256;
@@ -1757,18 +1775,32 @@ export class RayCaster {
     }
 
     /**
-     * Cast a ray to the target point.
+     * Set the target for the next ray casts.
      * @param {number} targetX - The x-coordinate of the target.
      * @param {number} targetY - The y-coordinate of the target.
      * @param {number} targetZ - The z-coordinate of the target.
-     * @param {boolean} [hitTest=false] - Test if the target is hit.
-     * @returns {number|boolean} The normalized distance the ray travels before losing all its energy if `hitTest` is false.
-     *                           If `hitTest` is true, a boolean is returned: true if and only if the ray reaches the target.
+     * @returns {this}
      */
-    castTo(targetX, targetY, targetZ, hitTest = false) {
+    setTarget(targetX, targetY, targetZ) {
+        this.#targetX = targetX;
+        this.#targetY = targetY;
+        this.#targetZ = targetZ;
+
+        return this;
+    }
+
+    /**
+     * Cast a ray from the origin to the target point.
+     * @param {boolean} [hitTest=false] - Return whether the ray hits the target instead of the normalized distance the ray has traveled.
+     * @returns {number|boolean}
+     */
+    castRay(hitTest = false) {
         const originX = this.#originX;
         const originY = this.#originY;
         const originZ = this.#originZ;
+        const targetX = this.#targetX;
+        const targetY = this.#targetY;
+        const targetZ = this.#targetZ;
         const velocityX = Math.trunc((targetX - originX) * 256) / 256;
         const velocityY = Math.trunc((targetY - originY) * 256) / 256;
         const velocityZ = Math.trunc((targetZ - originZ) * 256) / 256;
@@ -1839,7 +1871,11 @@ export class RayCaster {
             currentTime = 1;
         }
 
-        return hitTest ? currentTime >= 0.99999 /* TODO */ : currentTime;
+        if (currentTime >= 0.99999) { // TODO
+            currentTime = 1;
+        }
+
+        return hitTest ? currentTime === 1 : currentTime;
     }
 
     /**

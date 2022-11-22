@@ -11,27 +11,15 @@ Hooks.once("setup", () => {
         unitsToPixels = canvas.dimensions.size / canvas.dimensions.distance;
     });
 
-    function getRayCaster(visionSource, mode, type) {
+    function getRayCaster(visionSource, mode) {
         const minRadius = visionSource.object.w / 2;
         const modeId = mode.id;
         const modeRange = mode.range > 0 ? minRadius + mode.range * unitsToPixels : 0;
-        let rayCasterId = `${modeId} ${minRadius} ${modeRange}`;
-
-        if (type !== undefined) {
-            rayCasterId += "+";
-        }
-
+        const rayCasterId = `${modeId} ${minRadius} ${modeRange}`;
         let rayCaster = RayCastingSystem.instance.cache.get(rayCasterId);
 
         if (!rayCaster) {
-            const senses = {
-                $: minRadius,
-                [modeId]: modeRange
-            };
-
-            if (type !== undefined) {
-                senses[type] = Infinity;
-            }
+            const senses = { $: minRadius, [modeId]: modeRange };
 
             RayCastingSystem.instance.cache.set(
                 rayCasterId,
@@ -42,32 +30,15 @@ Hooks.once("setup", () => {
         return rayCaster;
     }
 
-    const castRay = game.modules.get("wall-height")?.active
-        ? (visionSource, mode, target, test, type) => {
-            const rayCaster = getRayCaster(visionSource, mode, type);
-            const point = test.point;
-            const sourceZ = visionSource.object.losHeight * unitsToPixels;
-            const targetZ = point.z ?? (target instanceof PlaceableObject ? (target.losHeight
-                ?? target.document.elevation
-                ?? target.document.flags.levels?.rangeBottom
-                ?? 0) * unitsToPixels : sourceZ);
+    function testRay(visionSource, mode, target, test) {
+        const point = test.point;
+        const sourceZ = visionSource.elevation * unitsToPixels;
 
-            return rayCaster
-                .moveTo(visionSource.x, visionSource.y, sourceZ)
-                .castTo(point.x, point.y, targetZ, true);
-        }
-        : (visionSource, mode, target, test, type) => {
-            const rayCaster = getRayCaster(visionSource, mode, type);
-            const point = test.point;
-            const sourceZ = visionSource.elevation * unitsToPixels;
-            const targetZ = point.z ?? (target instanceof Token
-                ? target.document.elevation * unitsToPixels
-                : sourceZ);
-
-            return rayCaster
-                .moveTo(visionSource.x, visionSource.y, sourceZ)
-                .castTo(point.x, point.y, targetZ, true);
-        };
+        return getRayCaster(visionSource, mode)
+            .setOrigin(visionSource.x, visionSource.y, sourceZ)
+            .setTarget(point.x, point.y, point.z ?? sourceZ)
+            .castRay(true);
+    }
 
     function testAngle(visionSource, point) {
         const { angle, rotation, externalRadius } = visionSource.data;
@@ -107,38 +78,32 @@ Hooks.once("setup", () => {
         "perfect-vision",
         "DetectionMode.prototype._testLOS",
         function (visionSource, mode, target, test) {
-            if (this.walls) {
-                const losCache = test.los;
-                let hasLOS = losCache.get(visionSource);
-
-                if (hasLOS === undefined) {
-                    const point = test.point;
-                    const los = visionSource.los;
-                    const constrained = isConstrained(los);
-
-                    if (!constrained || mode.id === DetectionMode.BASIC_MODE_ID) {
-                        hasLOS = los.contains(point.x, point.y);
-
-                        if (!constrained) {
-                            losCache.set(visionSource, hasLOS);
-                        }
-                    } else {
-                        hasLOS = testAngle(visionSource, point)
-                            && !CONFIG.Canvas.losBackend.testCollision(
-                                { x: visionSource.x, y: visionSource.y },
-                                point,
-                                { type: los.config.type, mode: "any", source: visionSource }
-                            );
-                        losCache.set(visionSource, hasLOS);
-                    }
-                }
-
-                if (!hasLOS) {
-                    return false;
-                }
+            if (!this.walls) {
+                return true;
             }
 
-            return castRay(visionSource, mode, target, test, this.type);
+            const losCache = test.los;
+            let hasLOS = losCache.get(visionSource);
+
+            if (hasLOS === undefined) {
+                const point = test.point;
+                const los = visionSource.los;
+
+                if (!isConstrained(los)) {
+                    hasLOS = los.contains(point.x, point.y);
+                } else {
+                    hasLOS = testAngle(visionSource, point)
+                        && !CONFIG.Canvas.losBackend.testCollision(
+                            { x: visionSource.x, y: visionSource.y },
+                            point,
+                            { type: los.config.type, mode: "any", source: visionSource }
+                        );
+                }
+
+                losCache.set(visionSource, hasLOS);
+            }
+
+            return hasLOS;
         },
         libWrapper.OVERRIDE,
         { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
@@ -148,7 +113,68 @@ Hooks.once("setup", () => {
         "perfect-vision",
         "DetectionMode.prototype._testRange",
         function (visionSource, mode, target, test) {
-            return castRay(visionSource, mode, target, test);
+            return mode.range > 0 && testRay(visionSource, mode, target, test);
+        },
+        libWrapper.OVERRIDE,
+        { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
+    );
+
+    const basicSightMode = { id: DetectionMode.BASIC_MODE_ID, range: Infinity, enabled: true };
+
+    libWrapper.register(
+        "perfect-vision",
+        "DetectionModeBasicSight.prototype._testPoint",
+        function (visionSource, mode, target, test) {
+            if (!this._testLOS(visionSource, mode, target, test)) {
+                return false;
+            }
+
+            if (!testRay(visionSource, basicSightMode, target, test)) {
+                return false;
+            }
+
+            const { x, y, z } = test.point;
+
+            if (mode.range > 0) {
+                const radius = visionSource.object.getLightRadius(mode.range);
+                const dx = x - visionSource.x;
+                const dy = y - visionSource.y;
+                const dz = z - visionSource.elevation * unitsToPixels;
+
+                if (dx * dx + dy * dy + dz * dz <= radius * radius) {
+                    return true;
+                }
+            }
+
+            for (const lightSource of canvas.effects.lightSources) {
+                if (!lightSource.active || lightSource.disabled) {
+                    continue;
+                }
+
+                if (lightSource.los.contains(x, y, z)) {
+                    return true;
+                }
+            }
+
+            return false;
+        },
+        libWrapper.OVERRIDE,
+        { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
+    );
+
+    libWrapper.register(
+        "perfect-vision",
+        "LightSource.prototype.testVisibility",
+        function ({ tests, object } = {}) {
+            if (!(this.data.vision && this._canDetectObject(object))) {
+                return false;
+            }
+
+            return tests.some(test => {
+                const { x, y, z } = test.point;
+
+                return this.los.contains(x, y, z);
+            });
         },
         libWrapper.OVERRIDE,
         { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }

@@ -58,41 +58,21 @@ export class VisionLimitationConfig extends DocumentSheet {
             || this.object instanceof foundry.data.PrototypeToken
             ? flags.light?.visionLimitation : flags.visionLimitation) ?? {};
         let sightLimit = visionLimitation.sight;
-        let soundLimit = visionLimitation.sound;
-        let moveLimit = visionLimitation.move;
-        let otherLimit = visionLimitation.other;
 
         if (!(this.object instanceof DrawingDocument)) {
             if (!Number.isFinite(sightLimit) || !(sightLimit >= 0)) {
                 sightLimit = null;
-            }
-
-            if (!Number.isFinite(soundLimit) || !(soundLimit >= 0)) {
-                soundLimit = null;
-            }
-
-            if (!Number.isFinite(moveLimit) || !(moveLimit >= 0)) {
-                moveLimit = null;
-            }
-
-            if (!Number.isFinite(otherLimit) || !(otherLimit >= 0)) {
-                otherLimit = null;
             }
         }
 
         const detectionLimits = [];
 
         for (const detectionMode of Object.values(CONFIG.Canvas.detectionModes)) {
-            let limit = visionLimitation.detection?.[detectionMode.id];
-
-            if (limit === undefined && !(this.object instanceof DrawingDocument)) {
-                switch (detectionMode.type) {
-                    case DetectionMode.DETECTION_TYPES.SIGHT: limit = sightLimit; break;
-                    case DetectionMode.DETECTION_TYPES.SOUND: limit = soundLimit; break;
-                    case DetectionMode.DETECTION_TYPES.MOVE: limit = moveLimit; break;
-                    case DetectionMode.DETECTION_TYPES.OTHER: limit = otherLimit; break;
-                }
+            if (detectionMode.id === DetectionMode.BASIC_MODE_ID) {
+                continue;
             }
+
+            let limit = visionLimitation.detection?.[detectionMode.id];
 
             if (limit !== undefined || !(this.object instanceof DrawingDocument)) {
                 if (!Number.isFinite(limit) || !(limit >= 0)) {
@@ -100,20 +80,10 @@ export class VisionLimitationConfig extends DocumentSheet {
                 }
             }
 
-            let typeLabel;
-
-            switch (detectionMode.type) {
-                case DetectionMode.DETECTION_TYPES.SIGHT: typeLabel = "PERFECTVISION.Sight"; break;
-                case DetectionMode.DETECTION_TYPES.SOUND: typeLabel = "PERFECTVISION.Sound"; break;
-                case DetectionMode.DETECTION_TYPES.MOVE: typeLabel = "PERFECTVISION.Move"; break;
-                case DetectionMode.DETECTION_TYPES.OTHER: typeLabel = "PERFECTVISION.Other"; break;
-            }
-
             detectionLimits.push({
                 id: detectionMode.id,
                 type: detectionMode.type,
                 label: game.i18n.localize(detectionMode.label),
-                typeLabel: game.i18n.localize(typeLabel),
                 limit
             });
         }
@@ -124,9 +94,6 @@ export class VisionLimitationConfig extends DocumentSheet {
             data,
             {
                 sightLimit,
-                soundLimit,
-                moveLimit,
-                otherLimit,
                 detectionLimits,
                 isEnabled: visionLimitation.enabled,
                 isToken: this.object instanceof TokenDocument || this.object instanceof foundry.data.PrototypeToken,
@@ -163,7 +130,6 @@ export class VisionLimitationConfig extends DocumentSheet {
     /** @override */
     activateListeners(html) {
         html.find('button[type="reset"]').click(this._onResetForm.bind(this));
-        html.find(`button[data-copy-limit]:not([data-copy-limit=""])`).click(this._onCopyLimit.bind(this));
 
         return super.activateListeners(html);
     }
@@ -180,28 +146,6 @@ export class VisionLimitationConfig extends DocumentSheet {
         event.preventDefault();
 
         LightingConfigHelper.resetDefaults(this);
-    }
-
-    /** @param {PointerEvent} event */
-    _onCopyLimit(event) {
-        event.preventDefault();
-
-        const type = event.currentTarget.dataset.copyLimit;
-        const value = event.currentTarget.previousElementSibling.value;
-
-        this.form
-            .querySelectorAll(`input[data-detection-type="${type}"]`)
-            .forEach(element => {
-                element.value = value;
-
-                const overrideBox = element.parentNode.querySelector(`input.perfect-vision--override[type="checkbox"]`);
-
-                if (overrideBox) {
-                    overrideBox.checked = true;
-                }
-            });
-
-        LightingConfigHelper.updateFormFields(this);
     }
 
     /** @override */

@@ -19,16 +19,12 @@ Hooks.once("setup", () => {
     function getRayCaster(visionSource) {
         const minRadius = visionSource.object.w / 2;
         const modeId = DetectionMode.BASIC_MODE_ID;
-        const modeRange = visionSource.data.radius;
-        const rayCasterId = `${modeId} ${minRadius} ${modeRange}+`;
+        const modeRange = Infinity;
+        const rayCasterId = `${modeId} ${minRadius} ${modeRange}`;
         let rayCaster = RayCastingSystem.instance.cache.get(rayCasterId);
 
         if (!rayCaster) {
-            const senses = {
-                $: minRadius,
-                [modeId]: modeRange,
-                [DetectionMode.DETECTION_TYPES.SIGHT]: Infinity
-            };
+            const senses = { $: minRadius, [modeId]: modeRange };
 
             RayCastingSystem.instance.cache.set(
                 rayCasterId,
@@ -65,28 +61,7 @@ Hooks.once("setup", () => {
         "VisionSource.prototype._createPolygon",
         function (wrapped, ...args) {
             let polygon = wrapped(...args);
-            const visionLimitation = new VisionLimitation(polygon, false);
-
-            if (visionLimitation.skip) {
-                if (PerfectVision.debug) {
-                    polygon.config.boundaryShapes.push(visionLimitation);
-                }
-            } else {
-                polygon = polygon.applyConstraint(visionLimitation, { scalingFactor: 100 });
-            }
-
-            return polygon;
-        },
-        libWrapper.WRAPPER,
-        { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
-    );
-
-    libWrapper.register(
-        "perfect-vision",
-        "VisionSource.prototype._createRestrictedPolygon",
-        function (wrapped, ...args) {
-            let polygon = wrapped(...args);
-            const visionLimitation = new VisionLimitation(polygon, true);
+            const visionLimitation = new VisionLimitation(polygon);
 
             if (visionLimitation.skip) {
                 if (PerfectVision.debug) {
@@ -122,9 +97,8 @@ class VisionLimitation extends PIXI.Polygon {
 
     /**
      * @param {PointSourcePolygon} polygon
-     * @param {boolean} [restricted=false]
      */
-    constructor(polygon, restricted = false) {
+    constructor(polygon) {
         super();
 
         const source = polygon.config.source;
@@ -137,8 +111,7 @@ class VisionLimitation extends PIXI.Polygon {
         };
         this.#senses = {
             $: source.object.w / 2,
-            [DetectionMode.BASIC_MODE_ID]: source.data.radius,
-            [DetectionMode.DETECTION_TYPES.SIGHT]: restricted ? 0 : Infinity
+            [DetectionMode.BASIC_MODE_ID]: Infinity
         };
 
         this.#compute(polygon);
@@ -185,7 +158,7 @@ class VisionLimitation extends PIXI.Polygon {
             this.#senses, minX, minY, minZ, maxX, maxY, maxZ, maxR
         );
 
-        rayCaster0.moveTo(ox, oy, oz);
+        rayCaster0.setOrigin(ox, oy, oz);
 
         const maxD = rayCaster0.maxD;
 
@@ -568,15 +541,15 @@ class VisionLimitation extends PIXI.Polygon {
     #castRays(rayCaster, c0x, c0y, c1x, c1y) {
         const { x, y, z } = this.origin;
 
-        rayCaster.moveTo(x, y, z);
+        rayCaster.setOrigin(x, y, z);
 
         const precision = canvas.dimensions.size / 10;
         const precision2 = precision * precision;
         const c0dx = c0x - x;
         const c0dy = c0y - y;
-        const t0 = rayCaster.castTo(c0x, c0y, z);
+        const t0 = rayCaster.setTarget(c0x, c0y, z).castRay();
 
-        if (t0 < 0.99999) {
+        if (t0 < 1) {
             this.#constrain = true;
         }
 
@@ -587,7 +560,7 @@ class VisionLimitation extends PIXI.Polygon {
 
         const c1dx = c1x - x;
         const c1dy = c1y - y;
-        const t1 = rayCaster.castTo(c1x, c1y, z);
+        const t1 = rayCaster.setTarget(c1x, c1y, z).castRay();
         const r1x = x + t1 * c1dx;
         const r1y = y + t1 * c1dy;
         let cdx = c1x - c0x;
@@ -633,13 +606,13 @@ class VisionLimitation extends PIXI.Polygon {
                 let u = Math.exp(fu0 + i1 * fud) - 1; u += u / (u + 1); // Math.sinh(fu0 + i1 * fud)
                 const dx = ndx + u * pdx;
                 const dy = ndy + u * pdy;
-                const t1 = rayCaster.castTo(x + dx, y + dy, z); // TODO: optimize?
+                const t1 = rayCaster.setTarget(x + dx, y + dy, z).castRay(); // TODO: optimize?
                 const x1 = x + t1 * dx;
                 const y1 = y + t1 * dy;
 
                 recur(i0, x0, y0, i1, x1, y1);
 
-                if (t1 < 0.99999) {
+                if (t1 < 1) {
                     this.#constrain = true;
                 }
 
@@ -651,7 +624,7 @@ class VisionLimitation extends PIXI.Polygon {
             recur(0, r0x, r0y, fuk, r1x, r1y);
         }
 
-        if (t1 < 0.99999) {
+        if (t1 < 1) {
             this.#constrain = true;
         }
 
