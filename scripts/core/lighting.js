@@ -114,7 +114,7 @@ Hooks.once("setup", () => {
                 }
             }
 
-            return 0.2;
+            return 0.19;
         },
         libWrapper.OVERRIDE,
         { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }

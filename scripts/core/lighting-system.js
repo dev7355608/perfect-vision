@@ -417,7 +417,7 @@ export class LightingSystem {
         }
 
         const suppressDepthWarning = this.activeRegions.length
-            && this.activeRegions[this.activeRegions.length - 1].zIndex > 255;
+            && this.activeRegions[this.activeRegions.length - 1].depthIndex > 255 - 51;
 
         this.activeRegions.length = 0;
 
@@ -484,27 +484,27 @@ export class LightingSystem {
 
         if (this.#perception.refreshDepth) {
             const regionsAtSameElevation = [];
-            let zIndex = 0;
+            let depthIndex = 0;
 
             for (const region of this.activeRegions) {
                 if (regionsAtSameElevation.length) {
                     if (region.elevation !== regionsAtSameElevation[0].elevation) {
                         regionsAtSameElevation.length = 0;
-                        zIndex++;
+                        depthIndex++;
                     } else {
-                        zIndex = Math.max(zIndex, ...regionsAtSameElevation.filter(r =>
+                        depthIndex = Math.max(depthIndex, ...regionsAtSameElevation.filter(r =>
                             region.globalLight !== r.globalLight &&
-                            region.bounds.intersects(r.bounds)).map(r => r.zIndex + 1));
+                            region.bounds.intersects(r.bounds)).map(r => r.depthIndex + 1));
                     }
                 }
 
-                region.zIndex = zIndex;
-                region.depth = Math.min((zIndex + 52) / 255, 1);
+                region.depthIndex = depthIndex;
+                region.depth = Math.min((depthIndex + 51) / 255, 1);
                 regionsAtSameElevation.push(region);
             }
 
             if (game.user.isGM && !suppressDepthWarning && this.activeRegions.length
-                && this.activeRegions[this.activeRegions.length - 1].zIndex > 255) {
+                && this.activeRegions[this.activeRegions.length - 1].depthIndex > 255 - 51) {
                 Notifications.warn(
                     "The depth buffer precision has been exceeded. Too many unique elevations.",
                     { permanent: true }
@@ -802,11 +802,11 @@ export class LightingRegion {
          */
         this.destroyed = false;
         /**
-         * Z-Index.
+         * The depth index.
          * @type {number}
          * @readonly
          */
-        this.zIndex = 0;
+        this.depthIndex = 0;
         /**
          * The depth.
          * @type {number}
