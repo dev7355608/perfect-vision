@@ -1745,7 +1745,6 @@ export class LightingRegionSource extends GlobalLightSource {
         mesh = super._updateMesh(mesh);
         mesh.elevation = this.#region.elevation;
         mesh.sort = this.#region.sort;
-        mesh.zIndex = 0;
 
         return mesh;
     }

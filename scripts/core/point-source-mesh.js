@@ -75,7 +75,6 @@ Hooks.once("libWrapper.Ready", () => {
             mesh.visible = mesh.renderable = true;
             mesh.elevation = this.elevation;
             mesh.sort = Infinity;
-            mesh.zIndex = this.data.z ?? (this.isDarkness ? 10 : 0);
 
             return mesh;
         },
@@ -121,6 +120,9 @@ Hooks.once("libWrapper.Ready", () => {
  */
 PointSource.prototype._createMask = function () {
     const mesh = this._updateMesh(this._createMesh(StencilShader));
+
+    mesh.zIndex = this.data.z ?? (this.isDarkness ? 10 : 0);
+
     const shader = mesh.shader;
 
     shader.texture = this._texture ?? PIXI.Texture.WHITE;
