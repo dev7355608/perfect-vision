@@ -1184,7 +1184,7 @@ export class LightingRegion {
             limits,
             elevation: this.elevation,
             height: Infinity,
-            priority: [this.object instanceof Drawing ? 2 : 1, this.sort]
+            priority: [1, this.elevation, this.object instanceof Drawing, this.sort]
         };
 
         let shapes;
