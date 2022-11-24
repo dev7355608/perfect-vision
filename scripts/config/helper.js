@@ -204,7 +204,7 @@ export class LightingConfigHelper {
                     }
                 }
             } else if (element.type === "number") {
-                element.placeholder = defaultValue ?? "";
+                element.placeholder = defaultValue !== Infinity ? (defaultValue ?? "") : "∞";
 
                 if (element.disabled) {
                     element.value = Number.isFinite(prototypeValue) ? prototypeValue : null;

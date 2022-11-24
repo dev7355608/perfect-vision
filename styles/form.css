@@ -53,3 +53,7 @@ form .detection-modes.perfect-vision .detection-mode .perfect-vision--detection-
     color: var(--color-text-dark-secondary);
     flex: 0;
 }
+
+input[type="number"].perfect-vision--range::placeholder {
+    font-size: var(--font-size-18);
+}
