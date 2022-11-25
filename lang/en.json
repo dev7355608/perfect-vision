@@ -27,7 +27,7 @@
     "PERFECTVISION.RevealFogHint": "Reveal the fog of war for all users. This does not override the saved fog exploration progress.",
     "PERFECTVISION.RoofLightingHint": "Choose the lighting and vision settings for the area above the roof.",
     "PERFECTVISION.Sight": "Sight",
-    "PERFECTVISION.SightLimit": "Sight Limit",
+    "PERFECTVISION.SightLimit": "Vision Limit",
     "PERFECTVISION.SightLimitHint": "Restrict the range of sight.",
     "PERFECTVISION.VisionLimitation": "Vision Limitation",
     "PERFECTVISION.VisionLimitationHint": "Configure the maximum range that Tokens can see.",

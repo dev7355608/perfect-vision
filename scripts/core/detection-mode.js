@@ -14,12 +14,12 @@ Hooks.once("setup", () => {
     function getRayCaster(visionSource, mode) {
         const minRadius = visionSource.object.w / 2;
         const modeId = mode.id;
-        const modeRange = mode.range > 0 ? minRadius + mode.range * unitsToPixels : 0;
-        const rayCasterId = `${modeId} ${minRadius} ${modeRange}`;
+        const modeRadius = mode.range > 0 ? minRadius + mode.range * unitsToPixels : 0;
+        const rayCasterId = `${modeId} ${modeRadius}-${minRadius}`;
         let rayCaster = RayCastingSystem.instance.cache.get(rayCasterId);
 
         if (!rayCaster) {
-            const senses = { $: minRadius, [modeId]: modeRange };
+            const senses = { $: minRadius, [modeId]: modeRadius };
 
             RayCastingSystem.instance.cache.set(
                 rayCasterId,
@@ -119,8 +119,6 @@ Hooks.once("setup", () => {
         { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
     );
 
-    const basicSightMode = { id: DetectionMode.BASIC_MODE_ID, range: Infinity, enabled: true };
-
     libWrapper.register(
         "perfect-vision",
         "DetectionModeBasicSight.prototype._testPoint",
@@ -129,17 +127,38 @@ Hooks.once("setup", () => {
                 return false;
             }
 
-            if (!testRay(visionSource, basicSightMode, target, test)) {
-                return false;
+            const minRadius = visionSource.object.w / 2;
+            const modeId = DetectionMode.BASIC_MODE_ID;
+            const modeRadius = visionSource._losRadius;
+            const rayCasterId = `${modeId} ${modeRadius}-${minRadius}`;
+            let rayCaster = RayCastingSystem.instance.cache.get(rayCasterId);
+
+            if (!rayCaster) {
+                const senses = { $: minRadius, [modeId]: modeRadius };
+
+                RayCastingSystem.instance.cache.set(
+                    rayCasterId,
+                    rayCaster = RayCastingSystem.instance.createRayCaster(senses)
+                );
             }
 
-            const { x, y, z } = test.point;
+            const sourceZ = visionSource.elevation * unitsToPixels;
+            let { x, y, z } = test.point;
+
+            z ??= sourceZ;
+
+            if (!rayCaster
+                .setOrigin(visionSource.x, visionSource.y, sourceZ)
+                .setTarget(x, y, z)
+                .castRay(true)) {
+                return false;
+            }
 
             if (mode.range > 0) {
                 const radius = visionSource.object.getLightRadius(mode.range);
                 const dx = x - visionSource.x;
                 const dy = y - visionSource.y;
-                const dz = z - visionSource.elevation * unitsToPixels;
+                const dz = z - sourceZ;
 
                 if (dx * dx + dy * dy + dz * dz <= radius * radius) {
                     return true;

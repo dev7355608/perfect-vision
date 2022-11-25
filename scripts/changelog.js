@@ -29,6 +29,15 @@ Hooks.once("ready", () => {
                   Furthermore, vision limitation is compatible with elevation and 3D-capable, and even roof/level
                   tiles are capable of defining these limitations now.`
         })
+        .addEntry({
+            version: "4.1.0",
+            title: "",
+            body: `\
+                - Simplified the *Vision Limitation* config. Removed *Sound/Move/Other Limit*:
+                  these limits didn't really serve any purpose. *Basic Sight* limit was also removed:
+                  *Basic Sight* is now restricted by *Sight Limit*, which was renamed to *Vision Limit*.
+                - Added the option to restrict the vision range of a token in illuminated areas.`
+        })
         .build()
         ?.render(true);
 });

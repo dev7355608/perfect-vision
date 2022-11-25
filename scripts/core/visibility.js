@@ -393,133 +393,135 @@ Hooks.once("setup", () => {
         libWrapper.WRAPPER
     );
 
-    const simpleOffsets = [new PIXI.Point()];
-    const radialOffsets = [
-        [0, 0], [-1, 0], [+1, 0], [0, -1], [0, +1],
-        [-Math.SQRT1_2, -Math.SQRT1_2],
-        [-Math.SQRT1_2, +Math.SQRT1_2],
-        [+Math.SQRT1_2, +Math.SQRT1_2],
-        [+Math.SQRT1_2, -Math.SQRT1_2]
-    ].map(args => new PIXI.Point(...args));
-    const setElevationZ = game.modules.get("wall-height")?.active
-        ? (config, source) => {
-            const object = config.object;
-            const z = (object instanceof PlaceableObject
-                ? object.losHeight
-                ?? object.document.elevation
-                ?? object.document.flags.levels?.rangeBottom
-                ?? 0
-                : (source.object.losHeight ?? source.elevation)) * (canvas.dimensions.size
-                    / canvas.dimensions.distance);
+    if (!game.modules.get("tokenvisibility")?.active) {
+        const simpleOffsets = [new PIXI.Point()];
+        const radialOffsets = [
+            [0, 0], [-1, 0], [+1, 0], [0, -1], [0, +1],
+            [-Math.SQRT1_2, -Math.SQRT1_2],
+            [-Math.SQRT1_2, +Math.SQRT1_2],
+            [+Math.SQRT1_2, +Math.SQRT1_2],
+            [+Math.SQRT1_2, -Math.SQRT1_2]
+        ].map(args => new PIXI.Point(...args));
+        const setElevationZ = game.modules.get("wall-height")?.active
+            ? (config, source) => {
+                const object = config.object;
+                const z = (object instanceof PlaceableObject
+                    ? object.losHeight
+                    ?? object.document.elevation
+                    ?? object.document.flags.levels?.rangeBottom
+                    ?? 0
+                    : source.elevation) * (canvas.dimensions.size
+                        / canvas.dimensions.distance);
 
-            for (const test of config.tests) {
-                test.point.z = z;
+                for (const test of config.tests) {
+                    test.point.z = z;
+                }
             }
-        }
-        : (config, source) => {
-            const object = config.object;
-            const z = (object instanceof Token
-                ? object.document.elevation
-                : source.elevation) * (canvas.dimensions.size
-                    / canvas.dimensions.distance);
+            : (config, source) => {
+                const object = config.object;
+                const z = (object instanceof Token
+                    ? object.document.elevation
+                    : source.elevation) * (canvas.dimensions.size
+                        / canvas.dimensions.distance);
 
-            for (const test of config.tests) {
-                test.point.z = z;
-            }
-        };
+                for (const test of config.tests) {
+                    test.point.z = z;
+                }
+            };
 
-    libWrapper.register(
-        "perfect-vision",
-        "CanvasVisibility.prototype.testVisibility",
-        function (point, { tolerance = 2, object = null } = {}) {
-            const { lightSources, visionSources } = canvas.effects;
+        libWrapper.register(
+            "perfect-vision",
+            "CanvasVisibility.prototype.testVisibility",
+            function (point, { tolerance = 2, object = null } = {}) {
+                const { lightSources, visionSources } = canvas.effects;
 
-            // If no vision sources are present, the visibility is dependant of the type of user
-            if (!visionSources.size) return game.user.isGM;
+                // If no vision sources are present, the visibility is dependant of the type of user
+                if (!visionSources.size) return game.user.isGM;
 
-            // Get scene rect to test that some points are not detected into the padding
-            const sr = canvas.dimensions.sceneRect;
-            const inBuffer = !sr.contains(point.x, point.y);
+                // Get scene rect to test that some points are not detected into the padding
+                const sr = canvas.dimensions.sceneRect;
+                const inBuffer = !sr.contains(point.x, point.y);
 
-            // Prepare an array of test points depending on the requested tolerance
-            let polygon;
-            const offsets = tolerance > 0 ? radialOffsets : simpleOffsets;
+                // Prepare an array of test points depending on the requested tolerance
+                let polygon;
+                const offsets = tolerance > 0 ? radialOffsets : simpleOffsets;
 
-            if (object instanceof Token && tolerance > 0) {
-                const radius = object.w / 2;
+                if (object instanceof Token && tolerance > 0) {
+                    const radius = object.w / 2;
 
-                tolerance = radius * Math.SQRT1_2;
-                polygon = TestVisibilityPolygon.get(object);
-                polygon.initialize({ x: point.x, y: point.y }, radius);
-            }
+                    tolerance = radius * Math.SQRT1_2;
+                    polygon = TestVisibilityPolygon.get(object);
+                    polygon.initialize({ x: point.x, y: point.y }, radius);
+                }
 
-            const tests = [];
+                const tests = [];
 
-            for (let i = 0, n = offsets.length; i < n; i++) {
-                const offset = offsets[i];
-                const x = point.x + tolerance * offset.x;
-                const y = point.y + tolerance * offset.y;
+                for (let i = 0, n = offsets.length; i < n; i++) {
+                    const offset = offsets[i];
+                    const x = point.x + tolerance * offset.x;
+                    const y = point.y + tolerance * offset.y;
 
-                if (polygon && i !== 0) {
-                    polygon.compute();
+                    if (polygon && i !== 0) {
+                        polygon.compute();
 
-                    if (!polygon.contains(x, y)) {
-                        continue;
+                        if (!polygon.contains(x, y)) {
+                            continue;
+                        }
+                    }
+
+                    tests.push({ point: new PIXI.Point(x, y), los: new Map() });
+                }
+
+                const config = { object, tests };
+
+                // First test basic detection for light sources which specifically provide vision
+                for (const lightSource of lightSources) {
+                    if (!lightSource.data.vision || !lightSource.active || lightSource.disabled) continue;
+                    setElevationZ(config, lightSource);
+                    const result = lightSource.testVisibility(config);
+                    if (result === true) return true;
+                }
+
+                const modes = CONFIG.Canvas.detectionModes;
+
+                // Second test basic detection tests for vision sources
+                for (const visionSource of visionSources) {
+                    if (!visionSource.active) continue;
+                    // Skip sources that are not both inside the scene or both inside the buffer
+                    if (inBuffer === sr.contains(visionSource.x, visionSource.y)) continue;
+                    const token = visionSource.object.document;
+                    const basic = token.detectionModes.find(m => m.id === DetectionMode.BASIC_MODE_ID);
+                    if (!basic) continue;
+                    setElevationZ(config, visionSource);
+                    const result = modes.basicSight.testVisibility(visionSource, basic, config);
+                    if (result === true) return true;
+                }
+
+                // Lastly test special detection modes for vision sources
+                if (!(object instanceof Token)) return false; // Special detection modes can only detect tokens
+                for (const visionSource of visionSources) {
+                    if (!visionSource.active) continue;
+                    // Skip sources that are not both inside the scene or both inside the buffer
+                    if (inBuffer === sr.contains(visionSource.x, visionSource.y)) continue;
+                    setElevationZ(config, visionSource);
+                    const token = visionSource.object.document;
+                    for (const mode of token.detectionModes) {
+                        if (mode.id === DetectionMode.BASIC_MODE_ID) continue;
+                        const dm = modes[mode.id];
+                        const result = dm?.testVisibility(visionSource, mode, config);
+                        if (result === true) {
+                            object.detectionFilter = dm.constructor.getDetectionFilter();
+                            return true;
+                        }
                     }
                 }
 
-                tests.push({ point: new PIXI.Point(x, y), los: new Map() });
-            }
-
-            const config = { object, tests };
-
-            // First test basic detection for light sources which specifically provide vision
-            for (const lightSource of lightSources) {
-                if (!lightSource.data.vision || !lightSource.active || lightSource.disabled) continue;
-                setElevationZ(config, lightSource);
-                const result = lightSource.testVisibility(config);
-                if (result === true) return true;
-            }
-
-            const modes = CONFIG.Canvas.detectionModes;
-
-            // Second test basic detection tests for vision sources
-            for (const visionSource of visionSources) {
-                if (!visionSource.active) continue;
-                // Skip sources that are not both inside the scene or both inside the buffer
-                if (inBuffer === sr.contains(visionSource.x, visionSource.y)) continue;
-                const token = visionSource.object.document;
-                const basic = token.detectionModes.find(m => m.id === DetectionMode.BASIC_MODE_ID);
-                if (!basic) continue;
-                setElevationZ(config, visionSource);
-                const result = modes.basicSight.testVisibility(visionSource, basic, config);
-                if (result === true) return true;
-            }
-
-            // Lastly test special detection modes for vision sources
-            if (!(object instanceof Token)) return false; // Special detection modes can only detect tokens
-            for (const visionSource of visionSources) {
-                if (!visionSource.active) continue;
-                // Skip sources that are not both inside the scene or both inside the buffer
-                if (inBuffer === sr.contains(visionSource.x, visionSource.y)) continue;
-                setElevationZ(config, visionSource);
-                const token = visionSource.object.document;
-                for (const mode of token.detectionModes) {
-                    if (mode.id === DetectionMode.BASIC_MODE_ID) continue;
-                    const dm = modes[mode.id];
-                    const result = dm?.testVisibility(visionSource, mode, config);
-                    if (result === true) {
-                        object.detectionFilter = dm.constructor.getDetectionFilter();
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        },
-        libWrapper.OVERRIDE,
-        { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
-    );
+                return false;
+            },
+            libWrapper.OVERRIDE,
+            { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
+        );
+    }
 });
 
 class GraphicsStencilMask extends StencilMask {

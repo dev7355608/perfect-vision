@@ -19,12 +19,12 @@ Hooks.once("setup", () => {
     function getRayCaster(visionSource) {
         const minRadius = visionSource.object.w / 2;
         const modeId = DetectionMode.BASIC_MODE_ID;
-        const modeRange = Infinity;
-        const rayCasterId = `${modeId} ${minRadius} ${modeRange}`;
+        const modeRadius = visionSource._losRadius;
+        const rayCasterId = `${modeId} ${modeRadius}-${minRadius}`;
         let rayCaster = RayCastingSystem.instance.cache.get(rayCasterId);
 
         if (!rayCaster) {
-            const senses = { $: minRadius, [modeId]: modeRange };
+            const senses = { $: minRadius, [modeId]: modeRadius };
 
             RayCastingSystem.instance.cache.set(
                 rayCasterId,
@@ -60,6 +60,11 @@ Hooks.once("setup", () => {
         "perfect-vision",
         "VisionSource.prototype._createPolygon",
         function (wrapped, ...args) {
+            this._losRadius = Math.max(
+                this.data.radius,
+                this.object.getLightRadius(this.object.document.flags?.["perfect-vision"]?.sight?.range ?? Infinity)
+            );
+
             let polygon = wrapped(...args);
             const visionLimitation = new VisionLimitation(polygon);
 
@@ -106,12 +111,11 @@ class VisionLimitation extends PIXI.Polygon {
         this.origin = {
             x: source.x,
             y: source.y,
-            z: (source.object.losHeight ?? source.elevation)
-                * (canvas.dimensions.size / canvas.dimensions.distance)
+            z: source.elevation * (canvas.dimensions.size / canvas.dimensions.distance)
         };
         this.#senses = {
             $: source.object.w / 2,
-            [DetectionMode.BASIC_MODE_ID]: Infinity
+            [DetectionMode.BASIC_MODE_ID]: source._losRadius
         };
 
         this.#compute(polygon);

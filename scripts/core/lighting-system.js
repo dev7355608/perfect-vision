@@ -1796,10 +1796,10 @@ class LightingRegionSourcePolygon extends PIXI.Polygon {
     }
 
     /** @override */
-    contains(x, y, z = 0) {
+    contains(x, y, z) {
         tempPoint.x = x;
         tempPoint.y = y;
-        tempPoint.z = z;
+        tempPoint.z = z ?? this.#region.elevationZ;
 
         return this.#region === LightingSystem.instance.getRegionAt(tempPoint);
     }
