@@ -121,6 +121,26 @@ Hooks.once("setup", () => {
 
     libWrapper.register(
         "perfect-vision",
+        "DetectionModeBasicSight.prototype.testVisibility",
+        function (wrapped, visionSource, mode, config = {}) {
+            const result = wrapped(visionSource, mode, config);
+
+            if (result === true) {
+                const object = config.object;
+
+                if (object instanceof Token) {
+                    object._basicVisible = true;
+                }
+            }
+
+            return result;
+        },
+        libWrapper.WRAPPER,
+        { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
+    );
+
+    libWrapper.register(
+        "perfect-vision",
         "DetectionModeBasicSight.prototype._testPoint",
         function (visionSource, mode, target, test) {
             if (!this._testLOS(visionSource, mode, target, test)) {

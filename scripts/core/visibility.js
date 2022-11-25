@@ -35,6 +35,19 @@ Hooks.once("setup", () => {
         libWrapper.OVERRIDE
     );
 
+    libWrapper.register(
+        "perfect-vision",
+        "CanvasVisibility.prototype.restrictVisibility",
+        function (wrapped, ...args) {
+            for (const token of canvas.tokens.placeables) {
+                token._basicVisible = false;
+            }
+
+            return wrapped(...args);
+        },
+        libWrapper.WRAPPER
+    );
+
     let revealed;
 
     libWrapper.register(
@@ -89,13 +102,18 @@ Hooks.once("setup", () => {
 
             const vision = canvas.masks.vision.createVision();
             const hasVisionSources = canvas.effects.visionSources.size > 0;
+            let globalLight;
+            let providesVision;
+            let fogExploration;
+            let fogRevealed;
 
             if (hasVisionSources) {
                 const region = LightingSystem.instance.getRegion("globalLight");
-                let globalLight = region.globalLight;
-                let providesVision = region.providesVision;
-                let fogExploration = region.fogExploration;
-                let fogRevealed = region.fogRevealed;
+
+                globalLight = region.globalLight;
+                providesVision = region.providesVision;
+                fogExploration = region.fogExploration;
+                fogRevealed = region.fogRevealed;
 
                 for (const region of LightingSystem.instance.activeRegions) {
                     if (globalLight !== region.globalLight) {
@@ -173,7 +191,7 @@ Hooks.once("setup", () => {
                                 .drawCircle(
                                     visionSource.x,
                                     visionSource.y,
-                                    canvas.dimensions.size / 2
+                                    visionSource.object.w / 2
                                 )
                                 .endFill();
                         }
@@ -371,6 +389,31 @@ Hooks.once("setup", () => {
 
             this.visible = hasVisionSources || !game.user.isGM;
             this.restrictVisibility();
+
+            if (hasVisionSources && fogRevealed !== true) {
+                let revealedTokens;
+
+                for (const token of canvas.tokens.placeables) {
+                    if (token.visible && token._basicVisible) {
+                        if (!revealedTokens) {
+                            revealedTokens = revealed.msk.addChild(new PIXI.LegacyGraphics());
+                            revealedTokens.beginFill();
+                        }
+
+                        revealedTokens.drawCircle(
+                            token.center.x,
+                            token.center.y,
+                            token.w / 2
+                        );
+                    }
+                }
+
+                if (revealedTokens) {
+                    revealedTokens.endFill();
+                    revealed.visible = true;
+                    revealed.mask = revealed.msk;
+                }
+            }
         },
         libWrapper.OVERRIDE
     );
