@@ -107,7 +107,10 @@ export function updateLighting(tile, { defer = false, deleted = false } = {}) {
         const { x, y, width, height, rotation, texture: { scaleX, scaleY }, elevation, sort } = document;
         const data = {
             object: tile, active, prototype, elevation, sort, occluded: tile.occluded, occlusionMode: document.occlusion.mode,
-            shape: { x, y, width, height, scaleX, scaleY, rotation }, texture: tile.texture
+            shape: { x, y, width, height, scaleX, scaleY, rotation }, texture: tile.texture,
+            height: CONFIG.Levels
+                ? (document.flags.levels?.rangeTop ?? Infinity) - document.elevation
+                : Infinity
         };
 
         if (!LightingSystem.instance.hasRegion(objectId)) {

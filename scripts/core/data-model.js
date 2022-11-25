@@ -257,6 +257,9 @@ export function extractLightingData(document) {
         data.shape = { x, y, width, height, rotation, points, bezierFactor, type };
         data.elevation = elevation;
         data.sort = sort;
+        data.height = CONFIG.Levels
+            ? (document.flags.levels?.rangeTop ?? Infinity) - document.elevation
+            : Infinity;
     }
 
     data.visionLimitation = prepareVisionLimitationData(data.visionLimitation, dimensions);

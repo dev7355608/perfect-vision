@@ -29,6 +29,7 @@ const tempMatrix = new PIXI.Matrix();
  * @property {boolean} fit
  * @property {number} elevation
  * @property {number} sort
+ * @property {number} height
  * @property {boolean} occluded
  * @property {number} occlusionMode
  * @property {boolean} [fogExploration]
@@ -565,6 +566,7 @@ export class LightingRegion {
             fit: false,
             elevation: 0,
             sort: 0,
+            height: Infinity,
             occluded: false,
             occlusionMode: 0,
             fogExploration: undefined,
@@ -697,6 +699,18 @@ export class LightingRegion {
          */
         this.sort = 0;
         /**
+         * The height in grid units.
+         * @type {number}
+         * @readonly
+         */
+        this.height = Infinity;
+        /**
+         * The height in pixels.
+         * @type {number}
+         * @readonly
+         */
+        this.heightZ = Infinity;
+        /**
          * Is occluded?
          * @type {boolean}
          * @readonly
@@ -821,11 +835,11 @@ export class LightingRegion {
      */
     containsPoint(point, elevation) {
         if (elevation !== undefined) {
-            if (elevation < this.elevation) {
+            if (elevation < this.elevation || elevation > this.elevation + this.height) {
                 return false;
             }
         } else if (point.z !== undefined) {
-            if (point.z < this.elevationZ) {
+            if (point.z < this.elevationZ || point.z > this.elevationZ + this.heightZ) {
                 return false;
             }
         }
@@ -903,6 +917,11 @@ export class LightingRegion {
             refreshLighting = true;
             refreshVision = true;
             refreshDepth = true;
+        }
+
+        if (this.height !== data.height) {
+            this.height = data.height;
+            this.heightZ = data.height * (canvas.dimensions.size / canvas.dimensions.distance);
         }
 
         if (this.occluded !== data.occluded) {
@@ -1180,7 +1199,7 @@ export class LightingRegion {
             mode: "set",
             limits,
             elevation: this.elevation,
-            height: Infinity,
+            height: this.height,
             priority: [1, this.elevation, this.object instanceof Drawing, this.sort]
         };
 
