@@ -347,6 +347,7 @@ CONFIG.Canvas.fogManager = FogManager = class FogManager {
             scaleMode: PIXI.SCALE_MODES.LINEAR,
             multisample: PIXI.MSAA_QUALITY.NONE,
             // ~~~~[ Optimized Texture-To-Base64 Conversion ]~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            format: PIXI.FORMATS.RED,
             alphaMode: PIXI.ALPHA_MODES.NPM
             // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         };
