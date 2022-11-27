@@ -1605,6 +1605,10 @@ export class LightingRegion {
         clipper.AddPaths(paths, ClipperLib.PolyType.ptSubject, true);
         clipper.Execute(ClipperLib.ClipType.ctUnion, paths, ClipperLib.PolyFillType.pftPositive, ClipperLib.PolyFillType.pftEvenOdd);
 
+        if (paths.length === 0) {
+            this.#notify("warn", "The underlying wall structure needs to be closed and completely contained within the shape in order for Fit To Walls to detect it.")
+        }
+
         return paths.map(p => Shape.createPolygonFromClipper(p, 1));
     }
 
@@ -1630,14 +1634,14 @@ export class LightingRegion {
                 + `);`
                 + `object.control();`
                 + `canvas.pan({ x, y, scale });`
-                + `})();">here</a> to select it.`
+                + `})();">here</a> to select the ${object.constructor.name.toLowerCase()}.`
         } else {
             Console[type](`[Scene] ${message}`);
 
             message = `<tt>[Scene]</tt> ` + message;
         }
 
-        Notifications[type](message, { permanent: true, console: false });
+        Notifications[type](message, { permanent: type === "error", console: false });
     }
 }
 
