@@ -252,6 +252,8 @@ export class LightingSystem {
         this.#regions.set(id, region);
         this.#setDirty(true);
 
+        RayCastingSystem.instance.createRegion(id);
+
         if (this.constructor.debug) {
             Console.debug(
                 "%s (%O) | Created %s (%O) | %O",
@@ -309,9 +311,11 @@ export class LightingSystem {
         if (!region.active) {
             region._destroy();
         }
-
         this.#regions.delete(id);
         this.#setDirty(true);
+
+        RayCastingSystem.instance.destroyRegion(id);
+        canvas.effects.lightSources.delete(id);
 
         if (this.constructor.debug) {
             Console.debug(
@@ -823,8 +827,6 @@ export class LightingRegion {
          * @readonly
          */
         this.depth = 0;
-
-        RayCastingSystem.instance.createRegion(id);
     }
 
     /**
@@ -1342,9 +1344,6 @@ export class LightingRegion {
     _destroy() {
         this.source.destroy();
         this.mesh.destroy({ children: true });
-
-        RayCastingSystem.instance.destroyRegion(this.id);
-        canvas.effects.lightSources.delete(this.id);
 
         if (this.constructor.debug) {
             Console.debug(
