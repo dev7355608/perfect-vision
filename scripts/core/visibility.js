@@ -436,7 +436,7 @@ Hooks.once("setup", () => {
         libWrapper.WRAPPER
     );
 
-    if (!game.modules.get("tokenvisibility")?.active) {
+    if (!game.modules.get("levels")?.active && !game.modules.get("tokenvisibility")?.active) {
         const simpleOffsets = [new PIXI.Point()];
         const radialOffsets = [
             [0, 0], [-1, 0], [+1, 0], [0, -1], [0, +1],
@@ -445,32 +445,17 @@ Hooks.once("setup", () => {
             [+Math.SQRT1_2, +Math.SQRT1_2],
             [+Math.SQRT1_2, -Math.SQRT1_2]
         ].map(args => new PIXI.Point(...args));
-        const setElevationZ = game.modules.get("wall-height")?.active
-            ? (config, source) => {
-                const object = config.object;
-                const z = (object instanceof PlaceableObject
-                    ? object.losHeight
-                    ?? object.document.elevation
-                    ?? object.document.flags.levels?.rangeBottom
-                    ?? 0
-                    : source.elevation) * (canvas.dimensions.size
-                        / canvas.dimensions.distance);
+        const setElevationZ = (config, source) => {
+            const object = config.object;
+            const z = (object instanceof Token
+                ? object.document.elevation
+                : source.elevation) * (canvas.dimensions.size
+                    / canvas.dimensions.distance);
 
-                for (const test of config.tests) {
-                    test.point.z = z;
-                }
+            for (const test of config.tests) {
+                test.point.z = z;
             }
-            : (config, source) => {
-                const object = config.object;
-                const z = (object instanceof Token
-                    ? object.document.elevation
-                    : source.elevation) * (canvas.dimensions.size
-                        / canvas.dimensions.distance);
-
-                for (const test of config.tests) {
-                    test.point.z = z;
-                }
-            };
+        };
 
         libWrapper.register(
             "perfect-vision",

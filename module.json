@@ -9,7 +9,7 @@
       "email": "dev7355608@gmail.com"
     }
   ],
-  "version": "4.1.0",
+  "version": "4.1.1",
   "compatibility": {
     "minimum": "10.286",
     "verified": "10.290",
@@ -45,8 +45,8 @@
   },
   "url": "https://github.com/dev7355608/perfect-vision",
   "manifest": "https://raw.githubusercontent.com/dev7355608/perfect-vision/main/module.json",
-  "download": "https://github.com/dev7355608/perfect-vision/archive/v4.1.0.zip",
-  "changelog": "https://github.com/dev7355608/perfect-vision/releases/tag/v4.1.0",
+  "download": "https://github.com/dev7355608/perfect-vision/archive/v4.1.1.zip",
+  "changelog": "https://github.com/dev7355608/perfect-vision/releases/tag/v4.1.1",
   "bugs": "https://github.com/dev7355608/perfect-vision/issues",
   "readme": "https://raw.githubusercontent.com/dev7355608/perfect-vision/main/README.md",
   "license": "https://raw.githubusercontent.com/dev7355608/perfect-vision/main/LICENSE"
