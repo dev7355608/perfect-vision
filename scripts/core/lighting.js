@@ -104,10 +104,10 @@ Hooks.once("setup", () => {
         "perfect-vision",
         "CONFIG.Canvas.groups.primary.groupClass.prototype.mapElevationAlpha",
         function (elevation) {
-            const activeRegions = LightingSystem.instance.activeRegions;
+            const regions = LightingSystem.instance.regions;
 
-            for (let i = activeRegions.length; i--;) {
-                const region = activeRegions[i];
+            for (let i = regions.length; i--;) {
+                const region = regions[i];
 
                 if (elevation >= region.elevation) {
                     return region.depth;
@@ -185,7 +185,7 @@ Hooks.once("setup", () => {
             if (perception.refreshDepth) {
                 canvas.masks.depth.dirty = true;
 
-                for (const region of LightingSystem.instance.activeRegions) {
+                for (const region of LightingSystem.instance.regions) {
                     if (region.object instanceof Tile && region.object.mesh) {
                         region.object.mesh.shader.uniforms.depthElevation = region.depth;
                     }

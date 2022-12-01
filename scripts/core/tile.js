@@ -6,7 +6,7 @@ Hooks.once("setup", () => {
     }
 
     Hooks.on("drawTile", tile => {
-        if (tile.isPreview || !tile.isRoof) {
+        if (tile.isPreview) {
             return;
         }
 
@@ -14,7 +14,7 @@ Hooks.once("setup", () => {
     });
 
     Hooks.on("refreshTile", tile => {
-        if (tile.isPreview || !tile.isRoof) {
+        if (tile.isPreview) {
             return;
         }
 
@@ -37,7 +37,7 @@ Hooks.once("setup", () => {
     });
 
     Hooks.on("destroyTile", tile => {
-        if (tile.isPreview || !tile.isRoof) {
+        if (tile.isPreview) {
             return;
         }
 
@@ -94,7 +94,7 @@ export function updateLighting(tile, { defer = false, deleted = false } = {}) {
     const document = tile.document;
     const objectId = `Tile.${document.id}`;
 
-    if (!deleted && tile.isRoof) {
+    if (!deleted) {
         const active = isActive(tile);
         let prototype = document.flags["perfect-vision"]?.lighting;
 
@@ -132,6 +132,10 @@ export function updateLighting(tile, { defer = false, deleted = false } = {}) {
 };
 
 function isActive(tile) {
+    if (!tile.isRoof) {
+        return false;
+    }
+
     if (tile.document.hidden || !tile.texture?.baseTexture.valid) {
         return false;
     }

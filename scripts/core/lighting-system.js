@@ -162,6 +162,13 @@ export class LightingSystem {
     activeRegions = [];
 
     /**
+     * The sorted array of all regions.
+     * @type {LightingRegion[]}
+     * @readonly
+     */
+    regions = [];
+
+    /**
      * The regions.
      * @type {Map<string,LightingRegion>}
      * @readonly
@@ -374,6 +381,7 @@ export class LightingSystem {
         }
 
         this.activeRegions.length = 0;
+        this.regions.length = 0;
         this.#regions.clear();
         this.#setDirty(true);
     }
@@ -413,9 +421,6 @@ export class LightingSystem {
                 region._destroy();
             }
         }
-
-        const suppressDepthWarning = this.activeRegions.length
-            && this.activeRegions[this.activeRegions.length - 1].depthIndex > 255 - 51;
 
         this.activeRegions.length = 0;
 
@@ -479,17 +484,18 @@ export class LightingSystem {
         }
 
         this.activeRegions.sort(LightingRegion._compare);
+        this.regions = Array.from(this.#regions.values()).sort(LightingRegion._compare);
 
         if (this.#perception.refreshDepth) {
             const regionsAtSameElevation = [];
             let depthIndex = 0;
 
-            for (const region of this.activeRegions) {
+            for (const region of this.regions) {
                 if (regionsAtSameElevation.length) {
                     if (region.elevation !== regionsAtSameElevation[0].elevation) {
                         regionsAtSameElevation.length = 0;
                         depthIndex++;
-                    } else {
+                    } else if (region.active) {
                         depthIndex = Math.max(depthIndex, ...regionsAtSameElevation.filter(r =>
                             region.globalLight !== r.globalLight &&
                             region.bounds.intersects(r.bounds)).map(r => r.depthIndex + 1));
@@ -501,12 +507,15 @@ export class LightingSystem {
                 regionsAtSameElevation.push(region);
             }
 
-            if (game.user.isGM && !suppressDepthWarning && this.activeRegions.length
-                && this.activeRegions[this.activeRegions.length - 1].depthIndex > 255 - 51) {
+            if (game.user.isGM && !this._suppressDepthWarning && depthIndex > 255 - 51) {
                 Notifications.warn(
                     "The depth buffer precision has been exceeded. Too many unique elevations.",
                     { permanent: true }
                 );
+
+                this._suppressDepthWarning = true;
+            } else {
+                this._suppressDepthWarning = false;
             }
         }
 
@@ -1248,10 +1257,10 @@ export class LightingRegion {
             if (refreshVision) {
                 perception.refreshVision = true;
             }
+        }
 
-            if (refreshDepth) {
-                perception.refreshDepth = true;
-            }
+        if (refreshDepth) {
+            perception.refreshDepth = true;
         }
     }
 
