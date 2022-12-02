@@ -349,7 +349,7 @@ class ExtractWorker extends Worker {
     }
 
     /**
-     * Is OffscreenCanvas with 2d context suppported?
+     * Is OffscreenCanvas with 2d context supported?
      * @type {boolean}
      * @readonly
      */
@@ -363,10 +363,6 @@ class ExtractWorker extends Worker {
     #nextTaskId = 0;
 
     constructor() {
-        if (!ExtractWorker.#isOffscreenCanvasSupported) {
-            throw new Error("ExtractWorker is not supported");
-        }
-
         super(ExtractWorker.objectURL);
 
         this.onmessage = this.#onMessage.bind(this);
