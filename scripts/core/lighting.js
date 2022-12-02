@@ -137,7 +137,9 @@ Hooks.once("setup", () => {
             wrapped(...args);
 
             for (const region of LightingSystem.instance) {
-                this.lightSources.set(region.id, region.source);
+                if (region.data.active) {
+                    this.lightSources.set(region.id, region.source);
+                }
             }
         },
         libWrapper.WRAPPER
@@ -175,7 +177,7 @@ Hooks.once("setup", () => {
             if (perception.refreshDepth) {
                 canvas.masks.depth.dirty = true;
 
-                for (const region of LightingSystem.instance.regions) {
+                for (const region of LightingSystem.instance) {
                     if (region.object instanceof Tile && region.object.mesh) {
                         region.object.mesh.shader.uniforms.depthElevation = region.depth;
                     }

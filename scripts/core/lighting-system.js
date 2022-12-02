@@ -162,13 +162,6 @@ export class LightingSystem {
     activeRegions = [];
 
     /**
-     * The sorted array of all regions.
-     * @type {LightingRegion[]}
-     * @readonly
-     */
-    regions = [];
-
-    /**
      * The regions.
      * @type {Map<string,LightingRegion>}
      * @readonly
@@ -387,7 +380,6 @@ export class LightingSystem {
         }
 
         this.activeRegions.length = 0;
-        this.regions.length = 0;
         this.#regions.clear();
         this.#setDirty(true);
     }
@@ -490,7 +482,6 @@ export class LightingSystem {
         }
 
         this.activeRegions.sort(LightingRegion._compare);
-        this.regions = Array.from(this.#regions.values()).sort(LightingRegion._compare);
 
         if (this.#perception.refreshDepth) {
             this.#elevationDepthMap.length = 0;
@@ -498,7 +489,7 @@ export class LightingSystem {
             const regionsAtSameElevation = [];
             let depthIndex = 0;
 
-            for (const region of this.regions) {
+            for (const region of Array.from(this.#regions.values()).sort(LightingRegion._compare)) {
                 if (regionsAtSameElevation.length) {
                     const previousRegion = regionsAtSameElevation[regionsAtSameElevation.length - 1];
 
@@ -553,7 +544,7 @@ export class LightingSystem {
     }
 
     /**
-     * Maps the elevation (in units) to the the color intensity.
+     * Maps the elevation (in units) to the color intensity.
      * @param {number} elevation - The elevation in units.
      * @returns {number} The color intensity in the range [0.19, 1.0].
      */
