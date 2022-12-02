@@ -1,7 +1,7 @@
 import { VisionLimitationConfig } from "./vision-limitation-config.js";
 
 Hooks.once("setup", () => {
-    function previewChanges(change) {
+    function previewChanges(change, reset = false) {
         if (this instanceof TokenConfig) {
             delete change.actorId;
             delete change.actorLink;
@@ -32,14 +32,18 @@ Hooks.once("setup", () => {
             }
         }
 
+        if (reset && isNewerVersion(game.version, "10.290")) {
+            return;
+        }
+
         if (this instanceof TokenConfig) {
             if (this.isPrototype) {
                 return;
             }
 
-            this.object._onUpdate(change, { animate: false, render: false }, game.user.id);
+            this.object._onUpdate(change, isNewerVersion(game.version, "10.290") ? { animate: false, render: false, preview: true } : { animate: false, render: false }, game.user.id);
         } else {
-            this.object._onUpdate(change, { render: false }, game.user.id);
+            this.object._onUpdate(change, isNewerVersion(game.version, "10.290") ? { render: false, preview: true } : { render: false }, game.user.id);
         }
     }
 
