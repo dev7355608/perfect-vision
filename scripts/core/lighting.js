@@ -104,17 +104,7 @@ Hooks.once("setup", () => {
         "perfect-vision",
         "CONFIG.Canvas.groups.primary.groupClass.prototype.mapElevationAlpha",
         function (elevation) {
-            const regions = LightingSystem.instance.regions;
-
-            for (let i = regions.length; i--;) {
-                const region = regions[i];
-
-                if (elevation >= region.elevation) {
-                    return region.depth;
-                }
-            }
-
-            return 0.19;
+            return LightingSystem.instance.mapElevationAlpha(elevation);
         },
         libWrapper.OVERRIDE,
         { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }

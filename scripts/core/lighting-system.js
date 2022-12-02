@@ -219,6 +219,12 @@ export class LightingSystem {
         refreshVisionSources: false,
     };
 
+    /**
+     * The flat list of elevation-depth pairs sorted by elevation in ascending order.
+     * @type {number[]}
+     */
+    #elevationDepthMap = [];
+
     [Symbol.iterator]() {
         return this.#regions.values();
     }
@@ -487,12 +493,17 @@ export class LightingSystem {
         this.regions = Array.from(this.#regions.values()).sort(LightingRegion._compare);
 
         if (this.#perception.refreshDepth) {
+            this.#elevationDepthMap.length = 0;
+
             const regionsAtSameElevation = [];
             let depthIndex = 0;
 
             for (const region of this.regions) {
                 if (regionsAtSameElevation.length) {
-                    if (region.elevation !== regionsAtSameElevation[0].elevation) {
+                    const previousRegion = regionsAtSameElevation[regionsAtSameElevation.length - 1];
+
+                    if (region.elevation !== previousRegion.elevation) {
+                        this.#elevationDepthMap.push(previousRegion.depth, region.elevation);
                         regionsAtSameElevation.length = 0;
                         depthIndex++;
                     } else if (region.active) {
@@ -500,11 +511,17 @@ export class LightingSystem {
                             region.globalLight !== r.globalLight &&
                             region.bounds.intersects(r.bounds)).map(r => r.depthIndex + 1));
                     }
+                } else {
+                    this.#elevationDepthMap.push(region.elevation);
                 }
 
                 region.depthIndex = depthIndex;
                 region.depth = Math.min((depthIndex + 51) / 255, 1);
                 regionsAtSameElevation.push(region);
+            }
+
+            if (regionsAtSameElevation.length) {
+                this.#elevationDepthMap.push(regionsAtSameElevation[regionsAtSameElevation.length - 1].depth);
             }
 
             if (game.user.isGM && !this._suppressDepthWarning && depthIndex > 255 - 51) {
@@ -533,6 +550,23 @@ export class LightingSystem {
         }
 
         return perception;
+    }
+
+    /**
+     * Maps the elevation (in units) to the the color intensity.
+     * @param {number} elevation - The elevation in units.
+     * @returns {number} The color intensity in the range [0.19, 1.0].
+     */
+    mapElevationAlpha(elevation) {
+        const depths = this.#elevationDepthMap;
+
+        for (let i = depths.length; i;) {
+            if (elevation >= depths[i -= 2]) {
+                return depths[i + 1];
+            }
+        }
+
+        return 0.19;
     }
 }
 
