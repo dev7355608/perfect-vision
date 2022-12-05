@@ -173,6 +173,7 @@ Hooks.once("setup", () => {
 
         if (RayCastingSystem.instance.refresh()) {
             canvas.effects.visibility.initializeSources();
+            canvas.effects.visibility.refresh();
         }
     });
 });
