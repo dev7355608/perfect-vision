@@ -59,3 +59,13 @@ Hooks.once("init", () => {
         });
     }
 });
+
+Hooks.once("ready", () => {
+    const electron = navigator.userAgent.match(/Electron\/(\d+)\./);
+    if (electron && parseInt(electron[1]) < 20) {
+        const err = game.i18n.localize("ERROR.ElectronVersion");
+        if (ui.notifications) ui.notifications.error(err, { permanent: true });
+        console.error(err);
+        return;
+    }
+});
