@@ -6,7 +6,7 @@ Hooks.once("setup", () => {
     }
 
     Hooks.on("drawTile", tile => {
-        if (tile.isPreview) {
+        if (tile.isPreview || !tile.document.overhead) {
             return;
         }
 
@@ -14,7 +14,7 @@ Hooks.once("setup", () => {
     });
 
     Hooks.on("refreshTile", tile => {
-        if (tile.isPreview) {
+        if (tile.isPreview || !tile.document.overhead) {
             return;
         }
 
@@ -37,7 +37,7 @@ Hooks.once("setup", () => {
     });
 
     Hooks.on("destroyTile", tile => {
-        if (tile.isPreview) {
+        if (tile.isPreview || !tile.document.overhead) {
             return;
         }
 
@@ -145,7 +145,7 @@ export function updateLighting(tile, { defer = false, deleted = false } = {}) {
     const document = tile.document;
     const objectId = `Tile.${document.id}`;
 
-    if (!deleted) {
+    if (!deleted && document.overhead) {
         const active = isActive(tile);
         let prototype = document.flags["perfect-vision"]?.lighting;
 
