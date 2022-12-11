@@ -115,7 +115,7 @@ function isActive(drawing) {
 function updateVisibility(drawing) {
     const document = drawing.document;
     const flags = document.flags["perfect-vision"];
-    const visible = !flags || !flags.enabled
+    const visible = !flags || !flags.enabled || flags.visible
         || drawing.layer.active && (game.user.isGM || game.user === document.author);
 
     if (!visible) {
