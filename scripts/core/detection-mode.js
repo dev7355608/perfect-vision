@@ -71,7 +71,13 @@ Hooks.once("setup", () => {
             return true;
         }
 
-        return !(boundaryShapes[0] instanceof LimitedAnglePolygon);
+        const boundaryShape = boundaryShapes[0];
+
+        if (!(boundaryShape instanceof LimitedAnglePolygon)) {
+            return true;
+        }
+
+        return boundaryShape.radius < canvas.dimensions.maxR;
     }
 
     libWrapper.register(
