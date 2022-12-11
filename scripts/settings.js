@@ -3,12 +3,27 @@ Hooks.once("setup", () => {
         return;
     }
 
-    function updateGMVision() {
-        if (game.user.isGM && canvas.effects.visionSources.size === 0 && game.settings.get("perfect-vision", "improvedGMVision")) {
-            canvas.effects.illumination.filter.uniforms.brightnessBoost = game.settings.get("perfect-vision", "improvedGMVisionBrightness");
-        } else {
-            canvas.effects.illumination.filter.uniforms.brightnessBoost = 0;
+    const gmVision = {
+        enabled: false,
+        brightness: 0.25
+    }
+
+    function updateGMVision({ enabled, brightness } = {}) {
+        if (enabled !== undefined) {
+            gmVision.enabled = enabled;
         }
+
+        if (brightness !== undefined) {
+            gmVision.brightness = brightness;
+        }
+
+        let brightnessBoost = 0;
+
+        if (gmVision.enabled && game.user.isGM && canvas.effects.visionSources.size === 0) {
+            brightnessBoost = gmVision.brightness;
+        }
+
+        canvas.effects.illumination.filter.uniforms.brightnessBoost = brightnessBoost;
     }
 
     game.settings.register("perfect-vision", "improvedGMVision", {
@@ -22,7 +37,7 @@ Hooks.once("setup", () => {
                 return;
             }
 
-            updateGMVision();
+            updateGMVision({ enabled: value });
 
             if (ui.controls.control.name === "lighting") {
                 ui.controls.control.tools.find(tool => tool.name === "perfect-vision.improvedGMVision").active = value;
@@ -42,7 +57,7 @@ Hooks.once("setup", () => {
                 return;
             }
 
-            updateGMVision();
+            updateGMVision({ brightness: value });
         }
     });
 
@@ -75,12 +90,11 @@ Hooks.once("setup", () => {
             return;
         }
 
-        Hooks.on("drawEffectsCanvasGroup", effects => {
-            if (game.settings.get("perfect-vision", "improvedGMVision")) {
-                effects.illumination.filter.uniforms.brightnessBoost = game.settings.get("perfect-vision", "improvedGMVisionBrightness");
-            } else {
-                effects.illumination.filter.uniforms.brightnessBoost = 0;
-            }
+        Hooks.on("canvasReady", () => {
+            updateGMVision({
+                enabled: game.settings.get("perfect-vision", "improvedGMVision"),
+                brightness: game.settings.get("perfect-vision", "improvedGMVisionBrightness")
+            });
         });
 
         Hooks.on("sightRefresh", () => {

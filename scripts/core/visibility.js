@@ -45,7 +45,8 @@ Hooks.once("setup", () => {
 
             return wrapped(...args);
         },
-        libWrapper.WRAPPER
+        libWrapper.WRAPPER,
+        { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
     );
 
     let revealed;
@@ -497,7 +498,7 @@ Hooks.once("setup", () => {
                         }
                     }
 
-                    tests.push({ point: new PIXI.Point(x, y), los: new Map() });
+                    tests.push({ point: { x, y, z: 0 }, los: new Map() });
                 }
 
                 const config = { object, tests };

@@ -46,14 +46,6 @@ Hooks.once("setup", () => {
         updateLighting();
     });
 
-    Hooks.on("updateScene", document => {
-        if (!document.isView) {
-            return;
-        }
-
-        updateLighting();
-    });
-
     if (game.modules.get("levels")?.active) {
         function updateBackground() {
             if (LightingSystem.instance.hasRegion("globalLight")

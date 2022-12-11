@@ -142,7 +142,8 @@ Hooks.once("setup", () => {
                 }
             }
         },
-        libWrapper.WRAPPER
+        libWrapper.WRAPPER,
+        { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
     );
 
     libWrapper.register(

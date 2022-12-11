@@ -89,18 +89,26 @@ Hooks.once("setup", () => {
                 const point = test.point;
                 const los = visionSource.los;
 
-                if (!isConstrained(los)) {
+                if (mode.id === DetectionMode.BASIC_MODE_ID) {
                     hasLOS = los.contains(point.x, point.y);
-                } else {
-                    hasLOS = testAngle(visionSource, point)
-                        && !CONFIG.Canvas.losBackend.testCollision(
-                            { x: visionSource.x, y: visionSource.y },
-                            point,
-                            { type: los.config.type, mode: "any", source: visionSource }
-                        );
-                }
 
-                losCache.set(visionSource, hasLOS);
+                    if (hasLOS === true || !isConstrained(los)) {
+                        losCache.set(visionSource, hasLOS);
+                    }
+                } else {
+                    if (!isConstrained(los)) {
+                        hasLOS = los.contains(point.x, point.y);
+                    } else {
+                        hasLOS = testAngle(visionSource, point)
+                            && !CONFIG.Canvas.losBackend.testCollision(
+                                { x: visionSource.x, y: visionSource.y },
+                                point,
+                                { type: los.config.type, mode: "any", source: visionSource }
+                            );
+                    }
+
+                    losCache.set(visionSource, hasLOS);
+                }
             }
 
             return hasLOS;

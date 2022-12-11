@@ -491,7 +491,7 @@ export class LightingSystem {
 
             for (const region of Array.from(this.#regions.values()).sort(LightingRegion._compare)) {
                 if (regionsAtSameElevation.length) {
-                    const previousRegion = regionsAtSameElevation[regionsAtSameElevation.length - 1];
+                    const previousRegion = regionsAtSameElevation.at(-1);
 
                     if (region.elevation !== previousRegion.elevation) {
                         this.#elevationDepthMap.push(previousRegion.depth, region.elevation);
@@ -512,7 +512,7 @@ export class LightingSystem {
             }
 
             if (regionsAtSameElevation.length) {
-                this.#elevationDepthMap.push(regionsAtSameElevation[regionsAtSameElevation.length - 1].depth);
+                this.#elevationDepthMap.push(regionsAtSameElevation.at(-1).depth);
             }
 
             if (game.user.isGM && !this._suppressDepthWarning && depthIndex > 255 - 51) {
