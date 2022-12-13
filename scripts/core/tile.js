@@ -93,12 +93,34 @@ Hooks.once("setup", () => {
         libWrapper.register(
             "perfect-vision",
             "TileMesh.prototype.renderOcclusion",
-            function (wrapped, ...args) {
-                if (this.object._lighting?.active) {
-                    return wrapped(...args);
-                }
+            function (renderer) {
+                if (!this.object.isRoof || this.document.hidden || !this.object._lighting?.active) return;
+                const isModeNone = (this.object.document.occlusion.mode === CONST.TILE_OCCLUSION_MODES.NONE);
+                const occluded = this.object.occluded;
+
+                // Forcing the batch plugin to render roof mask
+                this.pluginName = OcclusionSamplerShader.classPluginName;
+
+                // Saving the value from the mesh
+                const originalTint = this.tint;
+                const originalBlendMode = this.blendMode;
+                const originalAlpha = this.worldAlpha;
+
+                // Rendering the roof sprite
+                this.tint = 0xFFFF00 + ((!isModeNone && occluded) ? 0xFF : 0x0);
+                this.blendMode = PIXI.BLEND_MODES.MAX_COLOR;
+                this.worldAlpha = 1.0;
+                if (this.visible && this.renderable) this._render(renderer);
+
+                // Restoring original values
+                this.tint = originalTint;
+                this.blendMode = originalBlendMode;
+                this.worldAlpha = originalAlpha;
+
+                // Stop forcing batched plugin
+                this.pluginName = null;
             },
-            libWrapper.MIXED,
+            libWrapper.OVERRIDE,
             { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
         );
     } else {
