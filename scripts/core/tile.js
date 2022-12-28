@@ -18,7 +18,7 @@ Hooks.once("setup", () => {
             return;
         }
 
-        if (tile._lighting && tile.mesh) {
+        if (tile._lighting && tile.mesh?.shader?.uniforms) {
             tile.mesh.shader.uniforms.depthElevation = tile._lighting.depth;
         }
 

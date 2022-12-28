@@ -8,7 +8,7 @@ Hooks.on("renderTokenConfig", (sheet, html) => {
     sightRange.insertAdjacentHTML("afterend", `\
         <label>In light</label>
         <input type="number" name="flags.perfect-vision.sight.range" min="0" step="any"
-            placeholder="&infin;" class="perfect-vision--range"
+            placeholder="&#xF534;" class="perfect-vision--range"
             value="${foundry.utils.getProperty(document, "flags.perfect-vision.sight.range") ?? ""}">`);
 
     sheet.options.height = "auto";

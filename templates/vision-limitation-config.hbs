@@ -19,7 +19,7 @@
                 class="units">({{gridUnits}})</span></label>
         <div class="form-fields">
             <input name="flags.perfect-vision.{{#if isToken}}light.{{/if}}visionLimitation.sight" type="number"
-                value="{{sightLimit}}" min="0" step="0.01" placeholder="&infin;" class="perfect-vision--range">
+                value="{{sightLimit}}" min="0" step="0.01" placeholder="&#xF534;" class="perfect-vision--range">
             {{#if isDrawing}}
             &nbsp;&nbsp;&nbsp;
             <label class="checkbox perfect-vision--override">
@@ -43,7 +43,8 @@
             <div class="detection-mode-id">{{label}}</div>
             <div class="detection-mode-range">
                 <input name="flags.perfect-vision.{{#if ../isToken}}light.{{/if}}visionLimitation.detection.{{id}}"
-                    type="number" value="{{limit}}" min="0" step="0.01" placeholder="&infin;" class="perfect-vision--range">
+                    type="number" value="{{limit}}" min="0" step="0.01" placeholder="&#xF534;"
+                    class="perfect-vision--range">
                 {{#if ../isDrawing}}
                 &nbsp;&nbsp;&nbsp;
                 <label class="checkbox perfect-vision--override">

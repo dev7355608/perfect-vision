@@ -42,13 +42,12 @@ Hooks.once("setup", () => {
         function (wrapped, ...args) {
             const config = wrapped(...args);
             const rayCaster = getRayCaster(this);
+            const maxR = canvas.dimensions.maxR;
 
-            if (rayCaster.maxD < canvas.dimensions.maxR) {
-                if (config.radius !== undefined) {
-                    config.radius = Math.min(config.radius, rayCaster.maxD);
-                } else {
-                    config.radius = rayCaster.maxD;
-                }
+            config.radius = Math.min(config.radius ?? maxR, rayCaster.maxD);
+
+            if (config.radius >= maxR) {
+                delete config.radius;
             }
 
             return config;

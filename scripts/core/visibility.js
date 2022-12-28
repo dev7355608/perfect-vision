@@ -276,7 +276,7 @@ Hooks.once("setup", () => {
                                 }
 
                                 const c = token.center;
-                                const o = Number(token.document.getFlag("core", "occlusionRadius")) || null;
+                                const o = Number(token.document.flags.core?.occlusionRadius) || null;
                                 const m = Math.max(token.mesh.width, token.mesh.height);
                                 const r = Number.isFinite(o) ? Math.max(m, token.getLightRadius(o)) : m;
 

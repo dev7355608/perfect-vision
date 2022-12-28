@@ -55,5 +55,13 @@ form .detection-modes.perfect-vision .detection-mode .perfect-vision--detection-
 }
 
 input[type="number"].perfect-vision--range::placeholder {
-    font-size: var(--font-size-18);
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-smoothing: antialiased;
+    font-family: "Font Awesome 6 Pro";
+    font-weight: 900;
+    font-style: normal;
+    font-variant: normal;
+    line-height: 1;
+    text-rendering: auto;
+    font-size: var(--font-size-12);
 }
