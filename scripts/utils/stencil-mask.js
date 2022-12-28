@@ -96,19 +96,19 @@ export class StencilMask extends PIXI.Container {
             }
 
             if (maskCount >= 0) {
-                if (i !== 0) {
-                    if (lifted) {
-                        gl.stencilOp(gl.KEEP, gl.KEEP, holed ? gl.INCR : gl.DECR);
-                    } else {
-                        if (holed) {
-                            gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR);
-                        } else {
-                            gl.stencilFunc(gl.EQUAL, prevMaskCount + 1, 0xFFFFFFFF);
-                        }
-                    }
+                renderer.batch.flush();
 
-                    quadRender(renderer);
+                if (lifted) {
+                    gl.stencilOp(gl.KEEP, gl.KEEP, holed ? gl.INCR : gl.DECR);
+                } else {
+                    if (holed) {
+                        gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR);
+                    } else {
+                        gl.stencilFunc(gl.EQUAL, prevMaskCount + 1, 0xFFFFFFFF);
+                    }
                 }
+
+                quadRender(renderer);
 
                 let holing;
 
@@ -123,6 +123,8 @@ export class StencilMask extends PIXI.Container {
 
                     if (holing !== maskHole) {
                         holing = maskHole;
+
+                        renderer.batch.flush();
 
                         gl.stencilFunc(gl.EQUAL, prevMaskCount + (holing ? 1 : (childHole ? 2 : 0)), 0xFFFFFFFF);
                         gl.stencilOp(gl.KEEP, gl.KEEP, holing === childHole ? gl.INCR : gl.DECR);
@@ -144,6 +146,8 @@ export class StencilMask extends PIXI.Container {
                     mask.cullable = maskCullable;
                 }
 
+                renderer.batch.flush();
+
                 if (!holing) {
                     gl.stencilFunc(gl.EQUAL, prevMaskCount + 1, 0xFFFFFFFF);
                 } else {
@@ -153,6 +157,8 @@ export class StencilMask extends PIXI.Container {
                 lifted = true;
             } else {
                 if (lifted) {
+                    renderer.batch.flush();
+
                     if (holed) {
                         gl.stencilFunc(gl.EQUAL, prevMaskCount + 2, 0xFFFFFFFF);
                     } else {
@@ -170,6 +176,8 @@ export class StencilMask extends PIXI.Container {
                     }
                 } else {
                     if (holed !== childHole) {
+                        renderer.batch.flush();
+
                         if (childHole) {
                             gl.stencilFunc(gl.EQUAL, prevMaskCount + 1, 0xFFFFFFFF);
                             gl.stencilOp(gl.KEEP, gl.KEEP, gl.DECR);
@@ -199,6 +207,8 @@ export class StencilMask extends PIXI.Container {
         }
 
         if (lifted) {
+            renderer.batch.flush();
+
             if (holed) {
                 gl.stencilFunc(gl.EQUAL, prevMaskCount + 2, 0xFFFFFFFF);
             } else {
@@ -212,6 +222,8 @@ export class StencilMask extends PIXI.Container {
             gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR);
         } else {
             if (holed) {
+                renderer.batch.flush();
+
                 gl.stencilFunc(gl.EQUAL, prevMaskCount, 0xFFFFFFFF);
                 gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR);
             }
