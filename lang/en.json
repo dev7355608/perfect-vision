@@ -31,7 +31,7 @@
     "PERFECTVISION.SightLimitHint": "Restrict the range of sight.",
     "PERFECTVISION.VisionLimitation": "Vision Limitation",
     "PERFECTVISION.VisionLimitationHint": "Configure the maximum range that Tokens can see.",
-    "PERFECTVISION.VisionLimitationHintLight": "Configure the maximum range that Tokens can see in the area of effect of this light source. If Luminosity is less than 0, the maximum range of vision cannot be more than the configured limits but possibly less. If Luminosity is at least 0, the maximum range of vision cannot be less than the configured limits but possibly more. If light sources overlap, the limitation of light source with higher Priority is applied after the other.",
+    "PERFECTVISION.VisionLimitationHintLight": "Configure the maximum range that Tokens can see in the area of effect of this light source. If Luminosity is negative, vision past the configured limit is impossible; if nonnegative, vision up to the configured limit is possible. If two light sources overlap, the limitation of the light source with higher Priority is applied after the other.",
     "PERFECTVISION.VisionLimitationEnabledHint": "Apply limitation to vision and detection ranges.",
     "PERFECTVISION.DetectionLimitsHint": "Restrict the range of detection modes."
 }
