@@ -127,7 +127,22 @@ Hooks.once("setup", () => {
         "perfect-vision",
         "DetectionMode.prototype._testRange",
         function (visionSource, mode, target, test) {
-            return mode.range > 0 && testRay(visionSource, mode, target, test);
+            if (mode.range <= 0) {
+                return false;
+            }
+
+            if (mode.id === DetectionMode.BASIC_MODE_ID) {
+                const sourceZ = visionSource.elevation * unitsToPixels;
+                const { x, y, z } = test.point;
+                const radius = visionSource.object.getLightRadius(mode.range);
+                const dx = x - visionSource.x;
+                const dy = y - visionSource.y;
+                const dz = (z ?? sourceZ) - sourceZ;
+
+                return dx * dx + dy * dy + dz * dz <= radius * radius;
+            } else {
+                return testRay(visionSource, mode, target, test);
+            }
         },
         libWrapper.OVERRIDE,
         { perf_mode: PerfectVision.debug ? libWrapper.PERF_AUTO : libWrapper.PERF_FAST }
@@ -188,15 +203,8 @@ Hooks.once("setup", () => {
                 return false;
             }
 
-            if (mode.range > 0) {
-                const radius = visionSource.object.getLightRadius(mode.range);
-                const dx = x - visionSource.x;
-                const dy = y - visionSource.y;
-                const dz = z - sourceZ;
-
-                if (dx * dx + dy * dy + dz * dz <= radius * radius) {
-                    return true;
-                }
+            if (this._testRange(visionSource, mode, target, test)) {
+                return true;
             }
 
             for (const lightSource of canvas.effects.lightSources) {
