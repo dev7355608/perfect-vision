@@ -76,6 +76,45 @@ export class GlobalLightConfig extends DocumentSheet {
         await super._render(force, options);
 
         LightingConfigHelper.updateFormFields(this);
+
+        if (game.system.id === "pf2e"
+            && game.settings.get("pf2e", "automation.rulesBasedVision")
+            && this.document instanceof Scene && this.document.tokenVision) {
+            const globalLight = this.form.querySelector(`input[name="globalLight"]`);
+            const globalLightThreshold = this.form.querySelector(`input[name="globalLightThreshold"]`);
+
+            globalLight.disabled = true;
+            globalLightThreshold.disabled = true;
+
+            for (const input of [globalLight, globalLightThreshold]) {
+                const managedBy = document.createElement("span");
+
+                managedBy.classList.add("managed");
+                managedBy.innerHTML = " ".concat(
+                    game.i18n.localize("PF2E.SETTINGS.Automation.RulesBasedVision.ManagedBy")
+                );
+
+                const rbvLink = managedBy.querySelector("rbv");
+                const anchor = document.createElement("a");
+
+                anchor.innerText = rbvLink?.innerHTML ?? "";
+                anchor.setAttribute("href", "");
+                anchor.addEventListener("click", (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    const menu = game.settings.menus.get("pf2e.automation");
+                    const app = new menu.type();
+
+                    app.render(true);
+                });
+
+                rbvLink?.replaceWith(anchor);
+                input.closest(".form-group")?.querySelector("p.hint")?.append(managedBy);
+            }
+
+            this.setPosition();
+        }
     }
 
     /** @override */
