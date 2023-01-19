@@ -224,7 +224,7 @@ Hooks.once("setup", () => {
                 if (Number.isFinite(region?.elevation)) {
                     const addMask = (container, region, hole) => {
                         if (hole) {
-                            return null;
+                            return;
                         }
 
                         const mask = container.addChild(region.createMask(hole));
@@ -258,6 +258,10 @@ Hooks.once("setup", () => {
 
                     if (region.occluded && region.occlusionMode === CONST.TILE_OCCLUSION_MODES.RADIAL) {
                         addMask = (container, region, hole) => {
+                            if (hole && game.Levels3DPreview?._active) {
+                                return;
+                            }
+
                             const mask = region.createMask(hole);
                             const masks = [region.createMask(false)];
 
@@ -299,6 +303,10 @@ Hooks.once("setup", () => {
                         };
                     } else if (region.occlusionMode === CONST.TILE_OCCLUSION_MODES.VISION) {
                         addMask = (container, region, hole) => {
+                            if (hole && game.Levels3DPreview?._active) {
+                                return;
+                            }
+
                             const mask = region.createMask(hole);
                             const masks = [region.createMask(false)];
 
@@ -329,6 +337,10 @@ Hooks.once("setup", () => {
                         };
                     } else if (!region.occluded) {
                         addMask = (container, region, hole) => {
+                            if (hole && game.Levels3DPreview?._active) {
+                                return;
+                            }
+
                             const mask = container.addChild(region.createMask(hole));
 
                             mask.cullable = false;
