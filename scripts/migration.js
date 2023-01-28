@@ -19,32 +19,12 @@ Hooks.once("ready", () => {
 
 async function migrate() {
     if (game.settings.get("perfect-vision", "migration") <= 0) {
-        const settings = game.settings.storage.get("world");
-        const settingsPreV10 = [
-            "perfect-vision._version",
-            "perfect-vision.actualFogOfWar",
-            "perfect-vision.brightVisionInDarkness",
-            "perfect-vision.brightVisionInDimLight",
-            "perfect-vision.dimVisionInDarkness",
-            "perfect-vision.dimVisionInDimLight",
-            "perfect-vision.fogOfWarWeather",
-            "perfect-vision.forceMonoVision",
-            "perfect-vision.globalLight",
-            "perfect-vision.improvedGMVision",
-            "perfect-vision.monoSpecialEffects",
-            "perfect-vision.monoTokenIcons",
-            "perfect-vision.monoVisionColor",
-            "perfect-vision.popup",
-            "perfect-vision.visionRules"
-        ];
-
-        if (game.settings.get("perfect-vision", "migration") === 0
-            || settingsPreV10.some(key => settings.getSetting(key))) {
+        if (game.settings.get("perfect-vision", "migration") === 0 || isPreV10World()) {
             await migratePreV10({
                 scenes: game.scenes,
                 actors: game.actors,
                 packs: game.packs.filter(pack => pack.metadata.packageType === "world"),
-                settings: settings.filter(setting => settingsPreV10.includes(setting.key))
+                settings: game.settings.storage.get("world")
             });
         } else {
             await game.settings.set("perfect-vision", "migration", 1);
@@ -68,13 +48,7 @@ async function migratePreV10({ scenes = [], actors = [], packs = [], settings = 
         await migratePreV10Scenes(scenes);
         await migratePreV10Actors(actors);
         await migratePreV10Packs(packs);
-
-        Console.info(`Migrating Setting`);
-
-        await Setting.deleteDocuments(
-            settings.map(setting => setting.id),
-            { noHook: true }
-        );
+        await migratePreV10Settings(settings);
 
         await game.settings.set("perfect-vision", "migration", 1);
 
@@ -84,6 +58,88 @@ async function migratePreV10({ scenes = [], actors = [], packs = [], settings = 
 
         throw e;
     }
+}
+
+function isPreV10World() {
+    const settings = game.settings.storage.get("world");
+
+    if (["perfect-vision._version",
+        "perfect-vision.actualFogOfWar",
+        "perfect-vision.brightVisionInDarkness",
+        "perfect-vision.brightVisionInDimLight",
+        "perfect-vision.dimVisionInDarkness",
+        "perfect-vision.dimVisionInDimLight",
+        "perfect-vision.fogOfWarWeather",
+        "perfect-vision.forceMonoVision",
+        "perfect-vision.globalLight",
+        "perfect-vision.improvedGMVision",
+        "perfect-vision.monoSpecialEffects",
+        "perfect-vision.monoTokenIcons",
+        "perfect-vision.monoVisionColor",
+        "perfect-vision.popup",
+        "perfect-vision.visionRules"].some(key => settings.getSetting(key))) {
+        return true;
+    }
+
+    for (const scene of game.scenes) {
+        if ("perfect-vision" in scene.flags) {
+            const flags = scene.flags["perfect-vision"];
+
+            if (["_version", "forceSaturation", "revealed", "saturation", "sightLimit"].some(key => key in flags)
+                || "globalLight" in flags && !isPlainObject(flags.globalLight)) {
+                return true;
+            }
+        }
+
+        for (const document of scene.tokens.filter(document => "perfect-vision" in document.flags)) {
+            const flags = foundry.utils.flattenObject(document.flags["perfect-vision"]);
+
+            if (["_version", "brightVisionInDarkness", "brightVisionInDimLight",
+                "dimVisionInDarkness", "dimVisionInDimLight", "monoVisionColor",
+                "sightLimit", "visionRules", "light.sightLimit"].some(key => key in flags)) {
+                return true;
+            }
+        }
+
+        for (const document of scene.lights.filter(document => "perfect-vision" in document.flags)) {
+            const flags = document.flags["perfect-vision"];
+
+            if (["_version", "unrestricted", "sightLimit"].some(key => key in flags)) {
+                return true;
+            }
+        }
+
+        for (const document of scene.templates.filter(document => "perfect-vision" in document.flags)) {
+            const flags = document.flags["perfect-vision"];
+
+            if (["_version", "sightLimit"].some(key => key in flags)) {
+                return true;
+            }
+        }
+
+        for (const document of scene.drawings.filter(document => "perfect-vision" in document.flags)) {
+            const flags = document.flags["perfect-vision"];
+
+            if (["_version", "active", "origin", "parent", "revealed", "saturation",
+                "sightLimit", "vision", "walls"].some(key => key in flags)) {
+                return true;
+            }
+        }
+    }
+
+    for (const actor of game.actors) {
+        if (actor.prototypeToken && "perfect-vision" in actor.prototypeToken.flags) {
+            const flags = foundry.utils.flattenObject(actor.prototypeToken.flags["perfect-vision"]);
+
+            if (["_version", "brightVisionInDarkness", "brightVisionInDimLight",
+                "dimVisionInDarkness", "dimVisionInDimLight", "monoVisionColor",
+                "sightLimit", "visionRules", "light.sightLimit"].some(key => key in flags)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 async function migratePreV10Scenes(scenes) {
@@ -453,4 +509,29 @@ async function migratePreV10Packs(packs) {
             }
         }
     }
+}
+
+async function migratePreV10Settings(settings) {
+    Console.info(`Migrating Setting`);
+
+    await Setting.deleteDocuments(
+        settings.filter(setting => [
+            "perfect-vision._version",
+            "perfect-vision.actualFogOfWar",
+            "perfect-vision.brightVisionInDarkness",
+            "perfect-vision.brightVisionInDimLight",
+            "perfect-vision.dimVisionInDarkness",
+            "perfect-vision.dimVisionInDimLight",
+            "perfect-vision.fogOfWarWeather",
+            "perfect-vision.forceMonoVision",
+            "perfect-vision.globalLight",
+            "perfect-vision.improvedGMVision",
+            "perfect-vision.monoSpecialEffects",
+            "perfect-vision.monoTokenIcons",
+            "perfect-vision.monoVisionColor",
+            "perfect-vision.popup",
+            "perfect-vision.visionRules"
+        ].includes(setting.key)).map(setting => setting.id),
+        { noHook: true }
+    );
 }
