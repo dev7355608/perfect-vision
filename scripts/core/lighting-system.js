@@ -26,6 +26,7 @@ const tempMatrix = new PIXI.Matrix();
  * @property {number} shape.bezierFactor
  * @property {"r"|"e"|"p"} shape.type
  * @property {PIXI.Texture|null} texture
+ * @property {number} alphaThreshold
  * @property {boolean} fit
  * @property {number} elevation
  * @property {number} sort
@@ -601,6 +602,7 @@ export class LightingRegion {
                 bezierFactor: 0
             },
             texture: null,
+            alphaThreshold: 0.75,
             fit: false,
             elevation: 0,
             sort: 0,
@@ -1245,19 +1247,23 @@ export class LightingRegion {
             if (polygonsChanged) {
                 shapes = this.polygons.map(({ points }) => ({ points, type: "p" }));
             }
-        } else if (polygonsChanged || "texture" in changes || "object" in changes) {
+        } else if (polygonsChanged || "texture" in changes || "object" in changes || "alphaThreshold" in changes) {
             shapes = [data.shape];
 
-            if (this.texture && this.object?._textureData) {
-                const { pixels, aw: width, ah: height, minX, minY, maxX, maxY } = this.object._textureData;
+            if (this.texture?.baseTexture.valid && this.object?._textureData?.pixels && data.alphaThreshold >= 0) {
+                if (data.alphaThreshold < 1) {
+                    const { pixels, aw: width, ah: height, minX, minY, maxX, maxY } = this.object._textureData;
 
-                shapes[0] = {
-                    ...shapes[0],
-                    texture: {
-                        pixels: new Uint8Array(pixels.buffer, 0, width * height),
-                        width, height, minX, minY, maxX, maxY, threshold: 0.75 * 255
-                    }
-                };
+                    shapes[0] = {
+                        ...shapes[0],
+                        texture: {
+                            pixels: new Uint8Array(pixels.buffer, 0, width * height),
+                            width, height, minX, minY, maxX, maxY, threshold: data.alphaThreshold * 255
+                        }
+                    };
+                } else {
+                    shapes.length = 0;
+                }
             }
         }
 
