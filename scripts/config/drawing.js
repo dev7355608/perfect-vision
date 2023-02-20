@@ -103,7 +103,9 @@ Hooks.once("setup", () => {
         async function (wrapped, ...args) {
             await wrapped(...args);
 
-            updateForm(this);
+            if (game.user.isGM && !this.options.configureDefault) {
+                updateForm(this);
+            }
         },
         libWrapper.WRAPPER
     );
