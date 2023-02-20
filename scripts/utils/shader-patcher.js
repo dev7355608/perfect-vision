@@ -210,6 +210,8 @@ export class ShaderPatcher {
             this.#source = this.#source.replace(/\/\/ ShaderPatcher-((?:[0-9][a-zA-Z]){4,})-(\d+)\n/g, "");
         }
 
+        this.#postprocess();
+
         if (this.#counter === 0) {
             this.#preprocess(true);
             this.#source = this.#source.replace(
@@ -429,6 +431,18 @@ layout(location = 0) out highp vec4 fragColor_${this.#unique}_o;
     }
 
     /**
+     * Prepend a code block.
+     * @param {string} code - The code block.
+     * @returns {this}
+     */
+    appendBlock(code) {
+        this.#preprocess(true);
+        this.#source += `\n\n/* Patched by ${this.#caller} */\n` + code.trim() + `\n\n`;
+
+        return this.#postprocess();
+    }
+
+    /**
      * Add the variable.
      * @param {string} name - The name of the variable.
      * @param {string} type - The type of the variable.
@@ -436,7 +450,13 @@ layout(location = 0) out highp vec4 fragColor_${this.#unique}_o;
      * @returns {this}
      */
     #addVariable(name, type, value) {
-        return this.#preprocess().prependBlock(`#ifndef ${name}_${this.#unique}_d\n#define ${name}_${this.#unique}_d\n${type} ${name}${value !== undefined ? ` = ${value}` : ""};\n#endif\n`);
+        let array = [];
+
+        if (type.includes("[")) {
+            [type, ...array] = type.split(/(?=\[)/g);
+        }
+
+        return this.#preprocess().prependBlock(`#ifndef ${name}_${this.#unique}_d\n#define ${name}_${this.#unique}_d\n${type} ${name}${array.join("")}${value !== undefined ? ` = ${value}` : ""};\n#endif\n`);
     }
 
     /**
@@ -489,6 +509,22 @@ layout(location = 0) out highp vec4 fragColor_${this.#unique}_o;
      */
     addUniform(name, type) {
         return this.#preprocess().#addVariable(name, `uniform ${type}`);
+    }
+
+    /**
+     * Add the function.
+     * @param {string} name - The name of the function.
+     * @param {string} type - The type of the function.
+     * @param {string} body - The body of the function.
+     * @returns {this}
+     */
+    addFunction(name, type, body) {
+        const [returnType, params] = type.split(/(?=\()/g);
+
+        this.#preprocess().prependBlock(`#ifndef ${name}_${this.#unique}_d\n#define ${name}_${this.#unique}_d\n${returnType} ${name}${params};\n#endif\n`);
+        this.#preprocess().appendBlock(`#ifndef ${name}_${this.#unique}_f\n#define ${name}_${this.#unique}_f\n${returnType} ${name}${params} {\n${body}\n}\n#endif\n`)
+
+        return this;
     }
 
     /**
