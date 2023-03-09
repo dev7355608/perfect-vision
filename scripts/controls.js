@@ -3,18 +3,20 @@ Hooks.once("setup", () => {
         return;
     }
 
-    game.keybindings.register("perfect-vision", "improvedGMVision", {
-        name: "Toggle GM Vision",
-        editable: [
-            { key: "KeyG", modifiers: [KeyboardManager.MODIFIER_KEYS.CONTROL] }
-        ],
-        onDown: () => {
-            game.settings.set("perfect-vision", "improvedGMVision", !game.settings.get("perfect-vision", "improvedGMVision"));
+    if (!game.modules.get("gm-vision")?.active) {
+        game.keybindings.register("perfect-vision", "improvedGMVision", {
+            name: "Toggle GM Vision",
+            editable: [
+                { key: "KeyG", modifiers: [KeyboardManager.MODIFIER_KEYS.CONTROL] }
+            ],
+            onDown: () => {
+                game.settings.set("perfect-vision", "improvedGMVision", !game.settings.get("perfect-vision", "improvedGMVision"));
 
-            return true;
-        },
-        restricted: true
-    });
+                return true;
+            },
+            restricted: true
+        });
+    }
 
     game.keybindings.register("perfect-vision", "delimiters", {
         name: "Toggle Delimiters",
@@ -48,14 +50,16 @@ Hooks.once("setup", () => {
                 onClick: toggled => game.settings.set("perfect-vision", "delimiters", toggled)
             });
 
-            lightingControls.tools.splice(index + 1, 0, {
-                name: "perfect-vision.improvedGMVision",
-                title: "Toggle GM Vision",
-                icon: "far fa-eye",
-                toggle: true,
-                active: !!game.settings.get("perfect-vision", "improvedGMVision"),
-                onClick: toggled => game.settings.set("perfect-vision", "improvedGMVision", toggled)
-            });
+            if (!game.modules.get("gm-vision")?.active) {
+                lightingControls.tools.splice(index + 1, 0, {
+                    name: "perfect-vision.improvedGMVision",
+                    title: "Toggle GM Vision",
+                    icon: "far fa-eye",
+                    toggle: true,
+                    active: !!game.settings.get("perfect-vision", "improvedGMVision"),
+                    onClick: toggled => game.settings.set("perfect-vision", "improvedGMVision", toggled)
+                });
+            }
         }
     });
 

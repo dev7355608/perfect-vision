@@ -1,3 +1,5 @@
+import { Notifications } from "./utils/notifications.js";
+
 Hooks.once("setup", () => {
     if (game.settings.get("core", "noCanvas")) {
         return;
@@ -26,6 +28,12 @@ Hooks.once("setup", () => {
         canvas.effects.illumination.filter.uniforms.brightnessBoost = brightnessBoost;
     }
 
+    Hooks.once("ready", () => {
+        if (game.modules.get("gm-vision")?.active) {
+            Notifications.info("The GM Vision module is active. Perfect Vision's GM Vision has been disabled.");
+        }
+    });
+
     game.settings.register("perfect-vision", "improvedGMVision", {
         name: "Improved GM Vision",
         scope: "client",
@@ -34,6 +42,12 @@ Hooks.once("setup", () => {
         default: false,
         onChange: value => {
             if (!canvas.ready || !game.user.isGM) {
+                return;
+            }
+
+            if (game.modules.get("gm-vision")?.active) {
+                Notifications.error("Perfect Vision's GM Vision is disabled.");
+
                 return;
             }
 
@@ -54,6 +68,12 @@ Hooks.once("setup", () => {
         default: 0.25,
         onChange: value => {
             if (!canvas.ready || !game.user.isGM) {
+                return;
+            }
+
+            if (game.modules.get("gm-vision")?.active) {
+                Notifications.error("Perfect Vision's GM Vision is disabled.");
+
                 return;
             }
 
@@ -81,8 +101,11 @@ Hooks.once("setup", () => {
         }
     });
 
-    game.settings.set("perfect-vision", "improvedGMVision", false);
-    game.settings.set("perfect-vision", "improvedGMVisionBrightness", 0.25);
+    if (!game.modules.get("gm-vision")?.active) {
+        game.settings.set("perfect-vision", "improvedGMVision", false);
+        game.settings.set("perfect-vision", "improvedGMVisionBrightness", 0.25);
+    }
+
     game.settings.set("perfect-vision", "delimiters", false);
 
     Hooks.once("canvasInit", () => {
