@@ -29,7 +29,7 @@ Hooks.once("setup", () => {
     }
 
     Hooks.once("ready", () => {
-        if (game.modules.get("gm-vision")?.active) {
+        if (game.user.isGM && game.modules.get("gm-vision")?.active) {
             Notifications.info("The GM Vision module is active. Perfect Vision's GM Vision has been disabled.");
         }
     });
