@@ -167,14 +167,16 @@ class ExtractSystem {
         if (renderTexture) {
             frame ??= renderTexture.frame;
             resolution = renderTexture.baseTexture.resolution;
-            premultiplied = renderTexture.baseTexture.alphaMode !== PIXI.ALPHA_MODES.NPM;
+            premultiplied = renderTexture.baseTexture.alphaMode > 0;
             flipped = false;
             renderer.renderTexture.bind(renderTexture);
         } else {
+            const { alpha, premultipliedAlpha } = gl.getContextAttributes();
+
             frame ??= renderer.screen;
             resolution = renderer.resolution;
             flipped = true;
-            premultiplied = false;
+            premultiplied = alpha && premultipliedAlpha;
             renderer.renderTexture.bind(null);
         }
 
@@ -356,7 +358,7 @@ class ExtractWorker extends Worker {
     static #isOffscreenCanvasSupported = typeof OffscreenCanvas !== "undefined"
         && !!new OffscreenCanvas(0, 0).getContext("2d");
 
-    /** @type {Map<number,{id:number,result:string,error:string}} */
+    /** @type {Map<number,{extract:ExtractData,resolve:(result:Uint8ClampedArray|string)=>void,reject:(error:Error)=>void}} */
     #tasks = new Map();
 
     /** @type {number} */
