@@ -1,4 +1,4 @@
-import { cloneData, inheritData, overrideData, updateData } from "../utils/helpers.js";
+import { cloneData, diffData, inheritData, overrideData, updateData } from "../utils/helpers.js";
 import { RayCastingSystem } from "./ray-casting-system.js";
 import { Console } from "../utils/console.js";
 import { Notifications } from "../utils/notifications.js";
@@ -500,8 +500,11 @@ export class LightingSystem {
                         depthIndex++;
                     } else if (region.active) {
                         depthIndex = Math.max(depthIndex, ...regionsAtSameElevation.filter(r =>
-                            region.globalLight !== r.globalLight &&
-                            region.bounds.intersects(r.bounds)).map(r => r.depthIndex + 1));
+                            region.bounds.intersects(r.bounds)
+                            && (region.globalLight !== r.globalLight
+                                || diffData(region._data.globalLightConfig, r._data.globalLightConfig)
+                                || region.globalLight && region.source.coloration.shader?.isRequired
+                                || r.globalLight && r.source.coloration.shader?.isRequired)).map(r => r.depthIndex + 1));
                     }
                 } else {
                     this.#elevationDepthMap.push(region.elevation);
