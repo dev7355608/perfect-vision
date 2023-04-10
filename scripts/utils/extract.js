@@ -43,19 +43,13 @@ class ExtractSystem {
     /**
      * Extract a rectangular block of pixels and convert them to base64.
      * @param {PIXI.DisplayObject|PIXI.RenderTexture|null} target - The target the pixels are extracted from; if `null`, the pixels are extracted from the renderer.
-     * @param {PIXI.Rectangle} [frame] - The rectangle the pixels are extracted from.
      * @param {string} [format] - A string indicating the image format. The default type is `image/png`; this image format will be also used if the specified type is not supported.
      * @param {number} [quality] - A number between 0 and 1 indicating the image quality to be used when creating images using file formats that support lossy compression (such as image/jpeg or image/webp).
      *  A user agent will use its default quality value if this option is not specified, or if the number is outside the allowed range.
+     * @param {PIXI.Rectangle} [frame] - The rectangle the pixels are extracted from.
      * @returns {Promise<string>} The base64 data url created from the extracted pixels.
      */
-    async base64(target, frame, format, quality) {
-        if (typeof frame === "string") {
-            quality = format;
-            format = frame;
-            frame = undefined;
-        }
-
+    async base64(target, format, quality, frame) {
         return this.#extract(target, frame, "base64", format, quality);
     }
 
@@ -82,16 +76,16 @@ class ExtractSystem {
     /**
      * Extract a rectangular block of pixels and convert them to an image.
      * @param {PIXI.DisplayObject|PIXI.RenderTexture|null} target - The target the pixels are extracted from; if `null`, the pixels are extracted from the renderer.
-     * @param {PIXI.Rectangle} [frame] - The rectangle the pixels are extracted from.
      * @param {string} [format] - A string indicating the image format. The default type is `image/png`; this image format will be also used if the specified type is not supported.
      * @param {number} [quality] - A number between 0 and 1 indicating the image quality to be used when creating images using file formats that support lossy compression (such as image/jpeg or image/webp).
      *  A user agent will use its default quality value if this option is not specified, or if the number is outside the allowed range.
+     * @param {PIXI.Rectangle} [frame] - The rectangle the pixels are extracted from.
      * @returns {Promise<HTMLImageElement>} The image element created from the extracted pixels.
      */
-    async image(target, frame, format, quality) {
+    async image(target, format, quality, frame) {
         const image = new Image();
 
-        image.src = await this.base64(target, frame, format, quality);
+        image.src = await this.base64(target, format, quality, frame);
 
         return image;
     }
@@ -159,7 +153,10 @@ class ExtractSystem {
             if (target instanceof PIXI.RenderTexture) {
                 renderTexture = target;
             } else {
-                renderTexture = renderer.generateTexture(target);
+                renderTexture = renderer.generateTexture(target, {
+                    resolution: renderer.resolution,
+                    multisample: renderer.multisample
+                });
                 generated = true;
             }
         }
@@ -167,9 +164,19 @@ class ExtractSystem {
         if (renderTexture) {
             frame ??= renderTexture.frame;
             resolution = renderTexture.baseTexture.resolution;
-            premultiplied = renderTexture.baseTexture.alphaMode > 0;
+            premultiplied = renderTexture.baseTexture.alphaMode > 0
+                && renderTexture.baseTexture.format === PIXI.FORMATS.RGBA;
             flipped = false;
-            renderer.renderTexture.bind(renderTexture);
+
+            if (!generated) {
+                renderer.renderTexture.bind(renderTexture);
+
+                const fbo = renderTexture.framebuffer.glFramebuffers[renderer.CONTEXT_UID];
+
+                if (fbo.blitFramebuffer) {
+                    renderer.framebuffer.bind(fbo.blitFramebuffer);
+                }
+            }
         } else {
             const { alpha, premultipliedAlpha } = gl.getContextAttributes();
 
@@ -395,7 +402,8 @@ class ExtractWorker extends Worker {
     async bitmap(extract) {
         const pixels = await this.#process(extract);
         const { width, height } = extract;
-        const imageData = new ImageData(pixels, width, height);
+        const size = width * height * 4;
+        const imageData = new ImageData(pixels.subarray(0, size), width, height);
 
         return createImageBitmap(imageData, {
             imageOrientation: "none",
@@ -519,14 +527,16 @@ async function pixelsToBase64(pixels, width, height, type, quality) {
  * @param {number} height
  */
 function flipPixels(pixels, width, height) {
-    const temp = new Uint8ClampedArray(width);
+    const w = width << 2;
+    const h = height >> 1;
+    const temp = new Uint8ClampedArray(w);
 
-    for (let y = 0, h = height >> 1; y < h; y++) {
-        const t = y * width;
-        const b = (height - y - 1) * width;
+    for (let y = 0; y < h; y++) {
+        const t = y * w;
+        const b = (height - y - 1) * w;
 
-        temp.set(pixels.subarray(t, t + width));
-        pixels.copyWithin(t, b, b + width);
+        temp.set(pixels.subarray(t, t + w));
+        pixels.copyWithin(t, b, b + w);
         pixels.set(temp, b);
     }
 }
@@ -538,7 +548,7 @@ function flipPixels(pixels, width, height) {
  * @param {number} height
  */
 function unpremultiplyPixels(pixels, width, height) {
-   const n = width * height;
+   const n = width * height * 4;
 
    for (let i = 0; i < n; i += 4) {
        const alpha = pixels[i + 3];
@@ -546,14 +556,14 @@ function unpremultiplyPixels(pixels, width, height) {
        if (alpha !== 0) {
            const a = 255 / alpha;
 
-           pixels[i] = pixels[i] * a + 0.5;
-           pixels[i + 1] = pixels[i + 1] * a + 0.5;
-           pixels[i + 2] = pixels[i + 2] * a + 0.5;
+           pixels[i] = pixels[i] * a ;
+           pixels[i + 1] = pixels[i + 1] * a;
+           pixels[i + 2] = pixels[i + 2] * a;
        }
    }
 }
 
-onmessage = function (event) {
+onmessage = function(event) {
     const { id, pixels, width, height, flipped, premultiplied, type, quality } = event.data;
 
     setTimeout(async () => {
