@@ -5,6 +5,17 @@
 
 # Perfect Vision (Foundry VTT Module)
 
+> Perfect Vision is _not_ going to be updated for V11.
+> - **Enhanced Global Illumination**: You can configure `CONFIG.Canvas.globalLightConfig` in a world script.
+> - **Daylight/Darkness Color**: You can set `CONFIG.Canvas.daylightColor` and `CONFIG.Canvas.darknessColor` in a world script.
+> - **Improved GM Vision**: Replaced by the [GM Vision](https://foundryvtt.com/packages/gm-vision) module.
+> - **Light Animation Resolution**: No replacement.
+> - **Light Delimiters**: No replacement.
+> - **Lighting Drawings**: No replacement.
+> - **Reveal Fog of War**: You can reveal the fog of war with [this](https://gist.github.com/dev7355608/c5ae9c6ae472e5a9e91a44e728eb6590) macro.
+> - **Vision Limitation**: Replaced by the [Limits](https://foundryvtt.com/packages/limits) module.
+> - **Vision Range (In light)**: Replaced by the *Light Perception* detection mode of the [Vision 5e](https://foundryvtt.com/packages/vision-5e) module. No replacement for systems other than D&D 5e.
+
 Perfect Vision provides additional lighting and vision settings and lets allows you to control lighting and vision locally within the shape of a drawing.
 It gives you the ability to control the maximum vision and detection ranges within the area of drawings, lights, templates, and scenes.
 
